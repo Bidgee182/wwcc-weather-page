@@ -113,6 +113,7 @@
         .cb-good        { background: linear-gradient(135deg, #6e5200, #d4ac0d); }
         .cb-fair        { background: linear-gradient(135deg, #6e3a00, #e67e22); }
         .cb-tough       { background: linear-gradient(135deg, #6e1a15, #c0392b); }
+        .cb-danger      { background: linear-gradient(135deg, #1a0000, #5c0000); border: 2px solid #ff1a1a; }
 
         /* ── Golfer Tiles ── */
         .golfer-tiles {
@@ -191,6 +192,30 @@
         .lu-aging  { color: #e67e22; }
         .lu-stale  { color: #e74c3c; animation: flash-red 1.2s ease-in-out infinite; }
         .lu-failed { color: #e74c3c; animation: flash-red 0.6s ease-in-out infinite; }
+
+        /* ── Hourly Forecast ── */
+        /* Desktop: fill full row width */
+        .hourly-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(72px, 1fr)); gap:8px; }
+        /* Mobile phones only: horizontal scroll */
+        @media (max-width:700px) {
+            .hourly-grid { display:flex; overflow-x:auto; padding-bottom:8px; gap:8px; flex-wrap:nowrap; }
+            .hourly-grid::-webkit-scrollbar { height:4px; }
+            .hourly-grid::-webkit-scrollbar-track { background:#1a252f; }
+            .hourly-grid::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
+        }
+        .hc { background:#1a252f; border-radius:10px; padding:12px 6px 10px; text-align:center; border:1px solid #2c3e50; min-width:0; }
+        @media (max-width:700px) { .hc { min-width:68px; flex-shrink:0; } }
+        .hc-now { border-color:#27ae60; background:#0d1f12; }
+        .hc .hc-time { font-size:0.72em; color:#7f8c8d; font-weight:bold; margin-bottom:4px; }
+        .hc .hc-icon { font-size:1.35em; line-height:1; margin:4px 0; }
+        .hc .hc-temp { font-size:1.05em; font-weight:bold; margin-bottom:3px; }
+        .hc .hc-rain { font-size:0.7em; color:#74b9ff; margin-top:2px; }
+        .hc .hc-uv   { font-size:0.7em; color:#f39c12; margin-top:1px; }
+        .hc .hc-wind { font-size:0.7em; color:#bdc3c7; margin-top:2px; }
+        /* ── Forecast grid — 2-col on phones ── */
+        @media (max-width:600px) { .forecast-grid { grid-template-columns:repeat(2,1fr); } }
+        /* ── cb-danger border override (beats #view-golfer .comfort-banner specificity) ── */
+        #view-golfer .comfort-banner.cb-danger { border-color:#ff1a1a; }
     </style>
 </head>
 <body>
@@ -366,26 +391,34 @@
 
     </div>
 
-    <!-- Raw Data Detail Strip -->
-    <div class="detail-strip">
+    <!-- 12-Hour Forecast -->
+    <div class="card" id="hourly-forecast-card" style="display:none">
+        <h2>Next 12 Hours</h2>
+        <div class="hourly-grid" id="hourly-container">
+            <div style="color:#7f8c8d;font-size:0.85em">Loading...</div>
+        </div>
+    </div>
+
+    <!-- 4-Day Forecast -->
+    <div class="card">
+        <h2>4-Day Forecast</h2>
+        <div class="forecast-grid" id="forecast-container">
+            <div style="grid-column:1/-1;text-align:center;color:#7f8c8d">Loading forecast...</div>
+        </div>
+    </div>
+
+    <!-- Current Observations -->
+    <div class="detail-strip" style="margin-bottom:0">
         <div class="ds-item"><div class="ds-lbl">Air Temp</div><div class="ds-val" id="ds-temp">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Humidity</div><div class="ds-val" id="ds-rh">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Dew Point</div><div class="ds-val" id="ds-dp">--</div></div>
-        <div class="ds-item"><div class="ds-lbl">ET Today</div><div class="ds-val" id="ds-et">--</div></div>
+        <div class="ds-item"><div class="ds-lbl">UV Now</div><div class="ds-val" id="ds-uv">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Rain Today</div><div class="ds-val" id="ds-rain">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Wind</div><div class="ds-val" id="ds-wind">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Sunrise / Sunset</div><div class="ds-val" id="ds-sun">-- / --</div></div>
     </div>
 
 </div><!-- end #view-golfer -->
-
-<!-- 4-Day Forecast (always visible) -->
-<div class="card">
-    <h2>4-Day Forecast</h2>
-    <div class="forecast-grid" id="forecast-container">
-        <div style="grid-column:1/-1;text-align:center;color:#7f8c8d">Loading forecast...</div>
-    </div>
-</div>
 
 <script>
 // ── Credentials ───────────────────────────────────────────────────
@@ -402,7 +435,7 @@ const CLUB_ELEV_M = 147;
 
 // ── Global state ──────────────────────────────────────────────────
 let wx = { temp: null, rh: null, windKmh: 0, windDeg: null, windDir: '--', rainToday: 0, etToday: 0 };
-let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null };
+let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null, tomorrowSunriseIso: null, tomorrowSunrise: '--' };
 let hourlyFc         = null;   // today's hourly forecast from Open-Meteo
 let forecastRain3Day = null;
 let lastUpdateTime   = null;
@@ -435,6 +468,15 @@ function calcDewPoint(temp, rh) {
     const a = 17.625, b = 243.04;
     const alpha = Math.log(rh / 100) + a * temp / (b + temp);
     return (b * alpha) / (a - alpha);
+}
+function getCurrentHourUV() {
+    if (!hourlyFc) return null;
+    const offsetMs = sydneyOffsetMs();
+    const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        if (hourlyFc.time[i].slice(0, 13) === nowHourStr) return hourlyFc.uv_index[i] ?? null;
+    }
+    return null;
 }
 
 // ── localStorage helpers ──────────────────────────────────────────
@@ -603,13 +645,14 @@ function updateTileFeelsLike(at) {
 function updateTileWind() {
     const kmh = wx.windKmh;
     let cls, explain;
-    if      (kmh < 10)  { cls = 'gt-green';   explain = 'Calm — no effect on play'; }
-    else if (kmh < 20)  { cls = 'gt-green';   explain = `${windDescription(kmh)} — minimal effect on shots`; }
-    else if (kmh < 30)  { cls = 'gt-yellow';  explain = `${windDescription(kmh)} — club up or down 1 into wind`; }
-    else if (kmh < 40)  { cls = 'gt-orange';  explain = `Strong wind from ${wx.windDir} — significant ball drift`; }
-    else                { cls = 'gt-red';     explain = `Very strong wind — challenging conditions`; }
-    const dir = wx.windDir !== '--' ? ` ${wx.windDir}` : '';
-    setTile('tile-wind', cls, kmh.toFixed(0) + ' km/h' + dir, explain);
+    if      (kmh < 10)  { cls = 'gt-green';  explain = 'Calm — no effect on play'; }
+    else if (kmh < 20)  { cls = 'gt-green';  explain = `${windDescription(kmh)} — minimal effect on shots`; }
+    else if (kmh < 30)  { cls = 'gt-yellow'; explain = `${windDescription(kmh)} — club up or down 1 into wind`; }
+    else if (kmh < 40)  { cls = 'gt-orange'; explain = `Strong wind from ${wx.windDir} — significant ball drift`; }
+    else                { cls = 'gt-red';    explain = `Very strong wind — challenging conditions`; }
+    const dir      = wx.windDir !== '--' ? ` ${wx.windDir}` : '';
+    const gustNote = wx.gustKmh && wx.gustKmh > kmh + 5 ? ` · gusts ${wx.gustKmh.toFixed(0)} km/h` : '';
+    setTile('tile-wind', cls, kmh.toFixed(0) + ' km/h' + dir, explain + gustNote);
 }
 
 // Tile 3 — Rain Chance
@@ -621,26 +664,29 @@ function updateTileRain() {
     let cls, explain;
     if (actual > 0) {
         cls     = p >= 50 ? 'gt-red' : 'gt-orange';
-        explain = `${actual.toFixed(1)} mm already fallen today — take your brolly`;
-    } else if (p < 20)       { cls = 'gt-green';  explain = 'Very unlikely — enjoy your round'; }
-    else if (p < 40)         { cls = 'gt-green';  explain = 'Possible but unlikely — probably fine'; }
-    else if (p < 60)         { cls = 'gt-yellow'; explain = 'About 50/50 — pack a brolly just in case'; }
-    else if (p < 80)         { cls = 'gt-orange'; explain = 'More likely than not — bring an umbrella'; }
-    else                     { cls = 'gt-red';    explain = 'Very likely — gear up for rain'; }
-    setTile('tile-rain', cls, (actual > 0 ? actual.toFixed(1) + ' mm' : p + '%'), explain);
+        explain = `${actual.toFixed(1)} mm already today · ${p}% chance of more`;
+    } else if (p < 20)  { cls = 'gt-green';  explain = 'Very unlikely — enjoy your round'; }
+    else if (p < 40)    { cls = 'gt-green';  explain = 'Possible but unlikely — probably fine'; }
+    else if (p < 60)    { cls = 'gt-yellow'; explain = 'About 50/50 — pack a brolly just in case'; }
+    else if (p < 80)    { cls = 'gt-orange'; explain = 'More likely than not — bring an umbrella'; }
+    else                { cls = 'gt-red';    explain = 'Very likely — gear up for rain'; }
+    setTile('tile-rain', cls, p + '%', explain);
 }
 
 // Tile 4 — UV
 function updateTileUV() {
-    const uv = fc.uvMax !== null ? Math.round(fc.uvMax) : null;
+    const curUV = getCurrentHourUV();
+    const maxUV = fc.uvMax !== null ? Math.round(fc.uvMax) : null;
+    const uv    = curUV !== null ? Math.round(curUV) : maxUV;
     if (uv === null) { setTile('tile-uv', 'gt-idle', 'UV --', 'No forecast yet'); return; }
+    const peakNote = (maxUV !== null && curUV !== null && maxUV > uv + 1) ? ` · peaks UV ${maxUV} later today` : '';
     let cls, label, explain;
-    if      (uv <= 0)  { cls = 'gt-dark';   label = 'UV 0';          explain = 'Nighttime or no UV data'; }
-    else if (uv <= 2)  { cls = 'gt-green';  label = `UV ${uv} — Low`; explain = 'No sunscreen required today'; }
-    else if (uv <= 5)  { cls = 'gt-yellow'; label = `UV ${uv} — Moderate`; explain = 'Sunscreen recommended'; }
-    else if (uv <= 7)  { cls = 'gt-orange'; label = `UV ${uv} — High`; explain = 'Sunscreen essential — reapply every 2h'; }
-    else if (uv <= 10) { cls = 'gt-red';    label = `UV ${uv} — Very High`; explain = 'Seek shade at midday — reapply often'; }
-    else               { cls = 'gt-purple'; label = `UV ${uv} — Extreme`; explain = 'Avoid outdoor activity midday if possible'; }
+    if      (uv <= 0)  { cls = 'gt-dark';   label = 'UV 0';               explain = `No UV radiation${peakNote}`; }
+    else if (uv <= 2)  { cls = 'gt-green';  label = `UV ${uv} — Low`;     explain = `No sunscreen required${peakNote}`; }
+    else if (uv <= 5)  { cls = 'gt-yellow'; label = `UV ${uv} — Moderate`; explain = `Sunscreen recommended${peakNote}`; }
+    else if (uv <= 7)  { cls = 'gt-orange'; label = `UV ${uv} — High`;    explain = `Sunscreen essential — reapply every 2h${peakNote}`; }
+    else if (uv <= 10) { cls = 'gt-red';    label = `UV ${uv} — Very High`; explain = `Seek shade at midday — reapply often${peakNote}`; }
+    else               { cls = 'gt-purple'; label = `UV ${uv} — Extreme`; explain = `Avoid outdoor activity midday if possible${peakNote}`; }
     setTile('tile-uv', cls, label, explain);
 }
 
@@ -653,7 +699,9 @@ function updateTileCourse(totalET, totalRain) {
     else if (deficit < 15)  { cls = 'gt-green';  status = 'Normal';      explain = 'Playing true — ideal ball roll on fairways'; }
     else if (deficit < 30)  { cls = 'gt-yellow'; status = 'Firm';        explain = 'Ball running on — allow extra run on approaches'; }
     else                    { cls = 'gt-orange';  status = 'Very Firm';   explain = 'Hard and fast — significant run, greens receptive'; }
-    const wb = (deficit >= 0 ? '+' : '') + deficit.toFixed(1) + ' mm deficit';
+    const wb = deficit >= 0
+        ? `+${deficit.toFixed(1)} mm deficit (7-day)`
+        : `${Math.abs(deficit).toFixed(1)} mm surplus (7-day)`;
     setTile('tile-course', cls, status, `${explain}<br><small style="opacity:0.7">${wb}</small>`);
 }
 
@@ -667,54 +715,84 @@ function updateTileBallFlight() {
     const tempM   = +(base * tempPct / 100).toFixed(1);
     const total   = +(base + altM + tempM).toFixed(1);
     const diff    = Math.abs(total - base);
-
-    let cls, explain;
-    const sign = total >= base ? '+' : '';
+    const windM   = Math.round(wx.windKmh * 0.45); // headwind/tailwind range in metres
     const tempSign = tempM >= 0 ? '+' : '';
-    const altNote  = `alt ${altM > 0 ? '+' : ''}${altM}m, temp ${tempSign}${tempM}m`;
-    if      (diff < 3)  { cls = 'gt-green';  explain = `Adjusted carry for a 150m shot — ${altNote}`; }
-    else if (diff < 6)  { cls = 'gt-yellow'; explain = `Slightly ${total > base ? 'further' : 'shorter'} than normal — ${altNote}`; }
-    else                { cls = 'gt-orange'; explain = `Noticeably ${total > base ? 'longer' : 'shorter'} — ${altNote}, adjust club selection`; }
+
+    // Colour reflects both still-air diff AND wind variability
+    const totalVar = diff + windM;
+    let cls;
+    if      (totalVar < 3)  cls = 'gt-green';
+    else if (totalVar < 8)  cls = 'gt-yellow';
+    else if (totalVar < 15) cls = 'gt-orange';
+    else                    cls = 'gt-red';
+
+    const altNote  = `alt +${altM}m, temp ${tempSign}${tempM}m`;
+    const windStr  = windM >= 2 ? ` · wind ±${windM}m` : '';
+    let explain;
+    if      (diff < 3)  explain = `Still air carry — ${altNote}${windStr}`;
+    else if (diff < 6)  explain = `Slightly ${total > base ? 'further' : 'shorter'} — ${altNote}${windStr}`;
+    else                explain = `Noticeably ${total > base ? 'longer' : 'shorter'} — ${altNote}${windStr}`;
     setTile('tile-ball', cls, total + ' m carry', explain);
 }
 
 // Tile 7 — Daylight Countdown
 function updateTileDaylight() {
     if (!fc.sunriseIso || !fc.sunsetIso) { setTile('tile-daylight', 'gt-idle', '--', 'Awaiting forecast...'); return; }
-    const offsetMs    = sydneyOffsetMs();
-    const parseLocal  = (iso) => {
+    const offsetMs   = sydneyOffsetMs();
+    const parseLocal = (iso) => {
         const [d, t] = iso.split('T');
         const [y, mo, dd] = d.split('-').map(Number);
         const [h, m]      = t.split(':').map(Number);
         return new Date(Date.UTC(y, mo - 1, dd, h, m) - offsetMs);
     };
-    const sunriseDate = parseLocal(fc.sunriseIso);
-    const sunsetDate  = parseLocal(fc.sunsetIso);
-    const now         = Date.now();
-    const msToSunrise = sunriseDate - now;
-    const msToSunset  = sunsetDate  - now;
-    const fmtCD = ms => { const t = Math.floor(ms / 60000); return t >= 60 ? `${Math.floor(t/60)}h ${t%60}m` : `${t}m`; };
+    const fmtT = (utcMs) => {
+        const tmp = new Date(utcMs + offsetMs);
+        const hh = tmp.getUTCHours(), mm = tmp.getUTCMinutes();
+        return `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
+    };
+
+    const sunriseDate    = parseLocal(fc.sunriseIso);
+    const sunsetDate     = parseLocal(fc.sunsetIso);
+    const firstLightDate = new Date(sunriseDate.getTime() - 30 * 60000);
+    const lastLightDate  = new Date(sunsetDate.getTime()  + 15 * 60000);
+    const now            = Date.now();
+    const msToFirstLight = firstLightDate.getTime() - now;
+    const msToSunrise    = sunriseDate.getTime()    - now;
+    const msToSunset     = sunsetDate.getTime()     - now;
+    const msToLastLight  = lastLightDate.getTime()  - now;
+    const fmtCD = ms => { const t = Math.floor(ms / 60000); return t >= 60 ? `${Math.floor(t/60)}h ${t % 60}m` : `${t}m`; };
 
     const iconEl  = document.getElementById('tile-daylight-icon');
     const titleEl = document.getElementById('tile-daylight-title');
 
-    if (msToSunrise > 0) {
-        iconEl.innerHTML   = '&#127774;';
-        titleEl.textContent = 'Daylight';
-        setTile('tile-daylight', 'gt-yellow', fmtCD(msToSunrise), `Until sunrise at ${fc.sunrise}`);
+    if (msToFirstLight > 0) {
+        iconEl.innerHTML    = '&#127769;';
+        titleEl.textContent = 'First Light In';
+        setTile('tile-daylight', 'gt-dark', fmtCD(msToFirstLight), `First playable light ~${fmtT(firstLightDate.getTime())} · Sunrise ${fc.sunrise}`);
+    } else if (msToSunrise > 0) {
+        iconEl.innerHTML    = '&#127774;';
+        titleEl.textContent = 'First Light';
+        setTile('tile-daylight', 'gt-yellow', fmtCD(msToSunrise), `Playable now · Sunrise at ${fc.sunrise}`);
     } else if (msToSunset > 0) {
         const hrs = msToSunset / 3600000;
         let cls, msg;
-        if      (hrs > 2)  { cls = 'gt-green';  msg = `Plenty of time — sunset at ${fc.sunset}`; iconEl.innerHTML = '&#127774;'; }
-        else if (hrs > 1)  { cls = 'gt-yellow'; msg = `Start wrapping up — sunset at ${fc.sunset}`; iconEl.innerHTML = '&#127772;'; }
-        else if (hrs > 0.5){ cls = 'gt-orange'; msg = `Getting dark soon — finish your hole!`; iconEl.innerHTML = '&#127772;'; }
-        else               { cls = 'gt-red';    msg = `Time to finish up — sunset at ${fc.sunset}`; iconEl.innerHTML = '&#128680;'; }
+        if      (hrs > 2)   { cls = 'gt-green';  msg = `Plenty of time — sunset ${fc.sunset}`;       iconEl.innerHTML = '&#127774;'; }
+        else if (hrs > 1)   { cls = 'gt-yellow'; msg = `Start wrapping up — sunset ${fc.sunset}`;    iconEl.innerHTML = '&#127772;'; }
+        else if (hrs > 0.5) { cls = 'gt-orange'; msg = `Getting dark soon — finish your hole!`;      iconEl.innerHTML = '&#127772;'; }
+        else                { cls = 'gt-red';    msg = `Last chance — sunset ${fc.sunset}`;           iconEl.innerHTML = '&#128680;'; }
         titleEl.textContent = 'Sunset In';
         setTile('tile-daylight', cls, fmtCD(msToSunset), msg);
+    } else if (msToLastLight > 0) {
+        iconEl.innerHTML    = '&#127772;';
+        titleEl.textContent = 'Last Light';
+        setTile('tile-daylight', 'gt-orange', fmtCD(msToLastLight), `Finish up now — last light ~${fmtT(lastLightDate.getTime())}`);
     } else {
-        iconEl.innerHTML   = '&#127769;';
+        const tomorrowFirstLight = fc.tomorrowSunriseIso
+            ? fmtT(parseLocal(fc.tomorrowSunriseIso).getTime() - 30 * 60000)
+            : '--';
+        iconEl.innerHTML    = '&#127769;';
         titleEl.textContent = 'After Dark';
-        setTile('tile-daylight', 'gt-dark', '\uD83C\uDF19', `Course closed — sunrise at ${fc.sunrise}`);
+        setTile('tile-daylight', 'gt-dark', '\uD83C\uDF19', `Course closed · First light tomorrow ~${tomorrowFirstLight}`);
     }
 }
 
@@ -723,7 +801,7 @@ function updatePlayabilityBanner(at) {
     const rainProb   = fc.todayRainProb ?? 0;
     const actualRain = wx.rainToday ?? 0;
     const isRaining  = actualRain > 0;
-    const uv         = fc.uvMax ?? 0;
+    const uv = getCurrentHourUV() ?? fc.uvMax ?? 0;
 
     let score = 0;
     const factors = [];
@@ -781,7 +859,7 @@ function updatePlayabilityBanner(at) {
     else if (score <= 3)  { rating = 'Good';        bannerCls = 'cb-good';        }
     else if (score <= 5)  { rating = 'Fair';        bannerCls = 'cb-fair';        }
     else if (score <= 7)  { rating = 'Tough';       bannerCls = 'cb-tough';       }
-    else                  { rating = 'Not Playable'; bannerCls = 'cb-tough';      }
+    else                  { rating = 'Not Playable'; bannerCls = 'cb-danger';     }
 
     const detail = [`Feels ${at.toFixed(1)}°C`].concat(factors);
     document.getElementById('comfort-banner').className = 'comfort-banner ' + bannerCls;
@@ -809,7 +887,8 @@ function updateDetailStrip(at) {
     document.getElementById('ds-temp').textContent  = wx.temp.toFixed(1) + '°C';
     document.getElementById('ds-rh').textContent    = wx.rh.toFixed(0) + '%';
     document.getElementById('ds-dp').textContent    = dp.toFixed(1) + '°C';
-    document.getElementById('ds-et').textContent    = wx.etToday.toFixed(2) + ' mm';
+    const nowUV = getCurrentHourUV();
+    document.getElementById('ds-uv').textContent    = nowUV !== null ? `UV ${nowUV.toFixed(0)}` : '--';
     document.getElementById('ds-rain').textContent  = wx.rainToday.toFixed(1) + ' mm';
     document.getElementById('ds-wind').textContent  = wx.windKmh.toFixed(0) + ' km/h ' + wx.windDir;
     document.getElementById('ds-sun').textContent   = fc.sunrise + ' / ' + fc.sunset;
@@ -954,6 +1033,48 @@ function updateLast24hRain() {
         </div>`;
 }
 
+// ── Hourly Forecast Render ────────────────────────────────────────
+function renderHourlyForecast() {
+    const card = document.getElementById('hourly-forecast-card');
+    const cont = document.getElementById('hourly-container');
+    if (!card || !cont || !hourlyFc) return;
+
+    const offsetMs  = sydneyOffsetMs();
+    const nowMs     = Date.now();
+    const nowHourStr = new Date(nowMs + offsetMs).toISOString().slice(0, 13);
+
+    let html = '', count = 0;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        const tStr    = hourlyFc.time[i];
+        const tHourStr = tStr.slice(0, 13);
+        if (tHourStr < nowHourStr) continue;
+        if (count >= 12) break;
+
+        const t  = hourlyFc.temperature_2m[i];
+        const rp = hourlyFc.precipitation_probability[i] ?? 0;
+        const uv = hourlyFc.uv_index[i] ?? 0;
+        const ws = hourlyFc.windspeed_10m[i] ?? 0;
+
+        const isNow  = tHourStr === nowHourStr;
+        const h      = parseInt(tStr.split('T')[1], 10);
+        const label  = isNow ? 'Now' : `${h % 12 || 12}${h >= 12 ? 'pm' : 'am'}`;
+        const icon   = rp >= 70 ? '&#127783;&#65039;' : rp >= 40 ? '&#127782;&#65039;' : rp >= 15 ? '&#9925;&#65039;' : uv > 5 ? '&#9728;&#65039;' : '&#127780;&#65039;';
+        const tCol   = t === null ? '#ecf0f1' : t > 30 ? '#e74c3c' : t < 10 ? '#74b9ff' : '#ecf0f1';
+
+        html += `<div class="hc${isNow ? ' hc-now' : ''}">
+            <div class="hc-time">${label}</div>
+            <div class="hc-icon">${icon}</div>
+            <div class="hc-temp" style="color:${tCol}">${t !== null ? Math.round(t) + '°' : '--'}</div>
+            <div class="hc-rain">${rp}%</div>
+            <div class="hc-uv">UV ${Math.round(uv)}</div>
+            <div class="hc-wind">${Math.round(ws)} km/h</div>
+        </div>`;
+        count++;
+    }
+    cont.innerHTML = html || '<div style="color:#7f8c8d">No hourly data available</div>';
+    card.style.display = '';
+}
+
 // ── Davis weather fetch ───────────────────────────────────────────
 async function getWeatherData() {
     try {
@@ -996,7 +1117,10 @@ async function getWeatherData() {
             windDir = degreesToCompass(windDeg);
         }
 
-        wx = { temp, rh, windKmh, windDeg, windDir, rainToday: rain, etToday: et };
+        let gustKmh = null;
+        const rawGust = data.wind_gust_mph ?? data.davis_current_observation?.wind_day_hi_mph;
+        if (rawGust) { const g = parseFloat(rawGust) * 1.60934; if (!isNaN(g) && g > windKmh + 3) gustKmh = g; }
+        wx = { temp, rh, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh };
 
         // Conditions bar
         document.getElementById('temp').innerText       = temp.toFixed(1) + '°C';
@@ -1097,11 +1221,14 @@ async function getForecast() {
         fc.sunrise       = formatTime(fc.sunriseIso);
         fc.sunset        = formatTime(fc.sunsetIso);
         fc.todayRainProb = data.daily.precipitation_probability_max?.[0] ?? null;
+        fc.tomorrowSunriseIso = data.daily.sunrise?.[1] ?? null;
+        fc.tomorrowSunrise    = formatTime(fc.tomorrowSunriseIso);
 
         // Store hourly for best-time calculation
         hourlyFc = data.hourly;
 
         document.getElementById('ds-sun').textContent = fc.sunrise + ' / ' + fc.sunset;
+        renderHourlyForecast();
 
         updateAllGolferTiles();
         updateInsights();
@@ -1222,7 +1349,7 @@ getWeatherData();
 getForecast();
 fetchHistoricalWeather();
 setInterval(getWeatherData,       60000);
-setInterval(() => { updateTileDaylight(); checkDataFreshness(); }, 15000);
+setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); }, 15000);
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 </script>
