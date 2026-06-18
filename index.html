@@ -212,18 +212,19 @@
     Last updated: <span id="last-updated" class="lu-fresh">--</span>
 </div>
 
-<!-- Conditions Bar -->
-<div class="conditions-bar">
-    <div class="cond-item"><div class="label">Temperature</div><div class="value" id="temp">--°C</div></div>
-    <div class="cond-item"><div class="label">Humidity</div><div class="value" id="humidity">--%</div></div>
-    <div class="cond-item"><div class="label">Rain Today</div><div class="value" id="rain">-- mm</div></div>
-    <div class="cond-item"><div class="label">ET Today</div><div class="value" id="et">-- mm</div></div>
-    <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
-    <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
-</div>
-
 <!-- ══════════════ GREENKEEPER VIEW ══════════════ -->
 <div id="view-greenkeeper">
+
+    <!-- Conditions Bar (greenkeeper only) -->
+    <div class="conditions-bar">
+        <div class="cond-item"><div class="label">Temperature</div><div class="value" id="temp">--°C</div></div>
+        <div class="cond-item"><div class="label">Humidity</div><div class="value" id="humidity">--%</div></div>
+        <div class="cond-item"><div class="label">Rain Today</div><div class="value" id="rain">-- mm</div></div>
+        <div class="cond-item"><div class="label">ET Today</div><div class="value" id="et">-- mm</div></div>
+        <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
+        <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
+    </div>
+
     <div class="dashboard">
 
         <div class="card">
@@ -279,7 +280,7 @@
 
     <!-- Comfort Banner -->
     <div class="comfort-banner cb-good" id="comfort-banner">
-        <div class="cb-label">Today's Playing Comfort</div>
+        <div class="cb-label">Overall Playability Score</div>
         <div class="cb-rating" id="comfort-rating">Loading...</div>
         <div class="cb-detail" id="comfort-detail">&nbsp;</div>
     </div>
@@ -337,9 +338,9 @@
         </div>
 
         <div class="gt-tile gt-idle" id="tile-comfort">
-            <div class="gt-icon">&#127941;</div>
-            <div class="gt-title">Comfort Score</div>
-            <div class="gt-value" id="tile-comfort-val">--</div>
+            <div class="gt-icon">&#128167;</div>
+            <div class="gt-title">Humidity</div>
+            <div class="gt-value" id="tile-comfort-val">--%</div>
             <div class="gt-explain" id="tile-comfort-explain">Awaiting data...</div>
         </div>
 
@@ -579,7 +580,8 @@ function updateAllGolferTiles() {
     updateTileUV();
     updateTileBallFlight();
     updateTileDaylight();
-    updateTileComfort(at);
+    updateTileHumidity();
+    updatePlayabilityBanner(at);
     updateDetailStrip(at);
     // Course tile is called from renderWeekly (needs weekly totals)
 }
@@ -716,51 +718,88 @@ function updateTileDaylight() {
     }
 }
 
-// Tile 8 — Playing Comfort (also updates the banner)
-function updateTileComfort(at) {
+// Top Banner — Overall Playability Score (aggregates all tile signals)
+function updatePlayabilityBanner(at) {
     const rainProb   = fc.todayRainProb ?? 0;
     const actualRain = wx.rainToday ?? 0;
     const isRaining  = actualRain > 0;
-
-    const windPenalty = wx.windKmh > 40 ? 2 : wx.windKmh > 25 ? 1 : 0;
-    const rainPenalty = isRaining ? 2 : (rainProb > 70 ? 2 : rainProb > 40 ? 1 : 0);
+    const uv         = fc.uvMax ?? 0;
 
     let score = 0;
-    if      (at < 8  || at > 36) score += 3;
-    else if (at < 12 || at > 28) score += 1;
-    score += windPenalty + rainPenalty;
+    const factors = [];
 
-    let rating, bannerCls, tileCls;
-    if      (score === 0) { rating = 'Outstanding'; bannerCls = 'cb-outstanding'; tileCls = 'gt-green';  }
-    else if (score <= 1)  { rating = 'Excellent';   bannerCls = 'cb-excellent';   tileCls = 'gt-green';  }
-    else if (score <= 2)  { rating = 'Good';        bannerCls = 'cb-good';        tileCls = 'gt-yellow'; }
-    else if (score <= 3)  { rating = 'Fair';        bannerCls = 'cb-fair';        tileCls = 'gt-orange'; }
-    else                  { rating = 'Tough';       bannerCls = 'cb-tough';       tileCls = 'gt-red';    }
+    // Feels-like temperature
+    if      (at < 8  || at > 36) { score += 3; factors.push(at > 36 ? 'Dangerously hot' : 'Very cold'); }
+    else if (at < 12 || at > 28) { score += 1; factors.push(at > 28 ? 'Hot' : 'Cold'); }
 
-    // Tips for banner detail line
-    const tips = [`Feels like ${at.toFixed(1)}°C`];
-    if (isRaining)        tips.push(`&#9748; ${actualRain.toFixed(1)} mm today — take your brolly`);
-    else if (rainProb>=50) tips.push(`&#9748; ${rainProb}% rain chance — pack a brolly`);
-    else if (rainProb>=20) tips.push(`${rainProb}% chance of rain`);
-    if (wx.windKmh >= 40) tips.push('&#127788; Very strong wind');
-    else if (wx.windKmh >= 25) tips.push(`&#127788; ${windDescription(wx.windKmh)}`);
-    if (at > 32) tips.push('&#9728;&#65039; Very hot — stay hydrated');
-    else if (at < 10) tips.push('&#129398; Cold — rug up');
+    // Wind
+    if      (wx.windKmh > 40) { score += 2; factors.push('Very strong wind'); }
+    else if (wx.windKmh > 25) { score += 1; factors.push(windDescription(wx.windKmh)); }
 
-    // Update banner
+    // Rain
+    if      (isRaining)     { score += 2; factors.push(actualRain.toFixed(1) + ' mm today'); }
+    else if (rainProb > 70) { score += 2; factors.push(rainProb + '% rain chance'); }
+    else if (rainProb > 40) { score += 1; factors.push(rainProb + '% chance of rain'); }
+
+    // UV
+    if      (uv > 10) { score += 2; factors.push('Extreme UV ' + Math.round(uv)); }
+    else if (uv > 7)  { score += 1; factors.push('High UV ' + Math.round(uv)); }
+
+    // Daylight
+    if (fc.sunriseIso && fc.sunsetIso) {
+        const offsetMs   = sydneyOffsetMs();
+        const parseLocal = (iso) => {
+            const [d, t] = iso.split('T');
+            const [y, mo, dd] = d.split('-').map(Number);
+            const [h, m]      = t.split(':').map(Number);
+            return Date.UTC(y, mo - 1, dd, h, m) - offsetMs;
+        };
+        const sunriseMs = parseLocal(fc.sunriseIso);
+        const sunsetMs  = parseLocal(fc.sunsetIso);
+        const now       = Date.now();
+        if (now < sunriseMs || now > sunsetMs) {
+            score += 4; factors.push('After dark — course closed');
+        } else {
+            const minsLeft = (sunsetMs - now) / 60000;
+            if      (minsLeft < 30) { score += 2; factors.push('Sunset in <30 min'); }
+            else if (minsLeft < 60) { score += 1; factors.push('Sunset in <1 hour'); }
+        }
+    }
+
+    // Course conditions (waterlogged = bad for play)
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let totalET = 0, totalRain = 0;
+    for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
+    if (totalET - totalRain < -10) { score += 1; factors.push('Waterlogged course'); }
+
+    // Humidity extremes
+    if (wx.rh > 88) { score += 1; factors.push('Very humid'); }
+
+    let rating, bannerCls;
+    if      (score === 0) { rating = 'Outstanding'; bannerCls = 'cb-outstanding'; }
+    else if (score <= 1)  { rating = 'Excellent';   bannerCls = 'cb-excellent';   }
+    else if (score <= 3)  { rating = 'Good';        bannerCls = 'cb-good';        }
+    else if (score <= 5)  { rating = 'Fair';        bannerCls = 'cb-fair';        }
+    else if (score <= 7)  { rating = 'Tough';       bannerCls = 'cb-tough';       }
+    else                  { rating = 'Not Playable'; bannerCls = 'cb-tough';      }
+
+    const detail = [`Feels ${at.toFixed(1)}°C`].concat(factors);
     document.getElementById('comfort-banner').className = 'comfort-banner ' + bannerCls;
     document.getElementById('comfort-rating').textContent = rating;
-    document.getElementById('comfort-detail').innerHTML = tips.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+    document.getElementById('comfort-detail').innerHTML   = detail.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+}
 
-    // Update tile
-    const shortTips = [];
-    if (isRaining)        shortTips.push('Rain today');
-    else if (rainProb>=50) shortTips.push('Rain likely');
-    if (wx.windKmh >= 25) shortTips.push('Strong wind');
-    if (at > 30)          shortTips.push('Hot conditions');
-    else if (at < 12)     shortTips.push('Cold conditions');
-    const tileExplain = shortTips.length ? shortTips.join(' · ') : 'Comfortable conditions today';
-    setTile('tile-comfort', tileCls, rating, tileExplain);
+// Tile 8 — Humidity
+function updateTileHumidity() {
+    if (wx.rh === null) return;
+    const rh = wx.rh;
+    let cls, explain;
+    if      (rh < 25) { cls = 'gt-yellow'; explain = 'Very dry — stay hydrated, hands may feel dry on grip'; }
+    else if (rh < 45) { cls = 'gt-green';  explain = 'Comfortable — ideal for grip and feel'; }
+    else if (rh <= 70){ cls = 'gt-green';  explain = 'Good humidity — grip and ball feel unaffected'; }
+    else if (rh <= 85){ cls = 'gt-yellow'; explain = 'Muggy — grip may slip, keep a towel handy'; }
+    else              { cls = 'gt-orange'; explain = 'Very humid — difficult grip, ball checks up quickly'; }
+    setTile('tile-comfort', cls, rh.toFixed(0) + '%', explain);
 }
 
 // ── Detail Strip ──────────────────────────────────────────────────
