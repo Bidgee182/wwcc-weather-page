@@ -216,6 +216,75 @@
         @media (max-width:600px) { .forecast-grid { grid-template-columns:repeat(2,1fr); } }
         /* ── cb-danger border override (beats #view-golfer .comfort-banner specificity) ── */
         #view-golfer .comfort-banner.cb-danger { border-color:#ff1a1a; }
+
+        /* ══════════ TV / KIOSK MODE ══════════ */
+        body.tv-mode { overflow: hidden; height: 100vh; font-size: 20px; padding: 0; }
+        #tv-root {
+            display: flex; flex-direction: column;
+            height: 100vh; padding: 18px 28px 14px; gap: 14px;
+        }
+        .tv-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            flex-shrink: 0; border-bottom: 1px solid #3d5166; padding-bottom: 12px;
+        }
+        .tv-club { font-size: 1.5em; font-weight: bold; letter-spacing: 4px; color: #ecf0f1; text-transform: uppercase; line-height: 1; }
+        .tv-sub  { font-size: 0.75em; color: #7f8c8d; letter-spacing: 2px; margin-top: 5px; }
+        .tv-right { text-align: right; }
+        .tv-time-big { font-size: 2.8em; font-weight: bold; color: #27ae60; line-height: 1; font-variant-numeric: tabular-nums; }
+        .tv-date-str { font-size: 0.85em; color: #bdc3c7; margin-top: 5px; }
+        .tv-slides-wrap { flex: 1; position: relative; overflow: hidden; min-height: 0; }
+        .tv-slide {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; gap: 14px;
+            opacity: 0; transition: opacity 0.9s ease; pointer-events: none; overflow: hidden;
+        }
+        .tv-slide-active { opacity: 1; pointer-events: all; }
+        .tv-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0; padding-top: 10px; border-top: 1px solid #3d5166;
+        }
+        .tv-dots { display: flex; gap: 14px; }
+        .tv-dot { width: 13px; height: 13px; border-radius: 50%; background: #3d5166; cursor: pointer; transition: background 0.3s; }
+        .tv-dot-active { background: #27ae60; }
+        /* Card appearance outside #view-golfer */
+        body.tv-mode .card { background: #1e2f3e; border: 2px solid #4a6a84; border-top: 4px solid #27ae60; border-radius: 12px; }
+        body.tv-mode .card h2 { font-size: 0.9em; color: #fff; border-bottom: 1px solid #4a6a84; letter-spacing: 2px; padding-bottom: 10px; margin-bottom: 14px; text-transform: uppercase; }
+        /* Comfort banner outside #view-golfer */
+        body.tv-mode .comfort-banner { border: 2px solid rgba(255,255,255,0.25); border-radius: 12px; margin-bottom: 0; flex-shrink: 0; padding: 18px 24px; }
+        body.tv-mode .comfort-banner.cb-danger { border-color: #ff1a1a; }
+        body.tv-mode .cb-label  { font-size: 0.95em; }
+        body.tv-mode .cb-rating { font-size: 3.2em; }
+        body.tv-mode .cb-detail { font-size: 1em; }
+        /* Tile scaling */
+        body.tv-mode .golfer-tiles { margin-bottom: 0; flex: 1; min-height: 0; }
+        body.tv-mode .gt-tile { padding: 16px 10px 14px; }
+        body.tv-mode .gt-tile .gt-icon    { font-size: 2.3em; }
+        body.tv-mode .gt-tile .gt-title   { font-size: 0.8em; }
+        body.tv-mode .gt-tile .gt-value   { font-size: 2.1em; }
+        body.tv-mode .gt-tile .gt-explain { font-size: 0.84em; }
+        /* Insight cards scaling */
+        body.tv-mode .golfer-insights { margin-bottom: 0; flex-shrink: 0; }
+        body.tv-mode .insight-big  { font-size: 1.9em; }
+        body.tv-mode .insight-sub  { font-size: 0.92em; }
+        body.tv-mode .insight-pill { font-size: 0.92em; }
+        /* Detail strip scaling */
+        body.tv-mode .detail-strip { margin-bottom: 0; flex-shrink: 0; }
+        body.tv-mode .ds-lbl { font-size: 0.78em; }
+        body.tv-mode .ds-val { font-size: 1.25em; }
+        /* Hourly cards scaling */
+        body.tv-mode .hc { padding: 14px 8px 12px; }
+        body.tv-mode .hc .hc-time { font-size: 0.82em; }
+        body.tv-mode .hc .hc-icon { font-size: 1.7em; }
+        body.tv-mode .hc .hc-temp { font-size: 1.25em; }
+        body.tv-mode .hc .hc-rain, body.tv-mode .hc .hc-uv, body.tv-mode .hc .hc-wind { font-size: 0.8em; }
+        /* 4-day forecast scaling */
+        body.tv-mode .forecast-cell { padding: 16px 8px; }
+        body.tv-mode .fc-icon { font-size: 2.6em; }
+        body.tv-mode .fc-day  { font-size: 0.82em; }
+        body.tv-mode .fc-desc { font-size: 0.82em; }
+        body.tv-mode .fc-hi   { font-size: 1.25em; }
+        body.tv-mode .fc-lo   { font-size: 0.95em; }
+        body.tv-mode .fc-rain, body.tv-mode .fc-prob, body.tv-mode .fc-uv { font-size: 0.82em; }
     </style>
 </head>
 <body>
@@ -233,7 +302,7 @@
 </div>
 
 <!-- Last updated -->
-<div style="text-align:right;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
+<div id="last-updated-bar" style="text-align:right;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
     Last updated: <span id="last-updated" class="lu-fresh">--</span>
 </div>
 
@@ -419,6 +488,36 @@
     </div>
 
 </div><!-- end #view-golfer -->
+
+<!-- ══════════════ TV / KIOSK MODE (?tv=1) ══════════════ -->
+<div id="tv-root" style="display:none">
+
+    <div class="tv-header">
+        <div>
+            <div class="tv-club">Wagga Wagga Country Club</div>
+            <div class="tv-sub">Course Conditions &amp; Weather</div>
+        </div>
+        <div class="tv-right">
+            <div class="tv-time-big" id="tv-clock">--:--</div>
+            <div class="tv-date-str" id="tv-date-str">--</div>
+        </div>
+    </div>
+
+    <div class="tv-slides-wrap">
+        <div class="tv-slide tv-slide-active" id="tv-s0"></div>
+        <div class="tv-slide" id="tv-s1"></div>
+    </div>
+
+    <div class="tv-footer">
+        <span style="font-size:0.78em;color:#7f8c8d">Updated: <span id="tv-updated" class="lu-fresh">--</span></span>
+        <div class="tv-dots">
+            <div class="tv-dot tv-dot-active" id="tv-dot-0" title="Now" onclick="tvGoTo(0)"></div>
+            <div class="tv-dot" id="tv-dot-1" title="Forecast" onclick="tvGoTo(1)"></div>
+        </div>
+        <span style="font-size:0.78em;color:#7f8c8d">Slide <span id="tv-slide-label">1</span> of 2 — auto-rotates every 30s</span>
+    </div>
+
+</div>
 
 <script>
 // ── Credentials ───────────────────────────────────────────────────
@@ -1344,7 +1443,90 @@ async function fetchHistoricalWeather() {
     }
 }
 
+// ── TV / Kiosk Mode ──────────────────────────────────────────────
+const TV_MODE = new URLSearchParams(window.location.search).has('tv');
+let tvCurrentSlide = 0;
+let tvTimer = null;
+
+function tvGoTo(n) {
+    const slides = [document.getElementById('tv-s0'), document.getElementById('tv-s1')];
+    const dots   = [document.getElementById('tv-dot-0'), document.getElementById('tv-dot-1')];
+    const label  = document.getElementById('tv-slide-label');
+    slides.forEach((s, i) => s.classList.toggle('tv-slide-active', i === n));
+    dots.forEach((d, i)   => d.classList.toggle('tv-dot-active',   i === n));
+    if (label) label.textContent = n + 1;
+    tvCurrentSlide = n;
+    if (tvTimer) { clearInterval(tvTimer); tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 2), 30000); }
+}
+
+function tvUpdateClock() {
+    const opts   = { timeZone: 'Australia/Sydney' };
+    const timeStr = new Date().toLocaleTimeString('en-AU', { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const dateStr = new Date().toLocaleDateString('en-AU', { ...opts, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const tc = document.getElementById('tv-clock');
+    const td = document.getElementById('tv-date-str');
+    if (tc) tc.textContent = timeStr;
+    if (td) td.textContent = dateStr;
+    // Mirror last-updated staleness to TV footer
+    const lu = document.getElementById('last-updated');
+    const tu = document.getElementById('tv-updated');
+    if (lu && tu) { tu.textContent = lu.textContent; tu.className = lu.className; }
+}
+
+function initTVMode() {
+    if (!TV_MODE) return;
+
+    document.body.classList.add('tv-mode');
+
+    // Hide normal page chrome
+    const header  = document.querySelector('.header');
+    const tabBar  = document.querySelector('.tab-bar');
+    const luBar   = document.getElementById('last-updated-bar');
+    const gkView  = document.getElementById('view-greenkeeper');
+    if (header) header.style.display = 'none';
+    if (tabBar) tabBar.style.display = 'none';
+    if (luBar)  luBar.style.display  = 'none';
+    if (gkView) gkView.style.display = 'none';
+
+    // Show TV root
+    const tvRoot = document.getElementById('tv-root');
+    if (tvRoot) tvRoot.style.display = 'flex';
+
+    // Activate golfer view so its child elements are in the DOM
+    switchTab('golfer');
+    // Then hide the now-empty wrapper (children will be moved)
+    const gv = document.getElementById('view-golfer');
+    if (gv) gv.style.display = 'none';
+
+    const s0 = document.getElementById('tv-s0');
+    const s1 = document.getElementById('tv-s1');
+
+    // Slide 1 — Right Now: banner + 8 tiles + 3 insights
+    const banner   = document.getElementById('comfort-banner');
+    const tiles    = document.querySelector('.golfer-tiles');
+    const insights = document.querySelector('.golfer-insights');
+    if (banner)   s0.appendChild(banner);
+    if (tiles)    s0.appendChild(tiles);
+    if (insights) s0.appendChild(insights);
+
+    // Slide 2 — What's Coming: 12-hour + 4-day + observations
+    const hourlyCard    = document.getElementById('hourly-forecast-card');
+    const fcContainer   = document.getElementById('forecast-container');
+    const fourDayCard   = fcContainer ? fcContainer.closest('.card') : null;
+    const detailStrip   = document.querySelector('.detail-strip');
+    if (hourlyCard)  s1.appendChild(hourlyCard);
+    if (fourDayCard) s1.appendChild(fourDayCard);
+    if (detailStrip) s1.appendChild(detailStrip);
+
+    // Start clock and carousel
+    tvUpdateClock();
+    setInterval(tvUpdateClock, 1000);
+    tvGoTo(0);
+    tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 2), 30000);
+}
+
 // ── Boot ──────────────────────────────────────────────────────────
+initTVMode();
 getWeatherData();
 getForecast();
 fetchHistoricalWeather();
