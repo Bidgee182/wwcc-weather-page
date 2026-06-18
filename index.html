@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wagga Wagga Country Club</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a252f;
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        @media (max-width: 480px) { body { padding: 10px; } }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            padding: 18px 0 12px;
+        }
+        .header h1 { font-size: 1.8em; letter-spacing: 2px; color: #ecf0f1; }
+        .header .subtitle { font-size: 0.85em; color: #7f8c8d; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+        @media (max-width: 480px) {
+            .header h1 { font-size: 1.3em; letter-spacing: 1px; }
+            .header .subtitle { font-size: 0.75em; }
+        }
+
+        /* ── Tab switcher ── */
+        .tab-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .tab-btn {
+            background: #2c3e50;
+            border: 1px solid #3d5166;
+            color: #7f8c8d;
+            border-radius: 8px;
+            padding: 10px 28px;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .tab-btn.active {
+            background: #27ae60;
+            border-color: #27ae60;
+            color: white;
+            font-weight: bold;
+        }
+        .tab-btn:hover:not(.active) {
+            background: #3d5166;
+            color: #ecf0f1;
+        }
+
+        /* ── Conditions Bar ── */
+        .conditions-bar {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 14px 10px;
+            margin-bottom: 16px;
+        }
+        .cond-item { text-align: center; padding: 6px 8px; }
+        .cond-item .label { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+        .cond-item .value { font-size: 1.4em; font-weight: bold; margin-top: 2px; }
+        .cond-item + .cond-item { border-left: 1px solid #3d5166; }
+        @media (max-width: 700px) {
+            .conditions-bar { grid-template-columns: repeat(3, 1fr); }
+            .cond-item:nth-child(4) { border-left: none; border-top: 1px solid #3d5166; }
+            .cond-item:nth-child(5),
+            .cond-item:nth-child(6) { border-top: 1px solid #3d5166; }
+        }
+        @media (max-width: 420px) {
+            .conditions-bar { grid-template-columns: repeat(2, 1fr); padding: 10px 6px; }
+            .cond-item:nth-child(odd)  { border-left: none; }
+            .cond-item:nth-child(even) { border-left: 1px solid #3d5166; }
+            .cond-item:nth-child(n+3)  { border-top: 1px solid #3d5166; }
+            .cond-item .value { font-size: 1.2em; }
+        }
+
+        /* ── Two-column dashboard ── */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 700px) { .dashboard { grid-template-columns: 1fr; } }
+
+        /* ── Cards ── */
+        .card {
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+        .card h2 {
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #7f8c8d;
+            border-bottom: 1px solid #3d5166;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+        }
+
+        /* Golfer view cards get brighter, accented headings and strong borders */
+        #view-golfer .card {
+            background: #1e2f3e;
+            border: 2px solid #4a6a84;
+            border-top: 4px solid #27ae60;
+            border-radius: 12px;
+        }
+        #view-golfer .card h2 {
+            font-size: 0.9em;
+            color: #ffffff;
+            border-bottom: 1px solid #4a6a84;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+        #view-golfer .comfort-banner {
+            border: 2px solid rgba(255,255,255,0.25);
+            border-radius: 12px;
+        }
+
+        /* ── Spray ── */
+        .spray-params {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .spray-param {
+            border-radius: 8px;
+            padding: 12px 6px 10px;
+            text-align: center;
+            transition: background 0.4s;
+        }
+        .spray-param .sp-val  { font-size: 1.6em; font-weight: bold; line-height: 1.1; }
+        .spray-param .sp-unit { font-size: 0.75em; opacity: 0.85; }
+        .spray-param .sp-lbl  { font-size: 0.68em; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; opacity: 0.8; }
+        .spray-param .sp-range { font-size: 0.65em; opacity: 0.7; margin-top: 3px; }
+        .sp-good { background: #1d6a39; border: 1px solid #27ae60; }
+        .sp-warn { background: #7d6608; border: 1px solid #d4ac0d; }
+        .sp-bad  { background: #6e1a15; border: 1px solid #c0392b; }
+        .sp-idle { background: #1a252f; border: 1px solid #3d5166; }
+
+        .status-badge {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.05em;
+        }
+        .badge-good { background: #27ae60; }
+        .badge-warn { background: #d4ac0d; }
+        .badge-bad  { background: #c0392b; }
+
+        /* ── Irrigation metrics ── */
+        .irr-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .irr-metric {
+            background: #1a252f;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+        }
+        .irr-metric .lbl { font-size: 0.7em; color: #7f8c8d; text-transform: uppercase; }
+        .irr-metric .val { font-size: 1.3em; font-weight: bold; margin-top: 3px; }
+
+        .section-title {
+            font-size: 0.72em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #7f8c8d;
+            margin: 14px 0 8px;
+        }
+
+        /* ── Weekly table ── */
+        .weekly-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88em;
+        }
+        .weekly-table th {
+            color: #7f8c8d;
+            font-weight: normal;
+            font-size: 0.8em;
+            text-align: right;
+            padding: 3px 4px;
+        }
+        .weekly-table th:first-child { text-align: left; }
+        .weekly-table td {
+            padding: 5px 4px;
+            text-align: right;
+            border-top: 1px solid #3d5166;
+        }
+        .weekly-table td:first-child { text-align: left; font-weight: bold; }
+        .weekly-table .et-col   { color: #e67e22; }
+        .weekly-table .rain-col { color: #74b9ff; }
+        .weekly-table .def-pos  { color: #e74c3c; font-weight: bold; }
+        .weekly-table .def-neg  { color: #2ecc71; font-weight: bold; }
+        .weekly-table tfoot td  { border-top: 2px solid #7f8c8d; font-weight: bold; padding-top: 6px; }
+
+        /* ── Irrigation recommendation ── */
+        .recommendation {
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 12px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .rec-irrigate { background: #922b21; border-left: 4px solid #e74c3c; }
+        .rec-hold     { background: #1a5276; border-left: 4px solid #2980b9; }
+        .rec-ok       { background: #1d6a39; border-left: 4px solid #27ae60; }
+        .recommendation .rec-title  { font-weight: bold; font-size: 1em; margin-bottom: 4px; }
+        .recommendation .rec-detail { color: #bdc3c7; font-size: 0.85em; }
+
+        /* ── Forecast ── */
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        @media (max-width: 400px) { .forecast-grid { grid-template-columns: repeat(2, 1fr); } }
+        .forecast-cell {
+            background: #1a252f;
+            border-radius: 8px;
+            padding: 12px 6px;
+            text-align: center;
+        }
+        .forecast-cell .fc-day  { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+        .forecast-cell .fc-icon { font-size: 2em; margin: 6px 0 4px; line-height: 1; }
+        .forecast-cell .fc-desc { font-size: 0.72em; color: #bdc3c7; margin-bottom: 6px; min-height: 24px; }
+        .forecast-cell .fc-hi   { color: #e74c3c; font-weight: bold; font-size: 1.05em; }
+        .forecast-cell .fc-lo   { color: #74b9ff; font-size: 0.9em; }
+        .forecast-cell .fc-rain { font-size: 0.78em; color: #74b9ff; margin-top: 5px; }
+        .forecast-cell .fc-prob { font-size: 0.75em; color: #85c1e9; margin-top: 2px; }
+        .forecast-cell .fc-uv   { font-size: 0.75em; color: #f39c12; margin-top: 2px; }
+
+        /* ── Golfer view ── */
+
+        /* Comfort banner */
+        .comfort-banner {
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+            margin-bottom: 16px;
+            transition: background 0.5s;
+        }
+        .comfort-banner .cb-label { font-size: 0.78em; text-transform: uppercase; letter-spacing: 2px; opacity: 0.85; margin-bottom: 6px; }
+        .comfort-banner .cb-rating { font-size: 2.2em; font-weight: bold; letter-spacing: 1px; }
+        .comfort-banner .cb-detail { font-size: 0.85em; opacity: 0.85; margin-top: 6px; }
+        .cb-outstanding { background: linear-gradient(135deg, #1a6b3c, #27ae60); }
+        .cb-excellent   { background: linear-gradient(135deg, #1a5276, #2980b9); }
+        .cb-good        { background: linear-gradient(135deg, #6e5200, #d4ac0d); }
+        .cb-fair        { background: linear-gradient(135deg, #6e3a00, #e67e22); }
+        .cb-tough       { background: linear-gradient(135deg, #6e1a15, #c0392b); }
+
+        /* Golfer top row: Wind | Ball Flight | Course Conditions */
+        .golfer-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 700px) { .golfer-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 460px) { .golfer-grid { grid-template-columns: 1fr; } }
+
+        /* Golfer bottom row: 4 detail cards */
+        .golfer-bottom {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 900px) { .golfer-bottom { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 420px) { .golfer-bottom { grid-template-columns: 1fr; } }
+
+        /* Stat boxes inside golfer cards */
+        .stat-box {
+            background: #1a252f;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .stat-box .sb-lbl { font-size: 0.7em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-box .sb-val { font-size: 1.6em; font-weight: bold; margin-top: 4px; }
+        .stat-box .sb-sub { font-size: 0.75em; color: #bdc3c7; margin-top: 3px; }
+
+        /* Wind arrow */
+        .wind-arrow-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 8px 0 12px;
+        }
+        .wind-arrow {
+            font-size: 2.6em;
+            display: inline-block;
+            line-height: 1;
+            transition: transform 0.8s ease;
+        }
+        .wind-speed-big { font-size: 1.8em; font-weight: bold; margin-top: 4px; }
+        .wind-desc-small { font-size: 0.8em; color: #bdc3c7; margin-top: 3px; }
+
+        /* Course conditions badge */
+        .course-badge {
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .course-badge .course-icon { font-size: 2em; margin-bottom: 4px; }
+        .course-badge .course-lbl  { font-size: 1.1em; font-weight: bold; }
+        .course-badge .course-sub  { font-size: 0.78em; opacity: 0.8; margin-top: 4px; }
+        .cc-waterlogged { background: #1a3a5c; border: 1px solid #2471a3; }
+        .cc-soft        { background: #1a4a2e; border: 1px solid #1d8a4b; }
+        .cc-normal      { background: #1a3a1a; border: 1px solid #27ae60; }
+        .cc-firm        { background: #5a4000; border: 1px solid #d4ac0d; }
+        .cc-veryFirm    { background: #5a2000; border: 1px solid #e67e22; }
+
+        /* Ball flight */
+        .ball-flight-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a252f;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+        }
+        .bf-lbl { font-size: 0.8em; color: #bdc3c7; }
+        .bf-val { font-size: 1.15em; font-weight: bold; }
+        .bf-plus  { color: #2ecc71; }
+        .bf-minus { color: #e74c3c; }
+        .bf-zero  { color: #bdc3c7; }
+
+        /* UV badge */
+        .uv-badge {
+            border-radius: 8px;
+            padding: 10px 14px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+        .uv-low      { background: #1a6b3c; }
+        .uv-moderate { background: #7d6608; }
+        .uv-high     { background: #8b4500; }
+        .uv-vhigh    { background: #6e1a15; }
+        .uv-extreme  { background: #5b0f7e; }
+
+        /* Last updated flash animation */
+        @keyframes flash-red {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.25; }
+        }
+        .lu-fresh  { color: #27ae60; }
+        .lu-aging  { color: #e67e22; }
+        .lu-stale  { color: #e74c3c; animation: flash-red 1.2s ease-in-out infinite; }
+        .lu-failed { color: #e74c3c; animation: flash-red 0.6s ease-in-out infinite; }
+
+        /* Sun times */
+        .sun-times {
+            display: flex;
+            justify-content: space-around;
+            background: #1a252f;
+            border-radius: 8px;
+            padding: 16px 10px;
+            margin-top: 8px;
+        }
+        .sun-time { text-align: center; }
+        .sun-time .st-icon { font-size: 1.4em; }
+        .sun-time .st-lbl  { font-size: 0.68em; color: #7f8c8d; text-transform: uppercase; margin-top: 2px; }
+        .sun-time .st-val  { font-size: 1em; font-weight: bold; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <h1>Wagga Wagga Country Club</h1>
+    <div class="subtitle" id="subtitle">Live Weather &amp; Turf Management</div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+    <button class="tab-btn active" id="tab-gk" onclick="switchTab('greenkeeper')">&#9874; Greenkeeper</button>
+    <button class="tab-btn" id="tab-go" onclick="switchTab('golfer')">&#9971; For Golfers</button>
+</div>
+
+<!-- Last updated indicator -->
+<div style="text-align:right;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
+    Last updated: <span id="last-updated">--</span>
+</div>
+
+<!-- Conditions Bar (always visible) -->
+<div class="conditions-bar">
+    <div class="cond-item">
+        <div class="label">Temperature</div>
+        <div class="value" id="temp">--°C</div>
+    </div>
+    <div class="cond-item">
+        <div class="label">Humidity</div>
+        <div class="value" id="humidity">--%</div>
+    </div>
+    <div class="cond-item">
+        <div class="label">Rain Today</div>
+        <div class="value" id="rain">-- mm</div>
+    </div>
+    <div class="cond-item">
+        <div class="label">ET Today</div>
+        <div class="value" id="et">-- mm</div>
+    </div>
+    <div class="cond-item">
+        <div class="label">Wind Speed</div>
+        <div class="value" id="wind-speed">-- km/h</div>
+    </div>
+    <div class="cond-item">
+        <div class="label">Wind Dir</div>
+        <div class="value" id="wind-dir">--</div>
+    </div>
+</div>
+
+<!-- ══════════════ GREENKEEPER VIEW ══════════════ -->
+<div id="view-greenkeeper">
+
+    <div class="dashboard">
+
+        <!-- Spraying Section -->
+        <div class="card">
+            <h2>Spraying Conditions</h2>
+            <div class="spray-params">
+                <div class="spray-param sp-idle" id="sp-deltat">
+                    <div class="sp-val" id="spray-deltat-val">--</div>
+                    <div class="sp-unit">°C</div>
+                    <div class="sp-lbl">Delta T</div>
+                    <div class="sp-range">Ideal 2 – 8°C</div>
+                </div>
+                <div class="spray-param sp-idle" id="sp-temp">
+                    <div class="sp-val" id="spray-temp-val">--</div>
+                    <div class="sp-unit">°C</div>
+                    <div class="sp-lbl">Dry Bulb</div>
+                    <div class="sp-range">Ideal &lt; 28°C</div>
+                </div>
+                <div class="spray-param sp-idle" id="sp-wind">
+                    <div class="sp-val" id="spray-wind-val">--</div>
+                    <div class="sp-unit" id="spray-wind-dir-badge">km/h</div>
+                    <div class="sp-lbl">Wind Speed</div>
+                    <div class="sp-range">Ideal &lt; 15 km/h</div>
+                </div>
+            </div>
+            <div class="status-badge badge-bad" id="sprayStatus">Checking conditions...</div>
+        </div>
+
+        <!-- Irrigation Section -->
+        <div class="card">
+            <h2>Irrigation</h2>
+            <div class="irr-metrics">
+                <div class="irr-metric">
+                    <div class="lbl">ET Today</div>
+                    <div class="val" id="irr-et">--</div>
+                </div>
+                <div class="irr-metric">
+                    <div class="lbl">Rain Today</div>
+                    <div class="val" id="irr-rain">--</div>
+                </div>
+                <div class="irr-metric">
+                    <div class="lbl">Daily Deficit</div>
+                    <div class="val" id="irr-deficit">--</div>
+                </div>
+            </div>
+
+            <div class="section-title">7-Day Breakdown (mm)</div>
+            <table class="weekly-table">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th class="et-col">ET</th>
+                        <th class="rain-col">Rain</th>
+                        <th>Deficit</th>
+                    </tr>
+                </thead>
+                <tbody id="weekly-tbody"><tr><td colspan="4" style="color:#7f8c8d;font-size:0.85em">Accumulating data...</td></tr></tbody>
+                <tfoot id="weekly-tfoot"></tfoot>
+            </table>
+
+            <div class="section-title">Irrigation Recommendation</div>
+            <div class="recommendation rec-hold" id="recommendation">
+                <div class="rec-title">Loading...</div>
+                <div class="rec-detail">Waiting for forecast data.</div>
+            </div>
+        </div>
+
+    </div>
+
+</div><!-- end #view-greenkeeper -->
+
+<!-- ══════════════ GOLFER VIEW ══════════════ -->
+<div id="view-golfer" style="display:none">
+
+    <!-- Playing Comfort Rating -->
+    <div class="comfort-banner cb-good" id="comfort-banner">
+        <div class="cb-label">Playing Comfort</div>
+        <div class="cb-rating" id="comfort-rating">Loading...</div>
+        <div class="cb-detail" id="comfort-detail">&nbsp;</div>
+    </div>
+
+    <!-- Row 1: Wind | Ball Flight | Course Conditions (equal 3-col) -->
+    <div class="golfer-grid">
+
+        <!-- Wind Card -->
+        <div class="card">
+            <h2>&#127788; Wind</h2>
+            <div class="wind-arrow-wrap">
+                <span class="wind-arrow" id="wind-arrow">&#8593;</span>
+                <div class="wind-speed-big" id="wind-speed-big">-- km/h</div>
+                <div class="wind-desc-small" id="wind-desc">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="sb-lbl">Direction</div>
+                <div class="sb-val" id="wind-dir-big">--</div>
+            </div>
+        </div>
+
+        <!-- Ball Flight -->
+        <div class="card">
+            <h2>&#9917; Ball Flight &mdash; 150m</h2>
+            <div class="ball-flight-row">
+                <span class="bf-lbl">Altitude (147m ASL)</span>
+                <span class="bf-val" id="bf-altitude">--</span>
+            </div>
+            <div class="ball-flight-row">
+                <span class="bf-lbl">Temperature effect</span>
+                <span class="bf-val" id="bf-temp">--</span>
+            </div>
+            <div class="ball-flight-row" style="background:#253a4a;border:2px solid #4a6a84">
+                <span class="bf-lbl" style="color:white;font-weight:bold;font-size:0.95em">Estimated carry</span>
+                <span class="bf-val" id="bf-total" style="font-size:1.5em">-- m</span>
+            </div>
+            <div style="font-size:0.7em;color:#7f8c8d;margin-top:8px;text-align:center">~0.5% per 100m altitude · ~0.1% per °C from 15°C</div>
+        </div>
+
+        <!-- Course Conditions -->
+        <div class="card">
+            <h2>&#9971; Course Conditions</h2>
+            <div class="course-badge cc-normal" id="course-badge">
+                <div class="course-icon" id="course-icon">&#127807;</div>
+                <div class="course-lbl" id="course-lbl">Normal</div>
+                <div class="course-sub" id="course-sub">Loading data...</div>
+            </div>
+            <div class="stat-box" style="margin-bottom:0">
+                <div class="sb-lbl">7-Day Water Balance</div>
+                <div class="sb-val" id="water-balance">--</div>
+                <div class="sb-sub">ET minus Rain (positive = dry)</div>
+            </div>
+        </div>
+
+    </div><!-- end golfer-grid -->
+
+    <!-- Row 3: Feels Like / Rain Chance / UV / Daylight Countdown -->
+    <div class="golfer-bottom">
+
+        <div class="card">
+            <h2>&#127777; Feels Like</h2>
+            <div class="stat-box" style="margin-bottom:0">
+                <div class="sb-val" id="feels-like" style="font-size:2.2em">--°C</div>
+                <div class="sb-sub">BOM apparent temperature</div>
+            </div>
+        </div>
+
+        <div class="card" id="rain-chance-card">
+            <h2>&#9748; Rain Chance</h2>
+            <div class="stat-box" style="margin-bottom:8px">
+                <div class="sb-val" id="rain-chance-val" style="font-size:2.4em;color:#74b9ff">--%</div>
+            </div>
+            <div style="font-size:0.82em;color:#bdc3c7;text-align:center" id="rain-chance-sub">Loading...</div>
+        </div>
+
+        <div class="card">
+            <h2>&#9728; UV Index</h2>
+            <div class="uv-badge uv-moderate" id="uv-badge" style="font-size:1.15em;padding:16px">UV --</div>
+            <div style="font-size:0.72em;color:#7f8c8d;text-align:center;margin-top:6px">Wear sunscreen above UV 3</div>
+        </div>
+
+        <div class="card" id="daylight-card">
+            <h2>&#127974; Daylight Countdown</h2>
+            <div style="text-align:center;padding:6px 0 10px">
+                <div style="font-size:2em;line-height:1" id="daylight-icon">&#127774;</div>
+                <div style="font-size:0.78em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-top:8px" id="daylight-label">Sunset in</div>
+                <div style="font-size:2em;font-weight:bold;margin-top:4px" id="daylight-countdown">--</div>
+                <div style="font-size:0.8em;color:#bdc3c7;margin-top:4px" id="daylight-sub">--</div>
+            </div>
+            <div class="sun-times" style="margin-top:4px">
+                <div class="sun-time">
+                    <div class="st-icon">&#127774;</div>
+                    <div class="st-lbl">Sunrise</div>
+                    <div class="st-val" id="sunrise">--</div>
+                </div>
+                <div class="sun-time">
+                    <div class="st-icon">&#127772;</div>
+                    <div class="st-lbl">Sunset</div>
+                    <div class="st-val" id="sunset">--</div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end golfer-bottom -->
+
+</div><!-- end #view-golfer -->
+
+<!-- 4-Day Forecast (always visible) -->
+<div class="card">
+    <h2>4-Day Forecast</h2>
+    <div class="forecast-grid" id="forecast-container">
+        <div style="grid-column:1/-1;text-align:center;color:#7f8c8d">Loading forecast...</div>
+    </div>
+</div>
+
+<script>
+// ── Credentials ───────────────────────────────────────────────────
+// NOTE: These credentials are visible in browser source. This is a known
+// limitation of a single-file HTML app. Do not share this file publicly
+// or host it on an open web server without restricting access.
+const did      = '001D0A00AB84';
+const password = 'Ap08021977';
+const tokenID  = '771389FF9E4B4856A18AD35028EAFCE8';
+const v2ApiKey    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
+const v2ApiSecret = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
+const CLUB_LAT = '-35.1082';
+const CLUB_LON = '147.3598';
+const CLUB_ELEV_M = 147;
+
+// ── Global state shared across views ──────────────────────────────
+let wx = { temp: null, rh: null, windKmh: 0, windDeg: null, windDir: '--', rainToday: 0 };
+let lastUpdateTime = null; // ms timestamp of last successful Davis fetch
+let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null };
+let forecastRain3Day = null;
+
+// ── Helpers ───────────────────────────────────────────────────────
+function degreesToCompass(deg) {
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function windDescription(kmh) {
+    if (kmh < 1)  return 'Calm';
+    if (kmh < 6)  return 'Light Air';
+    if (kmh < 12) return 'Light Breeze';
+    if (kmh < 20) return 'Gentle Breeze';
+    if (kmh < 29) return 'Moderate Breeze';
+    if (kmh < 39) return 'Fresh Breeze';
+    if (kmh < 50) return 'Strong Breeze';
+    return 'Near Gale+';
+}
+
+function formatTime(isoStr) {
+    if (!isoStr) return '--';
+    const timePart = isoStr.split('T')[1];
+    if (!timePart) return '--';
+    const [h, m] = timePart.split(':');
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${m} ${ampm}`;
+}
+
+// ── localStorage helpers ──────────────────────────────────────────
+const STORAGE_VERSION = '5';
+if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
+    localStorage.removeItem('wx_daily');
+    localStorage.setItem('wx_storage_ver', STORAGE_VERSION);
+}
+
+function sydneyOffsetMs() {
+    const now = new Date();
+    const sydneyMs = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Sydney' })).getTime();
+    const utcMs    = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+    return sydneyMs - utcMs;
+}
+
+function todayKey() {
+    const offsetMs = sydneyOffsetMs();
+    return new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+}
+
+function saveDailyRecord(et, rain) {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    store[todayKey()] = { et, rain };
+    // Use Sydney timezone for cutoff — consistent with todayKey() and fetchHistoricalWeather
+    const offsetMs = sydneyOffsetMs();
+    const cutoffDate = new Date(Date.now() + offsetMs);
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 7);
+    const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+    for (const key of Object.keys(store)) {
+        if (key < cutoffStr) delete store[key];
+    }
+    localStorage.setItem('wx_daily', JSON.stringify(store));
+}
+
+// ── Tab switcher ──────────────────────────────────────────────────
+function switchTab(tab) {
+    const isGk = tab === 'greenkeeper';
+    document.getElementById('view-greenkeeper').style.display = isGk ? '' : 'none';
+    document.getElementById('view-golfer').style.display      = isGk ? 'none' : '';
+    document.getElementById('tab-gk').classList.toggle('active', isGk);
+    document.getElementById('tab-go').classList.toggle('active', !isGk);
+    document.getElementById('subtitle').textContent = isGk
+        ? 'Live Weather \u0026 Turf Management'
+        : 'Course Conditions for Players';
+    localStorage.setItem('wx_active_tab', tab);
+}
+
+// Restore last tab on load
+(function() {
+    const saved = localStorage.getItem('wx_active_tab');
+    if (saved === 'golfer') switchTab('golfer');
+})();
+
+// ── Weekly table ──────────────────────────────────────────────────
+function renderWeekly() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    if (Object.keys(store).length === 0) return;
+
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today = todayKey();
+    if (!store[today]) store[today] = { et: 0, rain: 0 };
+    const allKeys = Object.keys(store).sort();
+    let totalET = 0, totalRain = 0;
+    let tbody = '';
+
+    for (const key of allKeys) {
+        const et   = store[key].et   || 0;
+        const rain = store[key].rain || 0;
+        const def  = et - rain;
+        totalET   += et;
+        totalRain += rain;
+        const date     = new Date(key + 'T12:00:00');
+        const dayLabel = key === today ? 'Today' : dayNames[date.getDay()];
+        const label    = `${dayLabel} ${date.getDate()}/${date.getMonth() + 1}`;
+        const defClass = def <= 0 ? 'def-neg' : 'def-pos';
+        tbody += `<tr>
+            <td>${label}</td>
+            <td class="et-col">${et.toFixed(2)}</td>
+            <td class="rain-col">${rain.toFixed(1)}</td>
+            <td class="${defClass}">${def.toFixed(2)}</td>
+        </tr>`;
+    }
+    document.getElementById('weekly-tbody').innerHTML = tbody;
+
+    const totDef = totalET - totalRain;
+    const totClass = totDef <= 0 ? 'def-neg' : 'def-pos';
+    document.getElementById('weekly-tfoot').innerHTML = `<tr>
+        <td>Total</td>
+        <td class="et-col">${totalET.toFixed(2)}</td>
+        <td class="rain-col">${totalRain.toFixed(1)}</td>
+        <td class="${totClass}">${totDef.toFixed(2)}</td>
+    </tr>`;
+
+    updateCourseConditions(totalET, totalRain);
+}
+
+// ── Course Conditions (golfer view) ──────────────────────────────
+function updateCourseConditions(totalET, totalRain) {
+    const deficit = totalET - totalRain; // positive = dry, negative = wet
+
+    const badge = document.getElementById('course-badge');
+    const icon  = document.getElementById('course-icon');
+    const lbl   = document.getElementById('course-lbl');
+    const sub   = document.getElementById('course-sub');
+    const wb    = document.getElementById('water-balance');
+
+    wb.textContent = (deficit >= 0 ? '+' : '') + deficit.toFixed(1) + ' mm';
+
+    if (deficit < -10) {
+        badge.className = 'course-badge cc-waterlogged';
+        icon.innerHTML  = '&#128166;';
+        lbl.textContent = 'Waterlogged';
+        sub.textContent = 'Soft underfoot — expect casual water';
+    } else if (deficit < 0) {
+        badge.className = 'course-badge cc-soft';
+        icon.innerHTML  = '&#127807;';
+        lbl.textContent = 'Soft';
+        sub.textContent = 'Good grip — ball will sit up nicely';
+    } else if (deficit < 15) {
+        badge.className = 'course-badge cc-normal';
+        icon.innerHTML  = '&#127807;';
+        lbl.textContent = 'Normal';
+        sub.textContent = 'Ideal conditions — good ball roll';
+    } else if (deficit < 30) {
+        badge.className = 'course-badge cc-firm';
+        icon.innerHTML  = '&#127859;';
+        lbl.textContent = 'Firm';
+        sub.textContent = 'Ball will run on — allow for extra roll';
+    } else {
+        badge.className = 'course-badge cc-veryFirm';
+        icon.innerHTML  = '&#9728;&#65039;';
+        lbl.textContent = 'Very Firm';
+        sub.textContent = 'Hard and fast — significant run expected';
+    }
+}
+
+// ── Playing Comfort Rating ────────────────────────────────────────
+function updateComfortRating() {
+    if (wx.temp === null) return;
+
+    // BOM apparent temperature: AT = T + 0.33e - 0.70ws - 4.00
+    // e = water vapour pressure = rh/100 * 6.105 * exp(17.27*T/(237.7+T))
+    const e = (wx.rh / 100) * 6.105 * Math.exp(17.27 * wx.temp / (237.7 + wx.temp));
+    const wsMs = wx.windKmh / 3.6;
+    const at   = wx.temp + 0.33 * e - 0.70 * wsMs - 4.00;
+
+    const rainProb    = fc.todayRainProb ?? 0;
+    const actualRain  = wx.rainToday ?? 0;   // mm recorded today from station
+    const isRaining   = actualRain > 0;       // rain has fallen today
+    const rainLikely  = rainProb >= 50;       // forecast says more likely than not
+
+    const banner   = document.getElementById('comfort-banner');
+    const ratingEl = document.getElementById('comfort-rating');
+    const detailEl = document.getElementById('comfort-detail');
+
+    // Scoring: 0 = best, higher = worse
+    const windPenalty = wx.windKmh > 40 ? 2 : wx.windKmh > 25 ? 1 : 0;
+    // Rain penalty: actual rain on the ground is worse than just forecast probability
+    const rainPenalty = isRaining ? 2 : (rainProb > 70 ? 2 : rainProb > 40 ? 1 : 0);
+
+    let score = 0;
+    if (at < 8 || at > 36)       score += 3;  // extreme — very cold or dangerously hot
+    else if (at < 12 || at > 28)  score += 1;  // uncomfortable — cold or warm (was 30, tightened)
+    // 12–28°C feels-like = no AT penalty (ideal golfing range)
+    score += windPenalty + rainPenalty;
+
+    let rating, cls;
+    if (score === 0)      { rating = 'Outstanding'; cls = 'cb-outstanding'; }
+    else if (score <= 1)  { rating = 'Excellent';   cls = 'cb-excellent';   }
+    else if (score <= 2)  { rating = 'Good';        cls = 'cb-good';        }
+    else if (score <= 3)  { rating = 'Fair';        cls = 'cb-fair';        }
+    else                  { rating = 'Tough';       cls = 'cb-tough';       }
+
+    // Build detail line with practical advice
+    const tips = [];
+    tips.push(`Feels like ${at.toFixed(1)}°C`);
+
+    if (isRaining) {
+        tips.push(`&#9748; ${actualRain.toFixed(1)} mm fallen today — take your brolly`);
+    } else if (rainLikely) {
+        tips.push(`&#9748; ${rainProb}% chance of rain — pack a brolly`);
+    } else if (rainProb > 20) {
+        tips.push(`${rainProb}% chance of rain`);
+    }
+
+    if (wx.windKmh >= 40) tips.push(`&#127788; Very strong wind`);
+    else if (wx.windKmh >= 25) tips.push(`&#127788; ${windDescription(wx.windKmh)}`);
+
+    if (at > 32) tips.push('&#9728;&#65039; Very hot — stay hydrated');
+    else if (at < 10) tips.push('&#129398; Cold — rug up');
+
+    banner.className = 'comfort-banner ' + cls;
+    ratingEl.textContent = rating;
+    detailEl.innerHTML = tips.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+
+    // Feels-like temp display
+    document.getElementById('feels-like').textContent = at.toFixed(1) + '°C';
+}
+
+// ── Rain Chance widget ────────────────────────────────────────────
+function updateRainChance() {
+    const prob = fc.todayRainProb;
+    const el   = document.getElementById('rain-chance-val');
+    const sub  = document.getElementById('rain-chance-sub');
+    const card = document.getElementById('rain-chance-card');
+    if (!el) return;
+
+    if (prob === null) { el.textContent = '--%'; sub.textContent = 'No forecast yet'; return; }
+
+    el.textContent = prob + '%';
+
+    let tip, borderColor;
+    const actual = wx.rainToday ?? 0;
+    if (actual > 0) {
+        tip = `${actual.toFixed(1)} mm already fallen today`;
+        borderColor = '#2980b9';
+    } else if (prob >= 80) {
+        tip = 'Very likely — bring a brolly';
+        borderColor = '#2980b9';
+    } else if (prob >= 50) {
+        tip = 'More likely than not — pack a brolly';
+        borderColor = '#5dade2';
+    } else if (prob >= 30) {
+        tip = 'Possible — keep an eye on the sky';
+        borderColor = '#d4ac0d';
+    } else if (prob >= 10) {
+        tip = 'Unlikely — probably fine';
+        borderColor = '#27ae60';
+    } else {
+        tip = 'Very unlikely today';
+        borderColor = '#27ae60';
+    }
+    sub.textContent = tip;
+    card.style.borderTopColor = borderColor;
+}
+
+// ── Daylight countdown widget ─────────────────────────────────────
+function updateDaylightWidget() {
+    if (!fc.sunriseIso || !fc.sunsetIso) return;
+
+    // Open-Meteo returns times in the requested timezone (Australia/Sydney)
+    // e.g. "2026-06-18T07:23" — treat as Sydney local, convert to UTC for comparison
+    const offsetMs = sydneyOffsetMs();
+    const parseLocalISO = (iso) => {
+        const [datePart, timePart] = iso.split('T');
+        const [y, mo, d]  = datePart.split('-').map(Number);
+        const [h, m]      = timePart.split(':').map(Number);
+        // Build UTC epoch that represents this Sydney local time
+        return new Date(Date.UTC(y, mo - 1, d, h, m) - offsetMs);
+    };
+
+    const sunriseDate = parseLocalISO(fc.sunriseIso);
+    const sunsetDate  = parseLocalISO(fc.sunsetIso);
+    const now         = Date.now();
+
+    const msUntilSunrise = sunriseDate - now;
+    const msUntilSunset  = sunsetDate  - now;
+
+    const fmtCountdown = (ms) => {
+        const totalMins = Math.floor(ms / 60000);
+        const h = Math.floor(totalMins / 60);
+        const m = totalMins % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
+
+    const labelEl    = document.getElementById('daylight-label');
+    const countEl    = document.getElementById('daylight-countdown');
+    const subEl      = document.getElementById('daylight-sub');
+    const iconEl     = document.getElementById('daylight-icon');
+    const cardEl     = document.getElementById('daylight-card');
+    if (!countEl) return;
+
+    if (msUntilSunrise > 0) {
+        // Before sunrise — waiting for light
+        labelEl.textContent  = 'Sunrise in';
+        countEl.textContent  = fmtCountdown(msUntilSunrise);
+        subEl.textContent    = `at ${fc.sunrise}`;
+        iconEl.innerHTML     = '&#127774;';
+        cardEl.style.borderTopColor = '#f39c12';
+    } else if (msUntilSunset > 0) {
+        // Daylight hours — countdown to sunset
+        labelEl.textContent  = 'Sunset in';
+        countEl.textContent  = fmtCountdown(msUntilSunset);
+        subEl.textContent    = `at ${fc.sunset}`;
+        if (msUntilSunset < 60 * 60 * 1000) {
+            // Under 1 hour — urgent
+            iconEl.innerHTML = '&#128680;';
+            cardEl.style.borderTopColor = '#e74c3c';
+            subEl.textContent = `at ${fc.sunset} — time to finish up!`;
+        } else if (msUntilSunset < 2 * 60 * 60 * 1000) {
+            // Under 2 hours
+            iconEl.innerHTML = '&#127772;';
+            cardEl.style.borderTopColor = '#e67e22';
+            subEl.textContent = `at ${fc.sunset} — start wrapping up`;
+        } else {
+            iconEl.innerHTML = '&#127774;';
+            cardEl.style.borderTopColor = '#27ae60';
+        }
+    } else {
+        // After sunset
+        labelEl.textContent  = 'Dark outside';
+        countEl.innerHTML    = '&#127769;';
+        subEl.textContent    = `Sunrise ${fc.sunrise}`;
+        iconEl.innerHTML     = '&#127769;';
+        cardEl.style.borderTopColor = '#3d5166';
+    }
+}
+
+// ── Ball Flight Adjustment ────────────────────────────────────────
+function updateBallFlight() {
+    if (wx.temp === null) return;
+    const base = 150;
+    const altPct  = (CLUB_ELEV_M / 100) * 0.5;            // % carry gain from altitude
+    const tempPct = (wx.temp - 15) * 0.1;                  // % carry change from temperature
+    const altM    = +(base * altPct  / 100).toFixed(1);
+    const tempM   = +(base * tempPct / 100).toFixed(1);
+    const total   = +(base + altM + tempM).toFixed(1);
+
+    const fmtVal = (v, id) => {
+        const el = document.getElementById(id);
+        const sign = v >= 0 ? '+' : '';
+        el.textContent = sign + v + ' m';
+        el.className = 'bf-val ' + (v > 0 ? 'bf-plus' : v < 0 ? 'bf-minus' : 'bf-zero');
+    };
+    fmtVal(altM,  'bf-altitude');
+    fmtVal(tempM, 'bf-temp');
+
+    const totalEl = document.getElementById('bf-total');
+    totalEl.textContent = total + ' m';
+    totalEl.className = 'bf-val ' + (total > base ? 'bf-plus' : total < base ? 'bf-minus' : 'bf-zero');
+}
+
+// ── Wind card (golfer view) ───────────────────────────────────────
+function updateWindCard() {
+    document.getElementById('wind-speed-big').textContent = wx.windKmh.toFixed(0) + ' km/h';
+    document.getElementById('wind-desc').textContent      = windDescription(wx.windKmh);
+    document.getElementById('wind-dir-big').textContent   = wx.windDir;
+
+    // Arrow points FROM the wind direction (into the wind)
+    if (wx.windDeg !== null) {
+        const rotation = wx.windDeg + 180; // arrow tip shows where wind goes
+        document.getElementById('wind-arrow').style.transform = `rotate(${rotation}deg)`;
+    }
+}
+
+// ── UV Badge ──────────────────────────────────────────────────────
+function updateUVBadge(uv) {
+    const el = document.getElementById('uv-badge');
+    if (uv === null || uv === undefined) { el.textContent = 'UV --'; el.className = 'uv-badge uv-moderate'; return; }
+    let cls, label;
+    if (uv <= 2)       { cls = 'uv-low';      label = 'Low';      }
+    else if (uv <= 5)  { cls = 'uv-moderate'; label = 'Moderate'; }
+    else if (uv <= 7)  { cls = 'uv-high';     label = 'High';     }
+    else if (uv <= 10) { cls = 'uv-vhigh';    label = 'Very High';}
+    else               { cls = 'uv-extreme';  label = 'Extreme';  }
+    el.textContent = `UV ${uv} — ${label}`;
+    el.className   = 'uv-badge ' + cls;
+}
+
+// ── Irrigation recommendation ─────────────────────────────────────
+function updateRecommendation() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let totalET = 0, totalRain = 0;
+    for (const key of Object.keys(store)) {
+        totalET   += store[key].et   || 0;
+        totalRain += store[key].rain || 0;
+    }
+    const weeklyDeficit = Math.max(0, totalET - totalRain);
+    const box = document.getElementById('recommendation');
+
+    if (forecastRain3Day === null) {
+        box.className = 'recommendation rec-hold';
+        box.innerHTML = `<div class="rec-title">Awaiting forecast...</div>
+                         <div class="rec-detail">Weekly deficit: ${weeklyDeficit.toFixed(1)} mm</div>`;
+        return;
+    }
+
+    const netDeficit = weeklyDeficit - forecastRain3Day;
+
+    if (forecastRain3Day >= weeklyDeficit && weeklyDeficit > 0) {
+        box.className = 'recommendation rec-hold';
+        box.innerHTML = `<div class="rec-title">Hold Off — Rain Expected</div>
+                         <div class="rec-detail">
+                             ${forecastRain3Day.toFixed(1)} mm forecast over 3 days should cover
+                             your ${weeklyDeficit.toFixed(1)} mm weekly deficit.
+                             Re-assess after rain.
+                         </div>`;
+    } else if (netDeficit >= 10) {
+        box.className = 'recommendation rec-irrigate';
+        box.innerHTML = `<div class="rec-title">Irrigate — Deficit Not Covered</div>
+                         <div class="rec-detail">
+                             Weekly deficit ${weeklyDeficit.toFixed(1)} mm, only
+                             ${forecastRain3Day.toFixed(1)} mm rain forecast.
+                             Net shortfall: <strong>${netDeficit.toFixed(1)} mm</strong>.
+                         </div>`;
+    } else if (netDeficit > 0) {
+        box.className = 'recommendation rec-hold';
+        box.innerHTML = `<div class="rec-title">Monitor — Low Deficit</div>
+                         <div class="rec-detail">
+                             Net shortfall ${netDeficit.toFixed(1)} mm after
+                             ${forecastRain3Day.toFixed(1)} mm forecast rain.
+                             Consider irrigating if conditions stay dry.
+                         </div>`;
+    } else {
+        box.className = 'recommendation rec-ok';
+        box.innerHTML = `<div class="rec-title">No Irrigation Needed</div>
+                         <div class="rec-detail">
+                             Rain and soil moisture are sufficient.
+                             Weekly deficit: ${weeklyDeficit.toFixed(1)} mm.
+                         </div>`;
+    }
+}
+
+// ── Last-updated colour staleness check ──────────────────────────
+function checkDataFreshness() {
+    if (!lastUpdateTime) return;
+    const el = document.getElementById('last-updated');
+    if (!el || el.className === 'lu-failed') return; // don't overwrite a hard failure
+    const ageMins = (Date.now() - lastUpdateTime) / 60000;
+    if (ageMins < 2) {
+        el.className = 'lu-fresh';   // green  — updated within last 2 min
+    } else if (ageMins < 10) {
+        el.className = 'lu-aging';   // orange — 2–10 min old
+    } else {
+        el.className = 'lu-stale';   // red, flashing — > 10 min (something is wrong)
+    }
+}
+
+// ── Spray helpers (module scope — not inside the interval function) ──
+function spClass(ok, warn) {
+    return ok ? 'spray-param sp-good' : warn ? 'spray-param sp-warn' : 'spray-param sp-bad';
+}
+
+// ── Davis weather fetch ───────────────────────────────────────────
+async function getWeatherData() {
+    try {
+        const davisUrl = `https://api.weatherlink.com/v1/NoaaExt.json?user=${did}&pass=${password}&apiToken=${tokenID}`;
+        const proxies = [
+            `https://corsproxy.io/?${encodeURIComponent(davisUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(davisUrl)}`
+        ];
+        let response, lastErr;
+        for (const url of proxies) {
+            try { response = await fetch(url); if (response.ok) break; }
+            catch (e) { lastErr = e; }
+        }
+        if (!response || !response.ok) throw lastErr || new Error('All proxies failed');
+        const data = await response.json();
+        if (data.error) throw new Error(data.error.message || 'Davis API error');
+
+        const temp = parseFloat(data.temp_c);
+        const rh   = parseFloat(data.relative_humidity);
+        if (isNaN(temp) || isNaN(rh)) throw new Error('Davis API returned invalid temp/RH data');
+
+        let rain = 0;
+        if (data.davis_current_observation?.rain_day_in)
+            rain = parseFloat(data.davis_current_observation.rain_day_in) * 25.4;
+
+        let et = 0;
+        if (data.davis_current_observation?.et_day)
+            et = parseFloat(data.davis_current_observation.et_day) * 25.4;
+
+        // Wet-bulb / Delta T (Stull 2011)
+        const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
+                 + Math.atan(temp + rh)
+                 - Math.atan(rh - 1.676331)
+                 + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
+                 - 4.686035;
+        const deltaT = temp - tw;
+
+        let windKmh = 0, windDeg = null, windDir = '--';
+        if (data.wind_mph) windKmh = parseFloat(data.wind_mph) * 1.60934;
+        if (data.wind_degrees !== undefined && data.wind_degrees !== null) {
+            windDeg = parseFloat(data.wind_degrees);
+            windDir = degreesToCompass(windDeg);
+        }
+
+        // Update global state
+        wx = { temp, rh, windKmh, windDeg, windDir, rainToday: rain };
+
+        // Conditions bar
+        document.getElementById('temp').innerText       = temp.toFixed(1) + '°C';
+        document.getElementById('humidity').innerText   = rh.toFixed(0) + '%';
+        document.getElementById('rain').innerText       = rain.toFixed(1) + ' mm';
+        document.getElementById('et').innerText         = et.toFixed(2) + ' mm';
+        document.getElementById('wind-speed').innerText = windKmh.toFixed(0) + ' km/h';
+        document.getElementById('wind-dir').innerText   = windDir;
+
+        // Spray card
+        document.getElementById('spray-deltat-val').innerText = deltaT.toFixed(1);
+        document.getElementById('spray-temp-val').innerText   = temp.toFixed(1);
+        document.getElementById('spray-wind-val').innerText   = windKmh.toFixed(0);
+        document.getElementById('spray-wind-dir-badge').innerText = windDir !== '--' ? windDir : 'km/h';
+
+        const deltaTOk   = deltaT >= 2 && deltaT <= 8;
+        const deltaTWarn = deltaT > 8 && deltaT <= 10;
+        const tempOk     = temp < 28;
+        const tempWarn   = temp >= 28 && temp <= 35;
+        const windOk     = windKmh < 15;
+        const windWarn   = windKmh >= 15 && windKmh <= 20;
+
+        document.getElementById('sp-deltat').className = spClass(deltaTOk, deltaTWarn);
+        document.getElementById('sp-temp').className   = spClass(tempOk,   tempWarn);
+        document.getElementById('sp-wind').className   = spClass(windOk,   windWarn);
+
+        const sprayBox = document.getElementById('sprayStatus');
+        const allGood  = deltaTOk && tempOk && windOk;
+        const anyBad   = (!deltaTOk && !deltaTWarn) || (!tempOk && !tempWarn) || (!windOk && !windWarn);
+        if (allGood) {
+            sprayBox.innerText = 'Good to Spray';
+            sprayBox.className = 'status-badge badge-good';
+        } else if (!anyBad) {
+            sprayBox.innerText = 'Marginal Conditions — Caution';
+            sprayBox.className = 'status-badge badge-warn';
+        } else {
+            const reasons = [];
+            if (!deltaTOk && !deltaTWarn) reasons.push('Delta T');
+            if (!tempOk   && !tempWarn)   reasons.push('Temp');
+            if (!windOk   && !windWarn)   reasons.push('Wind');
+            sprayBox.innerText = 'Do Not Spray — ' + reasons.join(', ') + ' out of range';
+            sprayBox.className = 'status-badge badge-bad';
+        }
+
+        // Irrigation card
+        const dailyDeficit = et - rain;
+        document.getElementById('irr-et').innerText      = et.toFixed(2);
+        document.getElementById('irr-rain').innerText    = rain.toFixed(1);
+        document.getElementById('irr-deficit').innerText = Math.max(0, dailyDeficit).toFixed(1);
+
+        // Persist and re-render
+        saveDailyRecord(et, rain);
+        renderWeekly();
+        updateRecommendation();
+
+        // Golfer view updates
+        updateWindCard();
+        updateComfortRating();
+        updateBallFlight();
+
+        // Last updated timestamp
+        lastUpdateTime = Date.now();
+        const luEl = document.getElementById('last-updated');
+        luEl.textContent = new Date().toLocaleTimeString('en-AU', {
+            timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+        luEl.className = 'lu-fresh';
+
+    } catch (err) {
+        console.error('[Davis]', err);
+        // Show error on all status-bearing elements so stale data is obvious
+        const errMsg = 'Connection / Key Error';
+        document.getElementById('sprayStatus').innerText  = errMsg;
+        document.getElementById('sprayStatus').className  = 'status-badge badge-bad';
+        ['temp','humidity','rain','et','wind-speed','wind-dir'].forEach(id => {
+            document.getElementById(id).innerText = '--';
+        });
+        const luElErr = document.getElementById('last-updated');
+        luElErr.textContent = 'Failed ' + new Date().toLocaleTimeString('en-AU', {
+            timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit'
+        });
+        luElErr.className = 'lu-failed';
+    }
+}
+
+// ── Forecast ─────────────────────────────────────────────────────
+function wmoDescription(code) {
+    if (code === 0)  return 'Clear';
+    if (code <= 3)   return 'Partly Cloudy';
+    if (code <= 48)  return 'Foggy';
+    if (code <= 55)  return 'Drizzle';
+    if (code <= 65)  return 'Rain';
+    if (code <= 77)  return 'Snow';
+    if (code <= 82)  return 'Showers';
+    if (code <= 86)  return 'Snow Showers';
+    if (code >= 95)  return 'Thunderstorm';
+    return 'Unknown';
+}
+
+function wmoIcon(code) {
+    if (code === 0)  return '&#9728;&#65039;';
+    if (code === 1)  return '&#127780;&#65039;';
+    if (code === 2)  return '&#9925;&#65039;';
+    if (code === 3)  return '&#9729;&#65039;';
+    if (code <= 48)  return '&#127787;&#65039;';
+    if (code <= 55)  return '&#127746;&#65039;';
+    if (code <= 65)  return '&#127783;&#65039;';
+    if (code <= 77)  return '&#10052;&#65039;';
+    if (code <= 82)  return '&#127782;&#65039;';
+    if (code <= 86)  return '&#127784;&#65039;';
+    if (code >= 95)  return '&#9928;&#65039;';
+    return '&#127780;&#65039;';
+}
+
+async function getForecast() {
+    try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
+            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset`
+            + `&timezone=Australia%2FSydney&forecast_days=4`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+        forecastRain3Day = 0;
+        for (let i = 1; i <= 3; i++) forecastRain3Day += data.daily.precipitation_sum[i] || 0;
+
+        // Today's UV, sun times and rain prob for golfer view
+        fc.uvMax         = data.daily.uv_index_max?.[0] ?? null;
+        fc.sunriseIso    = data.daily.sunrise?.[0] ?? null;
+        fc.sunsetIso     = data.daily.sunset?.[0]  ?? null;
+        fc.sunrise       = formatTime(fc.sunriseIso);
+        fc.sunset        = formatTime(fc.sunsetIso);
+        fc.todayRainProb = data.daily.precipitation_probability_max?.[0] ?? null;
+
+        document.getElementById('sunrise').textContent = fc.sunrise;
+        document.getElementById('sunset').textContent  = fc.sunset;
+        updateUVBadge(fc.uvMax !== null ? Math.round(fc.uvMax) : null);
+        updateRainChance();
+        updateDaylightWidget();
+        updateComfortRating();
+
+        let html = '';
+        for (let i = 0; i < 4; i++) {
+            const date   = new Date(data.daily.time[i] + 'T12:00:00');
+            const label  = i === 0 ? 'Today' : dayNames[date.getDay()];
+            const hi     = Math.round(data.daily.temperature_2m_max[i]);
+            const lo     = Math.round(data.daily.temperature_2m_min[i]);
+            const precip = (data.daily.precipitation_sum[i] ?? 0).toFixed(1);
+            const desc   = wmoDescription(data.daily.weathercode[i]);
+            const icon   = wmoIcon(data.daily.weathercode[i]);
+            const prob   = data.daily.precipitation_probability_max[i] ?? '--';
+            const uv     = data.daily.uv_index_max?.[i] != null ? Math.round(data.daily.uv_index_max[i]) : '--';
+            html += `<div class="forecast-cell">
+                <div class="fc-day">${label}</div>
+                <div class="fc-icon">${icon}</div>
+                <div class="fc-desc">${desc}</div>
+                <div><span class="fc-hi">${hi}°</span> / <span class="fc-lo">${lo}°</span></div>
+                <div class="fc-rain">&#128167; ${precip} mm</div>
+                <div class="fc-prob">${prob}% chance</div>
+                <div class="fc-uv">&#9728; UV ${uv}</div>
+            </div>`;
+        }
+        document.getElementById('forecast-container').innerHTML = html;
+        updateRecommendation();
+
+    } catch (e) {
+        console.error('[Forecast]', e);
+        document.getElementById('forecast-container').innerHTML =
+            '<div style="color:#7f8c8d">Forecast unavailable</div>';
+    }
+}
+
+// ── WeatherLink v2 historical fetch ──────────────────────────────
+// Note: corsproxy.io is the only free CORS proxy known to forward custom headers
+// (X-Api-Secret) correctly. A second proxy cannot be added as a fallback because
+// most proxies strip custom headers. Instead we retry the same proxy once to
+// handle transient failures.
+async function v2Fetch(endpoint, params) {
+    const qs       = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
+    const url      = `https://api.weatherlink.com/v2/${endpoint}?${qs}`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    let lastErr;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
+            if (res.ok) return res.json();
+            throw new Error(`v2 HTTP ${res.status}`);
+        } catch (e) {
+            lastErr = e;
+            if (attempt < 2) await new Promise(r => setTimeout(r, 3000)); // wait 3s then retry
+        }
+    }
+    throw lastErr;
+}
+
+const v2StationId = 10489;
+
+async function fetchHistoricalWeather() {
+    const offsetMs   = sydneyOffsetMs();
+    const offsetSecs = Math.round(offsetMs / 1000);
+    const store      = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+
+    const dayPromises = [];
+    for (let daysAgo = 1; daysAgo <= 7; daysAgo++) {
+        const sydney = new Date(Date.now() + offsetMs);
+        sydney.setUTCDate(sydney.getUTCDate() - daysAgo);
+        sydney.setUTCHours(0, 0, 0, 0);
+        const dateStr = sydney.toISOString().slice(0, 10);
+        const startTs = Math.floor(sydney.getTime() / 1000) - offsetSecs;
+        const endTs   = startTs + 86399;
+        dayPromises.push(
+            v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
+                .then(data => ({ dateStr, data }))
+                .catch(err  => ({ dateStr, err }))
+        );
+    }
+
+    const results = await Promise.all(dayPromises);
+    let updated = false;
+
+    for (const { dateStr, data, err } of results) {
+        if (err) { console.warn('[v2 History]', dateStr, err.message); continue; }
+        if (!data?.sensors) continue;
+
+        // Sum ET and rain from the FIRST sensor that actually reports each value.
+        // Summing across all sensors would double-count if multiple sensors
+        // (e.g. ISS + leaf/soil module) both carry those fields.
+        let etInches = 0, rainMm = 0;
+        let etSensorFound = false, rainSensorFound = false;
+        for (const sensor of data.sensors) {
+            const records = sensor.data || [];
+            if (!etSensorFound) {
+                const sensorEt = records.reduce((s, r) => s + parseFloat(r.et ?? 0), 0);
+                if (sensorEt > 0) { etInches = sensorEt; etSensorFound = true; }
+            }
+            if (!rainSensorFound) {
+                const sensorRain = records.reduce((s, r) => s + parseFloat(r.rainfall_mm ?? 0), 0);
+                if (sensorRain > 0) { rainMm = sensorRain; rainSensorFound = true; }
+            }
+            if (etSensorFound && rainSensorFound) break;
+        }
+        store[dateStr] = { et: +(etInches * 25.4).toFixed(2), rain: +rainMm.toFixed(1) };
+        updated = true;
+    }
+
+    if (updated) {
+        const cutoff = new Date(Date.now() + offsetMs);
+        cutoff.setUTCDate(cutoff.getUTCDate() - 7);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        for (const key of Object.keys(store)) {
+            if (key < cutoffStr) delete store[key];
+        }
+        localStorage.setItem('wx_daily', JSON.stringify(store));
+        renderWeekly();
+        updateRecommendation();
+    }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+getWeatherData();
+getForecast();
+fetchHistoricalWeather();
+setInterval(getWeatherData,         60000);
+setInterval(updateDaylightWidget,   60000);  // countdown ticks every minute
+setInterval(checkDataFreshness,     15000);  // colour-code last-updated every 15 s
+setInterval(getForecast,          1800000);
+setInterval(fetchHistoricalWeather, 3600000);
+</script>
+
+</body>
+</html>
