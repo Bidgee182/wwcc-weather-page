@@ -9,11 +9,23 @@
         body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; padding: 20px; }
         @media (max-width: 480px) { body { padding: 10px; } }
 
+        /* ── Logo (two-image colour technique) ── */
+        .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
+        .logo-wrap img { display:block; }
+        .logo-wrap .logo-top { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
+        .logo-wrap .logo-base { filter: grayscale(1) contrast(200) invert(1); }
+
         /* ── Header ── */
-        .header { text-align: center; padding: 18px 0 12px; }
-        .header h1 { font-size: 1.8em; letter-spacing: 2px; color: #ecf0f1; }
-        .header .subtitle { font-size: 0.85em; color: #7f8c8d; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
-        @media (max-width: 480px) { .header h1 { font-size: 1.3em; } .header .subtitle { font-size: 0.75em; } }
+        .header { display: flex; align-items: center; gap: 16px; padding: 14px 0 12px; }
+        .header-logo { height: 64px; width: auto; flex-shrink: 0; }
+        .header-text { display: flex; flex-direction: column; }
+        .header-text h1 { font-size: 1.6em; letter-spacing: 2px; color: #ecf0f1; line-height: 1.1; }
+        .header-text .subtitle { font-size: 0.85em; color: #7f8c8d; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+        @media (max-width: 480px) {
+            .header-logo { height: 48px; }
+            .header-text h1 { font-size: 1.15em; }
+            .header-text .subtitle { font-size: 0.72em; }
+        }
 
         /* ── Tab Bar ── */
         .tab-bar { display: flex; justify-content: center; gap: 8px; margin-bottom: 18px; }
@@ -27,7 +39,7 @@
         .cond-item .label { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
         .cond-item .value { font-size: 1.4em; font-weight: bold; margin-top: 2px; }
         .cond-item + .cond-item { border-left: 1px solid #3d5166; }
-        @media (max-width: 700px) {
+        @media (max-width: 800px) {
             .conditions-bar { grid-template-columns: repeat(3, 1fr); }
             .cond-item:nth-child(4) { border-left: none; border-top: 1px solid #3d5166; }
             .cond-item:nth-child(5), .cond-item:nth-child(6) { border-top: 1px solid #3d5166; }
@@ -147,7 +159,7 @@
 
         /* ── Insights Row ── */
         .golfer-insights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
-        @media (max-width: 700px) { .golfer-insights { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 800px) { .golfer-insights { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 460px) { .golfer-insights { grid-template-columns: 1fr; } }
 
         .insight-big    { font-size: 1.5em; font-weight: bold; margin-bottom: 6px; }
@@ -224,9 +236,10 @@
             height: 100vh; padding: 18px 28px 14px; gap: 14px;
         }
         .tv-header {
-            display: flex; justify-content: space-between; align-items: flex-start;
+            display: grid; grid-template-columns: auto 1fr auto; align-items: center;
             flex-shrink: 0; border-bottom: 1px solid #3d5166; padding-bottom: 12px;
         }
+        .tv-header-centre { text-align: center; }
         .tv-club { font-size: 1.5em; font-weight: bold; letter-spacing: 4px; color: #ecf0f1; text-transform: uppercase; line-height: 1; }
         .tv-sub  { font-size: 0.75em; color: #7f8c8d; letter-spacing: 2px; margin-top: 5px; }
         .tv-right { text-align: right; }
@@ -291,8 +304,14 @@
 
 <!-- Header -->
 <div class="header">
-    <h1>Wagga Wagga Country Club</h1>
-    <div class="subtitle" id="subtitle">Live Weather &amp; Turf Management</div>
+    <div class="logo-wrap" style="height:64px;">
+        <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC Logo">
+        <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
+    </div>
+    <div class="header-text">
+        <h1>Course Conditions &amp; Weather</h1>
+        <div class="subtitle" id="subtitle">Live Weather &amp; Turf Management</div>
+    </div>
 </div>
 
 <!-- Tab Bar -->
@@ -418,8 +437,8 @@
         </div>
 
         <div class="gt-tile gt-idle" id="tile-ball">
-            <div class="gt-icon">&#9917;</div>
-            <div class="gt-title">Ball Flight (150m)</div>
+            <div class="gt-icon">⚪</div>
+            <div class="gt-title">Ball Flight @ 150m</div>
             <div class="gt-value" id="tile-ball-val">-- m</div>
             <div class="gt-explain" id="tile-ball-explain">Awaiting data...</div>
         </div>
@@ -493,9 +512,13 @@
 <div id="tv-root" style="display:none">
 
     <div class="tv-header">
-        <div>
-            <div class="tv-club">Wagga Wagga Country Club</div>
-            <div class="tv-sub">Course Conditions &amp; Weather</div>
+        <div class="logo-wrap" style="height:70px;">
+            <img class="logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC Logo" style="height:70px;width:auto;">
+            <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="" style="height:70px;width:auto;">
+        </div>
+        <div class="tv-header-centre">
+            <div class="tv-club">Course Conditions &amp; Weather</div>
+            <div class="tv-sub">Wagga Wagga Country Club — Live Station Data</div>
         </div>
         <div class="tv-right">
             <div class="tv-time-big" id="tv-clock">--:--</div>
@@ -531,6 +554,7 @@ const v2ApiSecret = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
 const CLUB_LAT    = '-35.1082';
 const CLUB_LON    = '147.3598';
 const CLUB_ELEV_M = 147;
+const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) — adjust as needed
 
 // ── Global state ──────────────────────────────────────────────────
 let wx = { temp: null, rh: null, windKmh: 0, windDeg: null, windDir: '--', rainToday: 0, etToday: 0 };
@@ -541,6 +565,7 @@ let lastUpdateTime   = null;
 
 // ── Helpers ───────────────────────────────────────────────────────
 function degreesToCompass(deg) {
+    if (deg === null || deg === undefined) return null;
     const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     return dirs[Math.round(deg / 22.5) % 16];
 }
@@ -913,16 +938,22 @@ function updatePlayabilityBanner(at) {
     if      (wx.windKmh > 40) { score += 2; factors.push('Very strong wind'); }
     else if (wx.windKmh > 25) { score += 1; factors.push(windDescription(wx.windKmh)); }
 
-    // Rain
-    if      (isRaining)     { score += 2; factors.push(actualRain.toFixed(1) + ' mm today'); }
-    else if (rainProb > 70) { score += 2; factors.push(rainProb + '% rain chance'); }
-    else if (rainProb > 40) { score += 1; factors.push(rainProb + '% chance of rain'); }
+    // Rain — graduated by actual mm fallen + forecast probability separately
+    if (actualRain >= 30)       { score += 4; factors.push(`${actualRain.toFixed(1)} mm today — very wet course`); }
+    else if (actualRain >= 15)  { score += 3; factors.push(`${actualRain.toFixed(1)} mm today — wet, casual water likely`); }
+    else if (actualRain >= 5)   { score += 2; factors.push(`${actualRain.toFixed(1)} mm today — soft course`); }
+    else if (actualRain >= 0.5) { score += 1; factors.push(`${actualRain.toFixed(1)} mm today — trace rain`); }
+    // Forecast rain chance (only penalise if no rain has fallen yet)
+    if (actualRain === 0) {
+        if      (rainProb > 70) { score += 2; factors.push(rainProb + '% rain chance'); }
+        else if (rainProb > 40) { score += 1; factors.push(rainProb + '% chance of rain'); }
+    }
 
     // UV
     if      (uv > 10) { score += 2; factors.push('Extreme UV ' + Math.round(uv)); }
     else if (uv > 7)  { score += 1; factors.push('High UV ' + Math.round(uv)); }
 
-    // Daylight
+    // Daylight — graduated by light quality throughout the day
     if (fc.sunriseIso && fc.sunsetIso) {
         const offsetMs   = sydneyOffsetMs();
         const parseLocal = (iso) => {
@@ -931,15 +962,33 @@ function updatePlayabilityBanner(at) {
             const [h, m]      = t.split(':').map(Number);
             return Date.UTC(y, mo - 1, dd, h, m) - offsetMs;
         };
-        const sunriseMs = parseLocal(fc.sunriseIso);
-        const sunsetMs  = parseLocal(fc.sunsetIso);
-        const now       = Date.now();
-        if (now < sunriseMs || now > sunsetMs) {
+        const sunriseMs    = parseLocal(fc.sunriseIso);
+        const sunsetMs     = parseLocal(fc.sunsetIso);
+        const firstLightMs = sunriseMs - 30 * 60000;
+        const lastLightMs  = sunsetMs  + 15 * 60000;
+        const now          = Date.now();
+
+        if (now > lastLightMs || now < firstLightMs - 30 * 60000) {
+            // Fully dark
             score += 4; factors.push('After dark — course closed');
+        } else if (now < firstLightMs) {
+            // Between 60–30 min before first light
+            score += 2; factors.push('Too dark to play yet');
+        } else if (now < sunriseMs) {
+            // First light window (30 min before sunrise)
+            score += 1; factors.push('Marginal light — pre-sunrise');
+        } else if (now > lastLightMs - 15 * 60000) {
+            // Last light window (after sunset)
+            score += 3; factors.push('After sunset — last light fading');
         } else {
+            // Daytime — penalise by how much light remains
             const minsLeft = (sunsetMs - now) / 60000;
-            if      (minsLeft < 30) { score += 2; factors.push('Sunset in <30 min'); }
-            else if (minsLeft < 60) { score += 1; factors.push('Sunset in <1 hour'); }
+            if      (minsLeft < 30)  { score += 3; factors.push(`Sunset in ${Math.round(minsLeft)} min — very low light`); }
+            else if (minsLeft < 60)  { score += 2; factors.push(`Sunset in ${Math.round(minsLeft)} min — difficult light`); }
+            else if (minsLeft < 90)  { score += 1; factors.push(`Sunset in ${Math.round(minsLeft)} min — light fading`); }
+            // Also penalise early morning low-angle light (within 30 min after sunrise)
+            const minsSinceRise = (now - sunriseMs) / 60000;
+            if (minsSinceRise < 30) { score += 1; factors.push('Low morning light — within 30 min of sunrise'); }
         }
     }
 
@@ -1017,28 +1066,61 @@ function findBestPlayingWindow() {
     const sunriseMs = parseLocal(fc.sunriseIso);
     const sunsetMs  = parseLocal(fc.sunsetIso);
 
+    // Rain on ground base deduction (same value applied every eligible hour)
+    const actualRain = wx.rainToday || 0;
+    let rainGroundDeduct = 0;
+    if      (actualRain >= 30) rainGroundDeduct = 25;
+    else if (actualRain >= 15) rainGroundDeduct = 15;
+    else if (actualRain >=  5) rainGroundDeduct = 8;
+    else if (actualRain >= 0.5) rainGroundDeduct = 3;
+
     const hours = [];
     for (let i = 0; i < hourlyFc.time.length; i++) {
         if (!hourlyFc.time[i].startsWith(todayStr)) continue;
         const hourMs = parseLocal(hourlyFc.time[i]);
         const hour   = parseInt(hourlyFc.time[i].split('T')[1], 10);
+        // Skip past hours and hours outside playable daylight window (last eligible = sunset - 1hr for 3hr block)
         if (hourMs < nowMs || hourMs < sunriseMs || hourMs > sunsetMs - 3600000) {
             hours.push({ hour, score: -1 }); continue;
         }
-        const t  = hourlyFc.temperature_2m[i]          ?? 20;
-        const rp = hourlyFc.precipitation_probability[i] ?? 0;
-        const uv = hourlyFc.uv_index[i]                 ?? 3;
-        const ws = hourlyFc.windspeed_10m[i]             ?? 0;
+        const t   = hourlyFc.temperature_2m[i]           ?? 20;
+        const rp  = hourlyFc.precipitation_probability[i] ?? 0;
+        const uv  = hourlyFc.uv_index[i]                  ?? 3;
+        const ws  = hourlyFc.windspeed_10m[i]              ?? 0;
+        const wd  = hourlyFc.winddirection_10m ? (hourlyFc.winddirection_10m[i] ?? null) : null;
         let s = 100;
+
+        // Temperature
         if      (t < 8  || t > 38) s -= 40;
         else if (t < 12 || t > 32) s -= 15;
         else if (t < 15 || t > 28) s -= 5;
+
+        // Rain probability
         s -= Math.max(0, (rp - 15) * 1.2);
-        if (uv > 10) s -= 20; else if (uv > 7) s -= 8;
-        if      (ws > 50) s -= 30;
-        else if (ws > 35) s -= 15;
-        else if (ws > 20) s -= 5;
-        hours.push({ hour, score: Math.max(0, s), t, rp, uv, ws });
+
+        // UV
+        if      (uv > 10) s -= 20;
+        else if (uv > 7)  s -= 8;
+
+        // Wind speed
+        if      (ws > 50) s -= 35;
+        else if (ws > 35) s -= 20;
+        else if (ws > 25) s -= 10;
+        else if (ws > 15) s -= 5;
+
+        // Rain on ground (course condition)
+        s -= rainGroundDeduct;
+
+        // Daylight quality (light angle penalties)
+        const minsSinceRise = (hourMs - sunriseMs) / 60000;
+        const minsToSunset  = (sunsetMs - hourMs)  / 60000;
+        if      (minsSinceRise < 30)  s -= 15;  // very low morning light
+        else if (minsSinceRise < 90)  s -= 8;   // low morning light
+        if      (minsToSunset  < 60)  s -= 20;  // nearly dark
+        else if (minsToSunset  < 90)  s -= 12;  // difficult evening light
+        else if (minsToSunset  < 120) s -= 5;   // light noticeably fading
+
+        hours.push({ hour, score: Math.max(0, s), t, rp, uv, ws, wd });
     }
 
     let bestScore = -1, bestIdx = -1;
@@ -1052,13 +1134,23 @@ function findBestPlayingWindow() {
     const fmtH = h => `${h % 12 || 12}${h >= 12 ? 'PM' : 'AM'}`;
     const w    = hours[bestIdx];
     const avg  = bestScore / 3;
-    const quality     = avg >= 80 ? 'Ideal' : avg >= 60 ? 'Good' : avg >= 40 ? 'Acceptable' : 'Best available';
-    const pillClass   = avg >= 80 ? 'pill-green' : avg >= 60 ? 'pill-green' : avg >= 40 ? 'pill-yellow' : 'pill-orange';
+    const quality   = avg >= 80 ? 'Ideal' : avg >= 60 ? 'Good' : avg >= 40 ? 'Acceptable' : 'Best available';
+    const pillClass = avg >= 80 ? 'pill-green' : avg >= 60 ? 'pill-green' : avg >= 40 ? 'pill-yellow' : 'pill-orange';
+
     const issues = [];
+    if (actualRain >= 0.5) issues.push(`${actualRain.toFixed(1)} mm on course`);
     if (w.rp > 30) issues.push(`${w.rp}% rain chance`);
     if (w.uv > 7)  issues.push('high UV');
-    if (w.ws > 20) issues.push(`${Math.round(w.ws)} km/h wind`);
-    const note = issues.length ? issues.join(', ') : `${Math.round(w.t)}°C, UV ${Math.round(w.uv)}, ${Math.round(w.ws)} km/h wind`;
+    if (w.ws > 15) {
+        const dirStr = degreesToCompass(w.wd);
+        issues.push(`${Math.round(w.ws)} km/h${dirStr ? ' ' + dirStr : ''} wind`);
+    }
+    const note = issues.length
+        ? issues.join(' · ')
+        : (() => {
+            const dirStr = degreesToCompass(w.wd);
+            return `${Math.round(w.t)}°C · UV ${Math.round(w.uv)} · ${Math.round(w.ws)} km/h${dirStr ? ' ' + dirStr : ''} wind`;
+          })();
     return { timeStr: `${fmtH(w.hour)} – ${fmtH(hours[bestIdx+2].hour + 1)}`, quality, pillClass, note };
 }
 
@@ -1088,12 +1180,14 @@ function updateGreenSpeed() {
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const deficit = totalET - totalRain;
 
+    // Adjust Stimp relative to the club's known baseline
+    const b = BASELINE_STIMP;
     let speed, stimp, pillClass, note;
-    if (deficit < -10)    { speed = 'Slow';         stimp = '~8–9 ft';  pillClass = 'pill-blue';   note = 'Waterlogged — putts will die quickly, be aggressive on approaches'; }
-    else if (deficit < 0) { speed = 'Medium-Slow';  stimp = '~9 ft';    pillClass = 'pill-blue';   note = 'Soft greens — ball checks up, great for holding approach shots'; }
-    else if (deficit < 15){ speed = 'Medium';        stimp = '~10 ft';   pillClass = 'pill-green';  note = 'Greens running true — standard pace, putts are predictable'; }
-    else if (deficit < 30){ speed = 'Medium-Fast';   stimp = '~11 ft';   pillClass = 'pill-yellow'; note = 'Firming up — putts will have more pace, approach shots may release'; }
-    else                  { speed = 'Fast';          stimp = '~12+ ft';  pillClass = 'pill-orange'; note = 'Hard and fast — be careful on downhill putts, ball will run through'; }
+    if (deficit < -10)    { speed = 'Slower than usual'; stimp = `~${(b - 1.5).toFixed(1)} ft`;  pillClass = 'pill-blue';   note = 'Waterlogged — putts will die quickly, be aggressive on approaches'; }
+    else if (deficit < 0) { speed = 'Slightly slow';     stimp = `~${(b - 0.5).toFixed(1)} ft`;  pillClass = 'pill-blue';   note = 'Soft greens — ball checks up, great for holding approach shots'; }
+    else if (deficit < 15){ speed = 'Normal';             stimp = `~${b.toFixed(1)} ft`;           pillClass = 'pill-green';  note = 'Greens running true — standard pace, putts are predictable'; }
+    else if (deficit < 30){ speed = 'Slightly fast';      stimp = `~${(b + 1).toFixed(1)} ft`;    pillClass = 'pill-yellow'; note = 'Firming up — putts will have more pace, approach shots may release'; }
+    else                  { speed = 'Faster than usual';  stimp = `~${(b + 2).toFixed(1)}+ ft`;   pillClass = 'pill-orange'; note = 'Hard and fast — be careful on downhill putts, ball will run through'; }
 
     el.innerHTML = `
         <div class="insight-big">${speed}</div>
@@ -1149,22 +1243,26 @@ function renderHourlyForecast() {
         if (tHourStr < nowHourStr) continue;
         if (count >= 12) break;
 
-        const t  = hourlyFc.temperature_2m[i];
-        const rp = hourlyFc.precipitation_probability[i] ?? 0;
-        const uv = hourlyFc.uv_index[i] ?? 0;
-        const ws = hourlyFc.windspeed_10m[i] ?? 0;
+        const t   = hourlyFc.temperature_2m[i];
+        const rp  = hourlyFc.precipitation_probability[i] ?? 0;
+        const rmm = hourlyFc.precipitation ? (hourlyFc.precipitation[i] ?? 0) : 0;
+        const uv  = hourlyFc.uv_index[i] ?? 0;
+        const ws  = hourlyFc.windspeed_10m[i] ?? 0;
 
         const isNow  = tHourStr === nowHourStr;
         const h      = parseInt(tStr.split('T')[1], 10);
         const label  = isNow ? 'Now' : `${h % 12 || 12}${h >= 12 ? 'pm' : 'am'}`;
         const icon   = rp >= 70 ? '&#127783;&#65039;' : rp >= 40 ? '&#127782;&#65039;' : rp >= 15 ? '&#9925;&#65039;' : uv > 5 ? '&#9728;&#65039;' : '&#127780;&#65039;';
         const tCol   = t === null ? '#ecf0f1' : t > 30 ? '#e74c3c' : t < 10 ? '#74b9ff' : '#ecf0f1';
+        const mmStr  = rmm >= 0.1 ? `${rmm.toFixed(1)} mm` : '0 mm';
+        const mmCol  = rmm >= 0.1 ? '#74b9ff' : '#7f8c8d';
 
         html += `<div class="hc${isNow ? ' hc-now' : ''}">
             <div class="hc-time">${label}</div>
             <div class="hc-icon">${icon}</div>
             <div class="hc-temp" style="color:${tCol}">${t !== null ? Math.round(t) + '°' : '--'}</div>
-            <div class="hc-rain">${rp}%</div>
+            <div class="hc-rain"><span style="opacity:0.6;font-size:0.85em">chance </span>${rp}%</div>
+            <div class="hc-rain" style="color:${mmCol}"><span style="opacity:0.6;font-size:0.85em">fcst </span>${mmStr}</div>
             <div class="hc-uv">UV ${Math.round(uv)}</div>
             <div class="hc-wind">${Math.round(ws)} km/h</div>
         </div>`;
@@ -1305,9 +1403,14 @@ async function getForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset`
-            + `&hourly=temperature_2m,precipitation_probability,uv_index,windspeed_10m`
+            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
-        const response = await fetch(url);
+        let response, lastFcErr;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try { response = await fetch(url); if (response.ok) break; }
+            catch (e) { lastFcErr = e; if (attempt < 3) await new Promise(r => setTimeout(r, 3000)); }
+        }
+        if (!response || !response.ok) throw lastFcErr || new Error('Open-Meteo unavailable');
         const data     = await response.json();
         const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -1364,20 +1467,26 @@ async function getForecast() {
 }
 
 // ── WeatherLink v2 historical fetch ──────────────────────────────
-// Note: only corsproxy.io reliably forwards custom headers (X-Api-Secret).
-// We retry once after 3s to handle transient proxy failures.
+// corsproxy.io is primary — only it reliably forwards X-Api-Secret.
+// allorigins is a fallback in case corsproxy.io is down.
 async function v2Fetch(endpoint, params) {
-    const qs       = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://api.weatherlink.com/v2/${endpoint}?${qs}`)}`;
+    const qs      = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
+    const baseUrl = `https://api.weatherlink.com/v2/${endpoint}?${qs}`;
+    const proxies = [
+        `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+    ];
     let lastErr;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-            const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
-            if (res.ok) return res.json();
-            throw new Error(`v2 HTTP ${res.status}`);
-        } catch (e) {
-            lastErr = e;
-            if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+    for (const proxyUrl of proxies) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
+                if (res.ok) return res.json();
+                throw new Error(`v2 HTTP ${res.status}`);
+            } catch (e) {
+                lastErr = e;
+                if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+            }
         }
     }
     throw lastErr;
