@@ -138,16 +138,26 @@
 
         .gt-tile {
             border-radius: 12px;
-            padding: 16px 12px 14px;
+            padding: 0 0 14px;
             text-align: center;
             border: 2px solid transparent;
             transition: background 0.5s, border-color 0.5s;
             display: flex; flex-direction: column; align-items: center;
+            overflow: hidden;
+        }
+        .gt-tile .gt-title {
+            width: 100%;
+            background: rgba(0,0,0,0.35);
+            font-size: 0.72em;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: bold;
+            padding: 7px 8px 6px;
+            margin-bottom: 10px;
         }
         .gt-tile .gt-icon    { font-size: 1.7em; line-height: 1; margin-bottom: 5px; }
-        .gt-tile .gt-title   { font-size: 0.63em; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; margin-bottom: 6px; }
         .gt-tile .gt-value   { font-size: 1.7em; font-weight: bold; line-height: 1.15; margin-bottom: 8px; }
-        .gt-tile .gt-explain { font-size: 0.71em; line-height: 1.4; opacity: 0.9; }
+        .gt-tile .gt-explain { font-size: 0.71em; line-height: 1.4; opacity: 0.9; padding: 0 10px; }
         .gt-idle   { background: #1e2f3e; border-color: #3d5166; }
         .gt-green  { background: linear-gradient(160deg, #145a2c, #1e8449); border-color: #27ae60; }
         .gt-yellow { background: linear-gradient(160deg, #5a4800, #c9a007); border-color: #d4ac0d; }
@@ -402,57 +412,57 @@
     <div class="golfer-tiles">
 
         <div class="gt-tile gt-idle" id="tile-feelslike">
-            <div class="gt-icon">&#127777;</div>
             <div class="gt-title">Feels Like</div>
+            <div class="gt-icon">&#127777;</div>
             <div class="gt-value" id="tile-feelslike-val">--°C</div>
             <div class="gt-explain" id="tile-feelslike-explain">Awaiting data...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-wind">
-            <div class="gt-icon">&#127788;</div>
             <div class="gt-title">Wind</div>
+            <div class="gt-icon">&#127788;</div>
             <div class="gt-value" id="tile-wind-val">-- km/h</div>
             <div class="gt-explain" id="tile-wind-explain">Awaiting data...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-rain">
-            <div class="gt-icon">&#9748;</div>
             <div class="gt-title">Rain Chance</div>
+            <div class="gt-icon">&#9748;</div>
             <div class="gt-value" id="tile-rain-val">--%</div>
             <div class="gt-explain" id="tile-rain-explain">Awaiting forecast...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-uv">
-            <div class="gt-icon">&#9728;&#65039;</div>
             <div class="gt-title">UV Index</div>
+            <div class="gt-icon">&#9728;&#65039;</div>
             <div class="gt-value" id="tile-uv-val">UV --</div>
             <div class="gt-explain" id="tile-uv-explain">Awaiting forecast...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-course">
-            <div class="gt-icon">&#9971;</div>
             <div class="gt-title">Course Roll</div>
+            <div class="gt-icon">&#9971;</div>
             <div class="gt-value" id="tile-course-val">--</div>
             <div class="gt-explain" id="tile-course-explain">Awaiting data...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-ball">
-            <div class="gt-icon">⚪</div>
             <div class="gt-title">Ball Flight @ 150m</div>
+            <div class="gt-icon">⚪</div>
             <div class="gt-value" id="tile-ball-val">-- m</div>
             <div class="gt-explain" id="tile-ball-explain">Awaiting data...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-daylight">
-            <div class="gt-icon" id="tile-daylight-icon">&#127774;</div>
             <div class="gt-title" id="tile-daylight-title">Daylight</div>
+            <div class="gt-icon" id="tile-daylight-icon">&#127774;</div>
             <div class="gt-value" id="tile-daylight-val">--</div>
             <div class="gt-explain" id="tile-daylight-explain">Awaiting forecast...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-comfort">
-            <div class="gt-icon">&#128167;</div>
             <div class="gt-title">Humidity</div>
+            <div class="gt-icon">&#128167;</div>
             <div class="gt-value" id="tile-comfort-val">--%</div>
             <div class="gt-explain" id="tile-comfort-explain">Awaiting data...</div>
         </div>
@@ -481,7 +491,7 @@
 
     <!-- 12-Hour Forecast -->
     <div class="card" id="hourly-forecast-card" style="display:none">
-        <h2>Next 12 Hours</h2>
+        <h2>Next 5 Hours</h2>
         <div class="hourly-grid" id="hourly-container">
             <div style="color:#7f8c8d;font-size:0.85em">Loading...</div>
         </div>
@@ -1241,7 +1251,7 @@ function renderHourlyForecast() {
         const tStr    = hourlyFc.time[i];
         const tHourStr = tStr.slice(0, 13);
         if (tHourStr < nowHourStr) continue;
-        if (count >= 12) break;
+        if (count >= 5) break;
 
         const t   = hourlyFc.temperature_2m[i];
         const rp  = hourlyFc.precipitation_probability[i] ?? 0;
