@@ -68,7 +68,7 @@
 
         /* ── Spray ── */
         .spray-params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-        .spray-param { border-radius: 8px; padding: 12px 6px 10px; text-align: center; transition: background 0.4s; }
+        .spray-param { border-radius: 8px; padding: 12px 6px 10px; text-align: center; transition: background 0.4s; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }
         .spray-param .sp-val  { font-size: 1.6em; font-weight: bold; line-height: 1.1; }
         .spray-param .sp-unit { font-size: 0.75em; opacity: 0.85; }
         .spray-param .sp-lbl  { font-size: 0.68em; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; opacity: 0.8; }
@@ -84,7 +84,8 @@
 
         /* ── Irrigation ── */
         .irr-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-        .irr-metric { background: #1a252f; border-radius: 6px; padding: 8px; text-align: center; }
+
+        .irr-metric { background: #1a252f; border-radius: 6px; padding: 8px; text-align: center; min-height: 70px; display: flex; flex-direction: column; justify-content: center; }
         .irr-metric .lbl { font-size: 0.7em; color: #7f8c8d; text-transform: uppercase; }
         .irr-metric .val { font-size: 1.3em; font-weight: bold; margin-top: 3px; }
         .section-title { font-size: 0.72em; text-transform: uppercase; letter-spacing: 1px; color: #7f8c8d; margin: 14px 0 8px; }
@@ -234,6 +235,121 @@
         }
         .ds-lbl { font-size: 0.68em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
         .ds-val { font-size: 1.1em; font-weight: bold; margin-top: 3px; }
+
+        /* ── Soil Moisture Gauge ── */
+        .sm-gauge { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 8px 0 12px; }
+        .sm-seg { border-radius: 4px; padding: 6px 4px; text-align: center; font-size: 0.68em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.35; transition: opacity 0.4s; }
+        .sm-seg.sm-active { opacity: 1; }
+        .sm-waterlogged { background: #1a3a5c; color: #74b9ff; }
+        .sm-wet         { background: #1a4a2e; color: #2ecc71; }
+        .sm-optimal     { background: #1d6a39; color: #27ae60; }
+        .sm-dry         { background: #7d6608; color: #d4ac0d; }
+        .sm-very-dry    { background: #6e1a15; color: #e74c3c; }
+        .sm-label { font-size: 0.72em; color: #7f8c8d; margin-top: 2px; text-align: center; }
+
+        /* ── Weekly table row highlights ── */
+        .weekly-table tr.row-today td { background: rgba(41,128,185,0.15); }
+        .weekly-table tr.row-weekend td { background: rgba(255,255,255,0.03); }
+
+        /* ── GK Internal Tabs ── */
+        .gk-tab-bar { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+        .gk-tab-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:9px 12px; font-size:0.85em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; flex:1; min-width:calc(33.33% - 6px); text-align:center; }
+        .gk-tab-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
+        .gk-tab-btn:hover:not(.active) { background:#2c3e50; color:#ecf0f1; }
+        .gk-tab-panel { display:none; }
+        .gk-tab-panel.gk-active { display:block; }
+        .gk-tab-footer { font-size:0.72em; color:#7f8c8d; text-align:right; margin-top:14px; padding-top:8px; border-top:1px solid #1e2f3c; }
+
+        /* ── Report Buttons ── */
+        .rpt-btn { background:#1a252f; border:1px solid #3d5166; color:#ecf0f1; border-radius:8px; padding:14px 10px; font-size:0.85em; font-weight:bold; cursor:pointer; text-align:center; transition:background 0.2s,border-color 0.2s; letter-spacing:0.5px; }
+        .rpt-btn:hover { background:#2c3e50; border-color:#2980b9; color:#fff; }
+        .rpt-btn.active { background:#2980b9; border-color:#2980b9; color:#fff; }
+
+        /* ── Report preview ── */
+        .rpt-section { margin-bottom:16px; }
+        .rpt-section-title { font-size:0.72em; text-transform:uppercase; letter-spacing:1.5px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:6px; margin-bottom:10px; }
+        .rpt-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #1e2f3c; font-size:0.88em; }
+        .rpt-row:last-child { border-bottom:none; }
+        .rpt-lbl { color:#95a5a6; }
+        .rpt-val { font-weight:bold; color:#ecf0f1; }
+        .rpt-badge { display:inline-block; border-radius:4px; padding:2px 10px; font-size:0.82em; font-weight:bold; }
+        .rpt-good { background:#1d6a39; color:#2ecc71; }
+        .rpt-warn { background:#7d6608; color:#f1c40f; }
+        .rpt-bad  { background:#6e1a15; color:#e74c3c; }
+        .rpt-info { background:#1a3a52; color:#5dade2; }
+        .rpt-table { width:100%; border-collapse:collapse; font-size:0.85em; margin-top:6px; }
+        .rpt-table th { color:#7f8c8d; font-weight:normal; text-align:left; padding:4px 6px; border-bottom:1px solid #3d5166; font-size:0.8em; text-transform:uppercase; }
+        .rpt-table td { padding:6px 6px; border-bottom:1px solid #1e2f3c; color:#ecf0f1; }
+        .rpt-table tr:last-child td { border-bottom:none; }
+        .rpt-table tfoot td { border-top:2px solid #3d5166; font-weight:bold; padding-top:8px; }
+        .rpt-generated { font-size:0.72em; color:#7f8c8d; text-align:right; margin-top:14px; padding-top:8px; border-top:1px solid #1e2f3c; }
+
+        /* ── Print styles ── */
+        @media print {
+            body { background:#fff !important; color:#000 !important; padding:12px; }
+            .tab-bar, .gk-tab-bar, #report-preview-card > div:first-child button, .gk-tab-footer, .conditions-bar { display:none !important; }
+            .card { background:#fff !important; border:1px solid #ccc !important; page-break-inside:avoid; }
+            .rpt-section-title { color:#333 !important; border-color:#ccc !important; }
+            .rpt-lbl { color:#555 !important; }
+            .rpt-val { color:#000 !important; }
+            .rpt-row { border-color:#eee !important; }
+            .rpt-table th { color:#555 !important; border-color:#ccc !important; }
+            .rpt-table td { color:#000 !important; border-color:#eee !important; }
+            .rpt-table tfoot td { border-color:#ccc !important; }
+            .rpt-generated { color:#777 !important; border-color:#ccc !important; }
+            .rpt-badge { border:1px solid #999 !important; background:#eee !important; color:#000 !important; }
+            #gk-tab-reports { display:block !important; }
+            .gk-tab-panel:not(#gk-tab-reports) { display:none !important; }
+        }
+        .gk-pill { background:#1a252f; border-radius:10px; padding:14px 12px; min-height:80px; display:flex; flex-direction:column; justify-content:space-between; }
+        .gk-pill-lbl { font-size:0.68em; color:#7f8c8d; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+        .gk-pill-val { font-size:1.45em; font-weight:bold; }
+        .gk-pill-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+
+        /* ── Mobile responsive fixes ── */
+        @media (max-width:480px) {
+            .spray-params { grid-template-columns:1fr 1fr !important; }
+            .irr-metrics  { grid-template-columns:1fr 1fr !important; }
+            .gk-pill-grid { grid-template-columns:1fr 1fr !important; }
+            .sm-gauge { grid-template-columns:repeat(3,1fr); }
+            .sm-seg   { font-size:0.6em; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        }
+
+        /* ── Report row badge wrapping ── */
+        .rpt-row { flex-wrap:wrap; gap:4px; align-items:flex-start; }
+        .rpt-lbl { min-width:0; flex-shrink:1; }
+        .rpt-val { flex-shrink:0; max-width:100%; }
+
+        /* ── Mow Window ── */
+        .mow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 700px) { .mow-grid { grid-template-columns: 1fr; } }
+
+        /* ── Export Modal ── */
+        .export-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9000; align-items:center; justify-content:center; }
+        .export-modal-overlay.open { display:flex; }
+        .export-modal { background:#2c3e50; border:1px solid #4a6a84; border-radius:12px; padding:24px; width:320px; max-width:90vw; }
+        .export-modal h3 { font-size:0.85em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; margin-bottom:16px; }
+        .export-modal label { font-size:0.8em; color:#aaa; display:block; margin-bottom:4px; }
+        .export-modal input[type=date] { width:100%; background:#1a252f; border:1px solid #3d5166; color:#ecf0f1; border-radius:6px; padding:8px 10px; font-size:0.95em; margin-bottom:14px; }
+        .export-modal input[type=date]:focus { outline:none; border-color:#27ae60; }
+        .export-modal-actions { display:flex; gap:8px; margin-top:4px; }
+        .export-modal-actions button { flex:1; border:none; border-radius:6px; padding:10px; font-size:0.9em; cursor:pointer; font-weight:bold; }
+        .btn-export-go { background:#27ae60; color:#fff; }
+        .btn-export-go:disabled { background:#1d6a39; color:#7f8c8d; cursor:wait; }
+        .btn-export-cancel { background:#3d5166; color:#ecf0f1; }
+
+        /* ── GK Wind Strip ── */
+        .wind-strip { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 6px; }
+        .wind-strip::-webkit-scrollbar { height: 4px; }
+        .wind-strip::-webkit-scrollbar-track { background: #1a252f; }
+        .wind-strip::-webkit-scrollbar-thumb { background: #3d5166; border-radius: 2px; }
+        .ws-cell { min-width: 58px; flex-shrink: 0; background: #1a252f; border-radius: 8px; padding: 8px 4px; text-align: center; border: 1px solid #2c3e50; }
+        .ws-time  { font-size: 0.68em; color: #7f8c8d; margin-bottom: 3px; }
+        .ws-speed { font-size: 1.05em; font-weight: bold; line-height: 1.1; }
+        .ws-dir   { font-size: 0.72em; color: #bdc3c7; margin-top: 3px; }
+        .ws-good  { border-color: #27ae60; }
+        .ws-warn  { border-color: #d4ac0d; }
+        .ws-bad   { border-color: #e74c3c; }
 
         /* ── Last-updated colour ── */
         @keyframes flash-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
@@ -438,60 +554,119 @@
 <!-- ══════════════ GREENKEEPER VIEW ══════════════ -->
 <div id="view-greenkeeper">
 
-    <!-- Conditions Bar (greenkeeper only) -->
+    <!-- Conditions Bar (always visible) -->
     <div class="conditions-bar">
         <div class="cond-item"><div class="label">Temperature</div><div class="value" id="temp">--°C</div></div>
         <div class="cond-item"><div class="label">Humidity</div><div class="value" id="humidity">--%</div></div>
-        <div class="cond-item"><div class="label">Rain Today</div><div class="value" id="rain">-- mm</div></div>
-        <div class="cond-item"><div class="label">ET Today</div><div class="value" id="et">-- mm</div></div>
+        <div class="cond-item"><div class="label">Delta T</div><div class="value" id="ds-deltat">--°C</div></div>
+        <div class="cond-item"><div class="label">Dew Point</div><div class="value" id="ds-dewpoint">--°C</div></div>
         <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
         <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
     </div>
 
-    <div class="dashboard">
+    <!-- GK Internal Tab Bar -->
+    <div class="gk-tab-bar">
+        <button class="gk-tab-btn active" data-gktab="spray"      onclick="switchGKTab('spray')"     >&#127807; Spraying</button>
+        <button class="gk-tab-btn"        data-gktab="disease"    onclick="switchGKTab('disease')"   >&#129440; Disease</button>
+        <button class="gk-tab-btn"        data-gktab="mow"        onclick="switchGKTab('mow')"       >&#9986;&#65039; Mow</button>
+        <button class="gk-tab-btn"        data-gktab="irrigation" onclick="switchGKTab('irrigation')">&#128167; Irrigation</button>
+        <button class="gk-tab-btn"        data-gktab="station"    onclick="switchGKTab('station')"   >&#128225; Station</button>
+        <button class="gk-tab-btn"        data-gktab="reports"    onclick="switchGKTab('reports')"   >&#128229; Reports</button>
+    </div>
+    <!-- ── GK Tab: Spraying ── -->
+    <div id="gk-tab-spray" class="gk-tab-panel gk-active">
 
         <div class="card">
             <h2>Spraying Conditions</h2>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <label style="font-size:0.72em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Product</label>
+                <select id="spray-product-select" onchange="setSprayProduct(this.value)" style="flex:1;background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:5px;padding:5px 8px;font-size:0.82em"></select>
+            </div>
             <div class="spray-params">
                 <div class="spray-param sp-idle" id="sp-deltat">
                     <div class="sp-val" id="spray-deltat-val">--</div>
                     <div class="sp-unit">°C</div>
                     <div class="sp-lbl">Delta T</div>
-                    <div class="sp-range">Ideal 2 – 8°C</div>
+                    <div class="sp-range" id="sp-deltat-range">Ideal 2 – 8°C</div>
                 </div>
                 <div class="spray-param sp-idle" id="sp-temp">
                     <div class="sp-val" id="spray-temp-val">--</div>
                     <div class="sp-unit">°C</div>
                     <div class="sp-lbl">Dry Bulb</div>
-                    <div class="sp-range">Ideal &lt; 28°C</div>
+                    <div class="sp-range" id="sp-temp-range">Ideal &lt; 28°C</div>
                 </div>
                 <div class="spray-param sp-idle" id="sp-wind">
                     <div class="sp-val" id="spray-wind-val">--</div>
                     <div class="sp-unit" id="spray-wind-dir-badge">km/h</div>
                     <div class="sp-lbl">Wind Speed</div>
-                    <div class="sp-range">Ideal &lt; 15 km/h</div>
+                    <div class="sp-range" id="sp-wind-range">Ideal &lt; 15 km/h</div>
                 </div>
             </div>
             <div class="status-badge badge-bad" id="sprayStatus">Checking conditions...</div>
+            <div id="spray-forecast-note" style="display:none;margin-top:6px;font-size:0.8em;text-align:center;color:#d4ac0d"></div>
 
-            <!-- Disease Risk - Leaf Wetness -->
-            <div class="section-title" style="margin-top:16px">&#127807; Disease Risk - Leaf Wetness (CART Model)</div>
+            <div class="section-title" style="margin-top:14px">&#128337; Next Spray Window (48h)</div>
+            <div id="next-spray-window"><div style="color:#7f8c8d;font-size:0.85em">Awaiting forecast...</div></div>
+        </div>
+
+        <!-- 24h Wind Forecast Strip -->
+        <div class="card">
+            <h2>&#127788; 24h Wind Forecast — Spray Planning</h2>
+            <div class="wind-strip" id="gk-wind-strip"><div style="color:#7f8c8d;font-size:0.85em">Loading...</div></div>
+            <div style="font-size:0.72em;color:#7f8c8d;margin-top:8px">
+                <span style="color:#27ae60">&#9646;</span> &lt;15 km/h — Good &nbsp;
+                <span style="color:#d4ac0d">&#9646;</span> 15–20 km/h — Marginal &nbsp;
+                <span style="color:#e74c3c">&#9646;</span> &gt;20 km/h — Too windy
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>&#127777;&#65039; Growing Degree Days</h2>
+            <div id="gdd-content"><div style="color:#7f8c8d;font-size:0.85em">Awaiting data...</div></div>
+        </div>
+
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-spray -->
+
+    <!-- ── GK Tab: Disease ── -->
+    <div id="gk-tab-disease" class="gk-tab-panel">
+        <div class="card">
+            <h2>&#129440; Disease Risk — Leaf Wetness (CART Model)</h2>
+            <div id="sk-data-warn" style="display:none;background:#3d2a0a;border-left:3px solid #d4ac0d;padding:8px 10px;border-radius:4px;font-size:0.8em;color:#d4ac0d;margin-bottom:10px">
+                &#9888; Dollar Spot model needs 2+ days of history — results may be incomplete, check back tomorrow. Model is calibrated for creeping bentgrass (Agrostis stolonifera) — valid for A4, Cobra &amp; Oakley greens.
+            </div>
             <div class="irr-metrics">
                 <div class="irr-metric"><div class="lbl">Wet Hours (24h)</div><div class="val" id="dr-lwd">--</div></div>
-                <div class="irr-metric"><div class="lbl">Night Min Temp</div><div class="val" id="dr-mintemp">--</div></div>
+                <div class="irr-metric"><div class="lbl">Night Min (8pm–8am)</div><div class="val" id="dr-mintemp">--</div></div>
                 <div class="irr-metric"><div class="lbl">Mean RH (24h)</div><div class="val" id="dr-rh">--</div></div>
             </div>
+            <div style="overflow-x:auto">
             <table class="disease-table">
                 <thead><tr><th>Disease</th><th>Risk</th><th>Notes</th></tr></thead>
                 <tbody id="disease-tbody">
                     <tr><td colspan="3" style="color:#7f8c8d;font-size:0.85em">Fetching today's hourly records...</td></tr>
                 </tbody>
             </table>
+            </div>
             <div id="disease-rec" class="recommendation rec-hold" style="margin-top:10px">
                 <div class="rec-title">Loading...</div>
                 <div class="rec-detail">Awaiting today's hourly weather data from the station.</div>
             </div>
         </div>
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-disease -->
+
+    <!-- ── GK Tab: Mow ── -->
+    <div id="gk-tab-mow" class="gk-tab-panel">
+        <div class="card">
+            <h2>&#9986;&#65039; Dew &amp; Mow Window</h2>
+            <div id="mow-window-content"><div style="color:#7f8c8d;font-size:0.85em">Awaiting data...</div></div>
+        </div>
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-mow -->
+
+    <!-- ── GK Tab: Irrigation ── -->
+    <div id="gk-tab-irrigation" class="gk-tab-panel">
 
         <div class="card">
             <h2>Irrigation</h2>
@@ -500,12 +675,20 @@
                 <div class="irr-metric"><div class="lbl">Rain Today</div><div class="val" id="irr-rain">--</div></div>
                 <div class="irr-metric"><div class="lbl">Daily Deficit</div><div class="val" id="irr-deficit">--</div></div>
             </div>
-            <div class="section-title">7-Day Breakdown (mm)</div>
-            <table class="weekly-table">
-                <thead><tr><th>Day</th><th class="et-col">ET</th><th class="rain-col">Rain</th><th>Deficit</th></tr></thead>
-                <tbody id="weekly-tbody"><tr><td colspan="4" style="color:#7f8c8d;font-size:0.85em">Accumulating data...</td></tr></tbody>
-                <tfoot id="weekly-tfoot"></tfoot>
-            </table>
+            <div class="irr-metrics" style="margin-top:6px">
+                <div class="irr-metric"><div class="lbl">This Month</div><div class="val" id="irr-rain-month">--</div></div>
+                <div class="irr-metric"><div class="lbl">This Year</div><div class="val" id="irr-rain-year">--</div></div>
+                <div class="irr-metric"><div class="lbl">7-Day Balance</div><div class="val" id="irr-balance">--</div></div>
+            </div>
+            <div class="section-title">Soil Moisture Status</div>
+            <div class="sm-gauge">
+                <div class="sm-seg sm-waterlogged" id="sm-waterlogged">Waterlogged</div>
+                <div class="sm-seg sm-wet"         id="sm-wet">Wet</div>
+                <div class="sm-seg sm-optimal"     id="sm-optimal">Optimal</div>
+                <div class="sm-seg sm-dry"         id="sm-dry">Dry</div>
+                <div class="sm-seg sm-very-dry"    id="sm-very-dry">Very Dry</div>
+            </div>
+            <div class="sm-label" id="sm-label"></div>
             <div class="section-title">Irrigation Recommendation</div>
             <div class="recommendation rec-hold" id="recommendation">
                 <div class="rec-title">Loading...</div>
@@ -513,9 +696,142 @@
             </div>
         </div>
 
-    </div><!-- end .dashboard -->
+        <div class="card">
+            <h2>&#127783;&#65039; 7-Day Water Balance</h2>
+            <div id="rainfall-summary-content"><div style="color:#7f8c8d;font-size:0.85em">Awaiting data...</div></div>
+            <div style="margin-top:12px;text-align:right">
+                <button onclick="toggleWeeklyBreakdown()" id="btn-weekly-toggle" style="background:#1a252f;border:1px solid #3d5166;color:#7f8c8d;border-radius:6px;padding:6px 14px;font-size:0.78em;cursor:pointer;letter-spacing:0.5px">&#128197; Show 7-Day Detail</button>
+            </div>
+            <div id="weekly-breakdown-panel" style="display:none;margin-top:10px">
+                <table class="weekly-table">
+                    <thead><tr><th>Day</th><th class="et-col">ET</th><th class="rain-col">Rain</th><th>Deficit</th></tr></thead>
+                    <tbody id="weekly-tbody"><tr><td colspan="4" style="color:#7f8c8d;font-size:0.85em">Accumulating data...</td></tr></tbody>
+                    <tfoot id="weekly-tfoot"></tfoot>
+                </table>
+            </div>
+        </div>
+
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-irrigation -->
+
+    <!-- ── GK Tab: Station ── -->
+    <div id="gk-tab-station" class="gk-tab-panel">
+        <div class="card">
+            <h2>&#128225; Live Station Readings</h2>
+
+            <div class="section-title">&#127777;&#65039; Temperature &amp; Humidity</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Air Temp</div><div class="gk-pill-val" id="gk-st-temp">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Humidity</div><div class="gk-pill-val" id="gk-st-rh">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Dew Point</div><div class="gk-pill-val" id="gk-st-dp">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Wet Bulb</div><div class="gk-pill-val" id="gk-st-wb">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Delta T</div><div class="gk-pill-val" id="gk-st-deltat">--</div></div>
+            </div>
+
+            <div class="section-title">&#127788; Wind</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Speed</div><div class="gk-pill-val" id="gk-st-wind">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Direction</div><div class="gk-pill-val" id="gk-st-winddir">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Gust</div><div class="gk-pill-val" id="gk-st-gust">--</div></div>
+            </div>
+
+            <div class="section-title">&#127783;&#65039; Pressure</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill">
+                    <div class="gk-pill-lbl">Barometric</div>
+                    <div class="gk-pill-val" id="gk-st-pressure">--</div>
+                    <div style="font-size:0.78em;margin-top:4px">
+                        <span id="gk-st-pressure-arrow" style="font-weight:bold">→</span>
+                        <span id="gk-st-pressure-label" style="margin-left:4px">Steady</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">&#127783;&#65039; Rain &amp; ET</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Rain Today</div><div class="gk-pill-val" id="gk-st-rain-today">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Rain Month</div><div class="gk-pill-val" id="gk-st-rain-month">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Rain YTD</div><div class="gk-pill-val" id="gk-st-rain-year">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">ET Today</div><div class="gk-pill-val" id="gk-st-et-today">--</div></div>
+            </div>
+
+            <div class="section-title">&#9728;&#65039; Solar &amp; Daylight</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">UV Index</div><div class="gk-pill-val" id="gk-st-uv">--</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Sunrise / Sunset</div><div class="gk-pill-val" id="gk-st-sun" style="font-size:1.1em">--</div></div>
+            </div>
+
+        </div>
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-station -->
+
+    <!-- ── GK Tab: Reports ── -->
+    <div id="gk-tab-reports" class="gk-tab-panel">
+
+        <!-- Report selector -->
+        <div class="card">
+            <h2>&#128229; Greenkeeper Reports</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+                <button class="rpt-btn" onclick="generateReport('morning')">&#9728;&#65039; Morning Briefing</button>
+                <button class="rpt-btn" onclick="generateReport('spray')">&#127807; Spray Report</button>
+                <button class="rpt-btn" onclick="generateReport('irrigation')">&#128167; Irrigation Report</button>
+                <button class="rpt-btn" onclick="generateReport('disease')">&#129440; Disease Risk</button>
+                <button class="rpt-btn" onclick="generateReport('gdd')">&#127777;&#65039; GDD Growth</button>
+                <button class="rpt-btn" onclick="generateReport('weekly')">&#128197; Weekly Summary</button>
+                <button class="rpt-btn" style="grid-column:1/-1" onclick="generateReport('station')">&#128225; Full Station Dump</button>
+            </div>
+        </div>
+
+        <!-- Report preview -->
+        <div class="card" id="report-preview-card" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+                <h2 id="report-preview-title" style="margin-bottom:0;border:none;padding:0"></h2>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button onclick="emailReport()" style="background:#27ae60;border:none;color:white;border-radius:6px;padding:8px 16px;font-size:0.85em;font-weight:bold;cursor:pointer">&#9993; Email</button>
+                    <button onclick="printReport()" style="background:#2980b9;border:none;color:white;border-radius:6px;padding:8px 16px;font-size:0.85em;font-weight:bold;cursor:pointer">&#128438; Print</button>
+                    <button onclick="document.getElementById('report-preview-card').style.display='none'" style="background:#3d5166;border:none;color:#ecf0f1;border-radius:6px;padding:8px 12px;font-size:0.85em;cursor:pointer">&#10005; Close</button>
+                </div>
+            </div>
+            <div id="report-preview-content"></div>
+        </div>
+
+        <!-- CSV Data Exports -->
+        <div class="card">
+            <h2>&#8659; Raw Data Export (CSV)</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
+                <div style="background:#1a252f;border-radius:8px;padding:16px;text-align:center">
+                    <div style="font-size:0.75em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Monthly Report</div>
+                    <div style="font-size:0.8em;color:#aaa;margin-bottom:12px">Full current month<br>ET, Rain, Temp, GDD</div>
+                    <button id="btn-month-csv" onclick="exportMonthCSV()" style="width:100%;background:#2980b9;border:none;color:white;border-radius:6px;padding:10px;font-size:0.9em;font-weight:bold;cursor:pointer;letter-spacing:0.5px">&#8659; Download Month</button>
+                </div>
+                <div style="background:#1a252f;border-radius:8px;padding:16px;text-align:center">
+                    <div style="font-size:0.75em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Custom Range</div>
+                    <div style="font-size:0.8em;color:#aaa;margin-bottom:12px">Pick any date range<br>ET, Rain, Temp, GDD</div>
+                    <button onclick="openExportModal()" style="width:100%;background:#27ae60;border:none;color:white;border-radius:6px;padding:10px;font-size:0.9em;font-weight:bold;cursor:pointer;letter-spacing:0.5px">&#8659; Custom Range</button>
+                </div>
+            </div>
+            <div style="font-size:0.75em;color:#7f8c8d;margin-top:4px">Files download as CSV — compatible with Excel and Google Sheets</div>
+        </div>
+
+    <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
+    </div><!-- end gk-tab-reports -->
 
 </div><!-- end #view-greenkeeper -->
+
+<!-- Custom Export Modal -->
+<div class="export-modal-overlay" id="export-modal-overlay" onclick="if(event.target===this)closeExportModal()">
+    <div class="export-modal">
+        <h3>&#8659; Custom Weather Report</h3>
+        <label for="export-from">From</label>
+        <input type="date" id="export-from">
+        <label for="export-to">To</label>
+        <input type="date" id="export-to">
+        <div class="export-modal-actions">
+            <button class="btn-export-cancel" onclick="closeExportModal()">Cancel</button>
+            <button class="btn-export-go" id="btn-export-go" onclick="runCustomExport()">Download CSV</button>
+        </div>
+    </div>
+</div>
 
 <!-- Lightning / Thunderstorm Alert -->
 <div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 3 hours — lightning risk in the area</div>
@@ -733,6 +1049,10 @@
 </div>
 
 <script>
+// ── URL Mode Detection (must be first) ───────────────────────────
+const TV_MODE = new URLSearchParams(window.location.search).has('tv');
+const GK_MODE = new URLSearchParams(window.location.search).has('gk');
+
 // ── Credentials ───────────────────────────────────────────────────
 // NOTE: Credentials visible in source. Do not host this file publicly
 // or on an open web server without access restrictions.
@@ -747,8 +1067,80 @@ const CLUB_ELEV_M = 147;
 const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) - adjust as needed
 
 // ── Global state ──────────────────────────────────────────────────
-let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null };
-let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null, todayMax: null, todayMin: null, tomorrowSunriseIso: null, tomorrowSunrise: '--' };
+let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
+
+// ── Spray product Delta T thresholds ─────────────────────────────
+// dtMin/dtMax = ideal window; dtWarnMax = marginal upper limit
+// ⚠ Add your specific chemicals below when list is confirmed
+// dtMin/dtMax/dtWarnMax = Delta T °C   tempMax/tempWarnMax = dry bulb °C   windMax/windWarnMax = km/h
+const SPRAY_PRODUCTS = [
+    // ── General ──────────────────────────────────────────────────────
+    { group: 'General',           key: 'general',      label: 'General / Default',        dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+
+    // ── Fungicides ───────────────────────────────────────────────────
+    // Systemic — more permissive on DT and temp; stay under 15 km/h wind
+    { group: 'Fungicides',        key: 'signature',    label: 'Signature',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'banol',        label: 'Banol',                    dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'headway',      label: 'Headway Maxx',             dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'subdue',       label: 'Subdue Maxx',              dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'segway',       label: 'Segway Chino',             dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'banner',       label: 'Banner Maxx',              dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'dedicate',     label: 'Dedicate',                 dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'iprodione',    label: 'Iprodione',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'velista',      label: 'Velista',                  dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'lexicon',      label: 'Lexicon',                  dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'evolution',    label: 'Evolution',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Fungicides',        key: 'compass',      label: 'Compass',                  dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    // Contact / multi-site — tighter across all three parameters
+    { group: 'Fungicides',        key: 'medallion',    label: 'Medallion (contact)',       dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Fungicides',        key: 'thiram',       label: 'Thiram (contact)',          dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Fungicides',        key: 'daconil',      label: 'Daconil (contact)',         dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Fungicides',        key: 'mancoflow',    label: 'Manco Flow (contact)',      dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+
+    // ── Insecticides ─────────────────────────────────────────────────
+    // Contact — tighter wind (fine droplets, drift risk)
+    { group: 'Insecticides',      key: 'acelyprin',    label: 'Acelyprin',                dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Insecticides',      key: 'chlorpyrifos', label: 'Chlorpyrifos',             dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Insecticides',      key: 'scarlet',      label: 'Scarlet',                  dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Insecticides',      key: 'bifenthrin',   label: 'Bifenthrin',               dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Insecticides',      key: 'spinner',      label: 'Spinner',                  dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    { group: 'Insecticides',      key: 'waldo',        label: 'Waldo',                    dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 12, windWarnMax: 15 },
+    // Systemic — more permissive
+    { group: 'Insecticides',      key: 'pride',        label: 'Pride',                    dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Insecticides',      key: 'meridian',     label: 'Meridian',                 dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Insecticides',      key: 'pennicide',    label: 'Pennicide',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Insecticides',      key: 'fipronil',     label: 'Fipronil (Friponil)',       dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+
+    // ── Growth Regulators ────────────────────────────────────────────
+    // Systemic uptake — permissive on temp, standard wind
+    { group: 'Growth Regulators', key: 'primo',        label: 'Primo Maxx',               dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 32, tempWarnMax: 36, windMax: 15, windWarnMax: 20 },
+    { group: 'Growth Regulators', key: 'paclo',        label: 'Paclo',                    dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 32, tempWarnMax: 36, windMax: 15, windWarnMax: 20 },
+    { group: 'Growth Regulators', key: 'intercept',    label: 'Intercept',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 32, tempWarnMax: 36, windMax: 15, windWarnMax: 20 },
+
+    // ── Wetting Agents / Surfactants ─────────────────────────────────
+    // Least sensitive — wide DT and temp window, slightly higher wind ok
+    { group: 'Wetting Agents',    key: 'qualibra',     label: 'Qualibra',                 dtMin: 2, dtMax: 15, dtWarnMax: 18, tempMax: 35, tempWarnMax: 40, windMax: 20, windWarnMax: 25 },
+    { group: 'Wetting Agents',    key: 'tfair',        label: 'T-Fair',                   dtMin: 2, dtMax: 15, dtWarnMax: 18, tempMax: 35, tempWarnMax: 40, windMax: 20, windWarnMax: 25 },
+    { group: 'Wetting Agents',    key: 'express',      label: 'Express',                  dtMin: 2, dtMax: 15, dtWarnMax: 18, tempMax: 35, tempWarnMax: 40, windMax: 20, windWarnMax: 25 },
+    { group: 'Wetting Agents',    key: 'deepgreen',    label: 'Deepgreen',                dtMin: 2, dtMax: 15, dtWarnMax: 18, tempMax: 35, tempWarnMax: 40, windMax: 20, windWarnMax: 25 },
+
+    // ── Herbicides ───────────────────────────────────────────────────
+    // Contact — strictest across all three (volatile, drift-sensitive)
+    { group: 'Herbicides',        key: 'smackdown',    label: 'Smackdown (contact)',       dtMin: 2, dtMax:  6, dtWarnMax:  8, tempMax: 25, tempWarnMax: 28, windMax: 10, windWarnMax: 15 },
+    { group: 'Herbicides',        key: 'doubletime',   label: 'Double Time (contact)',     dtMin: 2, dtMax:  6, dtWarnMax:  8, tempMax: 25, tempWarnMax: 28, windMax: 10, windWarnMax: 15 },
+    // Systemic / residual pre-emergent
+    { group: 'Herbicides',        key: 'pylex',        label: 'Pylex',                    dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'monument',     label: 'Monument',                 dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'tribute',      label: 'Tribute',                  dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'embargo',      label: 'Embargo',                  dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'sedgehammer',  label: 'Sedge Hammer',             dtMin: 2, dtMax:  8, dtWarnMax: 10, tempMax: 28, tempWarnMax: 32, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'stonewall',    label: 'Stonewall',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'barracade',    label: 'Barricade',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+    { group: 'Herbicides',        key: 'pronomide',    label: 'Pronomide',                dtMin: 2, dtMax: 10, dtWarnMax: 12, tempMax: 30, tempWarnMax: 35, windMax: 15, windWarnMax: 20 },
+];
+let selectedProductKey = localStorage.getItem('spray_product') || 'general';
+function getSprayProduct() { return SPRAY_PRODUCTS.find(p => p.key === selectedProductKey) || SPRAY_PRODUCTS[0]; }
+let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null, todayMax: null, todayMin: null, tomorrowSunriseIso: null, tomorrowSunrise: '--', etForecast: [], forecastDays: [] };
 let hourlyFc         = null;   // today's hourly forecast from Open-Meteo
 let forecastRain3Day = null;
 let lastUpdateTime   = null;
@@ -758,6 +1150,10 @@ function degreesToCompass(deg) {
     if (deg === null || deg === undefined) return null;
     const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     return dirs[Math.round(deg / 22.5) % 16];
+}
+function compassToArrow(dir) {
+    const map = { N:'↑', NNE:'↑', NE:'↗', ENE:'→', E:'→', ESE:'→', SE:'↘', SSE:'↓', S:'↓', SSW:'↓', SW:'↙', WSW:'←', W:'←', WNW:'←', NW:'↖', NNW:'↑' };
+    return map[dir] || '';
 }
 function windDescription(kmh) {
     if (kmh < 1)  return 'Calm';
@@ -820,7 +1216,7 @@ function saveDailyRecord(et, rain) {
     localStorage.setItem('wx_daily', JSON.stringify(store));
 }
 
-// ── Tab switcher ──────────────────────────────────────────────────
+// ── Tab switcher (used internally; tabs hidden when URL mode is active) ───
 function switchTab(tab) {
     const isGk = tab === 'greenkeeper';
     document.getElementById('view-greenkeeper').style.display = isGk ? '' : 'none';
@@ -830,9 +1226,25 @@ function switchTab(tab) {
     document.getElementById('subtitle').textContent = isGk
         ? 'Live Weather \u0026 Turf Management'
         : 'Course Conditions for Players';
-    localStorage.setItem('wx_active_tab', tab);
+    if (!GK_MODE && !TV_MODE) localStorage.setItem('wx_active_tab', tab);
 }
-(function() { if (localStorage.getItem('wx_active_tab') === 'golfer') switchTab('golfer'); })();
+
+// ── URL-based view initialisation ────────────────────────────────
+(function() {
+    const tabBar = document.querySelector('.tab-bar');
+    if (GK_MODE) {
+        // Greenkeeper mode — show GK view, hide tabs
+        switchTab('greenkeeper');
+        if (tabBar) tabBar.style.display = 'none';
+        document.getElementById('subtitle').textContent = 'Turf Management \u0026 Course Operations';
+    } else if (!TV_MODE) {
+        // Default — golfer view, hide tabs
+        switchTab('golfer');
+        if (tabBar) tabBar.style.display = 'none';
+        document.getElementById('subtitle').textContent = 'Course Conditions for Players';
+    }
+    // TV_MODE is handled separately in initTVMode()
+})();
 
 // ── Last-updated freshness colour ─────────────────────────────────
 function checkDataFreshness() {
@@ -863,9 +1275,11 @@ function renderWeekly() {
         const def  = et - rain;
         totalET   += et; totalRain += rain;
         const date     = new Date(key + 'T12:00:00');
-        const dayLabel = key === today ? 'Today' : dayNames[date.getDay()];
+        const dow      = date.getDay();
+        const dayLabel = key === today ? 'Today' : dayNames[dow];
         const label    = `${dayLabel} ${date.getDate()}/${date.getMonth() + 1}`;
-        tbody += `<tr>
+        const rowCls   = key === today ? 'row-today' : (dow === 0 || dow === 6) ? 'row-weekend' : '';
+        tbody += `<tr class="${rowCls}">
             <td>${label}</td>
             <td class="et-col">${et.toFixed(2)}</td>
             <td class="rain-col">${rain.toFixed(1)}</td>
@@ -885,6 +1299,1934 @@ function renderWeekly() {
     if (TV_MODE) updateTVCourseCard(totalET, totalRain);
     updateInsights();
     checkCartsOnPaths();
+    updateSoilMoisture();
+    updateRainfallSummary();
+}
+
+// ── Export helpers ────────────────────────────────────────────────
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function fmtDateLabel(isoStr) {
+    // "2026-05-15" → "15-May-2026"
+    const [y, m, d] = isoStr.split('-');
+    return `${d}-${MONTH_NAMES[+m - 1]}-${y}`;
+}
+
+function triggerDownload(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Pick the sensor with the most temperature records (most complete data source)
+function bestTempSensor(sensors) {
+    let best = null, bestCount = 0;
+    for (const sensor of (sensors || [])) {
+        const cnt = (sensor.data || []).filter(r => r.temp != null || r.temp_out != null).length;
+        if (cnt > bestCount) { bestCount = cnt; best = sensor; }
+    }
+    return best?.data || [];
+}
+
+function buildCSVRows(records) {
+    // records: array of { date (YYYY-MM-DD), et, rain, tMax, tMin, tMean, rh }
+    const BASE = 10;
+    const headers = ['Date','ET (mm)','Rain (mm)','Deficit (mm)','Max Temp (°C)','Min Temp (°C)','Mean Temp (°C)','Mean RH (%)','GDD (base 10°C)'];
+    const rows = [headers.join(',')];
+    for (const r of records) {
+        const et   = r.et   != null ? (+r.et).toFixed(2)    : '';
+        const rain = r.rain != null ? (+r.rain).toFixed(1)  : '';
+        const def  = (r.et != null && r.rain != null) ? (r.et - r.rain).toFixed(2) : '';
+        const tMax = r.tMax  != null ? (+r.tMax).toFixed(1)  : '';
+        const tMin = r.tMin  != null ? (+r.tMin).toFixed(1)  : '';
+        const tMean= r.tMean != null ? (+r.tMean).toFixed(1) : '';
+        const rh   = r.rh   != null ? (+r.rh).toFixed(1)   : '';
+        const gdd  = (r.tMax != null && r.tMin != null)
+            ? Math.max(0, (r.tMax + r.tMin) / 2 - BASE).toFixed(1) : '';
+        rows.push([r.date, et, rain, def, tMax, tMin, tMean, rh, gdd].join(','));
+    }
+    return rows.join('\r\n');
+}
+
+// ── Spray near-future forecast note ──────────────────────────────
+function updateSprayForecastNote(currentlyGood, currentlyBad) {
+    const noteEl = document.getElementById('spray-forecast-note');
+    if (!noteEl || !hourlyFc || !hourlyFc.windspeed_10m) { if (noteEl) noteEl.style.display = 'none'; return; }
+    const offsetMs   = sydneyOffsetMs();
+    const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    // Scan next 3 hours of forecast
+    let futureGood = null, futureBad = null, hoursAhead = 0;
+    for (let i = 0; i < hourlyFc.time.length && hoursAhead < 3; i++) {
+        if (hourlyFc.time[i].slice(0, 13) <= nowHourStr) continue;
+        hoursAhead++;
+        const ws = hourlyFc.windspeed_10m[i] || 0;
+        const rh = hourlyFc.relative_humidity_2m ? (hourlyFc.relative_humidity_2m[i] || 0) : 0;
+        const t  = hourlyFc.temperature_2m ? (hourlyFc.temperature_2m[i] || 0) : 0;
+        const tw = t * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5))
+                 + Math.atan(t + rh) - Math.atan(rh - 1.676331)
+                 + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
+        const dt = t - tw;
+        const ok = dt >= 2 && dt <= 8 && t < 28 && ws < 15;
+        const bad = (dt < 2 || dt > 10) || t >= 35 || ws > 20;
+        if (ok  && futureGood === null) futureGood = hoursAhead;
+        if (bad && futureBad  === null) futureBad  = hoursAhead;
+    }
+    let msg = '';
+    if (currentlyGood && futureBad !== null) {
+        msg = `⚠ Conditions deteriorating in ~${futureBad}h`;
+    } else if (currentlyBad && futureGood !== null) {
+        msg = `▲ Conditions improving in ~${futureGood}h`;
+    }
+    noteEl.textContent = msg;
+    noteEl.style.display = msg ? '' : 'none';
+    noteEl.style.color = (currentlyGood && futureBad) ? '#d4ac0d' : '#74b9ff';
+}
+
+// ── Spray product selector ────────────────────────────────────────
+function setSprayProduct(key) {
+    selectedProductKey = key;
+    localStorage.setItem('spray_product', key);
+    const p = getSprayProduct();
+    const rangeEl = document.getElementById('sp-deltat-range');
+    if (rangeEl) rangeEl.textContent = `Ideal ${p.dtMin}–${p.dtMax}°C`;
+    refreshSprayStatus();
+    updateNextSprayWindow();
+}
+
+function initSprayProductSelect() {
+    const sel = document.getElementById('spray-product-select');
+    if (!sel) return;
+    // Build grouped options
+    const groups = [];
+    const seen   = {};
+    SPRAY_PRODUCTS.forEach(p => { if (!seen[p.group]) { seen[p.group] = []; groups.push(p.group); } seen[p.group].push(p); });
+    sel.innerHTML = groups.map(g =>
+        `<optgroup label="${g}">${seen[g].map(p =>
+            `<option value="${p.key}"${p.key === selectedProductKey ? ' selected' : ''}>${p.label} (${p.dtMin}–${p.dtMax}°C)</option>`
+        ).join('')}</optgroup>`
+    ).join('');
+    const prod = getSprayProduct();
+    const rangeEl = document.getElementById('sp-deltat-range'); if (rangeEl) rangeEl.textContent = `Ideal ${prod.dtMin}–${prod.dtMax}°C`;
+    const tRng = document.getElementById('sp-temp-range');      if (tRng)   tRng.textContent = `Ideal < ${prod.tempMax}°C`;
+    const wRng = document.getElementById('sp-wind-range');      if (wRng)   wRng.textContent = `Ideal < ${prod.windMax} km/h`;
+}
+
+function refreshSprayStatus() {
+    if (wx.temp === null || wx.deltaT === null) return;
+    const p        = getSprayProduct();
+    const temp     = wx.temp, deltaT = wx.deltaT, windKmh = wx.windKmh;
+    const deltaTOk   = deltaT >= p.dtMin   && deltaT <= p.dtMax;
+    const deltaTWarn = deltaT > p.dtMax    && deltaT <= p.dtWarnMax;
+    const tempOk     = temp < p.tempMax,    tempWarn  = temp >= p.tempMax    && temp    <= p.tempWarnMax;
+    const windOk     = windKmh < p.windMax, windWarn  = windKmh >= p.windMax && windKmh <= p.windWarnMax;
+    document.getElementById('sp-deltat').className = spClass(deltaTOk, deltaTWarn);
+    document.getElementById('sp-temp').className   = spClass(tempOk,   tempWarn);
+    document.getElementById('sp-wind').className   = spClass(windOk,   windWarn);
+    // Update range labels to reflect selected product
+    const tRng = document.getElementById('sp-temp-range'); if (tRng) tRng.textContent = `Ideal < ${p.tempMax}°C`;
+    const wRng = document.getElementById('sp-wind-range'); if (wRng) wRng.textContent = `Ideal < ${p.windMax} km/h`;
+    const sprayBox = document.getElementById('sprayStatus');
+    const allGood  = deltaTOk && tempOk && windOk;
+    const anyBad   = (!deltaTOk && !deltaTWarn) || (!tempOk && !tempWarn) || (!windOk && !windWarn);
+    if (allGood) {
+        sprayBox.innerText = 'Good to Spray'; sprayBox.className = 'status-badge badge-good';
+    } else if (!anyBad) {
+        sprayBox.innerText = 'Marginal Conditions — Caution'; sprayBox.className = 'status-badge badge-warn';
+    } else {
+        const reasons = [];
+        if (!deltaTOk && !deltaTWarn) reasons.push('Delta T');
+        if (!tempOk   && !tempWarn)   reasons.push('Temp');
+        if (!windOk   && !windWarn)   reasons.push('Wind');
+        sprayBox.innerText = 'Do Not Spray — ' + reasons.join(', ') + ' out of range';
+        sprayBox.className = 'status-badge badge-bad';
+    }
+    updateSprayForecastNote(allGood, anyBad);
+}
+
+// ── GK Internal Tab Switcher ──────────────────────────────────────
+function toggleWeeklyBreakdown() {
+    const panel = document.getElementById('weekly-breakdown-panel');
+    const btn   = document.getElementById('btn-weekly-toggle');
+    if (!panel) return;
+    const open = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '📅 Hide 7-Day Detail' : '📅 Show 7-Day Detail';
+}
+
+function switchGKTab(tab) {
+    ['spray', 'disease', 'mow', 'irrigation', 'station', 'reports'].forEach(t => {
+        const panel = document.getElementById('gk-tab-' + t);
+        const btn   = document.querySelector(`.gk-tab-btn[data-gktab="${t}"]`);
+        if (panel) panel.classList.toggle('gk-active', t === tab);
+        if (btn)   btn.classList.toggle('active', t === tab);
+    });
+}
+
+// ── Custom Range Modal ────────────────────────────────────────────
+function openExportModal() {
+    const offsetMs = sydneyOffsetMs();
+    const today    = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+    const weekAgo  = new Date(Date.now() + offsetMs - 6 * 86400000).toISOString().slice(0, 10);
+    document.getElementById('export-from').value = weekAgo;
+    document.getElementById('export-to').value   = today;
+    document.getElementById('export-modal-overlay').classList.add('open');
+}
+
+function closeExportModal() {
+    document.getElementById('export-modal-overlay').classList.remove('open');
+}
+
+async function runCustomExport() {
+    const fromVal = document.getElementById('export-from').value;
+    const toVal   = document.getElementById('export-to').value;
+    if (!fromVal || !toVal || fromVal > toVal) { alert('Please select a valid date range.'); return; }
+
+    const goBtn = document.getElementById('btn-export-go');
+    goBtn.textContent = '⏳ Fetching...'; goBtn.disabled = true;
+
+    try {
+        const offsetMs   = sydneyOffsetMs();
+        const offsetSecs = Math.round(offsetMs / 1000);
+        const todayStr   = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+
+        // Build list of dates in range
+        const dates = [];
+        for (let d = new Date(fromVal + 'T00:00:00Z'); d.toISOString().slice(0,10) <= toVal; d.setUTCDate(d.getUTCDate() + 1)) {
+            dates.push(d.toISOString().slice(0, 10));
+        }
+
+        const records = [];
+        const BASE = 10;
+
+        // Fetch historical days from Davis v2
+        const historicalDates = dates.filter(d => d < todayStr);
+        const dayPromises = historicalDates.map(dateStr => {
+            const dt      = new Date(dateStr + 'T00:00:00Z');
+            const startTs = Math.floor(dt.getTime() / 1000) - offsetSecs;
+            const endTs   = startTs + 86399;
+            return v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
+                .then(data => ({ dateStr, data }))
+                .catch(err  => ({ dateStr, err }));
+        });
+        const results = await Promise.all(dayPromises);
+
+        for (const { dateStr, data, err } of results) {
+            if (err) { records.push({ date: dateStr }); continue; }
+            let etInches = 0, rainMm = 0;
+            let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
+            for (const sensor of (data?.sensors || [])) {
+                const recs = sensor.data || [];
+                const se = recs.reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
+                if (se > 0) etInches = Math.max(etInches, se);
+                const sr = recs.reduce((s,r) => s + parseFloat(r.rainfall_mm ?? 0), 0);
+                if (sr > 0) rainMm = Math.max(rainMm, sr);
+            }
+            const tempRecs = bestTempSensor(data?.sensors);
+            for (const r of tempRecs) {
+                const tF = r.temp ?? r.temp_out; const h = r.hum ?? r.hum_out;
+                if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }
+            }
+            records.push({
+                date:  dateStr,
+                et:    +(etInches * 25.4).toFixed(2),
+                rain:  +rainMm.toFixed(1),
+                tMax:  tempMax > -Infinity ? +tempMax.toFixed(1) : null,
+                tMin:  tempMin < Infinity  ? +tempMin.toFixed(1) : null,
+                tMean: tempCount > 0 ? +(tempSum / tempCount).toFixed(1) : null,
+                rh:    tempCount > 0 ? +(rhSum   / tempCount).toFixed(1) : null,
+            });
+        }
+
+        // If range includes today, append live data
+        if (dates.includes(todayStr)) {
+            records.push({
+                date:  todayStr + ' (partial)',
+                et:    wx.etToday,
+                rain:  wx.rainToday,
+                tMax:  fc.todayMax,
+                tMin:  fc.todayMin,
+                tMean: null, rh: null,
+            });
+        }
+
+        const fromLabel = fmtDateLabel(fromVal);
+        const toLabel   = fmtDateLabel(toVal);
+        const filename  = `Wagga_Wagga_Country_Club_Weather_Report-${fromLabel}_to_${toLabel}.csv`;
+        triggerDownload(buildCSVRows(records), filename);
+        closeExportModal();
+
+    } catch (e) {
+        alert('Export failed: ' + e.message);
+    } finally {
+        goBtn.textContent = 'Download CSV'; goBtn.disabled = false;
+    }
+}
+
+// ── Monthly CSV Export (fetches full month from Davis v2) ─────────
+async function exportMonthCSV() {
+    const btn = document.getElementById('btn-month-csv');
+    if (btn) { btn.textContent = '⏳ Fetching...'; btn.disabled = true; }
+
+    try {
+        const offsetMs   = sydneyOffsetMs();
+        const offsetSecs = Math.round(offsetMs / 1000);
+        const sydNow     = new Date(Date.now() + offsetMs);
+        const year       = sydNow.getUTCFullYear();
+        const month      = sydNow.getUTCMonth();   // 0-based
+        const todayD     = sydNow.getUTCDate();
+        const todayStr   = sydNow.toISOString().slice(0, 10);
+
+        // 1st of month through yesterday
+        const dates = [];
+        for (let d = 1; d < todayD; d++) {
+            dates.push(new Date(Date.UTC(year, month, d)).toISOString().slice(0, 10));
+        }
+
+        const dayPromises = dates.map(dateStr => {
+            const dt      = new Date(dateStr + 'T00:00:00Z');
+            const startTs = Math.floor(dt.getTime() / 1000) - offsetSecs;
+            const endTs   = startTs + 86399;
+            return v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
+                .then(data => ({ dateStr, data }))
+                .catch(err  => ({ dateStr, err }));
+        });
+
+        const results = await Promise.all(dayPromises);
+        const records = [];
+
+        for (const { dateStr, data, err } of results) {
+            if (err) { records.push({ date: dateStr }); continue; }
+            let etInches = 0, rainMm = 0;
+            let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
+            for (const sensor of (data?.sensors || [])) {
+                const recs = sensor.data || [];
+                const se = recs.reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
+                if (se > 0) etInches = Math.max(etInches, se);
+                const sr = recs.reduce((s,r) => s + parseFloat(r.rainfall_mm ?? 0), 0);
+                if (sr > 0) rainMm = Math.max(rainMm, sr);
+            }
+            const tempRecs = bestTempSensor(data?.sensors);
+            for (const r of tempRecs) {
+                const tF = r.temp ?? r.temp_out; const h = r.hum ?? r.hum_out;
+                if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }
+            }
+            records.push({
+                date:  dateStr,
+                et:    +(etInches * 25.4).toFixed(2),
+                rain:  +rainMm.toFixed(1),
+                tMax:  tempMax > -Infinity ? +tempMax.toFixed(1) : null,
+                tMin:  tempMin < Infinity  ? +tempMin.toFixed(1) : null,
+                tMean: tempCount > 0 ? +(tempSum / tempCount).toFixed(1) : null,
+                rh:    tempCount > 0 ? +(rhSum   / tempCount).toFixed(1) : null,
+            });
+        }
+
+        // Append today (partial) from live data
+        records.push({ date: todayStr + ' (partial)', et: wx.etToday, rain: wx.rainToday, tMax: fc.todayMax, tMin: fc.todayMin, tMean: null, rh: null });
+
+        const monthLabel = `${MONTH_NAMES[month]}-${year}`;
+        const filename   = `Wagga_Wagga_Country_Club_Monthly_Weather_Report-${monthLabel}.csv`;
+        triggerDownload(buildCSVRows(records), filename);
+
+    } catch (e) {
+        alert('Monthly export failed: ' + e.message);
+    } finally {
+        if (btn) { btn.textContent = '↓ Month'; btn.disabled = false; }
+    }
+}
+
+// ── Soil Moisture Gauge ───────────────────────────────────────────
+function updateSoilMoisture() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let totalET = 0, totalRain = 0;
+    for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
+    const deficit = totalET - totalRain;
+
+    const segs = ['sm-waterlogged','sm-wet','sm-optimal','sm-dry','sm-very-dry'];
+    segs.forEach(id => document.getElementById(id)?.classList.remove('sm-active'));
+
+    let activeId, label, balanceStr;
+    // Clay soil thresholds — clay holds more water, saturates and dries more slowly
+    if      (deficit < -12) { activeId = 'sm-waterlogged'; label = `Waterlogged — ${Math.abs(deficit).toFixed(1)} mm surplus. Avoid all traffic, carts on paths. Clay drains slowly.`; }
+    else if (deficit <  -3) { activeId = 'sm-wet';         label = `Wet — ${Math.abs(deficit).toFixed(1)} mm surplus. Fairways soft, light traffic only, minimal irrigation.`; }
+    else if (deficit <  12) { activeId = 'sm-optimal';     label = `Optimal — balanced moisture for clay fairways. Normal play and operations.`; }
+    else if (deficit <  22) { activeId = 'sm-dry';         label = `Dry — ${deficit.toFixed(1)} mm deficit. Clay beginning to firm. Consider irrigation.`; }
+    else                    { activeId = 'sm-very-dry';    label = `Very Dry — ${deficit.toFixed(1)} mm deficit. Clay cracking risk. Irrigation required.`; }
+
+    document.getElementById(activeId)?.classList.add('sm-active');
+    const lbl = document.getElementById('sm-label');
+    if (lbl) lbl.textContent = label;
+
+    // Update 7-day balance cell
+    const balEl = document.getElementById('irr-balance');
+    if (balEl) {
+        balEl.textContent = deficit >= 0 ? `+${deficit.toFixed(1)} mm` : `${deficit.toFixed(1)} mm`;
+        balEl.style.color = deficit < -5 ? '#74b9ff' : deficit < 15 ? '#27ae60' : deficit < 30 ? '#d4ac0d' : '#e74c3c';
+    }
+}
+
+// ── Dew Burn-off / Mow Window ────────────────────────────────────
+function updateMowWindow() {
+    const el = document.getElementById('mow-window-content');
+    if (!el) return;
+    if (wx.temp === null || wx.rh === null) { el.innerHTML = '<div style="color:#7f8c8d;font-size:0.85em">Awaiting station data...</div>'; return; }
+
+    const dewC = calcDewPoint(wx.temp, wx.rh);
+    const dpd  = wx.temp - dewC;
+    const MOW_DPD = 3.5;  // dew point depression needed before mowing is safe
+
+    // Current dew status
+    const dewNow = dpd < MOW_DPD;
+    const dewStr = dewNow
+        ? `<span style="color:#e67e22">Dew likely on greens</span> (DPD ${dpd.toFixed(1)}°C)`
+        : `<span style="color:#27ae60">Greens clear of dew</span> (DPD ${dpd.toFixed(1)}°C)`;
+
+    // Estimate burn-off time using hourly temp forecast + current dew point as fixed reference
+    let burnOffStr = '';
+    if (dewNow && hourlyFc && hourlyFc.temperature_2m) {
+        const offsetMs = sydneyOffsetMs();
+        const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+        for (let i = 0; i < hourlyFc.time.length; i++) {
+            if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+            const forecastTemp = hourlyFc.temperature_2m[i];
+            if (forecastTemp === null) continue;
+            if (forecastTemp - dewC >= MOW_DPD) {
+                const h = parseInt(hourlyFc.time[i].split('T')[1], 10);
+                burnOffStr = `Estimated dew burn-off: <strong>${h % 12 || 12}:00 ${h >= 12 ? 'PM' : 'AM'}</strong>`;
+                break;
+            }
+        }
+        if (!burnOffStr) burnOffStr = 'Dew may persist — monitor conditions';
+    }
+
+    const mowStatus = dewNow
+        ? `<span class="insight-pill pill-orange" style="font-size:0.8em">Wait — Dew Present</span>`
+        : `<span class="insight-pill pill-green"  style="font-size:0.8em">Safe to Mow</span>`;
+
+    el.innerHTML = `
+        <div style="margin-bottom:8px">${mowStatus}</div>
+        <div style="font-size:0.88em;line-height:1.6">${dewStr}</div>
+        ${burnOffStr ? `<div style="font-size:0.85em;color:#bdc3c7;margin-top:6px">${burnOffStr}</div>` : ''}
+        <div style="font-size:0.78em;color:#7f8c8d;margin-top:8px">Dew Point: ${dewC.toFixed(1)}°C &nbsp;·&nbsp; Air Temp: ${wx.temp.toFixed(1)}°C &nbsp;·&nbsp; RH: ${wx.rh.toFixed(0)}%</div>`;
+}
+
+// ── Reports ──────────────────────────────────────────────────────
+
+function _rptNow() {
+    return new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function _rptDate() {
+    return new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+function _badge(cls, text) { return `<span class="rpt-badge rpt-${cls}">${text}</span>`; }
+function _row(lbl, val)     { return `<div class="rpt-row"><span class="rpt-lbl">${lbl}</span><span class="rpt-val">${val}</span></div>`; }
+function _sec(title, rows)  { return `<div class="rpt-section"><div class="rpt-section-title">${title}</div>${rows}</div>`; }
+
+function _sprayBadge(deltaT, temp, windKmh, p) {
+    const dtOk  = deltaT >= p.dtMin && deltaT <= p.dtMax,   dtWarn  = deltaT > p.dtMax   && deltaT <= p.dtWarnMax;
+    const tOk   = temp < p.tempMax,                         tWarn   = temp   >= p.tempMax && temp   <= p.tempWarnMax;
+    const wOk   = windKmh < p.windMax,                      wWarn   = windKmh >= p.windMax && windKmh <= p.windWarnMax;
+    const good  = dtOk && tOk && wOk;
+    const bad   = (!dtOk && !dtWarn) || (!tOk && !tWarn) || (!wOk && !wWarn);
+    if (good)  return _badge('good', 'GO — Safe to spray');
+    if (bad)   return _badge('bad',  'NO-GO — Conditions outside limits');
+    return _badge('warn', 'CAUTION — Marginal conditions');
+}
+
+function _soilStatus() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let et = 0, rain = 0;
+    for (const k of Object.keys(store)) { et += store[k].et || 0; rain += store[k].rain || 0; }
+    const deficit = et - rain;
+    if (deficit < -12) return { label: 'Waterlogged', cls: 'info',  deficit };
+    if (deficit <  -3) return { label: 'Wet',          cls: 'info',  deficit };
+    if (deficit <  12) return { label: 'Optimal',      cls: 'good',  deficit };
+    if (deficit <  22) return { label: 'Dry',          cls: 'warn',  deficit };
+    return                    { label: 'Very Dry',     cls: 'bad',   deficit };
+}
+
+function _irrRecommendation(deficit) {
+    if (deficit < -12) return 'Do not irrigate — soil waterlogged. Delay until drainage occurs.';
+    if (deficit <  -3) return 'Do not irrigate — soil still wet. Allow natural drying.';
+    if (deficit <  12) return 'Soil moisture optimal. Light syringing only if required.';
+    if (deficit <  22) return `Irrigation recommended — apply approximately ${(deficit - 5).toFixed(0)} mm to restore optimal balance.`;
+    return `Irrigation required urgently — apply approximately ${(deficit - 8).toFixed(0)} mm. Prioritise greens and tees.`;
+}
+
+function _gddForGrass(base) {
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    let total = 0;
+    for (let d = 1; d <= 7; d++) {
+        const dt = new Date(Date.now() + offsetMs);
+        dt.setUTCDate(dt.getUTCDate() - d);
+        const rec = store[dt.toISOString().slice(0, 10)];
+        if (rec?.tempMax != null && rec?.tempMin != null)
+            total += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - base);
+    }
+    if (fc.todayMax != null && fc.todayMin != null)
+        total += Math.max(0, (fc.todayMax + fc.todayMin) / 2 - base);
+    return total;
+}
+
+// 1 — Morning Briefing
+function _rptMorning() {
+    const p    = getSprayProduct();
+    const soil = _soilStatus();
+    const dewC = (wx.temp !== null && wx.rh !== null) ? calcDewPoint(wx.temp, wx.rh) : null;
+    const dpd  = dewC !== null ? wx.temp - dewC : null;
+    const dewOk = dpd !== null && dpd >= 3.5;
+    const spBadge = (wx.temp !== null && wx.deltaT !== null) ? _sprayBadge(wx.deltaT, wx.temp, wx.windKmh, p) : _badge('info', 'No data');
+
+    // Burn-off estimate
+    let burnStr = '';
+    if (!dewOk && dewC !== null && hourlyFc?.temperature_2m) {
+        const offsetMs    = sydneyOffsetMs();
+        const nowHourStr  = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+        for (let i = 0; i < hourlyFc.time.length; i++) {
+            if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+            const ft = hourlyFc.temperature_2m[i];
+            if (ft !== null && ft - dewC >= 3.5) {
+                const h = parseInt(hourlyFc.time[i].split('T')[1], 10);
+                burnStr = `Est. dew burn-off ${h % 12 || 12}:00 ${h >= 12 ? 'PM' : 'AM'}`;
+                break;
+            }
+        }
+        if (!burnStr) burnStr = 'Dew may persist — monitor';
+    }
+
+    const highestRisk = (() => {
+        const el = document.getElementById('disease-tbody');
+        if (!el) return null;
+        const rows = el.querySelectorAll('tr');
+        for (const r of rows) {
+            const cells = r.querySelectorAll('td');
+            if (cells.length >= 2) {
+                const riskEl = cells[1].querySelector('span');
+                if (riskEl && (riskEl.classList.contains('dr-high') || riskEl.classList.contains('dr-severe')))
+                    return cells[0].textContent;
+            }
+        }
+        return null;
+    })();
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += _sec('Current Conditions', [
+        _row('Air Temperature',  wx.temp  !== null ? `${wx.temp.toFixed(1)}°C`    : '--'),
+        _row('Humidity',         wx.rh    !== null ? `${wx.rh.toFixed(0)}%`       : '--'),
+        _row('Delta T',          wx.deltaT !== null ? `${wx.deltaT.toFixed(1)}°C` : '--'),
+        _row('Wind Speed',       `${wx.windKmh.toFixed(0)} km/h ${wx.windDir}`),
+        _row('Pressure',         wx.pressure !== null ? `${wx.pressure.toFixed(0)} hPa` : '--'),
+    ].join(''));
+
+    html += _sec("Today's Forecast", [
+        _row('High / Low',       fc.todayMax != null ? `${fc.todayMax.toFixed(0)}°C / ${fc.todayMin?.toFixed(0)}°C` : '--'),
+        _row('Rain Probability',  fc.todayRainProb != null ? `${fc.todayRainProb}%` : '--'),
+        _row('UV Index Max',     fc.uvMax != null ? fc.uvMax : '--'),
+        _row('Sunrise / Sunset', `${fc.sunrise} / ${fc.sunset}`),
+    ].join(''));
+
+    html += _sec('Key Decisions', [
+        _row(`Spray (${p.label})`, spBadge),
+        _row('Mow / Dew', dewOk ? _badge('good', 'Clear — Safe to mow') : _badge('warn', burnStr || 'Dew present')),
+        _row('Soil Moisture',     _badge(soil.cls, soil.label)),
+        _row('Irrigation',        soil.deficit >= 12 ? _badge('warn', `Apply ~${Math.max(0, soil.deficit - 5).toFixed(0)} mm`) : _badge('good', 'Not required')),
+        _row('Disease Alert',     highestRisk ? _badge('bad', `High risk: ${highestRisk}`) : _badge('good', 'No high-risk diseases')),
+    ].join(''));
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '☀️ Morning Briefing', html };
+}
+
+// 2 — Spray Report
+function _rptSpray() {
+    const p = getSprayProduct();
+
+    // Build 48h window summary from hourlyFc
+    const windows = [];
+    if (hourlyFc?.temperature_2m) {
+        const offsetMs   = sydneyOffsetMs();
+        const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+        const cutoffMs   = Date.now() + 48 * 3600000;
+        let cur = null;
+        for (let i = 0; i < hourlyFc.time.length; i++) {
+            if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+            const [dp, tp] = hourlyFc.time[i].split('T');
+            const [yr, mo, dy] = dp.split('-').map(Number);
+            const [hr] = tp.split(':').map(Number);
+            const slotMs = Date.UTC(yr, mo - 1, dy, hr) - offsetMs;
+            if (slotMs > cutoffMs) break;
+            const temp = hourlyFc.temperature_2m[i], rh = hourlyFc.relative_humidity_2m?.[i] ?? null;
+            const ws   = hourlyFc.windspeed_10m?.[i] || 0;
+            const rp   = hourlyFc.precipitation_probability?.[i] || 0;
+            if (temp === null || rh === null) { if (cur) { windows.push(cur); cur = null; } continue; }
+            const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
+                     + Math.atan(temp + rh) - Math.atan(rh - 1.676331)
+                     + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
+            const dt = temp - tw;
+            const dtOk = dt >= p.dtMin && dt <= p.dtMax, dtW = dt > p.dtMax && dt <= p.dtWarnMax;
+            const tOk  = temp < p.tempMax,               tW  = temp >= p.tempMax && temp <= p.tempWarnMax;
+            const wOk  = ws   < p.windMax,               wW  = ws   >= p.windMax && ws   <= p.windWarnMax;
+            const ok   = (dtOk || dtW) && (tOk || tW) && (wOk || wW) && rp < 30;
+            const good = dtOk && tOk && wOk && rp < 30;
+            if (ok) {
+                const label = `${hr % 12 || 12}${hr >= 12 ? 'pm' : 'am'}`;
+                if (!cur) cur = { start: label, startH: hr, day: dp, good };
+                cur.end = label; cur.endH = hr;
+                if (!good) cur.good = false;
+            } else { if (cur) { windows.push(cur); cur = null; } }
+        }
+        if (cur) windows.push(cur);
+    }
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += _sec('Selected Product', [
+        _row('Product',        p.label),
+        _row('Delta T Range',  `${p.dtMin}–${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`),
+        _row('Max Temperature', `${p.tempMax}°C (warn ${p.tempWarnMax}°C)`),
+        _row('Max Wind Speed', `${p.windMax} km/h (warn ${p.windWarnMax} km/h)`),
+    ].join(''));
+
+    const spBadge = (wx.temp !== null && wx.deltaT !== null)
+        ? _sprayBadge(wx.deltaT, wx.temp, wx.windKmh, p) : _badge('info', 'No data');
+
+    html += _sec('Current Conditions', [
+        _row('Overall Status',  spBadge),
+        _row('Delta T',         wx.deltaT !== null ? `${wx.deltaT.toFixed(1)}°C` : '--'),
+        _row('Dry Bulb Temp',   wx.temp   !== null ? `${wx.temp.toFixed(1)}°C`   : '--'),
+        _row('Wind Speed',      `${wx.windKmh.toFixed(0)} km/h ${wx.windDir}`),
+        _row('Humidity',        wx.rh !== null ? `${wx.rh.toFixed(0)}%` : '--'),
+    ].join(''));
+
+    if (windows.length > 0) {
+        let trows = '<table class="rpt-table"><thead><tr><th>Date</th><th>Window</th><th>Quality</th></tr></thead><tbody>';
+        windows.forEach(w => {
+            trows += `<tr><td>${w.day}</td><td>${w.start}–${w.end}</td><td>${w.good ? _badge('good','Ideal') : _badge('warn','Marginal')}</td></tr>`;
+        });
+        trows += '</tbody></table>';
+        html += `<div class="rpt-section"><div class="rpt-section-title">48h Spray Windows</div>${trows}</div>`;
+    } else {
+        html += _sec('48h Spray Windows', `<div style="color:#7f8c8d;font-size:0.88em">No suitable windows found in the next 48 hours.</div>`);
+    }
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '🌿 Spray Report — ' + p.label, html };
+}
+
+// 3 — Irrigation Report
+function _rptIrrigation() {
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let rows = [], totalET = 0, totalRain = 0;
+
+    for (let d = 6; d >= 0; d--) {
+        const dt  = new Date(Date.now() + offsetMs);
+        dt.setUTCDate(dt.getUTCDate() - d);
+        const key = dt.toISOString().slice(0, 10);
+        const rec = store[key] || {};
+        const et   = rec.et   || 0;
+        const rain = rec.rain || 0;
+        const bal  = rain - et;
+        totalET += et; totalRain += rain;
+        rows.push({ day: dayNames[dt.getUTCDay()], date: key.slice(5), et, rain, bal });
+    }
+    const soil = _soilStatus();
+    const irr  = _irrRecommendation(soil.deficit);
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += _sec('7-Day Water Balance', (() => {
+        let t = '<div style="overflow-x:auto"><table class="rpt-table"><thead><tr><th>Day</th><th>Date</th><th>ET (mm)</th><th>Rain (mm)</th><th>Balance</th></tr></thead><tbody>';
+        rows.forEach(r => {
+            const balColor = r.bal >= 0 ? '#74b9ff' : r.bal > -5 ? '#27ae60' : '#e74c3c';
+            const balStr   = r.bal >= 0 ? `+${r.bal.toFixed(1)}` : r.bal.toFixed(1);
+            t += `<tr><td>${r.day}</td><td>${r.date}</td><td style="color:#e67e22">${r.et.toFixed(1)}</td><td style="color:#74b9ff">${r.rain.toFixed(1)}</td><td style="color:${balColor}">${balStr}</td></tr>`;
+        });
+        const totBal = totalRain - totalET;
+        const totColor = totBal >= 0 ? '#74b9ff' : totBal > -5 ? '#27ae60' : '#e74c3c';
+        t += `<tfoot><tr><td colspan="2">7-Day Total</td><td style="color:#e67e22">${totalET.toFixed(1)}</td><td style="color:#74b9ff">${totalRain.toFixed(1)}</td><td style="color:${totColor}">${totBal >= 0 ? '+' : ''}${totBal.toFixed(1)}</td></tr></tfoot>`;
+        t += '</table></div>';
+        return t;
+    })());
+
+    html += _sec('Current Soil Status', [
+        _row('Moisture Status', _badge(soil.cls, soil.label)),
+        _row('7-Day Deficit',   soil.deficit >= 0 ? `+${soil.deficit.toFixed(1)} mm (deficit)` : `${soil.deficit.toFixed(1)} mm (surplus)`),
+        _row('Rain This Month', wx.rainMonth != null ? `${wx.rainMonth.toFixed(1)} mm` : '--'),
+        _row('Rain YTD',        wx.rainYear  != null ? `${wx.rainYear.toFixed(1)} mm`  : '--'),
+        _row('ET Today',        wx.etToday   != null ? `${wx.etToday.toFixed(1)} mm`   : '--'),
+        _row('Rain Today',      `${wx.rainToday.toFixed(1)} mm`),
+    ].join(''));
+
+    html += _sec('Recommendation', `<div style="font-size:0.88em;line-height:1.6;padding:8px;background:#1a252f;border-radius:6px;color:#ecf0f1">${irr}</div>`);
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '💧 Irrigation Report', html };
+}
+
+// 4 — Disease Risk Report
+function _rptDisease() {
+    const wetHoursEl  = document.getElementById('dr-lwd');
+    const nightMinEl  = document.getElementById('dr-mintemp');
+    const meanRHEl    = document.getElementById('dr-rh');
+    const tbody       = document.getElementById('disease-tbody');
+    const recEl       = document.getElementById('disease-rec');
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += _sec('Conditions (24h)', [
+        _row('Leaf Wetness Hours', wetHoursEl ? wetHoursEl.textContent : '--'),
+        _row('Night Min Temp (8pm–8am)', nightMinEl ? nightMinEl.textContent : '--'),
+        _row('Mean Relative Humidity',   meanRHEl  ? meanRHEl.textContent  : '--'),
+        _row('Current Temp',  wx.temp !== null ? `${wx.temp.toFixed(1)}°C` : '--'),
+        _row('Current RH',    wx.rh   !== null ? `${wx.rh.toFixed(0)}%`    : '--'),
+    ].join(''));
+
+    if (tbody) {
+        let t = '<table class="rpt-table"><thead><tr><th>Disease</th><th>Risk</th><th>Key Factor</th></tr></thead><tbody>';
+        tbody.querySelectorAll('tr').forEach(r => {
+            const cells = r.querySelectorAll('td');
+            if (cells.length >= 3) {
+                const riskEl  = cells[1].querySelector('span');
+                const riskCls = riskEl ? (riskEl.classList.contains('dr-severe') ? 'bad' : riskEl.classList.contains('dr-high') ? 'bad' : riskEl.classList.contains('dr-mod') ? 'warn' : 'good') : 'info';
+                t += `<tr><td>${cells[0].textContent}</td><td>${_badge(riskCls, cells[1].textContent)}</td><td style="color:#95a5a6;font-size:0.85em">${cells[2].textContent}</td></tr>`;
+            }
+        });
+        t += '</tbody></table>';
+        html += `<div class="rpt-section"><div class="rpt-section-title">Disease Risk Table</div>${t}</div>`;
+    }
+
+    const skProb = getSmithKerns5Day();
+    html += _sec('Smith-Kerns Dollar Spot Model', [
+        _row('5-Day Probability', skProb !== null ? `${Math.round(skProb * 100)}%` : 'Insufficient history (need 2+ days)'),
+        _row('Model Validity', 'Calibrated for creeping bentgrass — A4, Cobra, Oakley greens'),
+    ].join(''));
+
+    if (recEl) {
+        const title  = recEl.querySelector('.rec-title')?.textContent || '';
+        const detail = recEl.querySelector('.rec-detail')?.textContent || '';
+        html += _sec('Recommendation', `<div style="font-size:0.88em;line-height:1.6;padding:8px;background:#1a252f;border-radius:6px;color:#ecf0f1"><strong>${title}</strong><br>${detail}</div>`);
+    }
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '🧠 Disease Risk Report', html };
+}
+
+// 5 — GDD Growth Report
+function _rptGDD() {
+    const GRASSES   = [
+        { label: 'Bentgrass', color: '#2980b9', base: 10, locations: 'Greens — A4, Cobra, Oakley' },
+        { label: 'Kikuyu',    color: '#27ae60', base: 15, locations: 'Fairways & rough' },
+    ];
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    GRASSES.forEach(g => {
+        let histGDD = 0, histRows = [];
+        for (let d = 6; d >= 0; d--) {
+            const dt  = new Date(Date.now() + offsetMs);
+            dt.setUTCDate(dt.getUTCDate() - d);
+            const key = dt.toISOString().slice(0, 10);
+            const rec = store[key];
+            const gdd = rec?.tempMax != null && rec?.tempMin != null
+                ? Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base) : null;
+            if (gdd !== null) histGDD += gdd;
+            histRows.push({ day: dayNames[dt.getUTCDay()], date: key.slice(5), gdd });
+        }
+        const todayGDD = fc.todayMax != null && fc.todayMin != null
+            ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
+        const total7 = histGDD + todayGDD;
+
+        let fcGDD = 0, fcRows = [];
+        for (let i = 1; i <= 3; i++) {
+            const d = fc.forecastDays[i];
+            if (d?.max != null && d?.min != null) {
+                const gdd  = Math.max(0, (d.max + d.min) / 2 - g.base);
+                fcGDD += gdd;
+                fcRows.push({ label: dayNames[new Date(d.date + 'T12:00:00').getDay()], gdd });
+            }
+        }
+
+        let appNote, noteCls;
+        if (g.base === 10) {
+            if      (total7 >= 100) { appNote = 'High growth — disease pressure window active on greens. Consider preventative fungicide.'; noteCls = 'bad'; }
+            else if (total7 >= 50)  { appNote = 'Moderate growth — good fertiliser uptake. Greens responding well to nutrition.'; noteCls = 'warn'; }
+            else                    { appNote = 'Low growth / near dormant — ease irrigation, hold heavy fertilising.'; noteCls = 'good'; }
+        } else {
+            if      (total7 >= 80)  { appNote = 'High growth — kikuyu vigorous. Increase mowing frequency, herbicide efficacy good.'; noteCls = 'bad'; }
+            else if (total7 >= 35)  { appNote = 'Moderate growth — good time for fairway fertilising.'; noteCls = 'warn'; }
+            else                    { appNote = 'Low growth / dormant — reduce irrigation and fertiliser on fairways.'; noteCls = 'good'; }
+        }
+
+        let t = `<table class="rpt-table"><thead><tr><th>Day</th><th>Date</th><th>GDD</th></tr></thead><tbody>`;
+        histRows.forEach(r => { t += `<tr><td>${r.day}</td><td>${r.date}</td><td style="color:${g.color}">${r.gdd !== null ? r.gdd.toFixed(1) : '--'}</td></tr>`; });
+        t += `<tfoot><tr><td colspan="2">7-Day Total</td><td style="color:${g.color}">${total7.toFixed(1)}</td></tr></tfoot></table>`;
+
+        if (fcRows.length) {
+            t += `<div style="font-size:0.78em;color:#7f8c8d;margin-top:8px;margin-bottom:4px">FORECAST (next 3 days) — +${fcGDD.toFixed(1)} GDD</div>`;
+            t += `<table class="rpt-table"><thead><tr><th>Day</th><th>Forecast GDD</th></tr></thead><tbody>`;
+            fcRows.forEach(r => { t += `<tr><td>${r.label}</td><td style="color:${g.color}">${r.gdd.toFixed(1)}</td></tr>`; });
+            t += '</tbody></table>';
+        }
+
+        html += `<div class="rpt-section">
+            <div class="rpt-section-title" style="color:${g.color}">${g.label} — Base ${g.base}°C &nbsp;<span style="font-weight:normal;color:#7f8c8d">${g.locations}</span></div>
+            ${t}
+            <div style="margin-top:8px">${_badge(noteCls, appNote)}</div>
+        </div>`;
+    });
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '🌡️ GDD Growth Report', html };
+}
+
+// 6 — Weekly Summary
+function _rptWeekly() {
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let rows = [], totET = 0, totRain = 0, totBGdd = 0, totKGdd = 0, sprayDays = 0;
+
+    for (let d = 6; d >= 0; d--) {
+        const dt  = new Date(Date.now() + offsetMs);
+        dt.setUTCDate(dt.getUTCDate() - d);
+        const key = dt.toISOString().slice(0, 10);
+        const rec = store[key] || {};
+        const et     = rec.et   || 0;
+        const rain   = rec.rain || 0;
+        const tMax   = rec.tempMax;
+        const tMin   = rec.tempMin;
+        const meanT  = (tMax != null && tMin != null) ? (tMax + tMin) / 2 : null;
+        const bGdd   = meanT != null ? Math.max(0, meanT - 10) : null;
+        const kGdd   = meanT != null ? Math.max(0, meanT - 15) : null;
+        const meanRH = rec.meanRH;
+        // Estimate spray suitability: rough heuristic from daily mean temp + meanRH
+        const dtEst  = meanT != null && meanRH != null
+            ? meanT - (meanT * Math.atan(0.151977 * Math.sqrt(meanRH + 8.313659)) + Math.atan(meanT + meanRH) - Math.atan(meanRH - 1.676331) + 0.00391838 * Math.pow(meanRH, 1.5) * Math.atan(0.023101 * meanRH) - 4.686035) : null;
+        const sprayOk = dtEst != null && dtEst >= 2 && dtEst <= 10 && tMax != null && tMax < 30 && rain < 2;
+        if (sprayOk) sprayDays++;
+        totET += et; totRain += rain;
+        if (bGdd != null) totBGdd += bGdd;
+        if (kGdd != null) totKGdd += kGdd;
+        rows.push({ day: dayNames[dt.getUTCDay()], date: key.slice(5), tMax, tMin, et, rain, bGdd, kGdd, sprayOk });
+    }
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += `<div class="rpt-section"><div class="rpt-section-title">7-Day Overview</div>
+    <div style="overflow-x:auto"><table class="rpt-table"><thead>
+        <tr><th>Day</th><th>Max</th><th>Min</th><th>Rain</th><th>ET</th><th>Spray</th><th>GDD B</th><th>GDD K</th></tr>
+    </thead><tbody>`;
+    rows.forEach(r => {
+        html += `<tr>
+            <td>${r.day} ${r.date}</td>
+            <td>${r.tMax != null ? r.tMax.toFixed(0)+'°' : '--'}</td>
+            <td>${r.tMin != null ? r.tMin.toFixed(0)+'°' : '--'}</td>
+            <td style="color:#74b9ff">${r.rain.toFixed(1)}</td>
+            <td style="color:#e67e22">${r.et.toFixed(1)}</td>
+            <td>${r.sprayOk ? _badge('good','✓') : _badge('bad','✗')}</td>
+            <td style="color:#2980b9">${r.bGdd != null ? r.bGdd.toFixed(1) : '--'}</td>
+            <td style="color:#27ae60">${r.kGdd != null ? r.kGdd.toFixed(1) : '--'}</td>
+        </tr>`;
+    });
+    html += `<tfoot><tr>
+        <td>Totals</td><td colspan="2">—</td>
+        <td style="color:#74b9ff">${totRain.toFixed(1)}</td>
+        <td style="color:#e67e22">${totET.toFixed(1)}</td>
+        <td>${sprayDays}/7 days</td>
+        <td style="color:#2980b9">${totBGdd.toFixed(1)}</td>
+        <td style="color:#27ae60">${totKGdd.toFixed(1)}</td>
+    </tr></tfoot></table></div></div>`;
+
+    html += _sec('7-Day Summary', [
+        _row('Total Rainfall',         `${totRain.toFixed(1)} mm`),
+        _row('Total Evapotranspiration', `${totET.toFixed(1)} mm`),
+        _row('Water Balance',          (() => { const b = totRain - totET; return `${b >= 0 ? '+' : ''}${b.toFixed(1)} mm ${b >= 0 ? '(surplus)' : '(deficit)'}`; })()),
+        _row('Spray-suitable Days',    `${sprayDays} of 7`),
+        _row('Bentgrass GDD (7-day)',  `${totBGdd.toFixed(1)} GDD (base 10°C)`),
+        _row('Kikuyu GDD (7-day)',     `${totKGdd.toFixed(1)} GDD (base 15°C)`),
+    ].join(''));
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '📅 Weekly Summary', html };
+}
+
+// 7 — Full Station Dump
+function _rptStation() {
+    const pTrendEl = document.getElementById('gk-st-pressure-label');
+    const pTrend   = pTrendEl ? pTrendEl.textContent : '--';
+
+    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+
+    html += _sec('Temperature & Humidity', [
+        _row('Air Temperature',  wx.temp    != null ? `${wx.temp.toFixed(1)}°C`    : '--'),
+        _row('Relative Humidity', wx.rh     != null ? `${wx.rh.toFixed(0)}%`       : '--'),
+        _row('Dew Point',        (wx.temp != null && wx.rh != null) ? `${calcDewPoint(wx.temp, wx.rh).toFixed(1)}°C` : '--'),
+        _row('Wet Bulb',         (wx.temp != null && wx.rh != null) ? (() => {
+            const rh = wx.rh, t = wx.temp;
+            return (t * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) + Math.atan(t + rh) - Math.atan(rh - 1.676331) + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035).toFixed(1) + '°C';
+        })() : '--'),
+        _row('Delta T',          wx.deltaT  != null ? `${wx.deltaT.toFixed(1)}°C`  : '--'),
+    ].join(''));
+
+    html += _sec('Wind', [
+        _row('Wind Speed',       `${wx.windKmh.toFixed(0)} km/h`),
+        _row('Wind Direction',   wx.windDir),
+        _row('Wind Gust',        wx.gustKmh != null ? `${wx.gustKmh.toFixed(0)} km/h` : '--'),
+    ].join(''));
+
+    html += _sec('Pressure', [
+        _row('Barometric Pressure', wx.pressure != null ? `${wx.pressure.toFixed(1)} hPa` : '--'),
+        _row('Trend',               pTrend),
+    ].join(''));
+
+    html += _sec('Rain & Evapotranspiration', [
+        _row('Rain Today',       `${wx.rainToday.toFixed(1)} mm`),
+        _row('Rain This Month',  wx.rainMonth != null ? `${wx.rainMonth.toFixed(1)} mm` : '--'),
+        _row('Rain YTD',         wx.rainYear  != null ? `${wx.rainYear.toFixed(1)} mm`  : '--'),
+        _row('ET Today',         wx.etToday   != null ? `${wx.etToday.toFixed(1)} mm`   : '--'),
+    ].join(''));
+
+    html += _sec('Solar & Daylight', [
+        _row('UV Index',   fc.uvMax  != null ? fc.uvMax : '--'),
+        _row('Sunrise',    fc.sunrise),
+        _row('Sunset',     fc.sunset),
+    ].join(''));
+
+    html += `<div class="rpt-generated">Generated ${_rptNow()} — Wagga Wagga Country Club</div>`;
+    return { title: '📡 Full Station Dump', html };
+}
+
+// ── Generate & display a report ───────────────────────────────────
+let _currentReportType = null;
+
+function generateReport(type) {
+    _currentReportType = type;
+    const generators = {
+        morning:    _rptMorning,
+        spray:      _rptSpray,
+        irrigation: _rptIrrigation,
+        disease:    _rptDisease,
+        gdd:        _rptGDD,
+        weekly:     _rptWeekly,
+        station:    _rptStation,
+    };
+    const fn = generators[type];
+    if (!fn) return;
+    const { title, html } = fn();
+
+    document.getElementById('report-preview-title').textContent = title;
+    document.getElementById('report-preview-content').innerHTML = html;
+    const card = document.getElementById('report-preview-card');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Highlight active button
+    document.querySelectorAll('.rpt-btn').forEach(b => b.classList.remove('active'));
+    const clicked = [...document.querySelectorAll('.rpt-btn')].find(b => b.getAttribute('onclick')?.includes(`'${type}'`));
+    if (clicked) clicked.classList.add('active');
+}
+
+function printReport() {
+    window.print();
+}
+
+// ── Email report ──────────────────────────────────────────────────
+
+// Shared email helpers (inline styles only — email-safe)
+function _eWrap(reportTitle, content) {
+    const dateStr = _rptDate();
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${reportTitle} — WWCC</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2ee;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ee">
+<tr><td align="center" style="padding:24px 12px">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12)">
+
+<!-- HEADER -->
+<tr><td style="background:#1a3a26;padding:28px 32px">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td>
+      <div style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:3px;text-transform:uppercase;line-height:1.2">Wagga Wagga<br>Country Club</div>
+      <div style="color:#7ec897;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:6px">Greenkeeper Weather Intelligence</div>
+    </td>
+    <td align="right" valign="middle" style="padding-left:16px">
+      <div style="background:#27ae60;border-radius:50%;width:52px;height:52px;text-align:center;line-height:52px;font-size:26px;display:inline-block">&#9971;</div>
+    </td>
+  </tr></table>
+</td></tr>
+
+<!-- TITLE BAR -->
+<tr><td style="background:#27ae60;padding:14px 32px">
+  <div style="color:#ffffff;font-size:15px;font-weight:bold;line-height:1.3">${reportTitle}</div>
+  <div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:3px">${dateStr}</div>
+</td></tr>
+
+<!-- CONTENT -->
+<tr><td style="padding:28px 32px;background:#ffffff">
+${content}
+</td></tr>
+
+<!-- FOOTER -->
+<tr><td style="background:#f5faf5;padding:16px 32px;border-top:2px solid #e0f0e4">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="color:#aaa;font-size:11px">Generated ${_rptNow()}</td>
+    <td align="right" style="color:#27ae60;font-size:11px;font-weight:bold;letter-spacing:1px">WWCC WEATHER DASHBOARD</td>
+  </tr></table>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function _eSection(title, rowsHtml) {
+    return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+  <tr><td style="padding-bottom:8px">
+    <div style="border-left:4px solid #27ae60;padding-left:10px">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">${title}</span>
+    </div>
+  </td></tr>
+  <tr><td>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8f0e8;border-radius:8px;overflow:hidden">
+      ${rowsHtml}
+    </table>
+  </td></tr>
+</table>`;
+}
+
+function _eRow(lbl, val, i) {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fbf9';
+    return `<tr style="background:${bg}">
+  <td style="padding:9px 14px;color:#666;font-size:13px;border-bottom:1px solid #f0f4f0;width:48%">${lbl}</td>
+  <td style="padding:9px 14px;font-weight:bold;font-size:13px;color:#222;border-bottom:1px solid #f0f4f0">${val}</td>
+</tr>`;
+}
+
+function _eBadge(type, text) {
+    const map = {
+        good: 'background:#d4edda;color:#155724;border:1px solid #c3e6cb',
+        warn: 'background:#fff3cd;color:#7a5c00;border:1px solid #ffd966',
+        bad:  'background:#f8d7da;color:#7a1520;border:1px solid #f5c0c5',
+        info: 'background:#d1ecf1;color:#0b5160;border:1px solid #bee5eb',
+    };
+    return `<span style="${map[type]||map.info};padding:3px 10px;border-radius:4px;font-size:12px;font-weight:bold;display:inline-block">${text}</span>`;
+}
+
+function _eDataTable(headers, rows, footerRow) {
+    let t = `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;margin-top:4px">
+  <thead><tr style="background:#1a3a26">`;
+    headers.forEach(h => { t += `<th style="padding:8px 10px;color:#7ec897;font-weight:normal;font-size:11px;text-transform:uppercase;letter-spacing:1px;text-align:left">${h}</th>`; });
+    t += `</tr></thead><tbody>`;
+    rows.forEach((r, i) => {
+        const bg = i % 2 === 0 ? '#ffffff' : '#f5faf5';
+        t += `<tr style="background:${bg}">`;
+        r.forEach(cell => { t += `<td style="padding:8px 10px;border-bottom:1px solid #eef4ee;color:${cell.color||'#333'};font-weight:${cell.bold?'bold':'normal'}">${cell.v}</td>`; });
+        t += `</tr>`;
+    });
+    if (footerRow) {
+        t += `<tr style="background:#1a3a26">`;
+        footerRow.forEach(cell => { t += `<td style="padding:8px 10px;color:#7ec897;font-weight:bold;font-size:12px">${cell.v}</td>`; });
+        t += `</tr>`;
+    }
+    t += `</tbody></table>`;
+    return t;
+}
+
+function _eNote(text) {
+    return `<div style="background:#f5faf5;border-left:4px solid #27ae60;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;color:#333;line-height:1.6;margin-top:6px">${text}</div>`;
+}
+
+// ── Per-report email content ──────────────────────────────────────
+
+function _emailMorning() {
+    const p     = getSprayProduct();
+    const soil  = _soilStatus();
+    const dewC  = (wx.temp !== null && wx.rh !== null) ? calcDewPoint(wx.temp, wx.rh) : null;
+    const dewOk = dewC !== null && (wx.temp - dewC) >= 3.5;
+    const spGood = wx.temp !== null && wx.deltaT !== null ? (() => {
+        const dt = wx.deltaT, t = wx.temp, w = wx.windKmh;
+        const dtOk = dt >= p.dtMin && dt <= p.dtMax, tOk = t < p.tempMax, wOk = w < p.windMax;
+        const dtW  = dt > p.dtMax && dt <= p.dtWarnMax, tW = t >= p.tempMax && t <= p.tempWarnMax, wW = w >= p.windMax && w <= p.windWarnMax;
+        if (dtOk && tOk && wOk) return 'good';
+        if ((!dtOk && !dtW) || (!tOk && !tW) || (!wOk && !wW)) return 'bad';
+        return 'warn';
+    })() : 'info';
+    const spLabel = { good: 'GO — Safe to spray', warn: 'CAUTION — Marginal conditions', bad: 'NO-GO — Outside limits', info: 'No data' };
+
+    const highestRisk = (() => {
+        const el = document.getElementById('disease-tbody');
+        if (!el) return null;
+        for (const r of el.querySelectorAll('tr')) {
+            const cells = r.querySelectorAll('td');
+            if (cells.length >= 2) {
+                const s = cells[1].querySelector('span');
+                if (s && (s.classList.contains('dr-high') || s.classList.contains('dr-severe'))) return cells[0].textContent;
+            }
+        }
+        return null;
+    })();
+
+    let i = 0;
+    const cond = [
+        _eRow('Air Temperature',  wx.temp   !== null ? `${wx.temp.toFixed(1)}°C`    : '--', i++),
+        _eRow('Relative Humidity', wx.rh    !== null ? `${wx.rh.toFixed(0)}%`       : '--', i++),
+        _eRow('Delta T',          wx.deltaT !== null ? `${wx.deltaT.toFixed(1)}°C`  : '--', i++),
+        _eRow('Wind Speed',       `${wx.windKmh.toFixed(0)} km/h ${wx.windDir}`,            i++),
+        _eRow('Pressure',         wx.pressure !== null ? `${wx.pressure.toFixed(0)} hPa` : '--', i++),
+    ].join('');
+
+    i = 0;
+    const fcast = [
+        _eRow('High / Low',       fc.todayMax != null ? `${fc.todayMax.toFixed(0)}°C / ${fc.todayMin?.toFixed(0)}°C` : '--', i++),
+        _eRow('Rain Probability', fc.todayRainProb != null ? `${fc.todayRainProb}%` : '--', i++),
+        _eRow('UV Index',         fc.uvMax != null ? fc.uvMax : '--',                        i++),
+        _eRow('Sunrise / Sunset', `${fc.sunrise} / ${fc.sunset}`,                            i++),
+    ].join('');
+
+    i = 0;
+    const decisions = [
+        _eRow(`Spray (${p.label})`,  _eBadge(spGood, spLabel[spGood]),                                                                 i++),
+        _eRow('Mow / Dew',           dewOk ? _eBadge('good','Clear — Safe to mow') : _eBadge('warn','Dew present — wait'),              i++),
+        _eRow('Soil Moisture',        _eBadge(soil.cls, soil.label),                                                                     i++),
+        _eRow('Irrigation',          soil.deficit >= 12 ? _eBadge('warn',`Apply ~${Math.max(0,soil.deficit-5).toFixed(0)} mm`) : _eBadge('good','Not required'), i++),
+        _eRow('Disease Alert',        highestRisk ? _eBadge('bad',`High risk: ${highestRisk}`) : _eBadge('good','No high-risk diseases'), i++),
+    ].join('');
+
+    const content = _eSection('Current Conditions', cond)
+                  + _eSection("Today's Forecast", fcast)
+                  + _eSection('Key Decisions', decisions);
+
+    return { subject: `WWCC Morning Briefing — ${_rptDate()}`, html: _eWrap('☀️ Morning Briefing', content) };
+}
+
+function _emailSpray() {
+    const p = getSprayProduct();
+    const spGood = wx.temp !== null && wx.deltaT !== null ? (() => {
+        const dt = wx.deltaT, t = wx.temp, w = wx.windKmh;
+        const dtOk = dt >= p.dtMin && dt <= p.dtMax, tOk = t < p.tempMax, wOk = w < p.windMax;
+        const dtW  = dt > p.dtMax && dt <= p.dtWarnMax, tW = t >= p.tempMax && t <= p.tempWarnMax, wW = w >= p.windMax && w <= p.windWarnMax;
+        if (dtOk && tOk && wOk) return 'good';
+        if ((!dtOk && !dtW) || (!tOk && !tW) || (!wOk && !wW)) return 'bad';
+        return 'warn';
+    })() : 'info';
+    const spLabel = { good: 'GO — Safe to spray', warn: 'CAUTION — Marginal', bad: 'NO-GO', info: 'No data' };
+
+    const windows = [];
+    if (hourlyFc?.temperature_2m) {
+        const offsetMs = sydneyOffsetMs(), nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13), cutoffMs = Date.now() + 48 * 3600000;
+        let cur = null;
+        for (let i = 0; i < hourlyFc.time.length; i++) {
+            if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+            const [dp, tp] = hourlyFc.time[i].split('T');
+            const [yr, mo, dy] = dp.split('-').map(Number), [hr] = tp.split(':').map(Number);
+            if (Date.UTC(yr, mo - 1, dy, hr) - offsetMs > cutoffMs) break;
+            const temp = hourlyFc.temperature_2m[i], rh = hourlyFc.relative_humidity_2m?.[i] ?? null, ws = hourlyFc.windspeed_10m?.[i] || 0, rp = hourlyFc.precipitation_probability?.[i] || 0;
+            if (temp === null || rh === null) { if (cur) { windows.push(cur); cur = null; } continue; }
+            const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) + Math.atan(temp + rh) - Math.atan(rh - 1.676331) + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
+            const dt = temp - tw;
+            const ok   = (dt >= p.dtMin && dt <= p.dtWarnMax) && temp < p.tempWarnMax && ws < p.windWarnMax && rp < 30;
+            const good = dt >= p.dtMin  && dt <= p.dtMax      && temp < p.tempMax     && ws < p.windMax     && rp < 30;
+            if (ok) { const lbl = `${hr % 12 || 12}${hr >= 12 ? 'pm' : 'am'}`; if (!cur) cur = { start: lbl, day: dp, good }; cur.end = lbl; if (!good) cur.good = false; }
+            else { if (cur) { windows.push(cur); cur = null; } }
+        }
+        if (cur) windows.push(cur);
+    }
+
+    let i = 0;
+    const prod = [
+        _eRow('Product', p.label, i++),
+        _eRow('Delta T Range', `${p.dtMin}–${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`, i++),
+        _eRow('Max Temp', `${p.tempMax}°C (warn ${p.tempWarnMax}°C)`, i++),
+        _eRow('Max Wind', `${p.windMax} km/h (warn ${p.windWarnMax} km/h)`, i++),
+    ].join('');
+
+    i = 0;
+    const cond = [
+        _eRow('Overall Status', _eBadge(spGood, spLabel[spGood]), i++),
+        _eRow('Delta T',        wx.deltaT !== null ? `${wx.deltaT.toFixed(1)}°C` : '--', i++),
+        _eRow('Dry Bulb Temp',  wx.temp   !== null ? `${wx.temp.toFixed(1)}°C`   : '--', i++),
+        _eRow('Wind Speed',     `${wx.windKmh.toFixed(0)} km/h ${wx.windDir}`,           i++),
+        _eRow('Humidity',       wx.rh !== null ? `${wx.rh.toFixed(0)}%` : '--',          i++),
+    ].join('');
+
+    let windowContent = '';
+    if (windows.length > 0) {
+        const wRows = windows.map(w => ([
+            { v: w.day }, { v: `${w.start} – ${w.end}` }, { v: _eBadge(w.good ? 'good' : 'warn', w.good ? 'Ideal' : 'Marginal') }
+        ]));
+        windowContent = _eDataTable(['Date', 'Window', 'Quality'], wRows, null);
+    } else {
+        windowContent = `<div style="padding:12px;color:#999;font-size:13px">No suitable windows found in the next 48 hours.</div>`;
+    }
+
+    const content = _eSection('Selected Product', prod)
+                  + _eSection('Current Conditions', cond)
+                  + `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+                       <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">48h Spray Windows</span></div></td></tr>
+                       <tr><td>${windowContent}</td></tr></table>`;
+
+    return { subject: `WWCC Spray Report — ${p.label} — ${_rptDate()}`, html: _eWrap('🌿 Spray Report — ' + p.label, content) };
+}
+
+function _emailIrrigation() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let tableRows = [], totET = 0, totRain = 0;
+
+    for (let d = 6; d >= 0; d--) {
+        const dt = new Date(Date.now() + offsetMs); dt.setUTCDate(dt.getUTCDate() - d);
+        const key = dt.toISOString().slice(0, 10), rec = store[key] || {};
+        const et = rec.et || 0, rain = rec.rain || 0, bal = rain - et;
+        totET += et; totRain += rain;
+        tableRows.push([
+            { v: `${dayNames[dt.getUTCDay()]} ${key.slice(5)}` },
+            { v: et.toFixed(1),   color: '#d35400' },
+            { v: rain.toFixed(1), color: '#2471a3' },
+            { v: (bal >= 0 ? '+' : '') + bal.toFixed(1), color: bal >= 0 ? '#2471a3' : '#c0392b', bold: true },
+        ]);
+    }
+    const totBal = totRain - totET;
+    const footer = [
+        { v: '7-Day Total' },
+        { v: totET.toFixed(1),   color: '#d35400' },
+        { v: totRain.toFixed(1), color: '#2471a3' },
+        { v: (totBal >= 0 ? '+' : '') + totBal.toFixed(1), color: totBal >= 0 ? '#2471a3' : '#c0392b' },
+    ];
+
+    const soil = _soilStatus();
+    const irr  = _irrRecommendation(soil.deficit);
+
+    let i = 0;
+    const statusRows = [
+        _eRow('Moisture Status',   _eBadge(soil.cls, soil.label), i++),
+        _eRow('7-Day Deficit',     soil.deficit >= 0 ? `+${soil.deficit.toFixed(1)} mm (deficit)` : `${soil.deficit.toFixed(1)} mm (surplus)`, i++),
+        _eRow('Rain This Month',   wx.rainMonth != null ? `${wx.rainMonth.toFixed(1)} mm` : '--', i++),
+        _eRow('Rain YTD',          wx.rainYear  != null ? `${wx.rainYear.toFixed(1)} mm`  : '--', i++),
+        _eRow('ET Today',          wx.etToday   != null ? `${wx.etToday.toFixed(1)} mm`   : '--', i++),
+        _eRow('Rain Today',        `${wx.rainToday.toFixed(1)} mm`,                                i++),
+    ].join('');
+
+    const content = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+      <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">7-Day Water Balance</span></div></td></tr>
+      <tr><td>${_eDataTable(['Day / Date','ET (mm)','Rain (mm)','Balance'], tableRows, footer)}</td></tr>
+    </table>`
+    + _eSection('Current Soil Status', statusRows)
+    + `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+         <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">Recommendation</span></div></td></tr>
+         <tr><td>${_eNote(irr)}</td></tr>
+       </table>`;
+
+    return { subject: `WWCC Irrigation Report — ${_rptDate()}`, html: _eWrap('💧 Irrigation Report', content) };
+}
+
+function _emailDisease() {
+    const tbody  = document.getElementById('disease-tbody');
+    const recEl  = document.getElementById('disease-rec');
+    const wetH   = document.getElementById('dr-lwd')?.textContent || '--';
+    const nightM = document.getElementById('dr-mintemp')?.textContent || '--';
+    const meanRH = document.getElementById('dr-rh')?.textContent || '--';
+    const skProb = getSmithKerns5Day();
+
+    let i = 0;
+    const condRows = [
+        _eRow('Leaf Wetness Hours',   wetH,  i++),
+        _eRow('Night Min (8pm–8am)', nightM, i++),
+        _eRow('Mean RH (24h)',        meanRH, i++),
+        _eRow('Current Temp',  wx.temp !== null ? `${wx.temp.toFixed(1)}°C` : '--', i++),
+        _eRow('Current RH',    wx.rh   !== null ? `${wx.rh.toFixed(0)}%`    : '--', i++),
+    ].join('');
+
+    let diseaseTableHtml = '';
+    if (tbody) {
+        const dRows = [];
+        tbody.querySelectorAll('tr').forEach(r => {
+            const cells = r.querySelectorAll('td');
+            if (cells.length >= 3) {
+                const rEl = cells[1].querySelector('span');
+                const cls = rEl ? (rEl.classList.contains('dr-severe') || rEl.classList.contains('dr-high') ? 'bad' : rEl.classList.contains('dr-mod') ? 'warn' : 'good') : 'info';
+                dRows.push([{ v: cells[0].textContent }, { v: _eBadge(cls, cells[1].textContent) }, { v: cells[2].textContent, color: '#666' }]);
+            }
+        });
+        diseaseTableHtml = _eDataTable(['Disease', 'Risk', 'Key Factor'], dRows, null);
+    }
+
+    i = 0;
+    const skRows = [
+        _eRow('5-Day Probability', skProb !== null ? `${Math.round(skProb * 100)}%` : 'Insufficient history', i++),
+        _eRow('Model Validity', 'Calibrated for A4, Cobra &amp; Oakley (creeping bentgrass)', i++),
+    ].join('');
+
+    const recTitle  = recEl?.querySelector('.rec-title')?.textContent  || '';
+    const recDetail = recEl?.querySelector('.rec-detail')?.textContent || '';
+
+    const content = _eSection('Conditions (24h)', condRows)
+        + `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+             <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">Disease Risk Table</span></div></td></tr>
+             <tr><td>${diseaseTableHtml}</td></tr>
+           </table>`
+        + _eSection('Smith-Kerns Dollar Spot Model', skRows)
+        + `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+             <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">Recommendation</span></div></td></tr>
+             <tr><td>${_eNote(`<strong>${recTitle}</strong><br>${recDetail}`)}</td></tr>
+           </table>`;
+
+    return { subject: `WWCC Disease Risk Report — ${_rptDate()}`, html: _eWrap('🧠 Disease Risk Report', content) };
+}
+
+function _emailGDD() {
+    const GRASSES  = [
+        { label: 'Bentgrass', color: '#1a6ead', base: 10, locations: 'Greens — A4, Cobra, Oakley' },
+        { label: 'Kikuyu',    color: '#1a7a42', base: 15, locations: 'Fairways & rough' },
+    ];
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    let content = '';
+
+    GRASSES.forEach(g => {
+        let histGDD = 0, histRows = [];
+        for (let d = 6; d >= 0; d--) {
+            const dt = new Date(Date.now() + offsetMs); dt.setUTCDate(dt.getUTCDate() - d);
+            const key = dt.toISOString().slice(0, 10), rec = store[key];
+            const gdd = rec?.tempMax != null && rec?.tempMin != null ? Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base) : null;
+            if (gdd !== null) histGDD += gdd;
+            histRows.push([{ v: dayNames[dt.getUTCDay()] }, { v: key.slice(5) }, { v: gdd !== null ? gdd.toFixed(1) : '--', color: g.color }]);
+        }
+        const todayGDD = fc.todayMax != null && fc.todayMin != null ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
+        const total7 = histGDD + todayGDD;
+        const totFooter = [{ v: '7-Day Total' }, { v: '' }, { v: total7.toFixed(1), color: '#7ec897' }];
+
+        let fcRows = [];
+        for (let i = 1; i <= 3; i++) {
+            const d = fc.forecastDays[i];
+            if (d?.max != null && d?.min != null) {
+                const gdd = Math.max(0, (d.max + d.min) / 2 - g.base);
+                fcRows.push([{ v: dayNames[new Date(d.date + 'T12:00:00').getDay()] }, { v: d.date.slice(5) }, { v: gdd.toFixed(1), color: g.color }]);
+            }
+        }
+
+        let appNote, noteCls;
+        if (g.base === 10) {
+            if      (total7 >= 100) { appNote = 'High growth — disease pressure window active on greens. Consider preventative fungicide.'; noteCls = 'bad'; }
+            else if (total7 >= 50)  { appNote = 'Moderate growth — good fertiliser uptake. Greens responding well to nutrition.'; noteCls = 'warn'; }
+            else                    { appNote = 'Low growth / near dormant — ease irrigation, hold heavy fertilising.'; noteCls = 'good'; }
+        } else {
+            if      (total7 >= 80)  { appNote = 'High growth — kikuyu vigorous. Increase mowing frequency.'; noteCls = 'bad'; }
+            else if (total7 >= 35)  { appNote = 'Moderate growth — good time for fairway fertilising.'; noteCls = 'warn'; }
+            else                    { appNote = 'Low growth / dormant — reduce irrigation and fertiliser on fairways.'; noteCls = 'good'; }
+        }
+
+        content += `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+          <tr><td style="padding-bottom:8px">
+            <div style="border-left:4px solid ${g.color};padding-left:10px">
+              <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:${g.color};font-weight:bold">${g.label} — Base ${g.base}°C</span>
+              <span style="font-size:11px;color:#999;margin-left:8px">${g.locations}</span>
+            </div>
+          </td></tr>
+          <tr><td>${_eDataTable(['Day','Date','GDD'], histRows, totFooter)}</td></tr>
+          ${fcRows.length ? `<tr><td style="padding-top:8px"><div style="font-size:11px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Forecast — next 3 days</div>${_eDataTable(['Day','Date','Forecast GDD'], fcRows, null)}</td></tr>` : ''}
+          <tr><td style="padding-top:10px">${_eNote(_eBadge(noteCls, appNote))}</td></tr>
+        </table>`;
+    });
+
+    return { subject: `WWCC GDD Growth Report — ${_rptDate()}`, html: _eWrap('🌡️ GDD Growth Report', content) };
+}
+
+function _emailWeekly() {
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let tableRows = [], totET = 0, totRain = 0, totBGdd = 0, totKGdd = 0, sprayDays = 0;
+
+    for (let d = 6; d >= 0; d--) {
+        const dt = new Date(Date.now() + offsetMs); dt.setUTCDate(dt.getUTCDate() - d);
+        const key = dt.toISOString().slice(0, 10), rec = store[key] || {};
+        const et = rec.et || 0, rain = rec.rain || 0;
+        const tMax = rec.tempMax, tMin = rec.tempMin;
+        const meanT = tMax != null && tMin != null ? (tMax + tMin) / 2 : null;
+        const bGdd = meanT != null ? Math.max(0, meanT - 10) : null;
+        const kGdd = meanT != null ? Math.max(0, meanT - 15) : null;
+        const meanRH = rec.meanRH;
+        const dtEst = meanT != null && meanRH != null
+            ? meanT - (meanT * Math.atan(0.151977 * Math.sqrt(meanRH + 8.313659)) + Math.atan(meanT + meanRH) - Math.atan(meanRH - 1.676331) + 0.00391838 * Math.pow(meanRH, 1.5) * Math.atan(0.023101 * meanRH) - 4.686035) : null;
+        const sprayOk = dtEst != null && dtEst >= 2 && dtEst <= 10 && tMax != null && tMax < 30 && rain < 2;
+        if (sprayOk) sprayDays++;
+        totET += et; totRain += rain;
+        if (bGdd != null) totBGdd += bGdd;
+        if (kGdd != null) totKGdd += kGdd;
+        tableRows.push([
+            { v: `${dayNames[dt.getUTCDay()]} ${key.slice(5)}` },
+            { v: tMax != null ? `${tMax.toFixed(0)}°` : '--' },
+            { v: tMin != null ? `${tMin.toFixed(0)}°` : '--' },
+            { v: rain.toFixed(1), color: '#2471a3' },
+            { v: et.toFixed(1),   color: '#d35400' },
+            { v: sprayOk ? '✓' : '✗', color: sprayOk ? '#1a7a42' : '#c0392b', bold: true },
+            { v: bGdd != null ? bGdd.toFixed(1) : '--', color: '#1a6ead' },
+            { v: kGdd != null ? kGdd.toFixed(1) : '--', color: '#1a7a42' },
+        ]);
+    }
+    const totBal = totRain - totET;
+    const footer = [
+        { v: 'Totals' }, { v: '—' }, { v: '—' },
+        { v: totRain.toFixed(1), color: '#7ec897' },
+        { v: totET.toFixed(1),   color: '#7ec897' },
+        { v: `${sprayDays}/7`,   color: '#7ec897' },
+        { v: totBGdd.toFixed(1), color: '#7ec897' },
+        { v: totKGdd.toFixed(1), color: '#7ec897' },
+    ];
+
+    let i = 0;
+    const summaryRows = [
+        _eRow('Total Rainfall',            `${totRain.toFixed(1)} mm`, i++),
+        _eRow('Total Evapotranspiration',  `${totET.toFixed(1)} mm`,   i++),
+        _eRow('Water Balance',             `${totBal >= 0 ? '+' : ''}${totBal.toFixed(1)} mm ${totBal >= 0 ? '(surplus)' : '(deficit)'}`, i++),
+        _eRow('Spray-suitable Days',       `${sprayDays} of 7`,         i++),
+        _eRow('Bentgrass GDD (7-day)',     `${totBGdd.toFixed(1)} GDD (base 10°C)`, i++),
+        _eRow('Kikuyu GDD (7-day)',        `${totKGdd.toFixed(1)} GDD (base 15°C)`, i++),
+    ].join('');
+
+    const content = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+      <tr><td style="padding-bottom:8px"><div style="border-left:4px solid #27ae60;padding-left:10px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#27ae60;font-weight:bold">7-Day Overview</span></div></td></tr>
+      <tr><td>${_eDataTable(['Day','Max','Min','Rain','ET','Spray','GDD B','GDD K'], tableRows, footer)}</td></tr>
+    </table>`
+    + _eSection('7-Day Summary', summaryRows);
+
+    return { subject: `WWCC Weekly Summary — ${_rptDate()}`, html: _eWrap('📅 Weekly Summary', content) };
+}
+
+function _emailStation() {
+    const pTrend = document.getElementById('gk-st-pressure-label')?.textContent || '--';
+    const wb = (wx.temp !== null && wx.rh !== null) ? (() => {
+        const t = wx.temp, rh = wx.rh;
+        return (t * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) + Math.atan(t + rh) - Math.atan(rh - 1.676331) + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035).toFixed(1) + '°C';
+    })() : '--';
+
+    let i = 0;
+    const tempRows = [
+        _eRow('Air Temperature',   wx.temp    != null ? `${wx.temp.toFixed(1)}°C`    : '--', i++),
+        _eRow('Relative Humidity', wx.rh      != null ? `${wx.rh.toFixed(0)}%`       : '--', i++),
+        _eRow('Dew Point',         (wx.temp !== null && wx.rh !== null) ? `${calcDewPoint(wx.temp, wx.rh).toFixed(1)}°C` : '--', i++),
+        _eRow('Wet Bulb',          wb,                                                        i++),
+        _eRow('Delta T',           wx.deltaT  != null ? `${wx.deltaT.toFixed(1)}°C`  : '--', i++),
+    ].join('');
+
+    i = 0;
+    const windRows = [
+        _eRow('Wind Speed',    `${wx.windKmh.toFixed(0)} km/h`, i++),
+        _eRow('Wind Direction', wx.windDir, i++),
+        _eRow('Wind Gust',     wx.gustKmh != null ? `${wx.gustKmh.toFixed(0)} km/h` : '--', i++),
+    ].join('');
+
+    i = 0;
+    const pressRows = [
+        _eRow('Barometric Pressure', wx.pressure != null ? `${wx.pressure.toFixed(1)} hPa` : '--', i++),
+        _eRow('Trend', pTrend, i++),
+    ].join('');
+
+    i = 0;
+    const rainRows = [
+        _eRow('Rain Today',      `${wx.rainToday.toFixed(1)} mm`, i++),
+        _eRow('Rain This Month', wx.rainMonth != null ? `${wx.rainMonth.toFixed(1)} mm` : '--', i++),
+        _eRow('Rain YTD',        wx.rainYear  != null ? `${wx.rainYear.toFixed(1)} mm`  : '--', i++),
+        _eRow('ET Today',        wx.etToday   != null ? `${wx.etToday.toFixed(1)} mm`   : '--', i++),
+    ].join('');
+
+    i = 0;
+    const solarRows = [
+        _eRow('UV Index',  fc.uvMax  != null ? fc.uvMax : '--', i++),
+        _eRow('Sunrise',   fc.sunrise,  i++),
+        _eRow('Sunset',    fc.sunset,   i++),
+    ].join('');
+
+    const content = _eSection('Temperature &amp; Humidity', tempRows)
+                  + _eSection('Wind', windRows)
+                  + _eSection('Pressure', pressRows)
+                  + _eSection('Rain &amp; Evapotranspiration', rainRows)
+                  + _eSection('Solar &amp; Daylight', solarRows);
+
+    return { subject: `WWCC Station Data — ${_rptNow()}`, html: _eWrap('📡 Full Station Dump', content) };
+}
+
+// ── Open email window ─────────────────────────────────────────────
+function emailReport() {
+    if (!_currentReportType) return;
+    const emailFns = {
+        morning:    _emailMorning,
+        spray:      _emailSpray,
+        irrigation: _emailIrrigation,
+        disease:    _emailDisease,
+        gdd:        _emailGDD,
+        weekly:     _emailWeekly,
+        station:    _emailStation,
+    };
+    const fn = emailFns[_currentReportType];
+    if (!fn) return;
+    const { subject, html } = fn();
+
+    const win = window.open('', '_blank', 'width=740,height=860');
+    if (!win) { alert('Popup blocked — please allow popups for this page to view email reports.'); return; }
+    win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Email Preview — WWCC</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#2c3e50; font-family:Arial,sans-serif; }
+  .toolbar { position:sticky; top:0; z-index:100; background:#1a252f; padding:12px 20px; display:flex; align-items:center; gap:10px; border-bottom:3px solid #27ae60; flex-wrap:wrap; }
+  .toolbar-title { color:#ecf0f1; font-size:0.88em; font-weight:bold; letter-spacing:0.5px; flex:1; min-width:120px; }
+  .tb-btn { border:none; border-radius:6px; padding:9px 16px; font-size:0.85em; font-weight:bold; cursor:pointer; letter-spacing:0.5px; white-space:nowrap; }
+  .tb-copy  { background:#27ae60; color:#fff; }
+  .tb-mail  { background:#2980b9; color:#fff; }
+  .tb-close { background:#3d5166; color:#ecf0f1; }
+  .tb-btn:hover { opacity:0.88; }
+  .toast { display:none; border-radius:4px; padding:5px 14px; font-size:0.82em; font-weight:bold; }
+  .toast-ok  { background:#27ae60; color:#fff; }
+  .toast-err { background:#e74c3c; color:#fff; }
+  .help-bar { background:#2c3e50; color:#95a5a6; font-size:0.78em; padding:8px 20px; border-bottom:1px solid #3d5166; }
+  .help-bar kbd { background:#3d5166; border-radius:3px; padding:1px 5px; color:#ecf0f1; }
+  .preview-wrap { padding:20px; }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <div class="toolbar-title">&#9993; ${subject}</div>
+  <button class="tb-btn tb-copy" onclick="doCopy()">&#128203; Copy for Email</button>
+  <button class="tb-btn tb-mail" onclick="doMailto()">&#128231; Open in Mail App</button>
+  <button class="tb-btn tb-close" onclick="window.close()">&#10005; Close</button>
+  <span class="toast toast-ok"  id="toast-ok">Copied! Paste into your email.</span>
+  <span class="toast toast-err" id="toast-err">Press Ctrl+A then Ctrl+C to copy manually.</span>
+</div>
+<div class="help-bar">Tip: Click <strong>Copy for Email</strong> then paste into Gmail or Outlook — the formatting will be preserved.</div>
+<div class="preview-wrap">
+  <div id="email-body">${html}</div>
+</div>
+<script>
+var _subj = ${JSON.stringify(subject)};
+
+function showToast(ok) {
+    var id = ok ? 'toast-ok' : 'toast-err';
+    var el = document.getElementById(id);
+    el.style.display = 'inline-block';
+    setTimeout(function(){ el.style.display = 'none'; }, 3000);
+}
+
+function doCopy() {
+    // Select the rendered email content and copy as rich text.
+    // This works on file:// without needing clipboard API or HTTPS.
+    var el = document.getElementById('email-body');
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) { ok = false; }
+    sel.removeAllRanges();
+    showToast(ok);
+}
+
+function doMailto() {
+    // Build plain-text body from the rendered email innerText.
+    var el = document.getElementById('email-body');
+    var body = el ? el.innerText : '';
+    // Mailto body is plain text only; truncate to avoid URL limits.
+    if (body.length > 2000) body = body.substring(0, 2000) + '\\n\\n[Report truncated — see full formatted version in email preview window]';
+    var href = 'mailto:?subject=' + encodeURIComponent(_subj) + '&body=' + encodeURIComponent(body);
+    window.location.href = href;
+}
+<\/script>
+</body></html>`);
+    win.document.close();
+}
+
+// ── Next Spray Window ────────────────────────────────────────────
+function updateNextSprayWindow() {
+    const el = document.getElementById('next-spray-window');
+    if (!el) return;
+    if (!hourlyFc || !hourlyFc.temperature_2m || !hourlyFc.relative_humidity_2m) {
+        el.innerHTML = '<div style="color:#7f8c8d;font-size:0.85em">Awaiting forecast data...</div>'; return;
+    }
+    const offsetMs   = sydneyOffsetMs();
+    const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    const cutoffMs   = Date.now() + 48 * 3600000;
+
+    const windows = [];
+    let cur = null;
+
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+        // Parse local time string as Sydney local
+        const [datePart, timePart] = hourlyFc.time[i].split('T');
+        const [yr, mo, dy] = datePart.split('-').map(Number);
+        const [hr]         = timePart.split(':').map(Number);
+        const slotMs       = Date.UTC(yr, mo - 1, dy, hr) - offsetMs;
+        if (slotMs > cutoffMs) break;
+
+        const temp = hourlyFc.temperature_2m[i];
+        const rh   = hourlyFc.relative_humidity_2m[i];
+        const ws   = hourlyFc.windspeed_10m?.[i] || 0;
+        const rp   = hourlyFc.precipitation_probability?.[i] || 0;
+        if (temp === null || rh === null) { if (cur) { windows.push(cur); cur = null; } continue; }
+
+        // Wet-bulb / Delta T (Stull 2011)
+        const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
+                 + Math.atan(temp + rh)
+                 - Math.atan(rh - 1.676331)
+                 + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
+                 - 4.686035;
+        const dt = temp - tw;
+
+        const _p     = getSprayProduct();
+        const dtOk   = dt >= _p.dtMin     && dt  <= _p.dtMax,      dtWarn = dt  > _p.dtMax     && dt  <= _p.dtWarnMax;
+        const tOk    = temp < _p.tempMax,                           tWarn  = temp >= _p.tempMax  && temp <= _p.tempWarnMax;
+        const wOk    = ws  < _p.windMax,                            wWarn  = ws   >= _p.windMax  && ws   <= _p.windWarnMax;
+        const noRain = rp < 50;
+
+        const ideal    = dtOk && tOk && wOk && noRain;
+        // Marginal: nothing outright bad AND at least 2 of 3 parameters are ideal (not just warn)
+        const noBad    = (dtOk || dtWarn) && (tOk || tWarn) && (wOk || wWarn);
+        const okCount  = [dtOk, tOk, wOk].filter(Boolean).length;
+        const marginal = noBad && okCount >= 2 && noRain;
+
+        if (ideal || marginal) {
+            const label = `${hr % 12 || 12}${hr >= 12 ? 'PM' : 'AM'}`;
+            if (!cur) cur = { startLabel: label, startH: hr, hours: 1, ideal, dt: dt.toFixed(1), temp: temp.toFixed(1), wind: ws.toFixed(0) };
+            else { cur.hours++; if (!ideal) cur.ideal = false; }
+        } else {
+            if (cur) { windows.push(cur); cur = null; }
+        }
+    }
+    if (cur) windows.push(cur);
+
+    if (windows.length === 0) {
+        el.innerHTML = '<div class="recommendation rec-hold" style="margin-top:0"><div class="rec-title">No Suitable Window</div><div class="rec-detail">No spray-safe conditions found in the next 48 hours.</div></div>';
+        return;
+    }
+    const w = windows[0];
+    const endH = (w.startH + w.hours) % 24;
+    const endLabel = `${endH % 12 || 12}${endH >= 12 ? 'PM' : 'AM'}`;
+    const cls   = w.ideal ? 'rec-ok' : 'rec-hold';
+    const title = w.ideal
+        ? `Ideal: ${w.startLabel} – ${endLabel} (${w.hours}h)`
+        : `Marginal: ${w.startLabel} – ${endLabel} (${w.hours}h)`;
+    const more  = windows.length > 1 ? `<div style="font-size:0.78em;color:#7f8c8d;margin-top:5px">+ ${windows.length - 1} more window${windows.length > 2 ? 's' : ''} in the next 48h</div>` : '';
+    el.innerHTML = `<div class="recommendation ${cls}" style="margin-top:0">
+        <div class="rec-title">${title}</div>
+        <div class="rec-detail">&#916;T ${w.dt}°C &nbsp;·&nbsp; ${w.temp}°C &nbsp;·&nbsp; ${w.wind} km/h wind</div>
+    </div>${more}`;
+}
+
+// ── 24h Wind Forecast Strip (GK) ─────────────────────────────────
+function renderGKWindStrip() {
+    const el = document.getElementById('gk-wind-strip');
+    if (!el || !hourlyFc || !hourlyFc.windspeed_10m) return;
+    const offsetMs   = sydneyOffsetMs();
+    const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+
+    // First pass: find next spray-safe window (≥2 consecutive hours wind <15 km/h)
+    let calloutLabel = null, goodRun = 0, candidateLabel = null;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+        const ws = hourlyFc.windspeed_10m[i] || 0;
+        if (ws < 15) {
+            goodRun++;
+            if (goodRun === 1) {
+                const hr = parseInt(hourlyFc.time[i].split('T')[1], 10);
+                candidateLabel = goodRun === 1 && i === 0 ? 'Now' : `${hr % 12 || 12}${hr >= 12 ? 'pm' : 'am'}`;
+            }
+            if (goodRun >= 2) { calloutLabel = candidateLabel; break; }
+        } else { goodRun = 0; candidateLabel = null; }
+    }
+    const calloutHtml = calloutLabel
+        ? `<div style="margin-bottom:8px;padding:7px 10px;background:#1d3d27;border-left:3px solid #27ae60;border-radius:4px;font-size:0.82em;color:#2ecc71">&#127788; Next spray-safe window (wind &lt;15 km/h): <strong>${calloutLabel}</strong></div>`
+        : `<div style="margin-bottom:8px;padding:7px 10px;background:#3d1a0a;border-left:3px solid #e74c3c;border-radius:4px;font-size:0.82em;color:#e74c3c">&#127788; No spray-safe window found in next 24h</div>`;
+
+    // Second pass: build hourly cells
+    let html = '', count = 0;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+        if (count >= 24) break;
+        const ws  = hourlyFc.windspeed_10m[i] || 0;
+        const wd  = hourlyFc.winddirection_10m ? hourlyFc.winddirection_10m[i] : null;
+        const hr  = parseInt(hourlyFc.time[i].split('T')[1], 10);
+        const lbl = count === 0 ? 'Now' : `${hr % 12 || 12}${hr >= 12 ? 'pm' : 'am'}`;
+        const dir = degreesToCompass(wd) || '--';
+        const cls = ws < 15 ? 'ws-good' : ws < 20 ? 'ws-warn' : 'ws-bad';
+        const col = ws < 15 ? '#27ae60' : ws < 20 ? '#d4ac0d' : '#e74c3c';
+        html += `<div class="ws-cell ${cls}">
+            <div class="ws-time">${lbl}</div>
+            <div class="ws-speed" style="color:${col}">${Math.round(ws)}</div>
+            <div class="ws-dir">${dir}</div>
+        </div>`;
+        count++;
+    }
+    el.innerHTML = calloutHtml + (html || '<div style="color:#7f8c8d;font-size:0.85em">No data</div>');
+}
+
+// ── ET 3-Day Forecast Card ────────────────────────────────────────
+function updateETForecast() {
+    const el = document.getElementById('et-forecast-content');
+    if (!el) return;
+    if (!fc.forecastDays.length || !fc.etForecast.length) return;
+
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let html = '<table class="weekly-table"><thead><tr>'
+        + '<th>Day</th><th class="et-col">ET mm</th><th class="rain-col">Rain mm</th><th>Net</th>'
+        + '</tr></thead><tbody>';
+
+    let totalET = 0, totalRain = 0;
+    for (let i = 1; i <= 3; i++) {
+        const d  = fc.forecastDays[i];
+        if (!d) continue;
+        const date   = new Date(d.date + 'T12:00:00');
+        const label  = dayNames[date.getDay()];
+        const et     = fc.etForecast[i] != null ? fc.etForecast[i] : null;
+        const rain   = d.rain != null ? d.rain : null;
+        const net    = (et != null && rain != null) ? et - rain : null;
+        totalET   += et   ?? 0;
+        totalRain += rain ?? 0;
+        const etStr   = et   != null ? et.toFixed(1)   : '--';
+        const rainStr = rain != null ? rain.toFixed(1)  : '--';
+        const netStr  = net  != null ? (net > 0 ? '+' : '') + net.toFixed(1) : '--';
+        const netCls  = net  != null ? (net > 0 ? 'def-pos' : 'def-neg') : '';
+        html += `<tr><td>${label}</td><td class="et-col">${etStr}</td><td class="rain-col">${rainStr}</td><td class="${netCls}">${netStr}</td></tr>`;
+    }
+
+    const totalNet = totalET - totalRain;
+    const totalNetStr = (totalNet > 0 ? '+' : '') + totalNet.toFixed(1);
+    const totalNetCls = totalNet > 0 ? 'def-pos' : 'def-neg';
+    html += `</tbody><tfoot><tr>
+        <td>3-Day</td>
+        <td class="et-col">${totalET.toFixed(1)}</td>
+        <td class="rain-col">${totalRain.toFixed(1)}</td>
+        <td class="${totalNetCls}">${totalNetStr}</td>
+    </tr></tfoot></table>`;
+
+    const note = totalNet > 8
+        ? '<div style="margin-top:8px;color:#e67e22;font-size:0.82em">&#9888; High irrigation demand forecast</div>'
+        : totalNet < -5
+        ? '<div style="margin-top:8px;color:#74b9ff;font-size:0.82em">&#128167; Rain surplus expected — reduce irrigation</div>'
+        : '<div style="margin-top:8px;color:#7f8c8d;font-size:0.82em">Irrigation demand within normal range</div>';
+
+    el.innerHTML = html + note;
+}
+
+// ── Growing Degree Days Card ──────────────────────────────────────
+function updateGDD() {
+    const el = document.getElementById('gdd-content');
+    if (!el) return;
+
+    const GRASSES = [
+        { label: 'Bentgrass',  color: '#2980b9', base: 10, locations: 'Greens (A4, Cobra, Oakley)' },
+        { label: 'Kikuyu',     color: '#27ae60', base: 15, locations: 'Fairways & rough' },
+    ];
+
+    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const offsetMs = sydneyOffsetMs();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    // Compute 7-day accumulated + 3-day forecast GDD for each grass type
+    const results = GRASSES.map(g => {
+        let histGDD = 0, histDays = 0;
+        for (let d = 1; d <= 7; d++) {
+            const dt = new Date(Date.now() + offsetMs);
+            dt.setUTCDate(dt.getUTCDate() - d);
+            const rec = store[dt.toISOString().slice(0, 10)];
+            if (rec?.tempMax != null && rec?.tempMin != null) {
+                histGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+                histDays++;
+            }
+        }
+        const todayGDD = (fc.todayMax != null && fc.todayMin != null)
+            ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
+        const total7Day = histGDD + todayGDD;
+
+        let fcGDD = 0, fcRows = [];
+        for (let i = 1; i <= 3; i++) {
+            const d = fc.forecastDays[i];
+            if (d?.max != null && d?.min != null) {
+                const gdd = Math.max(0, (d.max + d.min) / 2 - g.base);
+                fcGDD += gdd;
+                const date = new Date(d.date + 'T12:00:00');
+                fcRows.push({ label: dayNames[date.getDay()], gdd });
+            }
+        }
+        return { ...g, histDays, total7Day, fcGDD, fcRows };
+    });
+
+    // Seasonal context
+    const month = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney', month: 'long' });
+    const mo    = parseInt(new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', month: 'numeric' }).format(new Date()), 10) - 1;
+    let seasonNote, seasonColor;
+    if (mo >= 5 && mo <= 7) {
+        seasonNote  = `It's ${month} — mid-winter in Wagga Wagga. Mean daily temperatures are typically only just above the 10°C base, so low GDD accumulation each day (2–4 GDD) is completely normal. Bentgrass is in minimal growth mode and disease pressure is low. Kikuyu fairways will be dormant or very slow.`;
+        seasonColor = '#5dade2';
+    } else if (mo >= 8 && mo <= 10) {
+        seasonNote  = `It's ${month} — spring in Wagga Wagga. Temperatures are rising and GDD will start accumulating faster as days warm up. Watch for a jump in disease risk as bentgrass transitions into active growth — fungicide timing becomes more critical through this period.`;
+        seasonColor = '#27ae60';
+    } else if (mo >= 11 || mo <= 1) {
+        seasonNote  = `It's ${month} — summer in Wagga Wagga. High temperatures drive rapid GDD accumulation (15–20+ GDD/day). Disease pressure on bentgrass greens is at its peak. Heat stress risk is elevated — prioritise morning spraying and ensure adequate soil moisture.`;
+        seasonColor = '#e74c3c';
+    } else {
+        seasonNote  = `It's ${month} — autumn in Wagga Wagga. GDD accumulation is slowing as temperatures drop. Good period for recovery work on greens. Disease pressure begins to ease for bentgrass, but dollar spot can still be active while nights remain warm.`;
+        seasonColor = '#e67e22';
+    }
+
+    let html = `
+    <div style="background:#1a252f;border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:0.8em;color:#95a5a6;line-height:1.5">
+        <strong style="color:#ecf0f1">Growing Degree Days (GDD)</strong> measure heat accumulation above a grass-specific base temperature — the point at which each grass type starts actively growing.
+        Formula: <span style="color:#e67e22">GDD = max(0, (Daily Max + Daily Min) ÷ 2 − Base°C)</span><br>
+        Higher accumulated GDD = faster growth, higher disease risk, greater fertiliser uptake.
+    </div>
+    <div style="background:#1a252f;border-left:3px solid ${seasonColor};border-radius:5px;padding:8px 10px;margin-bottom:14px;font-size:0.78em;color:#95a5a6;line-height:1.5">
+        <span style="color:${seasonColor};font-weight:bold">Seasonal context</span> &nbsp;${seasonNote}
+    </div>`;
+
+    // One section per grass type, each with its own application note
+    results.forEach(g => {
+        // Per-grass application note
+        let appNote, noteColor;
+        if (g.base === 10) {
+            // Bentgrass thresholds
+            if      (g.total7Day >= 100) { appNote = '&#128308; <strong>High growth</strong> — disease pressure window active on greens. Consider preventative fungicide.'; noteColor = '#e74c3c'; }
+            else if (g.total7Day >= 50)  { appNote = '&#128993; <strong>Moderate growth</strong> — good fertiliser uptake period. Greens responding well to nutrition.'; noteColor = '#d4ac0d'; }
+            else                         { appNote = '&#128994; <strong>Low growth / near dormant</strong> — cool conditions limiting bentgrass. Ease irrigation, hold heavy fertilising.'; noteColor = '#27ae60'; }
+        } else {
+            // Kikuyu thresholds (base 15°C — needs more heat, so lower absolute numbers are expected)
+            if      (g.total7Day >= 80)  { appNote = '&#128308; <strong>High growth</strong> — kikuyu growing vigorously. Mowing frequency should increase, herbicide efficacy good.'; noteColor = '#e74c3c'; }
+            else if (g.total7Day >= 35)  { appNote = '&#128993; <strong>Moderate growth</strong> — kikuyu actively growing. Good time for fertilising fairways.'; noteColor = '#d4ac0d'; }
+            else                         { appNote = '&#128994; <strong>Low growth / dormant</strong> — cool temperatures limiting kikuyu. Reduce irrigation and fertiliser inputs on fairways.'; noteColor = '#27ae60'; }
+        }
+
+        html += `
+        <div style="border-left:3px solid ${g.color};padding-left:10px;margin-bottom:14px">
+            <div style="font-size:0.78em;font-weight:bold;color:${g.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${g.label} — base ${g.base}°C</div>
+            <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:8px">${g.locations}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
+                    <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">7-Day Accumulated</div>
+                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.total7Day > 0 ? g.total7Day.toFixed(0) : '--'}</div>
+                    <div style="font-size:0.68em;color:#7f8c8d">GDD last 7 days</div>
+                </div>
+                <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
+                    <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Next 3 Days</div>
+                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">+${g.fcGDD.toFixed(0)}</div>
+                    <div style="font-size:0.68em;color:#7f8c8d">Forecast GDD</div>
+                </div>
+            </div>`;
+        if (g.fcRows.length) {
+            html += '<div style="overflow-x:auto"><table class="weekly-table" style="margin-bottom:4px"><thead><tr><th>Day</th><th class="et-col">GDD</th></tr></thead><tbody>';
+            g.fcRows.forEach(r => { html += `<tr><td>${r.label}</td><td class="et-col">${r.gdd.toFixed(1)}</td></tr>`; });
+            html += '</tbody></table></div>';
+        }
+        if (g.histDays < 7) {
+            const missing = 7 - g.histDays;
+            const msg = g.histDays === 0 ? 'No history yet — accumulating' : `${missing} day${missing > 1 ? 's' : ''} missing — may be understated`;
+            html += `<div style="font-size:0.72em;color:#7f8c8d;margin-top:4px">&#9432; ${msg}</div>`;
+        }
+        html += `<div style="margin-top:6px;font-size:0.8em;color:${noteColor}">${appNote}</div>`;
+        if (g.base === 15) {
+            const dormant = wx.temp !== null && wx.temp < 15;
+            html += `<div style="margin-top:6px;font-size:0.78em;padding:6px 8px;border-radius:5px;background:${dormant ? '#3d1a0a' : '#1a252f'};color:${dormant ? '#e67e22' : '#7f8c8d'}">
+                ${dormant ? '&#9889; Kikuyu currently dormant' : '&#9432; Kikuyu goes dormant'} when mean daily temperature drops below 15°C — growth stops, colour fades, recovery is slow until warm conditions return.
+            </div>`;
+        }
+        html += `</div>`;
+    });
+
+    el.innerHTML = html;
+}
+
+// ── Rainfall Summary Card ─────────────────────────────────────────
+function updateRainfallSummary() {
+    const el = document.getElementById('rainfall-summary-content');
+    if (!el) return;
+    const monthName = new Date().toLocaleString('en-AU', { month: 'long', timeZone: 'Australia/Sydney' });
+    const year = new Date().toLocaleString('en-AU', { year: 'numeric', timeZone: 'Australia/Sydney' });
+
+    // Monthly/yearly from Davis (live)
+    const monthStr = wx.rainMonth != null ? `${wx.rainMonth.toFixed(1)} mm` : '--';
+    const yearStr  = wx.rainYear  != null ? `${wx.rainYear.toFixed(0)} mm`  : '--';
+
+    // Also update the irrigation card inline cells
+    const mEl = document.getElementById('irr-rain-month');
+    const yEl = document.getElementById('irr-rain-year');
+    if (mEl) mEl.textContent = monthStr;
+    if (yEl) yEl.textContent = yearStr;
+
+    // 7-day total from localStorage
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let rain7 = 0, et7 = 0;
+    for (const k of Object.keys(store)) { rain7 += store[k].rain || 0; et7 += store[k].et || 0; }
+
+    const net7    = et7 - rain7;
+    const netCol  = net7 > 0 ? '#e74c3c' : '#27ae60';
+    const netSign = net7 > 0 ? '+' : '';
+
+    // Per-day rain vs ET indicators (oldest → newest)
+    const offsetMs  = sydneyOffsetMs();
+    const dayNames  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const todayStr  = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+    const allKeys   = Object.keys(store).sort();
+    let dayBars = '';
+    for (const key of allKeys) {
+        const rec   = store[key];
+        const rain  = rec.rain || 0;
+        const et    = rec.et   || 0;
+        const date  = new Date(key + 'T12:00:00');
+        const lbl   = key === todayStr ? 'Today' : dayNames[date.getDay()];
+        const hasRain = rain > 0;
+        const deficit = et - rain;
+        const barCol  = hasRain ? '#74b9ff' : deficit > 5 ? '#e74c3c' : '#7f8c8d';
+        const icon    = hasRain ? '&#127783;' : deficit > 5 ? '&#9728;' : '&#9711;';
+        const rainLbl = hasRain ? `${rain.toFixed(1)}mm` : 'Dry';
+        dayBars += `<div style="text-align:center;min-width:0">
+            <div style="font-size:0.65em;color:#7f8c8d;margin-bottom:3px">${lbl}</div>
+            <div style="font-size:1.1em;color:${barCol}">${icon}</div>
+            <div style="font-size:0.65em;color:${barCol};margin-top:2px;white-space:nowrap">${rainLbl}</div>
+        </div>`;
+    }
+
+    el.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+            <div style="background:#1a252f;border-radius:6px;padding:8px;text-align:center">
+                <div style="font-size:0.7em;color:#7f8c8d;text-transform:uppercase">7-Day ET</div>
+                <div style="font-size:1.3em;font-weight:bold;color:#e67e22;margin-top:3px">${et7.toFixed(1)}</div>
+                <div style="font-size:0.7em;color:#7f8c8d">mm</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px;text-align:center">
+                <div style="font-size:0.7em;color:#7f8c8d;text-transform:uppercase">7-Day Rain</div>
+                <div style="font-size:1.3em;font-weight:bold;color:#74b9ff;margin-top:3px">${rain7.toFixed(1)}</div>
+                <div style="font-size:0.7em;color:#7f8c8d">mm</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px;text-align:center">
+                <div style="font-size:0.7em;color:#7f8c8d;text-transform:uppercase">Net Balance</div>
+                <div style="font-size:1.3em;font-weight:bold;color:${netCol};margin-top:3px">${netSign}${net7.toFixed(1)}</div>
+                <div style="font-size:0.7em;color:#7f8c8d">mm</div>
+            </div>
+        </div>
+        <div style="font-size:0.7em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Daily Rain</div>
+        <div style="display:grid;grid-template-columns:repeat(${allKeys.length || 7},1fr);gap:4px">${dayBars}</div>
+        <div style="margin-top:10px;font-size:0.75em;color:#7f8c8d">&#127783; Rain day &nbsp; &#9728; Dry &amp; deficit &gt;5mm &nbsp; &#9711; Dry, low deficit</div>`;
 }
 
 // ── Irrigation recommendation ─────────────────────────────────────
@@ -904,11 +3246,12 @@ function updateRecommendation() {
         box.className = 'recommendation rec-hold';
         box.innerHTML = `<div class="rec-title">Hold Off - Rain Expected</div><div class="rec-detail">${forecastRain3Day.toFixed(1)} mm forecast should cover your ${weeklyDeficit.toFixed(1)} mm deficit. Re-assess after rain.</div>`;
     } else if (netDeficit >= 10) {
+        const suggested = Math.ceil((netDeficit / 0.8) * 2) / 2;  // round up to nearest 0.5 mm at 80% efficiency
         box.className = 'recommendation rec-irrigate';
-        box.innerHTML = `<div class="rec-title">Irrigate - Deficit Not Covered</div><div class="rec-detail">Weekly deficit ${weeklyDeficit.toFixed(1)} mm, only ${forecastRain3Day.toFixed(1)} mm forecast. Net shortfall: <strong>${netDeficit.toFixed(1)} mm</strong>.</div>`;
+        box.innerHTML = `<div class="rec-title">Irrigate — Apply ~${suggested.toFixed(1)} mm</div><div class="rec-detail">7-day deficit ${weeklyDeficit.toFixed(1)} mm, only ${forecastRain3Day.toFixed(1)} mm forecast. Net shortfall <strong>${netDeficit.toFixed(1)} mm</strong> — suggested application at 80% efficiency: <strong>${suggested.toFixed(1)} mm</strong>.</div>`;
     } else if (netDeficit > 0) {
         box.className = 'recommendation rec-hold';
-        box.innerHTML = `<div class="rec-title">Monitor - Low Deficit</div><div class="rec-detail">Net shortfall ${netDeficit.toFixed(1)} mm after ${forecastRain3Day.toFixed(1)} mm forecast rain.</div>`;
+        box.innerHTML = `<div class="rec-title">Monitor — Low Deficit</div><div class="rec-detail">Net shortfall ${netDeficit.toFixed(1)} mm after ${forecastRain3Day.toFixed(1)} mm forecast rain. No immediate irrigation needed.</div>`;
     } else {
         box.className = 'recommendation rec-ok';
         box.innerHTML = `<div class="rec-title">No Irrigation Needed</div><div class="rec-detail">Rain and moisture are sufficient. Weekly deficit: ${weeklyDeficit.toFixed(1)} mm.</div>`;
@@ -1366,6 +3709,10 @@ function updateDetailStrip(at) {
     document.getElementById('ds-rain').textContent  = wx.rainToday.toFixed(1) + ' mm';
     document.getElementById('ds-wind').textContent  = wx.windKmh.toFixed(0) + ' km/h ' + wx.windDir;
     document.getElementById('ds-sun').textContent   = fc.sunrise + ' / ' + fc.sunset;
+    const _stUV  = document.getElementById('gk-st-uv');  if (_stUV)  _stUV.textContent  = nowUV !== null ? nowUV.toFixed(0) : '--';
+    const _stSun = document.getElementById('gk-st-sun'); if (_stSun) _stSun.textContent = fc.sunrise + ' / ' + fc.sunset;
+    const _fcNowStr = new Date().toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit' });
+    document.querySelectorAll('.gk-upd-forecast').forEach(el => el.textContent = _fcNowStr);
     renderTVCurrentCard(at, dp, nowUV);
 }
 
@@ -1505,6 +3852,12 @@ function updatePressureTrend() {
     const ccEl = document.getElementById('cc-pressure');
     if (dsEl) { dsEl.textContent = `${val} ${arrow}`; dsEl.style.color = trendColor; }
     if (ccEl) { ccEl.textContent = `${val} ${arrow}`; ccEl.style.color = trendColor; }
+    const stPEl = document.getElementById('gk-st-pressure');
+    const stAEl = document.getElementById('gk-st-pressure-arrow');
+    const stLEl = document.getElementById('gk-st-pressure-label');
+    if (stPEl) { stPEl.textContent = val + ' hPa'; }
+    if (stAEl) { stAEl.textContent = arrow; stAEl.style.color = trendColor; }
+    if (stLEl) { stLEl.textContent = trendLabel; stLEl.style.color = trendColor; }
 }
 
 // ── Frost Risk ────────────────────────────────────────────────────
@@ -1903,48 +4256,56 @@ async function getWeatherData() {
         }
         if (pressure != null && isNaN(pressure)) pressure = null;
 
-        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh, rainMonth, rainYear };
+        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh, rainMonth, rainYear, deltaT };
 
         // Conditions bar
         document.getElementById('temp').innerText       = temp.toFixed(1) + '°C';
         document.getElementById('humidity').innerText   = rh.toFixed(0) + '%';
-        document.getElementById('rain').innerText       = rain.toFixed(1) + ' mm';
-        document.getElementById('et').innerText         = et.toFixed(2) + ' mm';
+        // Dew point (Magnus formula)
+        const _g  = Math.log(rh / 100) + (17.625 * temp) / (243.04 + temp);
+        const _dp = +(243.04 * _g / (17.625 - _g)).toFixed(1);
+        document.getElementById('ds-deltat').innerText  = deltaT.toFixed(1) + '°C';
+        document.getElementById('ds-dewpoint').innerText = _dp + '°C';
         document.getElementById('wind-speed').innerText = windKmh.toFixed(0) + ' km/h';
-        document.getElementById('wind-dir').innerText   = windDir;
+        const windArrow = compassToArrow(windDir);
+        document.getElementById('wind-dir').innerHTML = windArrow ? `${windDir} <span style="font-size:1.1em">${windArrow}</span>` : windDir;
 
         // Spray card
         document.getElementById('spray-deltat-val').innerText    = deltaT.toFixed(1);
         document.getElementById('spray-temp-val').innerText      = temp.toFixed(1);
         document.getElementById('spray-wind-val').innerText      = windKmh.toFixed(0);
         document.getElementById('spray-wind-dir-badge').innerText = windDir !== '--' ? windDir : 'km/h';
-        const deltaTOk = deltaT >= 2 && deltaT <= 8, deltaTWarn = deltaT > 8 && deltaT <= 10;
-        const tempOk   = temp < 28,  tempWarn  = temp >= 28 && temp <= 35;
-        const windOk   = windKmh < 15, windWarn = windKmh >= 15 && windKmh <= 20;
-        document.getElementById('sp-deltat').className = spClass(deltaTOk, deltaTWarn);
-        document.getElementById('sp-temp').className   = spClass(tempOk,   tempWarn);
-        document.getElementById('sp-wind').className   = spClass(windOk,   windWarn);
-        const sprayBox = document.getElementById('sprayStatus');
-        const allGood  = deltaTOk && tempOk && windOk;
-        const anyBad   = (!deltaTOk && !deltaTWarn) || (!tempOk && !tempWarn) || (!windOk && !windWarn);
-        if (allGood) {
-            sprayBox.innerText = 'Good to Spray'; sprayBox.className = 'status-badge badge-good';
-        } else if (!anyBad) {
-            sprayBox.innerText = 'Marginal Conditions - Caution'; sprayBox.className = 'status-badge badge-warn';
-        } else {
-            const reasons = [];
-            if (!deltaTOk && !deltaTWarn) reasons.push('Delta T');
-            if (!tempOk   && !tempWarn)   reasons.push('Temp');
-            if (!windOk   && !windWarn)   reasons.push('Wind');
-            sprayBox.innerText = 'Do Not Spray - ' + reasons.join(', ') + ' out of range';
-            sprayBox.className = 'status-badge badge-bad';
-        }
+        wx.temp = temp; wx.rh = rh; wx.windKmh = windKmh; wx.deltaT = deltaT;
+        refreshSprayStatus();
+
+        // Station tab
+        const _wb = tw.toFixed(1);
+        const _set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        _set('gk-st-temp',       temp.toFixed(1) + '°C');
+        _set('gk-st-rh',         rh.toFixed(0) + '%');
+        _set('gk-st-dp',         _dp + '°C');
+        _set('gk-st-wb',         _wb + '°C');
+        _set('gk-st-deltat',     deltaT.toFixed(1) + '°C');
+        _set('gk-st-wind',       windKmh.toFixed(0) + ' km/h');
+        _set('gk-st-winddir',    windDir);
+        _set('gk-st-gust',       gustKmh ? gustKmh.toFixed(0) + ' km/h' : '--');
+        // gk-st-pressure driven by updatePressureTrend()
+        _set('gk-st-rain-today', rain.toFixed(1) + ' mm');
+        _set('gk-st-et-today',   et.toFixed(2) + ' mm');
+        _set('gk-st-rain-month', rainMonth != null ? rainMonth.toFixed(1) + ' mm' : '--');
+        _set('gk-st-rain-year',  rainYear  != null ? rainYear.toFixed(0)  + ' mm' : '--');
+        const _nowStr = new Date().toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit' });
+        document.querySelectorAll('.gk-upd-station').forEach(el => el.textContent = _nowStr);
 
         // Irrigation card
         const dailyDeficit = et - rain;
-        document.getElementById('irr-et').innerText      = et.toFixed(2);
-        document.getElementById('irr-rain').innerText    = rain.toFixed(1);
-        document.getElementById('irr-deficit').innerText = Math.max(0, dailyDeficit).toFixed(1);
+        document.getElementById('irr-et').innerText   = et.toFixed(2);
+        document.getElementById('irr-rain').innerText = rain.toFixed(1);
+        const defEl = document.getElementById('irr-deficit');
+        defEl.innerText    = (dailyDeficit >= 0 ? '+' : '') + dailyDeficit.toFixed(1) + ' mm';
+        defEl.style.color  = dailyDeficit < 0 ? '#27ae60' : dailyDeficit < 3 ? '#d4ac0d' : '#e74c3c';
+        document.getElementById('irr-deficit').parentElement.querySelector('.lbl').textContent =
+            dailyDeficit < 0 ? 'Daily Surplus' : 'Daily Deficit';
 
         saveDailyRecord(et, rain);
         renderWeekly();
@@ -1953,6 +4314,8 @@ async function getWeatherData() {
         updatePressureTrend();
         if (TV_MODE) renderTVWindBoxes();
         checkCartsOnPaths();
+        updateMowWindow();
+        updateRainfallSummary();
 
         // Last updated
         lastUpdateTime = Date.now();
@@ -1964,7 +4327,7 @@ async function getWeatherData() {
         console.error('[Davis]', err);
         document.getElementById('sprayStatus').innerText = 'Connection / Key Error';
         document.getElementById('sprayStatus').className = 'status-badge badge-bad';
-        ['temp','humidity','rain','et','wind-speed','wind-dir'].forEach(id => { document.getElementById(id).innerText = '--'; });
+        ['temp','humidity','ds-deltat','ds-dewpoint','wind-speed','wind-dir'].forEach(id => { document.getElementById(id).innerText = '--'; });
         const luElErr = document.getElementById('last-updated');
         luElErr.textContent = 'Failed ' + new Date().toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit' });
         luElErr.className = 'lu-failed';
@@ -1991,8 +4354,8 @@ function wmoIcon(code) {
 async function getForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
-            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset`
-            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover`
+            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
+            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
         let response, lastFcErr;
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -2017,11 +4380,29 @@ async function getForecast() {
         fc.tomorrowSunriseIso = data.daily.sunrise?.[1] ?? null;
         fc.tomorrowSunrise    = formatTime(fc.tomorrowSunriseIso);
 
+        // ET forecast + daily max/min for GDD
+        fc.etForecast  = [];
+        fc.forecastDays = [];
+        for (let i = 0; i < 4; i++) {
+            fc.etForecast.push(data.daily.et0_fao_evapotranspiration?.[i] ?? null);
+            fc.forecastDays.push({
+                date: data.daily.time[i],
+                max:  data.daily.temperature_2m_max?.[i]  ?? null,
+                min:  data.daily.temperature_2m_min?.[i]  ?? null,
+                rain: data.daily.precipitation_sum?.[i]   || 0,
+                prob: data.daily.precipitation_probability_max?.[i] ?? 0,
+            });
+        }
+
         // Store hourly for best-time calculation
         hourlyFc = data.hourly;
         checkThunderstorm();
         checkFog();
         checkFrostAlert();
+        updateNextSprayWindow();
+        renderGKWindStrip();
+        updateETForecast();
+        updateGDD();
 
         document.getElementById('ds-sun').textContent = fc.sunrise + ' / ' + fc.sunset;
         renderHourlyForecast();
@@ -2119,6 +4500,7 @@ async function fetchHistoricalWeather() {
         let etInches = 0, rainMm = 0;
         let etFound = false, rainFound = false, tempFound = false;
         let tempSum = 0, rhSum = 0, tempCount = 0;
+        let tempMax = -Infinity, tempMin = Infinity;
         for (const sensor of data.sensors) {
             const recs = sensor.data || [];
             if (!etFound) {
@@ -2136,7 +4518,10 @@ async function fetchHistoricalWeather() {
                         const tF = r.temp ?? r.temp_out;
                         const h  = r.hum  ?? r.hum_out;
                         if (tF != null) {
-                            tempSum += (parseFloat(tF) - 32) / 1.8;
+                            const tC = (parseFloat(tF) - 32) / 1.8;
+                            tempSum += tC;
+                            if (tC > tempMax) tempMax = tC;
+                            if (tC < tempMin) tempMin = tC;
                             if (h != null) rhSum += parseFloat(h);
                             tempCount++;
                         }
@@ -2148,13 +4533,18 @@ async function fetchHistoricalWeather() {
         }
         const meanTemp = tempCount > 0 ? +((tempSum / tempCount).toFixed(1)) : null;
         const meanRH   = tempCount > 0 ? +((rhSum   / tempCount).toFixed(1)) : null;
-        // Preserve existing meanTemp/meanRH if we couldn't extract from v2 (keeps today's live data)
+        const dayTempMax = tempMax > -Infinity ? +tempMax.toFixed(1) : null;
+        const dayTempMin = tempMin < Infinity  ? +tempMin.toFixed(1) : null;
+        // Preserve existing values if we couldn't extract from v2
         const existing = store[dateStr] || {};
         store[dateStr] = {
-            et:   +(etInches * 25.4).toFixed(2),
-            rain: +rainMm.toFixed(1),
+            et:      +(etInches * 25.4).toFixed(2),
+            rain:    +rainMm.toFixed(1),
+            rainDay: rainMm > 0.2,
             meanTemp: meanTemp ?? existing.meanTemp ?? null,
-            meanRH:   meanRH   ?? existing.meanRH   ?? null
+            meanRH:   meanRH   ?? existing.meanRH   ?? null,
+            tempMax:  dayTempMax ?? existing.tempMax ?? null,
+            tempMin:  dayTempMin ?? existing.tempMin ?? null,
         };
         updated = true;
     }
@@ -2167,6 +4557,7 @@ async function fetchHistoricalWeather() {
         localStorage.setItem('wx_daily', JSON.stringify(store));
         renderWeekly();
         updateRecommendation();
+        updateGDD();
     }
 }
 
@@ -2253,16 +4644,21 @@ async function fetchTodayWetness() {
     let anyRain = false;               // any rain in 24h window (Fusarium rain-day track)
 
     for (const rec of allRecs) {
+        if (!rec.ts) continue;
         const tF = rec.temp ?? rec.temp_out;
         const h  = rec.hum  ?? rec.hum_out;
         if (tF != null) {
             const tC = (parseFloat(tF) - 32) / 1.8;
-            if (tC < minTempC) minTempC = tC;
+            // Only track night min temp (8pm–8am Sydney time)
+            const recHr = new Date(rec.ts * 1000 + offsetMs).getUTCHours();
+            if (recHr >= 20 || recHr < 8) {
+                if (tC < minTempC) minTempC = tC;
+            }
         }
         if (h != null) { rhSum += parseFloat(h); rhCount++; }
 
         if (isCartWet(rec)) {
-            const recTime = new Date((rec.ts ?? 0) * 1000 + offsetMs);
+            const recTime = new Date(rec.ts * 1000 + offsetMs);
             const hr = recTime.getUTCHours();
             // Key = YYYY-MM-DDTHH so each calendar-hour is counted once
             const hourKey = recTime.toISOString().slice(0, 13);
@@ -2271,7 +4667,7 @@ async function fetchTodayWetness() {
         }
         // Fusarium tracking: high-RH hours and any rain
         if (h != null && parseFloat(h) >= 90) {
-            const recTime3 = new Date((rec.ts ?? 0) * 1000 + offsetMs);
+            const recTime3 = new Date(rec.ts * 1000 + offsetMs);
             highRHHourSet.add(recTime3.toISOString().slice(0, 13));
         }
         if (parseFloat(rec.rainfall_mm ?? rec.rain_mm ?? 0) > 0) anyRain = true;
@@ -2304,6 +4700,8 @@ async function fetchTodayWetness() {
 
     // ── Score each disease ──────────────────────────────────────────
     const skProb  = getSmithKerns5Day();   // null | 0–1
+    const skWarnEl = document.getElementById('sk-data-warn');
+    if (skWarnEl) skWarnEl.style.display = skProb === null ? '' : 'none';
     const tempC   = wx.temp;               // current live temp
 
     const diseases = [];
@@ -2402,15 +4800,19 @@ async function fetchTodayWetness() {
     ).join('');
 
     // Overall recommendation
-    const hasHigh   = diseases.some(d => d.cls === 'dr-high' || d.cls === 'dr-severe');
-    const hasMod    = diseases.some(d => d.cls === 'dr-mod');
-    const recEl     = document.getElementById('disease-rec');
+    const highDiseases = diseases.filter(d => d.cls === 'dr-high' || d.cls === 'dr-severe').map(d => d.name);
+    const modDiseases  = diseases.filter(d => d.cls === 'dr-mod').map(d => d.name);
+    const hasHigh = highDiseases.length > 0;
+    const hasMod  = modDiseases.length > 0;
+    const recEl   = document.getElementById('disease-rec');
     if (hasHigh) {
+        const list = highDiseases.join(' &amp; ');
         recEl.className = 'recommendation rec-irrigate';
-        recEl.innerHTML = '<div class="rec-title">&#9888; Elevated Disease Risk</div><div class="rec-detail">Leaf wetness conditions are conducive to fungal infection. Consider a preventative fungicide application and reduce irrigation until conditions dry. Increase airflow where possible.</div>';
+        recEl.innerHTML = `<div class="rec-title">&#9888; ${list} — High Risk</div><div class="rec-detail">Conditions are conducive to ${highDiseases.map(n=>n.toLowerCase()).join(' and ')}. Consider a preventative fungicide application and reduce irrigation until conditions dry. Increase airflow where possible.</div>`;
     } else if (hasMod) {
+        const list = modDiseases.join(' &amp; ');
         recEl.className = 'recommendation rec-hold';
-        recEl.innerHTML = '<div class="rec-title">&#9432; Moderate Risk - Monitor</div><div class="rec-detail">Some disease pressure building. Watch closely over the next 24–48 hours. Avoid irrigation during damp nights. Fungicide may be warranted if wet conditions persist.</div>';
+        recEl.innerHTML = `<div class="rec-title">&#9432; ${list} — Moderate Risk</div><div class="rec-detail">${modDiseases.map(n=>n.toLowerCase()).join(' and ')} pressure building. Watch closely over the next 24–48h. Avoid irrigation during damp nights. Fungicide may be warranted if wet conditions persist.</div>`;
     } else {
         recEl.className = 'recommendation rec-ok';
         recEl.innerHTML = '<div class="rec-title">&#10003; Low Disease Risk</div><div class="rec-detail">Current leaf wetness hours and temperatures are below infection thresholds. Continue normal management.</div>';
@@ -2618,7 +5020,6 @@ function updateTVCourseCard(totalET, totalRain) {
 }
 
 // ── TV / Kiosk Mode ──────────────────────────────────────────────
-const TV_MODE = new URLSearchParams(window.location.search).has('tv');
 let tvCurrentSlide = 0;
 let tvTimer = null;
 
@@ -2756,12 +5157,13 @@ async function checkForUpdates() {
 
 // ── Boot ──────────────────────────────────────────────────────────
 initTVMode();
+initSprayProductSelect();
 getWeatherData();
 getForecast();
 fetchHistoricalWeather();
 fetchTodayWetness();
 setInterval(getWeatherData,       60000);
-setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); checkFrostAlert(); updateUVTimer(); }, 15000);
+setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); checkFrostAlert(); updateUVTimer(); updateMowWindow(); updateNextSprayWindow(); }, 15000);
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
