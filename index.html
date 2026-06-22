@@ -394,6 +394,15 @@
         .lightning-bar.lb-active { display:block; }
         body.tv-mode .lightning-bar { font-size:0.85em; padding:7px 20px; }
 
+        /* ── General Alert Bars (fog, frost, carts) ── */
+        .alert-bar { display:none; width:100%; padding:10px 20px; text-align:center; font-weight:bold; font-size:0.95em; color:#fff; letter-spacing:1px; box-sizing:border-box; }
+        .alert-bar.ab-active { display:block; }
+        body.tv-mode .alert-bar { font-size:0.85em; padding:7px 20px; }
+        .ab-fog   { background:linear-gradient(90deg,#1c2833,#2c3e50,#1c2833); border-top:2px solid #7f8c8d; border-bottom:2px solid #7f8c8d; }
+        .ab-frost      { background:linear-gradient(90deg,#0a1628,#1a3a5c,#0a1628); border-top:2px solid #74b9ff; border-bottom:2px solid #74b9ff; animation:lightning-pulse 2s ease-in-out infinite; }
+        .ab-frost-warn { background:linear-gradient(90deg,#0d2137,#1f4a6e,#0d2137); border-top:2px solid #aed6f1; border-bottom:2px solid #aed6f1; }
+        .ab-carts { background:linear-gradient(90deg,#3d2b00,#7d5a00,#3d2b00); border-top:2px solid #d4ac0d; border-bottom:2px solid #d4ac0d; }
+
         /* ── Pressure Trend (TV mode: 5-col cc-grid) ── */
         body.tv-mode .cc-grid { grid-template-columns: repeat(5, 1fr); }
 
@@ -510,6 +519,9 @@
 
 <!-- Lightning / Thunderstorm Alert -->
 <div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 3 hours — lightning risk in the area</div>
+<div class="alert-bar ab-fog"   id="fog-alert">🌫️ Fog forecast tomorrow morning — check visibility before early tee times</div>
+<div class="alert-bar ab-frost" id="frost-alert">❄️ Frost expected overnight — greens may be affected, check before early tee times</div>
+<div class="alert-bar ab-carts" id="carts-alert">🛺 Course wet — carts on paths only</div>
 
 <!-- ══════════════ GOLFER VIEW ══════════════ -->
 <div id="view-golfer" style="display:none">
@@ -698,6 +710,9 @@
     </div>
 
     <div class="lightning-bar" id="tv-lightning-alert">⚡ Thunderstorm forecast in the next 3 hours — lightning risk in the area</div>
+    <div class="alert-bar ab-fog"   id="tv-fog-alert">🌫️ Fog forecast tomorrow morning — check visibility before early tee times</div>
+    <div class="alert-bar ab-frost" id="tv-frost-alert">❄️ Frost expected overnight — greens may be affected, check before early tee times</div>
+    <div class="alert-bar ab-carts" id="tv-carts-alert">🛺 Course wet — carts on paths only</div>
 
     <div class="tv-slides-wrap">
         <div class="tv-slide tv-slide-active" id="tv-s0"></div>
@@ -869,6 +884,7 @@ function renderWeekly() {
     updateTileCourse(totalET, totalRain);
     if (TV_MODE) updateTVCourseCard(totalET, totalRain);
     updateInsights();
+    checkCartsOnPaths();
 }
 
 // ── Irrigation recommendation ─────────────────────────────────────
@@ -1391,6 +1407,77 @@ function checkThunderstorm() {
     if (bar2) bar2.classList.toggle('lb-active', found);
 }
 
+// ── Fog Alert (tomorrow morning) ─────────────────────────────────
+function checkFog() {
+    const bar1 = document.getElementById('fog-alert');
+    const bar2 = document.getElementById('tv-fog-alert');
+    if (!bar1 && !bar2) return;
+    if (!hourlyFc || !hourlyFc.weather_code) return;
+    const fogCodes = new Set([45, 48]);
+    const offsetMs = sydneyOffsetMs();
+    const tomorrowStr = new Date(Date.now() + offsetMs + 86400000).toISOString().slice(0, 10);
+    let found = false;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        if (!hourlyFc.time[i].startsWith(tomorrowStr)) continue;
+        const hour = parseInt(hourlyFc.time[i].split('T')[1], 10);
+        if (hour > 12) continue;
+        if (fogCodes.has(hourlyFc.weather_code[i])) { found = true; break; }
+    }
+    if (bar1) bar1.classList.toggle('ab-active', found);
+    if (bar2) bar2.classList.toggle('ab-active', found);
+}
+
+// ── Frost Alert (overnight window) ───────────────────────────────
+function checkFrostAlert() {
+    const bar1 = document.getElementById('frost-alert');
+    const bar2 = document.getElementById('tv-frost-alert');
+    if (!bar1 && !bar2) return;
+    if (!hourlyFc || !hourlyFc.temperature_2m) return;
+    const offsetMs = sydneyOffsetMs();
+    const now = Date.now();
+    const todayStr = new Date(now + offsetMs).toISOString().slice(0, 10);
+    const windowStart = new Date(todayStr + 'T20:00').getTime() - offsetMs;
+    const windowEnd   = windowStart + 13 * 3600000;
+    let minTemp = Infinity;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        const tMs = new Date(hourlyFc.time[i]).getTime();
+        if (tMs < windowStart || tMs > windowEnd) continue;
+        const t = hourlyFc.temperature_2m[i];
+        if (t != null && t < minTemp) minTemp = t;
+    }
+    let active = false, msg = '', cls = 'alert-bar';
+    if (minTemp < 2) {
+        active = true;
+        cls += ' ab-frost';
+        msg = '❄️ Frost likely overnight — delay early tee times, hold carts on paths until greens clear';
+    } else if (minTemp < 4) {
+        active = true;
+        cls += ' ab-frost-warn';
+        msg = '❄️ Frost possible overnight — monitor greens before early tee times';
+    }
+    [bar1, bar2].forEach(bar => {
+        if (!bar) return;
+        bar.className = cls + (active ? ' ab-active' : '');
+        bar.textContent = msg;
+    });
+}
+
+// ── Carts on Paths Alert ──────────────────────────────────────────
+function checkCartsOnPaths() {
+    const bar1 = document.getElementById('carts-alert');
+    const bar2 = document.getElementById('tv-carts-alert');
+    if (!bar1 && !bar2) return;
+    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    let totalET = 0, totalRain = 0;
+    for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
+    const offsetMs = sydneyOffsetMs();
+    const ydDate = new Date(Date.now() + offsetMs); ydDate.setUTCDate(ydDate.getUTCDate() - 1);
+    const rain24h = (wx.rainToday || 0) + (store[ydDate.toISOString().slice(0, 10)]?.rain || 0);
+    const found = (totalET - totalRain) < -10 || rain24h >= 15;
+    if (bar1) bar1.classList.toggle('ab-active', found);
+    if (bar2) bar2.classList.toggle('ab-active', found);
+}
+
 // ── Barometric Pressure Trend ─────────────────────────────────────
 function updatePressureTrend() {
     if (wx.pressure == null) return;
@@ -1865,6 +1952,7 @@ async function getWeatherData() {
         updateAllGolferTiles();
         updatePressureTrend();
         if (TV_MODE) renderTVWindBoxes();
+        checkCartsOnPaths();
 
         // Last updated
         lastUpdateTime = Date.now();
@@ -1932,6 +2020,8 @@ async function getForecast() {
         // Store hourly for best-time calculation
         hourlyFc = data.hourly;
         checkThunderstorm();
+        checkFog();
+        checkFrostAlert();
 
         document.getElementById('ds-sun').textContent = fc.sunrise + ' / ' + fc.sunset;
         renderHourlyForecast();
@@ -2671,7 +2761,7 @@ getForecast();
 fetchHistoricalWeather();
 fetchTodayWetness();
 setInterval(getWeatherData,       60000);
-setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); updateUVTimer(); }, 15000);
+setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); checkFrostAlert(); updateUVTimer(); }, 15000);
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
