@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Wagga Wagga Country Club</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -213,7 +216,7 @@
             padding: 14px 16px;
             margin-bottom: 16px;
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(8, 1fr);
         }
         @media (max-width: 800px) { .detail-strip { grid-template-columns: repeat(4, 1fr); } }
         @media (max-width: 500px) { .detail-strip { grid-template-columns: repeat(2, 1fr); } }
@@ -348,6 +351,54 @@
         body.tv-mode .fc-hi   { font-size: 1.05em; }
         body.tv-mode .fc-lo   { font-size: 0.88em; }
         body.tv-mode .fc-rain, body.tv-mode .fc-prob, body.tv-mode .fc-uv { font-size: 0.75em; margin-top: 1px; }
+
+        /* ── TV Slide 2 - Golf Conditions ────────────────────────────── */
+        #tile-dewpoint { display: none; }
+        /* TV tile order (golfer page order unchanged) */
+        body.tv-mode #tile-feelslike { order: 1; }
+        body.tv-mode #tile-rain24h   { order: 2; }
+        body.tv-mode #tile-comfort   { order: 3; }
+        body.tv-mode #tile-wind      { order: 4; }
+        body.tv-mode #tile-dewpoint  { order: 5; }
+        body.tv-mode #tile-rain      { order: 6; }
+        body.tv-mode #tile-uv        { order: 7; }
+        body.tv-mode #tile-daylight  { order: 8; }
+        .tv-three-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        /* feature-box: no top padding so the heading bar sits flush */
+        .feature-box { border-radius: 10px; overflow: hidden; padding: 0 14px 14px; }
+        /* Dynamic colours matching gt-* palette */
+        .feature-box.fb-dyn-green  { background: linear-gradient(160deg, #145a2c, #1e8449); border: 2px solid #27ae60; }
+        .feature-box.fb-dyn-yellow { background: linear-gradient(160deg, #5a4800, #c9a007); border: 2px solid #d4ac0d; }
+        .feature-box.fb-dyn-orange { background: linear-gradient(160deg, #6e3a00, #d4680a); border: 2px solid #e67e22; }
+        .feature-box.fb-dyn-red    { background: linear-gradient(160deg, #6e1a15, #b03020); border: 2px solid #e74c3c; }
+        .feature-box.fb-dyn-idle   { background: linear-gradient(160deg, #145a2c, #1e8449); border: 2px solid #27ae60; }
+        /* Heading bar — mirrors .gt-tile .gt-title exactly */
+        .fb-category {
+            display: block; margin: 0 -14px 10px;
+            background: rgba(0,0,0,0.35);
+            font-size: 0.72em; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            padding: 7px 14px 6px;
+        }
+        .fb-hole     { font-size: 1.9em; font-weight: bold; line-height: 1; margin-bottom: 3px; }
+        .fb-effect   { font-size: 0.88em; font-weight: bold; margin-bottom: 8px; opacity: 0.9; }
+        .fb-divider  { border: none; border-top: 1px solid rgba(255,255,255,0.15); margin: 8px 0; }
+        .fb-row      { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+        .fb-row .fr-lbl { font-size: 0.68em; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 1px; }
+        .fb-row .fr-val { font-size: 0.88em; font-weight: bold; }
+        .fb-seg      { font-size: 0.72em; background: rgba(0,0,0,0.22); border-radius: 5px; padding: 4px 8px; margin-top: 4px; line-height: 1.4; }
+
+        /* ── Lightning / Thunderstorm Alert Bar ── */
+        .lightning-bar { display:none; width:100%; background:linear-gradient(90deg,#7d1a00,#c0392b,#7d1a00); border-top:2px solid #e74c3c; border-bottom:2px solid #e74c3c; padding:10px 20px; text-align:center; font-weight:bold; font-size:0.95em; color:#fff; letter-spacing:1px; animation:lightning-pulse 2s ease-in-out infinite; box-sizing:border-box; }
+        @keyframes lightning-pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+        .lightning-bar.lb-active { display:block; }
+        body.tv-mode .lightning-bar { font-size:0.85em; padding:7px 20px; }
+
+        /* ── Pressure Trend (TV mode: 5-col cc-grid) ── */
+        body.tv-mode .cc-grid { grid-template-columns: repeat(5, 1fr); }
+
+        /* ── TV Slide 2 - 6-card 3×2 insights grid ── */
+        body.tv-mode #tv-s1 .golfer-insights { grid-template-columns: repeat(3, 1fr); }
     </style>
 </head>
 <body>
@@ -457,6 +508,9 @@
 
 </div><!-- end #view-greenkeeper -->
 
+<!-- Lightning / Thunderstorm Alert -->
+<div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 3 hours — lightning risk in the area</div>
+
 <!-- ══════════════ GOLFER VIEW ══════════════ -->
 <div id="view-golfer" style="display:none">
 
@@ -496,6 +550,14 @@
             <div class="gt-icon">&#9728;&#65039;</div>
             <div class="gt-value" id="tile-uv-val">UV --</div>
             <div class="gt-explain" id="tile-uv-explain">Awaiting forecast...</div>
+        </div>
+
+        <!-- TV only: replaces Course Roll on slide 1 -->
+        <div class="gt-tile gt-idle" id="tile-dewpoint">
+            <div class="gt-title">Dew Point</div>
+            <div class="gt-icon">&#128166;</div>
+            <div class="gt-value" id="tile-dewpoint-val">--°C</div>
+            <div class="gt-explain" id="tile-dewpoint-explain">Awaiting data...</div>
         </div>
 
         <div class="gt-tile gt-idle" id="tile-course">
@@ -546,6 +608,16 @@
             <div id="ball-flight-content"><div style="color:#7f8c8d;font-size:0.85em">Loading data...</div></div>
         </div>
 
+        <div class="card" id="frost-risk-card">
+            <h2>&#10052;&#65039; Frost Risk</h2>
+            <div id="frost-risk-content"><div style="color:#7f8c8d;font-size:0.85em">Loading forecast...</div></div>
+        </div>
+
+        <div class="card" id="uv-timer-card">
+            <h2>&#9728;&#65039; UV Exposure</h2>
+            <div id="uv-timer-content"><div style="color:#7f8c8d;font-size:0.85em">Loading UV data...</div></div>
+        </div>
+
     </div>
 
     <!-- 12-Hour Forecast -->
@@ -576,7 +648,21 @@
             <div class="cc-cell"><div class="cc-icon">&#127782;</div><div class="cc-val" id="cc-dp">--</div><div class="cc-lbl">Dew Point</div></div>
             <div class="cc-cell"><div class="cc-icon">&#9728;</div><div class="cc-val" id="cc-uv">--</div><div class="cc-lbl">UV Index</div></div>
             <div class="cc-cell"><div class="cc-icon">&#127755;</div><div class="cc-val" id="cc-sun">--</div><div class="cc-lbl">Sunrise / Sunset</div></div>
+            <div class="cc-cell"><div class="cc-icon">&#128200;</div><div class="cc-val" id="cc-pressure">--</div><div class="cc-lbl">Pressure Trend</div></div>
+            <div class="cc-cell cc-blank" style="opacity:0.2"><div class="cc-icon">&#8230;</div><div class="cc-val">--</div><div class="cc-lbl">Coming Soon</div></div>
         </div>
+    </div>
+
+    <!-- TV Slide 2 - Course Roll Card -->
+    <div class="card" id="tv-course-card" style="display:none">
+        <h2>&#9971; Course Roll</h2>
+        <div id="tv-course-content"><div style="color:#7f8c8d;font-size:0.85em">Loading data...</div></div>
+    </div>
+
+    <!-- TV Slide 2 - Wind Analysis Card -->
+    <div class="card" id="tv-wind-card" style="display:none">
+        <h2>&#127788; Key Wind Holes Today</h2>
+        <div id="tv-wind-boxes" class="tv-three-grid"><div style="color:#7f8c8d;font-size:0.85em">Loading wind data...</div></div>
     </div>
 
     <!-- Current Observations -->
@@ -588,6 +674,7 @@
         <div class="ds-item"><div class="ds-lbl">Rain Today</div><div class="ds-val" id="ds-rain">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Wind</div><div class="ds-val" id="ds-wind">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Sunrise / Sunset</div><div class="ds-val" id="ds-sun">-- / --</div></div>
+        <div class="ds-item"><div class="ds-lbl">Pressure</div><div class="ds-val" id="ds-pressure">-- hPa</div></div>
     </div>
 
 </div><!-- end #view-golfer -->
@@ -610,18 +697,22 @@
         </div>
     </div>
 
+    <div class="lightning-bar" id="tv-lightning-alert">⚡ Thunderstorm forecast in the next 3 hours — lightning risk in the area</div>
+
     <div class="tv-slides-wrap">
         <div class="tv-slide tv-slide-active" id="tv-s0"></div>
         <div class="tv-slide" id="tv-s1"></div>
+        <div class="tv-slide" id="tv-s2"></div>
     </div>
 
     <div class="tv-footer">
         <span style="font-size:0.78em;color:#7f8c8d">Updated: <span id="tv-updated" class="lu-fresh">--</span></span>
         <div class="tv-dots">
-            <div class="tv-dot tv-dot-active" id="tv-dot-0" title="Now" onclick="tvGoTo(0)"></div>
-            <div class="tv-dot" id="tv-dot-1" title="Forecast" onclick="tvGoTo(1)"></div>
+            <div class="tv-dot tv-dot-active" id="tv-dot-0" title="Current Weather" onclick="tvGoTo(0)"></div>
+            <div class="tv-dot" id="tv-dot-1" title="Golf Conditions" onclick="tvGoTo(1)"></div>
+            <div class="tv-dot" id="tv-dot-2" title="Forecast" onclick="tvGoTo(2)"></div>
         </div>
-        <span style="font-size:0.78em;color:#7f8c8d">Slide <span id="tv-slide-label">1</span> of 2 - auto-rotates every 30s</span>
+        <span style="font-size:0.78em;color:#7f8c8d">Slide <span id="tv-slide-label">1</span> of 3 - auto-rotates every 20s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span></span>
     </div>
 
 </div>
@@ -776,6 +867,7 @@ function renderWeekly() {
     </tr>`;
     // Update golfer tiles that depend on weekly data
     updateTileCourse(totalET, totalRain);
+    if (TV_MODE) updateTVCourseCard(totalET, totalRain);
     updateInsights();
 }
 
@@ -828,6 +920,7 @@ function updateAllGolferTiles() {
     updateTileWind();
     updateTileRain();
     updateTileUV();
+    updateTileDewPoint();
     updateTileRain24h();
     updateTileDaylight();
     updateTileHumidity();
@@ -911,6 +1004,21 @@ function updateTileCourse(totalET, totalRain) {
         ? `+${deficit.toFixed(1)} mm deficit (7-day)`
         : `${Math.abs(deficit).toFixed(1)} mm surplus (7-day)`;
     setTile('tile-course', cls, status, `${explain}<br><small style="opacity:0.7">${wb}</small>`);
+}
+
+// Tile 5b - Dew Point (TV only, replaces Course Roll on slide 1)
+function updateTileDewPoint() {
+    if (wx.temp === null || wx.rh === null) return;
+    const dewC = calcDewPoint(wx.temp, wx.rh);
+    const dpd  = wx.temp - dewC;  // dew point depression
+
+    let cls, explain;
+    if      (dpd > 8)  { cls = 'gt-green';  explain = 'Low dew risk - grips and ball stay dry'; }
+    else if (dpd > 5)  { cls = 'gt-green';  explain = 'Comfortable - minimal dew on greens'; }
+    else if (dpd > 2)  { cls = 'gt-yellow'; explain = 'Some dew possible - towel handy for grip'; }
+    else               { cls = 'gt-orange'; explain = 'High dew risk - wet grips and greens likely'; }
+
+    setTile('tile-dewpoint', cls, dewC.toFixed(1) + '°C', explain);
 }
 
 // Tile 6 - 24h Rain (coloured tile)
@@ -1241,6 +1349,143 @@ function renderTVCurrentCard(at, dp, nowUV) {
     document.getElementById('cc-sun').textContent   = fc.sunrise + ' / ' + fc.sunset;
 }
 
+// ── Lightning / Thunderstorm Alert ───────────────────────────────
+function checkThunderstorm() {
+    const bar1 = document.getElementById('lightning-alert');
+    const bar2 = document.getElementById('tv-lightning-alert');
+    if (!bar1 && !bar2) return;
+    if (!hourlyFc || !hourlyFc.time) { return; }
+    const stormCodes = new Set([95, 96, 99]);
+    const offsetMs = sydneyOffsetMs();
+    const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    let found = false, count = 0;
+    for (let i = 0; i < hourlyFc.time.length && count < 4; i++) {
+        if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
+        count++;
+        const code = hourlyFc.weather_code ? hourlyFc.weather_code[i] : null;
+        if (code !== null && stormCodes.has(code)) { found = true; break; }
+    }
+    if (bar1) bar1.classList.toggle('lb-active', found);
+    if (bar2) bar2.classList.toggle('lb-active', found);
+}
+
+// ── Barometric Pressure Trend ─────────────────────────────────────
+function updatePressureTrend() {
+    if (wx.pressure == null) return;
+    // Update ring buffer
+    const KEY = 'pressure_history';
+    let buf = JSON.parse(localStorage.getItem(KEY) || '[]');
+    buf.push({ ts: Date.now(), p: wx.pressure });
+    if (buf.length > 10) buf = buf.slice(-10);
+    localStorage.setItem(KEY, JSON.stringify(buf));
+
+    // Calculate trend (need at least 2 readings, 2+ min apart)
+    let arrow = '→', trendLabel = 'Steady', trendColor = '#bdc3c7';
+    if (buf.length >= 2) {
+        const oldest = buf[0], newest = buf[buf.length - 1];
+        const hrs = (newest.ts - oldest.ts) / 3600000;
+        if (hrs >= (2/60)) {
+            const rate = (newest.p - oldest.p) / hrs;
+            if      (rate >  0.5) { arrow = '↑'; trendLabel = 'Rising';  trendColor = '#27ae60'; }
+            else if (rate < -0.5) { arrow = '↓'; trendLabel = 'Falling'; trendColor = '#e67e22'; }
+        }
+    }
+
+    const val = wx.pressure.toFixed(1);
+    const dsEl = document.getElementById('ds-pressure');
+    const ccEl = document.getElementById('cc-pressure');
+    if (dsEl) { dsEl.textContent = `${val} ${arrow}`; dsEl.style.color = trendColor; }
+    if (ccEl) { ccEl.textContent = `${val} ${arrow}`; ccEl.style.color = trendColor; }
+}
+
+// ── Frost Risk ────────────────────────────────────────────────────
+function updateFrostRisk() {
+    const el = document.getElementById('frost-risk-content');
+    if (!el) return;
+    if (!hourlyFc || !hourlyFc.time || !hourlyFc.temperature_2m) {
+        el.innerHTML = '<div class="insight-sub">Awaiting forecast data...</div>'; return;
+    }
+    const offsetMs = sydneyOffsetMs();
+    const now = Date.now();
+    // Window: 8pm tonight to 9am tomorrow
+    const todayStr = new Date(now + offsetMs).toISOString().slice(0, 10);
+    const windowStart = new Date(todayStr + 'T20:00').getTime() - offsetMs;
+    const windowEnd   = windowStart + 13 * 3600000; // 8pm + 13h = 9am next day
+
+    let minTemp = Infinity, minHour = null;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        const tMs = new Date(hourlyFc.time[i]).getTime();
+        if (tMs < windowStart || tMs > windowEnd) continue;
+        const t = hourlyFc.temperature_2m[i];
+        if (t != null && t < minTemp) { minTemp = t; minHour = tMs; }
+    }
+
+    if (minTemp === Infinity) {
+        el.innerHTML = '<div class="insight-sub">No overnight forecast available.</div>'; return;
+    }
+
+    let pillClass, pillLabel, note;
+    if      (minTemp < 2)  { pillClass = 'pill-red';    pillLabel = 'High Risk';      note = 'Hard frost likely — greens may be damaged. Consider delaying early tee times and holding carts on paths.'; }
+    else if (minTemp < 4)  { pillClass = 'pill-orange'; pillLabel = 'Frost Likely';   note = 'Frost expected overnight. Greens may be affected in the morning. Monitor conditions before play.'; }
+    else if (minTemp < 7)  { pillClass = 'pill-yellow'; pillLabel = 'Frost Possible'; note = 'Light frost possible. Check greens before early tee times.'; }
+    else                   { pillClass = 'pill-green';  pillLabel = 'No Frost';       note = 'Overnight low above 7°C — no frost expected.'; }
+
+    const timeStr = minHour ? new Date(minHour + offsetMs).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'UTC' }) : '--';
+    const bigVal  = minTemp === Infinity ? '--' : (minTemp < 7 ? `${minTemp.toFixed(1)}°C min` : 'Clear');
+
+    el.innerHTML = `
+        <div class="insight-big">${bigVal}</div>
+        <span class="insight-pill ${pillClass}">${pillLabel}</span>
+        <div class="insight-sub">Expected low around ${timeStr}.<br>${note}</div>`;
+}
+
+// ── UV Exposure Timer ─────────────────────────────────────────────
+function updateUVTimer() {
+    const el = document.getElementById('uv-timer-content');
+    if (!el) return;
+    const uv = getCurrentHourUV();
+    if (uv === null) { el.innerHTML = '<div class="insight-sub">Awaiting UV data...</div>'; return; }
+
+    // Safe exposure minutes for moderate skin type (SPF 30 assumed)
+    let safeMin, level, pillClass;
+    if      (uv <= 2)  { safeMin = null; level = 'Low';      pillClass = 'pill-green';  }
+    else if (uv <= 5)  { safeMin = 60;   level = 'Moderate'; pillClass = 'pill-yellow'; }
+    else if (uv <= 7)  { safeMin = 30;   level = 'High';     pillClass = 'pill-orange'; }
+    else if (uv <= 10) { safeMin = 15;   level = 'Very High';pillClass = 'pill-red';    }
+    else               { safeMin = 10;   level = 'Extreme';  pillClass = 'pill-red';    }
+
+    // Subtract time since sunrise as proxy for outdoor exposure
+    let remaining = safeMin;
+    if (safeMin !== null && fc.sunriseIso) {
+        const offsetMs = sydneyOffsetMs();
+        const [d, t] = fc.sunriseIso.split('T');
+        const [y, mo, dd] = d.split('-').map(Number);
+        const [h, m] = t.split(':').map(Number);
+        const sunriseMs = new Date(Date.UTC(y, mo-1, dd, h, m) - offsetMs).getTime();
+        const elapsedMin = Math.max(0, (Date.now() - sunriseMs) / 60000);
+        remaining = Math.max(0, safeMin - elapsedMin);
+    }
+
+    const peakStr = fc.uvMax != null ? ` Peak UV ${fc.uvMax} forecast today.` : '';
+    let bigVal, subLine;
+    if (safeMin === null) {
+        bigVal  = 'No Risk';
+        subLine = `UV ${uv} — Low. No sunscreen required.${peakStr}`;
+    } else if (remaining <= 0) {
+        bigVal  = 'Reapply Now';
+        subLine = `UV ${uv} — ${level}. Time in sun has exceeded safe exposure. Reapply sunscreen immediately.${peakStr}`;
+        pillClass = 'pill-red';
+    } else {
+        bigVal  = `${Math.round(remaining)} min`;
+        subLine = `UV ${uv} — ${level}. Reapply sunscreen in ~${Math.round(remaining)} min.${peakStr}`;
+    }
+
+    el.innerHTML = `
+        <div class="insight-big">${bigVal}</div>
+        <span class="insight-pill ${pillClass}">${level}</span>
+        <div class="insight-sub">${subLine}</div>`;
+}
+
 // ══════════════════════════════════════════════════════════════════
 // INSIGHTS
 // ══════════════════════════════════════════════════════════════════
@@ -1248,6 +1493,8 @@ function updateInsights() {
     updateBestTime();
     updateGreenSpeed();
     updateBallFlight();
+    updateFrostRisk();
+    updateUVTimer();
 }
 
 // ── Best Time to Play ─────────────────────────────────────────────
@@ -1587,6 +1834,8 @@ async function getWeatherData() {
         renderWeekly();
         updateRecommendation();
         updateAllGolferTiles();
+        updatePressureTrend();
+        if (TV_MODE) renderTVWindBoxes();
 
         // Last updated
         lastUpdateTime = Date.now();
@@ -1626,7 +1875,7 @@ async function getForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset`
-            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m`
+            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
         let response, lastFcErr;
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -1653,6 +1902,7 @@ async function getForecast() {
 
         // Store hourly for best-time calculation
         hourlyFc = data.hourly;
+        checkThunderstorm();
 
         document.getElementById('ds-sun').textContent = fc.sunrise + ' / ' + fc.sunset;
         renderHourlyForecast();
@@ -1998,20 +2248,207 @@ async function fetchTodayWetness() {
     }
 }
 
+// ── Wind Hole Analysis (TV Slide 2) ──────────────────────────────
+const _toRad = d => d * Math.PI / 180;
+const _toDeg = r => r * 180 / Math.PI;
+
+const HOLES = [
+    { hole: 1,  pts: [[147.3668153161867,-35.16861725587037],[147.3662502520388,-35.17029636762853],[147.36688139067,-35.17149274714841]] },
+    { hole: 2,  pts: [[147.3667282054842,-35.17173277078417],[147.3658599444596,-35.17089691656518]] },
+    { hole: 3,  pts: [[147.3661634022058,-35.1717044465229],[147.363045902081,-35.17112073904209],[147.3610866533616,-35.17090248979507]] },
+    { hole: 4,  pts: [[147.3609741992728,-35.17063801147889],[147.3632208130894,-35.17060090287018],[147.3645982483817,-35.17088789401617]] },
+    { hole: 5,  pts: [[147.3645130189603,-35.17029777067727],[147.362115465189,-35.17005852921474],[147.3603077006004,-35.17056318243772]] },
+    { hole: 6,  pts: [[147.3595654523309,-35.1712091816046],[147.3612159871743,-35.16876929955666],[147.3622645716225,-35.16772462546953]] },
+    { hole: 7,  pts: [[147.3626333128037,-35.16754813100589],[147.3619711920944,-35.16878538351359]] },
+    { hole: 8,  pts: [[147.361511201156,-35.16936038273116],[147.364107754874,-35.16971867894475],[147.3649758075248,-35.170411688247]] },
+    { hole: 9,  pts: [[147.3652118493658,-35.17122270365748],[147.3659419976285,-35.16911809679791],[147.3663179434227,-35.16865582128706]] },
+    { hole: 10, pts: [[147.365087852125,-35.1684538121492],[147.3628761594381,-35.16898307521149]] },
+    { hole: 11, pts: [[147.3622790821048,-35.16929085389992],[147.3631278928726,-35.16768730050945],[147.3622038806114,-35.16688276896283]] },
+    { hole: 12, pts: [[147.3620738344294,-35.16623186954197],[147.3610471158089,-35.16838189675272],[147.3599073531859,-35.17000790801021]] },
+    { hole: 13, pts: [[147.3597723038067,-35.16968268625913],[147.3615049487514,-35.16661527298857]] },
+    { hole: 14, pts: [[147.3623947025563,-35.16654684257102],[147.3622373809727,-35.16517461269613]] },
+    { hole: 15, pts: [[147.3627614759774,-35.1653922845475],[147.3642410030558,-35.16675658675031],[147.3674796680793,-35.16716458958074]] },
+    { hole: 16, pts: [[147.3678611449609,-35.16756630171382],[147.3647075536231,-35.16730021218956],[147.3628174200813,-35.1666835683212]] },
+    { hole: 17, pts: [[147.3634077212165,-35.16739495426235],[147.3660755683743,-35.16787966489883],[147.3673949991733,-35.16780017286987]] },
+    { hole: 18, pts: [[147.3683745201376,-35.16721019612596],[147.3674063447204,-35.16858920205144]] },
+];
+
+function _bearing(a, b) {
+    const lat1 = _toRad(a[1]), lat2 = _toRad(b[1]), dLon = _toRad(b[0] - a[0]);
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return (_toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function _distM(a, b) {
+    const R = 6371000;
+    const dLat = _toRad(b[1]-a[1]), dLon = _toRad(b[0]-a[0]);
+    const s = Math.sin(dLat/2)**2 + Math.cos(_toRad(a[1]))*Math.cos(_toRad(b[1]))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+
+function calcWindEffect(holeBearing, windFrom, windKmh, segDistM) {
+    const windTo = (windFrom + 180) % 360;
+    let diff = ((holeBearing - windTo) + 360) % 360;
+    if (diff > 180) diff = 360 - diff;
+    const relAngle = ((windFrom - holeBearing) + 360) % 360;
+    const fromRight = relAngle > 0 && relAngle < 180;
+    const side = fromRight ? 'right' : 'left';
+    const headTailFactor = Math.cos(_toRad(diff));
+    const crossFactor    = Math.abs(Math.sin(_toRad(diff)));
+    const metresEffect   = headTailFactor * windKmh * 0.3 * (segDistM / 100);
+    const driftM         = crossFactor    * windKmh * 0.2 * (segDistM / 100);
+    const clubAdj        = Math.round(metresEffect / 8);
+    let type, label;
+    if      (diff <= 30)  { type = 'tailwind'; label = 'Tailwind'; }
+    else if (diff <= 60)  { type = 'quarter';  label = 'Quartering tailwind'; }
+    else if (diff <= 120) { type = 'cross';    label = 'Crosswind'; }
+    else if (diff <= 150) { type = 'quarter';  label = 'Quartering headwind'; }
+    else                  { type = 'headwind'; label = 'Headwind'; }
+    let advice = '';
+    if      (type === 'tailwind') advice = `+${Math.round(metresEffect)}m carry - club down ${Math.abs(clubAdj) || 1}. Ball will release on landing.`;
+    else if (type === 'headwind') advice = `${Math.round(metresEffect)}m carry - club up ${Math.abs(clubAdj) || 1}. Ball stops quickly on greens.`;
+    else if (type === 'cross')    advice = `Aim ${Math.round(driftM)}m ${side === 'right' ? 'left' : 'right'} of target. Wind from the ${side}.`;
+    else if (label === 'Quartering tailwind') advice = `Slight help (+${Math.round(Math.abs(metresEffect))}m). Some drift from the ${side}.`;
+    else                          advice = `Slight into wind (${Math.round(Math.abs(metresEffect))}m). Some drift from the ${side}.`;
+    let greenNote = '';
+    if      (diff <= 60)  greenNote = 'Downwind - ball will run through greens, land short.';
+    else if (diff >= 120) greenNote = 'Into wind - ball checks up, attack the pin.';
+    return { type, label, diff, metresEffect, driftM, clubAdj, side, advice, greenNote, fromRight };
+}
+
+function analyseWindHoles(windFrom, windKmh) {
+    return HOLES.map(h => {
+        const segments = [];
+        for (let i = 0; i < h.pts.length - 1; i++) {
+            const b = _bearing(h.pts[i], h.pts[i+1]);
+            const d = _distM(h.pts[i], h.pts[i+1]);
+            const we = calcWindEffect(b, windFrom, windKmh, d);
+            const segName = h.pts.length === 2 ? 'Full hole' : i === 0 ? 'Tee shot' : 'Approach';
+            segments.push({ name: segName, distM: d, effect: we });
+        }
+        const dominant   = segments[0].effect;
+        const headScore  = segments.reduce((s, sg) => s + (sg.effect.diff > 90  ? sg.effect.diff * sg.distM : 0), 0);
+        const tailScore  = segments.reduce((s, sg) => s + (sg.effect.diff < 90  ? (90 - sg.effect.diff) * sg.distM : 0), 0);
+        const crossScore = segments.reduce((s, sg) => s + sg.effect.driftM * sg.distM, 0);
+        return { hole: h.hole, segments, dominant, headScore, tailScore, crossScore };
+    });
+}
+
+function renderTVWindBoxes() {
+    const el = document.getElementById('tv-wind-boxes');
+    if (!el) return;
+    if (wx.windDeg === null) {
+        el.innerHTML = '<div style="color:#7f8c8d;font-size:0.85em">Wind direction not yet available.</div>';
+        return;
+    }
+    const kmh     = wx.windKmh || 0;
+    const lowWind = kmh < 5;
+    if (lowWind) {
+        const calmMsg = `<div style="font-size:0.88em;opacity:0.85;line-height:1.6;margin-top:8px">Minimal wind impact right now.<br>No club changes needed - check back as conditions change.</div>`;
+        el.innerHTML = `
+            <div class="feature-box fb-dyn-idle"><div class="fb-category">Hardest Into Wind</div><div class="fb-hole" style="font-size:1.2em">Calm</div>${calmMsg}</div>
+            <div class="feature-box fb-dyn-idle"><div class="fb-category">Best Tailwind</div><div class="fb-hole" style="font-size:1.2em">Calm</div>${calmMsg}</div>
+            <div class="feature-box fb-dyn-idle"><div class="fb-category">Worst Crosswind</div><div class="fb-hole" style="font-size:1.2em">Calm</div>${calmMsg}</div>`;
+        return;
+    }
+    const results    = analyseWindHoles(wx.windDeg || 0, kmh);
+    const worstHead  = [...results].sort((a,b) => b.headScore  - a.headScore)[0];
+    const bestTail   = [...results].sort((a,b) => b.tailScore  - a.tailScore)[0];
+    const worstCross = [...results].sort((a,b) => b.crossScore - a.crossScore)[0];
+
+    // Dynamic colour based on impact magnitude
+    const headImpact  = Math.abs(worstHead.segments[0].effect.metresEffect);
+    const tailImpact  = bestTail.segments[0].effect.metresEffect;
+    const crossDrift  = worstCross.segments[0].effect.driftM;
+    const headCls  = headImpact >= 8 ? 'fb-dyn-red'   : headImpact >= 3 ? 'fb-dyn-orange' : 'fb-dyn-yellow';
+    const tailCls  = tailImpact >= 8 ? 'fb-dyn-green'  : tailImpact >= 3 ? 'fb-dyn-green'  : 'fb-dyn-yellow';
+    const crossCls = crossDrift >= 8 ? 'fb-dyn-red'   : crossDrift >= 3 ? 'fb-dyn-orange' : 'fb-dyn-yellow';
+
+    const segLines = r => r.segments.map(s =>
+        `<div class="fb-seg">${s.name} (${s.distM.toFixed(0)}m): ${s.effect.advice}</div>`
+    ).join('');
+    const impactStr = r => {
+        const te = r.segments[0].effect;
+        return te.type === 'cross' ? `~${te.driftM.toFixed(0)}m lateral drift`
+            : `${te.metresEffect >= 0 ? '+' : ''}${te.metresEffect.toFixed(0)}m carry`;
+    };
+    const clubStr = r => {
+        const adj = r.segments[0].effect.clubAdj;
+        return adj === 0 ? 'No club change' : adj > 0 ? `Club up ${adj}` : `Club down ${Math.abs(adj)}`;
+    };
+    const greenStr = r => {
+        const gn = r.segments[r.segments.length-1].effect.greenNote;
+        return gn || 'Normal green behaviour';
+    };
+
+    el.innerHTML = `
+        <div class="feature-box ${headCls}">
+            <div class="fb-category">Hardest Into Wind</div>
+            <div class="fb-hole">Hole ${worstHead.hole}</div>
+            <div class="fb-effect">${worstHead.dominant.label}</div>
+            <hr class="fb-divider">
+            <div class="fb-row"><span class="fr-lbl">Distance impact</span><span class="fr-val">${impactStr(worstHead)}</span></div>
+            <div class="fb-row"><span class="fr-lbl">Club change</span><span class="fr-val">${clubStr(worstHead)}</span></div>
+            <div class="fb-row"><span class="fr-lbl">Greens</span><span class="fr-val">${greenStr(worstHead)}</span></div>
+            ${segLines(worstHead)}
+        </div>
+        <div class="feature-box ${tailCls}">
+            <div class="fb-category">Best Tailwind</div>
+            <div class="fb-hole">Hole ${bestTail.hole}</div>
+            <div class="fb-effect">${bestTail.dominant.label}</div>
+            <hr class="fb-divider">
+            <div class="fb-row"><span class="fr-lbl">Distance impact</span><span class="fr-val">${impactStr(bestTail)}</span></div>
+            <div class="fb-row"><span class="fr-lbl">Club change</span><span class="fr-val">${clubStr(bestTail)}</span></div>
+            <div class="fb-row"><span class="fr-lbl">Greens</span><span class="fr-val">${greenStr(bestTail)}</span></div>
+            ${segLines(bestTail)}
+        </div>
+        <div class="feature-box ${crossCls}">
+            <div class="fb-category">Worst Crosswind</div>
+            <div class="fb-hole">Hole ${worstCross.hole}</div>
+            <div class="fb-effect">${worstCross.dominant.label}</div>
+            <hr class="fb-divider">
+            <div class="fb-row"><span class="fr-lbl">Lateral drift</span><span class="fr-val">${worstCross.segments[0].effect.driftM.toFixed(0)}m</span></div>
+            <div class="fb-row"><span class="fr-lbl">Aim</span><span class="fr-val">${worstCross.segments[0].effect.fromRight ? 'Left of target' : 'Right of target'}</span></div>
+            <div class="fb-row"><span class="fr-lbl">Wind from</span><span class="fr-val">the ${worstCross.segments[0].effect.side}</span></div>
+            ${segLines(worstCross)}
+        </div>`;
+}
+
+function updateTVCourseCard(totalET, totalRain) {
+    const el = document.getElementById('tv-course-content');
+    if (!el) return;
+    const deficit = totalET - totalRain;
+    let pillClass, status, note;
+    if      (deficit < -10) { pillClass = 'pill-blue';   status = 'Waterlogged'; note = 'Soft underfoot - carts on paths, expect casual water'; }
+    else if (deficit < 0)   { pillClass = 'pill-blue';   status = 'Soft';        note = 'Good grip - ball sits up, approaches hold well'; }
+    else if (deficit < 15)  { pillClass = 'pill-green';  status = 'Normal';      note = 'Playing true - ideal ball roll on fairways'; }
+    else if (deficit < 30)  { pillClass = 'pill-yellow'; status = 'Firm';        note = 'Ball running on - allow extra run on approaches'; }
+    else                    { pillClass = 'pill-orange'; status = 'Very Firm';   note = 'Hard and fast - significant run, greens receptive'; }
+    const wb = deficit >= 0
+        ? `+${deficit.toFixed(1)} mm deficit (7-day ET minus rain)`
+        : `${Math.abs(deficit).toFixed(1)} mm surplus (7-day ET minus rain)`;
+    el.innerHTML = `
+        <div class="insight-big">${status}</div>
+        <span class="insight-pill ${pillClass}">${status}</span>
+        <div class="insight-sub">${note}<br>${wb}</div>`;
+}
+
 // ── TV / Kiosk Mode ──────────────────────────────────────────────
 const TV_MODE = new URLSearchParams(window.location.search).has('tv');
 let tvCurrentSlide = 0;
 let tvTimer = null;
 
 function tvGoTo(n) {
-    const slides = [document.getElementById('tv-s0'), document.getElementById('tv-s1')];
-    const dots   = [document.getElementById('tv-dot-0'), document.getElementById('tv-dot-1')];
+    const slides = ['tv-s0','tv-s1','tv-s2'].map(id => document.getElementById(id));
+    const dots   = ['tv-dot-0','tv-dot-1','tv-dot-2'].map(id => document.getElementById(id));
     const label  = document.getElementById('tv-slide-label');
-    slides.forEach((s, i) => s.classList.toggle('tv-slide-active', i === n));
-    dots.forEach((d, i)   => d.classList.toggle('tv-dot-active',   i === n));
+    slides.forEach((s, i) => s && s.classList.toggle('tv-slide-active', i === n));
+    dots.forEach((d, i)   => d && d.classList.toggle('tv-dot-active',   i === n));
     if (label) label.textContent = n + 1;
     tvCurrentSlide = n;
-    if (tvTimer) { clearInterval(tvTimer); tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 2), 30000); }
+    if (tvTimer) { clearInterval(tvTimer); tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 3), 20000); }
+    if (n === 0 && _pageETag !== null) checkForUpdates();
 }
 
 function tvUpdateClock() {
@@ -2055,29 +2492,83 @@ function initTVMode() {
 
     const s0 = document.getElementById('tv-s0');
     const s1 = document.getElementById('tv-s1');
+    const s2 = document.getElementById('tv-s2');
 
-    // Slide 1 - Right Now: banner + 8 tiles + 3 insights
-    const banner   = document.getElementById('comfort-banner');
-    const tiles    = document.querySelector('.golfer-tiles');
-    const insights = document.querySelector('.golfer-insights');
-    if (banner)   s0.appendChild(banner);
-    if (tiles)    s0.appendChild(tiles);
-    if (insights) s0.appendChild(insights);
+    // Slide 1 - Current Weather: banner + 8 tiles (dew point replaces course roll)
+    const banner     = document.getElementById('comfort-banner');
+    const tiles      = document.querySelector('.golfer-tiles');
+    const tileCourse = document.getElementById('tile-course');
+    const tileDewPt  = document.getElementById('tile-dewpoint');
+    // Extract course roll from tile grid - moves to slide 2; dew point fills the slot
+    if (tileCourse && tiles && tiles.contains(tileCourse)) tiles.removeChild(tileCourse);
+    if (tileDewPt) tileDewPt.style.display = 'flex';
+    if (banner) s0.appendChild(banner);
+    if (tiles)  s0.appendChild(tiles);
 
-    // Slide 2 - What's Coming: current conditions + hourly + 4-day
-    const currentCard   = document.getElementById('tv-current-card');
-    const hourlyCard    = document.getElementById('hourly-forecast-card');
-    const fcContainer   = document.getElementById('forecast-container');
-    const fourDayCard   = fcContainer ? fcContainer.closest('.card') : null;
-    if (currentCard) { currentCard.style.display = ''; s1.appendChild(currentCard); }
-    if (hourlyCard)  s1.appendChild(hourlyCard);
-    if (fourDayCard) s1.appendChild(fourDayCard);
+    // Slide 2 - Golf Conditions: course card + 3 insights + wind boxes
+    const courseCard = document.getElementById('tv-course-card');
+    const insights   = document.querySelector('.golfer-insights');
+    const windCard   = document.getElementById('tv-wind-card');
+    // Insert course card as first card within insights grid (makes 6-card 3×2 grid)
+    if (courseCard && insights) { courseCard.style.display = ''; insights.insertBefore(courseCard, insights.firstChild); }
+    if (insights)   s1.appendChild(insights);
+    if (windCard)   { windCard.style.display = '';   s1.appendChild(windCard); }
 
-    // Start clock and carousel
+    // Slide 3 - Weather Forecast: current conditions + hourly + 4-day
+    const currentCard = document.getElementById('tv-current-card');
+    const hourlyCard  = document.getElementById('hourly-forecast-card');
+    const fcContainer = document.getElementById('forecast-container');
+    const fourDayCard = fcContainer ? fcContainer.closest('.card') : null;
+    if (currentCard) { currentCard.style.display = ''; s2.appendChild(currentCard); }
+    if (hourlyCard)  s2.appendChild(hourlyCard);
+    if (fourDayCard) s2.appendChild(fourDayCard);
+
+    // Start clock and carousel (20s per slide)
     tvUpdateClock();
     setInterval(tvUpdateClock, 1000);
     tvGoTo(0);
-    tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 2), 30000);
+    tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 3), 20000);
+}
+
+// ── Auto-Update Detection (GitHub Pages) ─────────────────────────
+let _pageETag = null;
+
+async function checkForUpdates() {
+    const statusEl = document.getElementById('tv-update-status');
+    try {
+        // Cache-buster forces GitHub's CDN to check origin, not serve stale
+        const res = await fetch(window.location.href + '?_cb=' + Date.now(), {
+            method: 'HEAD',
+            cache: 'no-store'
+        });
+        const etag    = res.headers.get('etag');
+        const lastMod = res.headers.get('last-modified');
+        const token   = etag || lastMod;
+        if (!token) return; // server not sending headers — skip
+
+        if (_pageETag === null) {
+            // First run — record baseline
+            _pageETag = token;
+            return;
+        }
+        if (token !== _pageETag) {
+            // File has changed — show status then reload
+            if (statusEl) {
+                statusEl.style.display = 'inline';
+                statusEl.textContent   = '· Updating to latest version...';
+            }
+            setTimeout(() => location.reload(true), 2000);
+        } else {
+            // No change — flash briefly then hide
+            if (statusEl) {
+                statusEl.style.display = 'inline';
+                statusEl.textContent   = '· Up to date';
+                setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+            }
+        }
+    } catch (e) {
+        // Network issue — silently ignore
+    }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────
@@ -2087,10 +2578,13 @@ getForecast();
 fetchHistoricalWeather();
 fetchTodayWetness();
 setInterval(getWeatherData,       60000);
-setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); }, 15000);
+setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); updateUVTimer(); }, 15000);
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
+// Check for updated HTML every 5 minutes; also record baseline after 3s
+setTimeout(checkForUpdates, 3000);
+setInterval(checkForUpdates, 300000);
 </script>
 
 </body>
