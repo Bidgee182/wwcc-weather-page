@@ -468,9 +468,9 @@
             <!-- Disease Risk - Leaf Wetness -->
             <div class="section-title" style="margin-top:16px">&#127807; Disease Risk - Leaf Wetness (CART Model)</div>
             <div class="irr-metrics">
-                <div class="irr-metric"><div class="lbl">Wet Hours Today</div><div class="val" id="dr-lwd">--</div></div>
+                <div class="irr-metric"><div class="lbl">Wet Hours (24h)</div><div class="val" id="dr-lwd">--</div></div>
                 <div class="irr-metric"><div class="lbl">Night Min Temp</div><div class="val" id="dr-mintemp">--</div></div>
-                <div class="irr-metric"><div class="lbl">Mean RH Today</div><div class="val" id="dr-rh">--</div></div>
+                <div class="irr-metric"><div class="lbl">Mean RH (24h)</div><div class="val" id="dr-rh">--</div></div>
             </div>
             <table class="disease-table">
                 <thead><tr><th>Disease</th><th>Risk</th><th>Notes</th></tr></thead>
@@ -649,7 +649,7 @@
             <div class="cc-cell"><div class="cc-icon">&#9728;</div><div class="cc-val" id="cc-uv">--</div><div class="cc-lbl">UV Index</div></div>
             <div class="cc-cell"><div class="cc-icon">&#127755;</div><div class="cc-val" id="cc-sun">--</div><div class="cc-lbl">Sunrise / Sunset</div></div>
             <div class="cc-cell"><div class="cc-icon">&#128200;</div><div class="cc-val" id="cc-pressure">--</div><div class="cc-lbl">Pressure Trend</div></div>
-            <div class="cc-cell cc-blank" style="opacity:0.2"><div class="cc-icon">&#8230;</div><div class="cc-val">--</div><div class="cc-lbl">Coming Soon</div></div>
+            <div class="cc-cell" id="cc-rainfall-cell"><div class="cc-icon">&#127783;&#65039;</div><div class="cc-val" id="cc-rain-month">--</div><div class="cc-lbl">Monthly / Yearly Rain</div><div class="cc-val" id="cc-rain-year" style="font-size:0.75em;color:#7f8c8d;margin-top:2px">--</div></div>
         </div>
     </div>
 
@@ -732,7 +732,7 @@ const CLUB_ELEV_M = 147;
 const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) - adjust as needed
 
 // ── Global state ──────────────────────────────────────────────────
-let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0 };
+let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null };
 let fc = { uvMax: null, sunrise: '--', sunset: '--', sunriseIso: null, sunsetIso: null, todayRainProb: null, todayMax: null, todayMin: null, tomorrowSunriseIso: null, tomorrowSunrise: '--' };
 let hourlyFc         = null;   // today's hourly forecast from Open-Meteo
 let forecastRain3Day = null;
@@ -1226,20 +1226,25 @@ function updatePlayabilityBanner(at) {
     const factors = [];
 
     // Feels-like temperature
-    if      (at < 8  || at > 36) { score += 3; factors.push(at > 36 ? 'Dangerously hot' : 'Very cold'); }
-    else if (at < 12 || at > 28) { score += 1; factors.push(at > 28 ? 'Hot' : 'Cold'); }
+    if      (at < 6  || at > 36) { score += 3; factors.push(at > 36 ? 'Dangerously hot' : 'Very cold'); }
+    else if (at < 10 || at > 32) { score += 2; factors.push(at > 32 ? 'Very hot' : 'Cold'); }
+    else if (at < 14 || at > 28) { score += 1; factors.push(at > 28 ? 'Hot' : 'Cool'); }
 
     // Wind
     if      (wx.windKmh > 40) { score += 2; factors.push('Very strong wind'); }
     else if (wx.windKmh > 25) { score += 1; factors.push(windDescription(wx.windKmh)); }
 
-    // Rain - graduated by actual mm fallen + forecast probability separately
-    if (actualRain >= 30)       { score += 4; factors.push(`${actualRain.toFixed(1)} mm today - very wet course`); }
-    else if (actualRain >= 15)  { score += 3; factors.push(`${actualRain.toFixed(1)} mm today - wet, casual water likely`); }
-    else if (actualRain >= 5)   { score += 2; factors.push(`${actualRain.toFixed(1)} mm today - soft course`); }
-    else if (actualRain >= 0.5) { score += 1; factors.push(`${actualRain.toFixed(1)} mm today - trace rain`); }
-    // Forecast rain chance (only penalise if no rain has fallen yet)
-    if (actualRain === 0) {
+    // Rain - use 24h rolling total (today live + yesterday stored) so overnight rain shows up
+    const _off24 = sydneyOffsetMs();
+    const _store24 = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const _ydDate24 = new Date(Date.now() + _off24); _ydDate24.setUTCDate(_ydDate24.getUTCDate() - 1);
+    const rain24h = actualRain + (_store24[_ydDate24.toISOString().slice(0, 10)]?.rain || 0);
+    if      (rain24h >= 30)  { score += 4; factors.push(`${rain24h.toFixed(1)} mm (24h) - very wet course`); }
+    else if (rain24h >= 15)  { score += 3; factors.push(`${rain24h.toFixed(1)} mm (24h) - wet, casual water likely`); }
+    else if (rain24h >=  5)  { score += 2; factors.push(`${rain24h.toFixed(1)} mm (24h) - soft course`); }
+    else if (rain24h >= 0.5) { score += 1; factors.push(`${rain24h.toFixed(1)} mm (24h) - trace rain`); }
+    // Forecast rain chance (only penalise if no rain in last 24h)
+    if (rain24h < 0.5) {
         if      (rainProb > 70) { score += 2; factors.push(rainProb + '% rain chance'); }
         else if (rainProb > 40) { score += 1; factors.push(rainProb + '% chance of rain'); }
     }
@@ -1247,6 +1252,17 @@ function updatePlayabilityBanner(at) {
     // UV
     if      (uv > 10) { score += 2; factors.push('Extreme UV ' + Math.round(uv)); }
     else if (uv > 7)  { score += 1; factors.push('High UV ' + Math.round(uv)); }
+
+    // Cloud cover (overcast skies add to chill factor and gloom)
+    if (hourlyFc && hourlyFc.cloud_cover) {
+        const _ccOff = sydneyOffsetMs();
+        const _ccNowStr = new Date(Date.now() + _ccOff).toISOString().slice(0, 13);
+        let cloudPct = null;
+        for (let i = 0; i < hourlyFc.time.length; i++) {
+            if (hourlyFc.time[i].slice(0, 13) === _ccNowStr) { cloudPct = hourlyFc.cloud_cover[i] ?? null; break; }
+        }
+        if (cloudPct !== null && cloudPct > 85) { score += 1; factors.push('Overcast'); }
+    }
 
     // Daylight - graduated by light quality throughout the day
     if (fc.sunriseIso && fc.sunsetIso) {
@@ -1283,14 +1299,17 @@ function updatePlayabilityBanner(at) {
         }
     }
 
-    // Course conditions (waterlogged = bad for play)
+    // Course conditions - 7-day ET/rain balance (graduated)
     const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
-    if (totalET - totalRain < -10) { score += 1; factors.push('Waterlogged course'); }
+    const weekDeficit = totalET - totalRain;
+    if      (weekDeficit < -20) { score += 2; factors.push('Waterlogged course'); }
+    else if (weekDeficit <  -5) { score += 1; factors.push('Wet course (7-day surplus)'); }
 
     // Humidity extremes
-    if (wx.rh > 88) { score += 1; factors.push('Very humid'); }
+    if      (wx.rh > 90) { score += 2; factors.push('Very humid'); }
+    else if (wx.rh > 80) { score += 1; factors.push('High humidity'); }
 
     let rating, bannerCls;
     if      (score === 0) { rating = 'Outstanding'; bannerCls = 'cb-outstanding'; }
@@ -1347,6 +1366,9 @@ function renderTVCurrentCard(at, dp, nowUV) {
     document.getElementById('cc-dp').textContent    = dp.toFixed(1) + '°C';
     document.getElementById('cc-uv').textContent    = nowUV !== null ? nowUV.toFixed(0) : '--';
     document.getElementById('cc-sun').textContent   = fc.sunrise + ' / ' + fc.sunset;
+    const _monthName = new Date().toLocaleString('en-AU', { month: 'long', timeZone: 'Australia/Sydney' });
+    document.getElementById('cc-rain-month').textContent = wx.rainMonth != null ? _monthName + ': ' + wx.rainMonth.toFixed(1) + ' mm' : '--';
+    document.getElementById('cc-rain-year').textContent  = wx.rainYear  != null ? 'YTD: ' + wx.rainYear.toFixed(0) + ' mm' : 'YTD: --';
 }
 
 // ── Lightning / Thunderstorm Alert ───────────────────────────────
@@ -1626,18 +1648,16 @@ function updateGreenSpeed() {
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const deficit = totalET - totalRain;
 
-    // Adjust Stimp relative to the club's known baseline
-    const b = BASELINE_STIMP;
-    let speed, stimp, pillClass, note;
-    if (deficit < -10)    { speed = 'Slower than usual'; stimp = `~${(b - 1.5).toFixed(1)} ft`;  pillClass = 'pill-blue';   note = 'Waterlogged - putts will die quickly, be aggressive on approaches'; }
-    else if (deficit < 0) { speed = 'Slightly slow';     stimp = `~${(b - 0.5).toFixed(1)} ft`;  pillClass = 'pill-blue';   note = 'Soft greens - ball checks up, great for holding approach shots'; }
-    else if (deficit < 15){ speed = 'Normal';             stimp = `~${b.toFixed(1)} ft`;           pillClass = 'pill-green';  note = 'Greens running true - standard pace, putts are predictable'; }
-    else if (deficit < 30){ speed = 'Slightly fast';      stimp = `~${(b + 1).toFixed(1)} ft`;    pillClass = 'pill-yellow'; note = 'Firming up - putts will have more pace, approach shots may release'; }
-    else                  { speed = 'Faster than usual';  stimp = `~${(b + 2).toFixed(1)}+ ft`;   pillClass = 'pill-orange'; note = 'Hard and fast - be careful on downhill putts, ball will run through'; }
+    let speed, feel, pillClass, note;
+    if (deficit < -10)    { speed = 'Slower than usual'; feel = 'Soft & Receptive'; pillClass = 'pill-blue';   note = 'Waterlogged - putts will die quickly, be aggressive on approaches'; }
+    else if (deficit < 0) { speed = 'Slightly slow';     feel = 'Taking Spin';      pillClass = 'pill-blue';   note = 'Soft greens - ball checks up, great for holding approach shots'; }
+    else if (deficit < 15){ speed = 'Normal';             feel = 'Running True';     pillClass = 'pill-green';  note = 'Greens running true - standard pace, putts are predictable'; }
+    else if (deficit < 30){ speed = 'Slightly fast';      feel = 'Some Run';         pillClass = 'pill-yellow'; note = 'Firming up - putts will have more pace, approach shots may release'; }
+    else                  { speed = 'Faster than usual';  feel = 'Fast & Bouncy';    pillClass = 'pill-orange'; note = 'Hard and fast - be careful on downhill putts, ball will run through'; }
 
     el.innerHTML = `
         <div class="insight-big">${speed}</div>
-        <span class="insight-pill ${pillClass}">Stimp ${stimp}</span>
+        <span class="insight-pill ${pillClass}">${feel}</span>
         <div class="insight-sub">${note}</div>`;
 }
 
@@ -1757,6 +1777,15 @@ async function getWeatherData() {
         if (data.davis_current_observation?.et_day)
             et   = parseFloat(data.davis_current_observation.et_day) * 25.4;
 
+        const dco = data.davis_current_observation;
+        let rainMonth = null, rainYear = null;
+        if (dco?.rain_month_mm != null)      rainMonth = parseFloat(dco.rain_month_mm);
+        else if (dco?.rain_month_in != null) rainMonth = parseFloat(dco.rain_month_in) * 25.4;
+        if (dco?.rain_year_mm != null)       rainYear  = parseFloat(dco.rain_year_mm);
+        else if (dco?.rain_year_in != null)  rainYear  = parseFloat(dco.rain_year_in) * 25.4;
+        if (rainMonth != null && isNaN(rainMonth)) rainMonth = null;
+        if (rainYear  != null && isNaN(rainYear))  rainYear  = null;
+
         // Wet-bulb / Delta T (Stull 2011)
         const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
                  + Math.atan(temp + rh)
@@ -1787,7 +1816,7 @@ async function getWeatherData() {
         }
         if (pressure != null && isNaN(pressure)) pressure = null;
 
-        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh };
+        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh, rainMonth, rainYear };
 
         // Conditions bar
         document.getElementById('temp').innerText       = temp.toFixed(1) + '°C';
@@ -1875,7 +1904,7 @@ async function getForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset`
-            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code`
+            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
         let response, lastFcErr;
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -2097,11 +2126,8 @@ async function fetchTodayWetness() {
     const offsetMs   = sydneyOffsetMs();
     const offsetSecs = Math.round(offsetMs / 1000);
 
-    // Today midnight Sydney → now
-    const sydNow = new Date(Date.now() + offsetMs);
-    const sydMid = new Date(sydNow);
-    sydMid.setUTCHours(0, 0, 0, 0);
-    const startTs = Math.floor(sydMid.getTime() / 1000) - offsetSecs;
+    // Rolling 24h window ending now
+    const startTs = Math.floor((Date.now() - 86400000) / 1000);
     const endTs   = Math.floor(Date.now() / 1000);
 
     let data;
@@ -2131,8 +2157,10 @@ async function fetchTodayWetness() {
     // not count each record as a separate hour.
     let minTempC  = Infinity;
     let rhSum     = 0, rhCount = 0;
-    const wetHourSet   = new Set();   // distinct Sydney hours that are wet
-    const nightHourSet = new Set();   // distinct night hours (22–05) that are wet
+    const wetHourSet    = new Set();   // distinct Sydney hours that are wet
+    const nightHourSet  = new Set();   // distinct night hours (22–05) that are wet
+    const highRHHourSet = new Set();   // hours where any reading RH ≥ 90% (Fusarium)
+    let anyRain = false;               // any rain in 24h window (Fusarium rain-day track)
 
     for (const rec of allRecs) {
         const tF = rec.temp ?? rec.temp_out;
@@ -2151,10 +2179,30 @@ async function fetchTodayWetness() {
             wetHourSet.add(hourKey);
             if (hr >= 22 || hr < 6) nightHourSet.add(hourKey);
         }
+        // Fusarium tracking: high-RH hours and any rain
+        if (h != null && parseFloat(h) >= 90) {
+            const recTime3 = new Date((rec.ts ?? 0) * 1000 + offsetMs);
+            highRHHourSet.add(recTime3.toISOString().slice(0, 13));
+        }
+        if (parseFloat(rec.rainfall_mm ?? rec.rain_mm ?? 0) > 0) anyRain = true;
     }
 
     const wetHours = wetHourSet.size;
     const nightWet = nightHourSet.size;
+
+    // Fusarium: longest consecutive streak of hours with RH ≥ 90%
+    const highRHSorted = [...highRHHourSet].sort();
+    let consecRHHours = 0, _curStreak = 0;
+    for (let i = 0; i < highRHSorted.length; i++) {
+        if (i === 0) {
+            _curStreak = 1;
+        } else {
+            const prev = new Date(highRHSorted[i - 1] + ':00:00Z');
+            const curr = new Date(highRHSorted[i] + ':00:00Z');
+            _curStreak = (curr - prev) <= 3600000 ? _curStreak + 1 : 1;
+        }
+        if (_curStreak > consecRHHours) consecRHHours = _curStreak;
+    }
 
     const nightMinC = minTempC < Infinity ? +minTempC.toFixed(1) : null;
     const meanRHtod = rhCount > 0 ? +(rhSum / rhCount).toFixed(0) : null;
@@ -2213,6 +2261,50 @@ async function fetchTodayWetness() {
         diseases.push({ name: 'Pythium Blight', risk, cls, note });
     }
 
+    // 4 - Fusarium Patch (Microdochium nivale) — cool-wet season, May–Oct Wagga
+    //     Primary trigger: RH ≥ 90% for ≥ 20 consecutive hours; temp range 0–21°C
+    {
+        const inRange  = tempC != null && tempC >= 0 && tempC <= 21;
+        const peakTemp = tempC != null && tempC >= 6 && tempC <= 13;
+        // Count rain days in last 6 days from wx_daily store
+        const store6 = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+        let rainDaysIn6 = anyRain ? 1 : 0;
+        for (let d = 1; d <= 5; d++) {
+            const dt = new Date(Date.now() + offsetMs);
+            dt.setUTCDate(dt.getUTCDate() - d);
+            if (store6[dt.toISOString().slice(0, 10)]?.rainDay) rainDaysIn6++;
+        }
+
+        let risk, cls, note;
+        if (!inRange) {
+            risk = 'LOW'; cls = 'dr-low';
+            note = tempC != null ? `Temp ${tempC}°C – outside 0–21°C range` : 'Temp unavailable';
+        } else {
+            let score = 0;
+            const noteArr = [];
+            // Consecutive RH ≥ 90% (primary trigger)
+            if (consecRHHours >= 20)      { score += 5; noteArr.push(`${consecRHHours}h consec RH≥90%`); }
+            else if (consecRHHours >= 12) { score += 3; noteArr.push(`${consecRHHours}h RH≥90%`); }
+            else if (consecRHHours >= 6)  { score += 1; noteArr.push(`${consecRHHours}h RH≥90%`); }
+            // Leaf wetness hours
+            if (wetHours >= 24)      { score += 3; noteArr.push(`${wetHours}h wet`); }
+            else if (wetHours >= 10) { score += 2; if (!noteArr.some(n => n.includes('wet'))) noteArr.push(`${wetHours}h wet`); }
+            else if (wetHours >= 4)  { score += 1; if (!noteArr.some(n => n.includes('wet'))) noteArr.push(`${wetHours}h wet`); }
+            // Rain days in last 6
+            if (rainDaysIn6 >= 3)    { score += 2; noteArr.push(`${rainDaysIn6} rain days/6`); }
+            else if (rainDaysIn6 >= 1) { score += 1; }
+            // Peak temperature bonus
+            if (peakTemp)            { score += 1; noteArr.push(`peak temp ${tempC}°C`); }
+
+            if (score >= 8)      { risk = 'HIGH';     cls = 'dr-high'; }
+            else if (score >= 4) { risk = 'MODERATE'; cls = 'dr-mod'; }
+            else if (score >= 1) { risk = 'LOW-MOD';  cls = 'dr-mod'; }
+            else                 { risk = 'LOW';       cls = 'dr-low'; }
+            note = noteArr.length > 0 ? noteArr.join(' · ') : `Below thresholds (${tempC}°C)`;
+        }
+        diseases.push({ name: 'Fusarium Patch', risk, cls, note });
+    }
+
     // Render table
     const tbody = document.getElementById('disease-tbody');
     tbody.innerHTML = diseases.map(d =>
@@ -2242,7 +2334,8 @@ async function fetchTodayWetness() {
         store[todayKey] = {
             ...existing,
             meanRH:   meanRHtod ?? existing.meanRH ?? null,
-            meanTemp: nightMinC != null ? +((nightMinC + (tempC ?? nightMinC)) / 2).toFixed(1) : existing.meanTemp ?? null
+            meanTemp: nightMinC != null ? +((nightMinC + (tempC ?? nightMinC)) / 2).toFixed(1) : existing.meanTemp ?? null,
+            rainDay:  anyRain || existing.rainDay || false
         };
         localStorage.setItem('wx_daily', JSON.stringify(store));
     }
