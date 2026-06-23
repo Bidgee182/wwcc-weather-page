@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wagga Wagga Country Club — TV & Kiosk Display Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --dark: #1a252f;
+    --dark-mid: #2c3e50;
+    --dark-light: #3d5166;
+    --accent: #27ae60;
+    --accent-pale: #e8f8f0;
+    --gold: #c9a227;
+    --gold-pale: #fdf8ec;
+    --text: #1c1c1e;
+    --text-muted: #6b7280;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(160deg, #060c18 0%, #0f1e3a 50%, #1a3a5c 100%);
+    color: white;
+    padding: 80px 60px 60px;
+    min-height: 320px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before { content:''; position:absolute; top:-100px; right:-100px; width:450px; height:450px; border-radius:50%; background:rgba(39,174,96,0.06); }
+  .cover::after  { content:''; position:absolute; bottom:-80px; left:-80px; width:350px; height:350px; border-radius:50%; background:rgba(255,255,255,0.03); }
+  .cover-badge { display:inline-block; background:rgba(39,174,96,0.2); border:1px solid rgba(39,174,96,0.5); color:#6ee7b7; font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; padding:5px 14px; border-radius:20px; margin-bottom:28px; }
+  .cover h1 { font-size:38px; font-weight:700; line-height:1.2; margin-bottom:12px; }
+  .cover h1 span { color:#6ee7b7; }
+  .cover-sub { color:#6ee7b7; font-size:16px; font-weight:300; opacity:0.85; margin-bottom:36px; max-width:560px; }
+  .cover-meta { display:flex; gap:32px; flex-wrap:wrap; }
+  .cover-meta-item { font-size:13px; opacity:0.75; }
+  .cover-meta-item strong { display:block; font-size:15px; font-weight:600; opacity:1; color:white; }
+
+  /* ── LAYOUT ── */
+  .container { max-width:960px; margin:0 auto; padding:0 24px 60px; }
+
+  /* ── TOC ── */
+  .toc { background:white; border:1px solid var(--border); border-radius:12px; padding:32px 36px; margin:36px 0; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+  .toc-title { font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:20px; }
+  .toc-list { list-style:none; }
+  .toc-list li { display:flex; align-items:baseline; padding:7px 0; border-bottom:1px dashed var(--border); font-size:14px; }
+  .toc-list li:last-child { border-bottom:none; }
+  .toc-num { font-weight:700; color:var(--accent); min-width:28px; }
+  .toc-dots { flex:1; border-bottom:1px dotted #cbd5e1; margin:0 10px; position:relative; top:-3px; }
+  .toc-pg { color:var(--text-muted); font-size:13px; }
+  .toc-list a { color:var(--text); text-decoration:none; }
+  .toc-list a:hover { color:var(--accent); }
+
+  /* ── SECTIONS ── */
+  .section { background:white; border:1px solid var(--border); border-radius:12px; margin-bottom:28px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+  .section-header { background:linear-gradient(135deg,#060c18,#1a3a5c); color:white; padding:20px 28px; display:flex; align-items:center; gap:14px; }
+  .section-num { background:rgba(255,255,255,0.15); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0; }
+  .section-header h2 { font-size:18px; font-weight:600; margin:0; }
+  .section-header p { font-size:13px; opacity:0.75; margin-top:2px; }
+  .section-body { padding:28px; }
+
+  /* ── TYPOGRAPHY ── */
+  h3 { font-size:15px; font-weight:600; color:var(--dark); margin:24px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--accent-pale); }
+  h3:first-child { margin-top:0; }
+  p { margin-bottom:12px; color:#374151; }
+  p:last-child { margin-bottom:0; }
+  strong { font-weight:600; color:var(--text); }
+
+  /* ── TABLES ── */
+  .tbl-wrap { overflow-x:auto; margin:14px 0; border-radius:8px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:var(--dark); color:white; font-weight:600; font-size:12px; letter-spacing:0.5px; padding:10px 14px; text-align:left; white-space:nowrap; }
+  tbody tr:nth-child(even) { background:var(--accent-pale); }
+  tbody tr:hover { background:#bbf7d0; }
+  tbody td { padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tbody tr:last-child td { border-bottom:none; }
+  .td-mono { font-family:'Courier New',monospace; font-size:12px; background:#f1f5f9; border-radius:3px; padding:1px 5px; }
+
+  /* ── FORMULA BLOCKS ── */
+  .formula { background:#0f172a; color:#6ee7b7; border-radius:8px; padding:16px 20px; font-family:'Courier New',monospace; font-size:12.5px; line-height:1.8; margin:14px 0; overflow-x:auto; }
+  .formula .comment { color:#475569; }
+
+  /* ── CALLOUTS ── */
+  .callout { border-radius:8px; padding:14px 18px; margin:14px 0; display:flex; gap:12px; align-items:flex-start; font-size:13.5px; }
+  .callout-icon { font-size:18px; flex-shrink:0; line-height:1.4; }
+  .callout-green  { background:#d1fae5; border-left:4px solid #10b981; }
+  .callout-blue   { background:#dbeafe; border-left:4px solid #3b82f6; }
+  .callout-yellow { background:#fef9c3; border-left:4px solid #f59e0b; }
+  .callout-red    { background:#fee2e2; border-left:4px solid #ef4444; }
+  .callout-dark   { background:#0f172a; border-left:4px solid #27ae60; color:#94a3b8; }
+  .callout-dark strong { color:#6ee7b7; }
+
+  /* ── BADGES ── */
+  .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:600; }
+  .badge-green  { background:#d1fae5; color:#065f46; }
+  .badge-yellow { background:#fef3c7; color:#92400e; }
+  .badge-red    { background:#fee2e2; color:#991b1b; }
+  .badge-blue   { background:#dbeafe; color:#1e40af; }
+  .badge-orange { background:#ffedd5; color:#9a3412; }
+  .badge-purple { background:#ede9fe; color:#4c1d95; }
+  .badge-dark   { background:#1e293b; color:#94a3b8; }
+
+  /* ── SLIDE PREVIEWS ── */
+  .slide-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:16px 0; }
+  .slide-card { background:var(--dark); color:white; border-radius:10px; padding:18px; border:2px solid var(--dark-light); position:relative; }
+  .slide-card-num { position:absolute; top:10px; right:12px; background:var(--accent); color:white; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .slide-card-title { font-size:13px; font-weight:700; color:#6ee7b7; letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
+  .slide-card ul { list-style:none; padding:0; }
+  .slide-card ul li { font-size:12px; color:#bdc3c7; padding:3px 0; border-bottom:1px solid #2c3e50; }
+  .slide-card ul li:last-child { border-bottom:none; }
+  .slide-card ul li::before { content:'▸ '; color:var(--accent); }
+
+  /* ── ALERT STRIP ── */
+  .alert-strip { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:14px 0; }
+  .alert-box { border-radius:8px; padding:12px 16px; }
+  .ab-lightning { background:#1a0a00; border:1px solid #d97706; color:#fbbf24; }
+  .ab-frost     { background:#0a1628; border:1px solid #60a5fa; color:#93c5fd; }
+  .ab-fog       { background:#1a1a1a; border:1px solid #9ca3af; color:#d1d5db; }
+  .ab-carts     { background:#1a1200; border:1px solid #b45309; color:#fcd34d; }
+  .ab-label     { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+  .ab-trigger   { font-size:12px; }
+
+  /* ── TIMING DIAGRAM ── */
+  .timing-bar { display:flex; height:44px; border-radius:8px; overflow:hidden; margin:14px 0; border:1px solid var(--dark-light); }
+  .tb-seg { display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:white; text-align:center; padding:4px; }
+  .tb-s0 { background:#145a2c; flex:1; }
+  .tb-s1 { background:#1a3a5c; flex:1; }
+  .tb-s2 { background:#4a1a6e; flex:1; }
+
+  /* ── CARD GRID ── */
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin:14px 0; }
+  .card-item { background:var(--accent-pale); border:1px solid #a7f3d0; border-radius:8px; padding:14px 16px; }
+  .card-item-label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
+  .card-item-value { font-size:18px; font-weight:700; color:var(--dark); }
+  .card-item-desc  { font-size:12px; color:var(--text-muted); margin-top:3px; }
+
+  /* ── SETUP STEPS ── */
+  .setup-steps { counter-reset:step; }
+  .setup-step { display:flex; gap:16px; margin-bottom:20px; align-items:flex-start; }
+  .setup-step-num { background:var(--accent); color:white; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; margin-top:2px; }
+  .setup-step-body { flex:1; }
+  .setup-step-title { font-weight:600; font-size:14px; margin-bottom:4px; }
+  .setup-step-desc { font-size:13px; color:#374151; }
+
+  /* ── FOOTER ── */
+  .footer { text-align:center; padding:40px 24px 30px; color:var(--text-muted); font-size:12px; border-top:1px solid var(--border); margin-top:20px; }
+  .footer strong { color:var(--accent); }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background:white; font-size:12px; }
+    .cover { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .section { break-inside:avoid; box-shadow:none; }
+    .slide-card, .alert-box { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .container { padding:0 16px 40px; }
+  }
+  @media (max-width:640px) {
+    .cover { padding:48px 24px 40px; }
+    .cover h1 { font-size:26px; }
+    .section-body { padding:20px; }
+    .slide-strip { grid-template-columns:1fr; }
+    .alert-strip { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-badge">IT & Management Reference — TV / Kiosk Display</div>
+  <h1>Wagga Wagga Country Club<br><span>TV &amp; Kiosk Display</span></h1>
+  <p class="cover-sub">A complete guide to the auto-rotating TV display — what each slide shows, how it works, how to set it up, and how to read it.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><strong>Prepared For</strong>Club Management &amp; IT Staff</div>
+    <div class="cover-meta-item"><strong>Document Version</strong>June 2026</div>
+    <div class="cover-meta-item"><strong>Access Method</strong>https://bidgee182.github.io/wwcc-weather-page/?tv=1</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol class="toc-list">
+    <li><span class="toc-num">1</span><a href="#s1">What Is the TV Display?</a><span class="toc-dots"></span><span class="toc-pg">Purpose, audience, access</span></li>
+    <li><span class="toc-num">2</span><a href="#s2">The 3-Slide Carousel</a><span class="toc-dots"></span><span class="toc-pg">Auto-rotation, timing, navigation</span></li>
+    <li><span class="toc-num">3</span><a href="#s3">Slide 1 — Current Weather</a><span class="toc-dots"></span><span class="toc-pg">Playability banner + 8 condition tiles</span></li>
+    <li><span class="toc-num">4</span><a href="#s4">Slide 2 — Golf Conditions</a><span class="toc-dots"></span><span class="toc-pg">Insights, Green Speed, Ball Flight, Wind Holes</span></li>
+    <li><span class="toc-num">5</span><a href="#s5">Slide 3 — Weather Forecast</a><span class="toc-dots"></span><span class="toc-pg">Current readings, hourly strip, 4-day outlook</span></li>
+    <li><span class="toc-num">6</span><a href="#s6">Alert Banners</a><span class="toc-dots"></span><span class="toc-pg">Thunderstorm, frost, fog, carts on paths</span></li>
+    <li><span class="toc-num">7</span><a href="#s7">Night &amp; Pre-Dawn Mode</a><span class="toc-dots"></span><span class="toc-pg">After-hours display, frost warnings</span></li>
+    <li><span class="toc-num">8</span><a href="#s8">TV-Only Features</a><span class="toc-dots"></span><span class="toc-pg">Dew Point tile, Wind Holes card, clock</span></li>
+    <li><span class="toc-num">9</span><a href="#s9">Data Sources &amp; Refresh Schedule</a><span class="toc-dots"></span><span class="toc-pg">What updates when</span></li>
+    <li><span class="toc-num">10</span><a href="#s10">Setup &amp; IT Instructions</a><span class="toc-dots"></span><span class="toc-pg">How to install and configure the display</span></li>
+  </ol>
+</div>
+
+<!-- SECTION 1 -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div><h2>What Is the TV Display?</h2><p>Purpose, who it is for, and how to access it</p></div>
+  </div>
+  <div class="section-body">
+    <p>The TV/Kiosk display is a <strong>fullscreen, auto-rotating dashboard</strong> designed to be shown on monitors, TVs, and tablets throughout the club — entrance foyers, the pro shop, member lounges, and marshal stations. It provides at-a-glance course and weather conditions without requiring anyone to navigate a website.</p>
+
+    <p>It uses the same live data as the Golfer and Greenkeeper pages — the same Davis WeatherLink station, the same Open-Meteo forecasts — but reformatted for large-screen passive viewing. Text is larger, layouts are optimised for 16:9 monitors, and the display rotates automatically so staff don't need to touch it.</p>
+
+    <div class="callout callout-dark">
+      <span class="callout-icon">📺</span>
+      <div><strong>How to Access:</strong> Add <span style="color:#6ee7b7;font-family:monospace">?tv=1</span> to the end of the weather dashboard URL.<br>
+      Example: <span style="color:#6ee7b7;font-family:monospace">https://bidgee182.github.io/wwcc-weather-page/?tv=1</span><br>
+      This hides the normal navigation tabs and activates the fullscreen TV layout.</div>
+    </div>
+
+    <h3>Who Is It For?</h3>
+    <div class="card-grid">
+      <div class="card-item"><div class="card-item-label">Members & Visitors</div><div class="card-item-value">Foyer / Entrance</div><div class="card-item-desc">Playing conditions before heading to the first tee</div></div>
+      <div class="card-item"><div class="card-item-label">Pro Shop Staff</div><div class="card-item-value">Counter Display</div><div class="card-item-desc">Quick answers for member questions about conditions</div></div>
+      <div class="card-item"><div class="card-item-label">Marshals / Rangers</div><div class="card-item-value">Cart / Tablet</div><div class="card-item-desc">Live conditions on-course without checking a phone</div></div>
+      <div class="card-item"><div class="card-item-label">Member Lounge</div><div class="card-item-value">TV Screen</div><div class="card-item-desc">Ambient weather display for 19th hole viewing</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div><h2>The 3-Slide Carousel</h2><p>Auto-rotation, timing, and navigation</p></div>
+  </div>
+  <div class="section-body">
+    <p>The display automatically cycles through <strong>3 slides</strong> with a smooth fade transition. No interaction is required — it runs on its own indefinitely.</p>
+
+    <div class="timing-bar">
+      <div class="tb-seg tb-s0">Slide 1<br>Current Weather<br>20 sec</div>
+      <div class="tb-seg tb-s1">Slide 2<br>Golf Conditions<br>20 sec</div>
+      <div class="tb-seg tb-s2">Slide 3<br>Forecast<br>20 sec</div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Number of slides</strong></td><td>3</td></tr>
+          <tr><td><strong>Time per slide</strong></td><td>20 seconds</td></tr>
+          <tr><td><strong>Transition type</strong></td><td>Fade (opacity cross-dissolve)</td></tr>
+          <tr><td><strong>Transition duration</strong></td><td>0.9 seconds</td></tr>
+          <tr><td><strong>Order</strong></td><td>Current Weather → Golf Conditions → Forecast → (repeats)</td></tr>
+          <tr><td><strong>Manual navigation</strong></td><td>Three dot buttons in the footer — click any dot to jump to that slide; auto-rotation restarts from there</td></tr>
+          <tr><td><strong>Clock update rate</strong></td><td>Every 1 second</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Slide Overview</h3>
+    <div class="slide-strip">
+      <div class="slide-card">
+        <div class="slide-card-num">1</div>
+        <div class="slide-card-title">Current Weather</div>
+        <ul>
+          <li>Playability banner</li>
+          <li>Feels Like temp</li>
+          <li>24h rain total</li>
+          <li>Humidity</li>
+          <li>Wind speed &amp; direction</li>
+          <li>Dew Point (TV-only)</li>
+          <li>Rain chance today</li>
+          <li>UV index</li>
+          <li>Daylight countdown</li>
+        </ul>
+      </div>
+      <div class="slide-card">
+        <div class="slide-card-num">2</div>
+        <div class="slide-card-title">Golf Conditions</div>
+        <ul>
+          <li>Course Roll status</li>
+          <li>Best Time to Play</li>
+          <li>Green Speed</li>
+          <li>Ball at 150m</li>
+          <li>Wind Holes analysis</li>
+          <li>Hardest into wind</li>
+          <li>Best tailwind hole</li>
+          <li>Worst crosswind hole</li>
+        </ul>
+      </div>
+      <div class="slide-card">
+        <div class="slide-card-num">3</div>
+        <div class="slide-card-title">Forecast</div>
+        <ul>
+          <li>Current readings grid</li>
+          <li>Temperature &amp; Feels Like</li>
+          <li>Sunrise / Sunset</li>
+          <li>Pressure + trend</li>
+          <li>Monthly &amp; yearly rain</li>
+          <li>Next 5-hour strip</li>
+          <li>4-day forecast</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">💡</span>
+      <div>The <strong>header</strong> is always visible on all three slides — it shows the WWCC logo, "Course Conditions &amp; Weather" title, and a live <strong>clock and date</strong> (updated every second, Australia/Sydney timezone). Alert banners also sit above the slides and are visible no matter which slide is active.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div><h2>Slide 1 — Current Weather</h2><p>Playing conditions banner and 8 live condition tiles</p></div>
+  </div>
+  <div class="section-body">
+
+    <h3>Playing Conditions Banner</h3>
+    <p>The large coloured banner at the top of Slide 1 gives the <strong>overall playing conditions rating</strong>. It is calculated by a penalty-point system — the dashboard starts at zero and adds points for each factor that worsens conditions (temperature extremes, wind, rain, UV, course wetness, daylight). The total score determines the rating:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Rating</th><th>Score</th><th>Colour</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Outstanding</strong></td><td>0</td><td>Deep green</td><td>Perfect conditions — no issues detected</td></tr>
+          <tr><td><strong>Excellent</strong></td><td>1</td><td>Blue</td><td>Near-perfect with one minor factor</td></tr>
+          <tr><td><strong>Good</strong></td><td>2–3</td><td>Gold</td><td>Good day — manageable conditions</td></tr>
+          <tr><td><strong>Fair</strong></td><td>4–5</td><td>Orange</td><td>Playable but some challenges</td></tr>
+          <tr><td><strong>Tough</strong></td><td>6–7</td><td>Red</td><td>Difficult conditions affecting play significantly</td></tr>
+          <tr><td><strong>Not Playable</strong></td><td>8+</td><td>Dark red</td><td>Conditions too severe for normal play</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The 8 Condition Tiles</h3>
+    <p>Eight tiles display in a 4×2 grid, each colour-coded from green (good) through yellow, orange and red (bad), with blue for wet conditions and purple for extreme UV. The Dew Point tile is <strong>TV-only</strong> — it replaces the Course Roll tile which moves to Slide 2.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Tile</th><th>Data Source</th><th>What It Shows</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Feels Like</strong></td><td>Davis station (calculated)</td><td>Apparent temperature in °C — accounts for wind chill and humidity. Green = 15–26°C; red = &lt; 8°C or &gt; 35°C</td></tr>
+          <tr><td>2</td><td><strong>24h Rain</strong></td><td>Davis station + 7-day store</td><td>Rolling 24-hour rainfall total (today + yesterday stored). Blue when moderate/heavy; orange at 15–30mm+</td></tr>
+          <tr><td>3</td><td><strong>Humidity</strong></td><td>Davis station (live)</td><td>Relative humidity %. Green = 25–70%; orange above 85%</td></tr>
+          <tr><td>4</td><td><strong>Wind</strong></td><td>Davis station (live)</td><td>Speed (km/h) + 16-point direction + gust if &gt; 5km/h above sustained. Green &lt; 20km/h; red ≥ 40km/h</td></tr>
+          <tr><td>5</td><td><strong>Dew Point</strong> ⭐ TV only</td><td>Calculated from temp + RH</td><td>Dew Point Depression — how close the air is to saturation. Low DPD = dew on greens and grips. Green &gt; 8°C DPD; orange ≤ 2°C</td></tr>
+          <tr><td>6</td><td><strong>Rain Chance</strong></td><td>Open-Meteo forecast</td><td>Forecast rain probability % for today. Combined with actual rain already fallen. Green &lt; 20%; red ≥ 80%</td></tr>
+          <tr><td>7</td><td><strong>UV Index</strong></td><td>Open-Meteo (current hour)</td><td>Current UV with Sun Safety advice. Green 1–2; yellow 3–5; orange 6–7; red 8–10; purple &gt;10</td></tr>
+          <tr><td>8</td><td><strong>Daylight</strong></td><td>Open-Meteo sunrise/sunset</td><td>Countdown to next sunset or sunrise. Dark before First Light; green with plenty of time; red in final 30 min</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div><h2>Slide 2 — Golf Conditions</h2><p>Insight cards, green speed, ball flight, and wind hole analysis</p></div>
+  </div>
+  <div class="section-body">
+
+    <h3>Course Roll Card</h3>
+    <p>The first card shows how firm or soft the course is underfoot. Calculated from the <strong>7-day water balance</strong> (cumulative ET minus cumulative rainfall). This is a TV-exclusive card — on the golfer page the same information is shown as a tile.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>7-Day Balance</th><th>Status</th><th>What Golfers Notice</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; −10 mm surplus</td><td><span class="badge badge-blue">Waterlogged</span></td><td>Carts on paths; possible casual water</td></tr>
+          <tr><td>−10 to 0 mm</td><td><span class="badge badge-blue">Soft</span></td><td>Good grip; approaches hold well</td></tr>
+          <tr><td>0 to +15 mm</td><td><span class="badge badge-green">Normal</span></td><td>Playing true; ideal ball roll</td></tr>
+          <tr><td>+15 to +30 mm</td><td><span class="badge badge-yellow">Firm</span></td><td>Ball running on; allow extra run</td></tr>
+          <tr><td>&gt; +30 mm</td><td><span class="badge badge-orange">Very Firm</span></td><td>Hard and fast; significant run through greens</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Best Time to Play Today</h3>
+    <p>Scans every hour between sunrise and one hour before sunset. Each hour is scored from 100 points with penalties deducted for temperature extremes, rain probability, UV, wind strength, low light, and wet course conditions. The best consecutive <strong>3-hour block</strong> is found and displayed with a quality rating (Ideal / Good / Acceptable / Best Available).</p>
+
+    <h3>Green Speed Card</h3>
+    <p>Uses the same 7-day water balance to estimate how fast the greens are running. Wetter = slower and more receptive; drier = faster and harder to hold. Ranges from "Slower than usual (Soft &amp; Receptive)" through "Normal (Running True)" to "Faster than usual (Fast &amp; Bouncy)".</p>
+
+    <h3>Ball at 150m Card</h3>
+    <p>Calculates how far the ball will actually carry in current atmospheric conditions compared to a standard 150m shot:</p>
+    <div class="formula">
+Playing distance = 150m
+                + (Temperature − 20°C) × 0.20m   <span class="comment">warmer = farther</span>
+                + (1015 − Pressure hPa) × 0.03m  <span class="comment">lower pressure = farther</span>
+                + (RH% − 50) × 0.005m             <span class="comment">minor humidity effect</span>
+    </div>
+    <p>The difference from 150m determines whether to club up, club down, or play normally. Wind is shown separately as it varies by hole.</p>
+
+    <h3>Wind Holes Analysis — TV Exclusive</h3>
+    <p>This section is unique to the TV display. Using the GPS coordinates of all 18 holes stored in the dashboard, it calculates the angle of each hole relative to the current wind direction and identifies the three most significant wind-affected holes:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Feature Box</th><th>What It Shows</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Hardest Into Wind</strong></td><td>The hole most directly into the headwind — includes hole number, distance impact in metres, recommended club change, green behaviour notes</td></tr>
+          <tr><td><strong>Best Tailwind</strong></td><td>The hole with the best tailwind assist — how many metres farther the ball will carry, club adjustment</td></tr>
+          <tr><td><strong>Worst Crosswind</strong></td><td>The hole with the worst lateral drift — how many metres sideways, which direction to aim, wind source direction</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">📍</span>
+      <div>The wind hole calculations use the GPS coordinates of every tee, fairway midpoint, and green for all 18 holes, combined with the current live wind bearing and speed from the Davis station. The hole analysis updates automatically as wind direction changes.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div><h2>Slide 3 — Weather Forecast</h2><p>Current readings grid, hourly strip, and 4-day outlook</p></div>
+  </div>
+  <div class="section-body">
+
+    <h3>Current Conditions Grid</h3>
+    <p>A 5-column summary of all current readings — a TV-exclusive layout not shown on the golfer page:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Air Temperature</td><td>Davis station (live)</td></tr>
+          <tr><td>Feels Like (Apparent Temp)</td><td>Calculated from Davis temp + RH + wind</td></tr>
+          <tr><td>Wind Speed + Direction + Gust</td><td>Davis station (live)</td></tr>
+          <tr><td>Rain Today (mm)</td><td>Davis station (since midnight)</td></tr>
+          <tr><td>Humidity (%)</td><td>Davis station (live)</td></tr>
+          <tr><td>UV Index (current hour)</td><td>Open-Meteo forecast</td></tr>
+          <tr><td>Sunrise / Sunset times</td><td>Open-Meteo forecast</td></tr>
+          <tr><td>Pressure + Trend arrow</td><td>Davis station + ring buffer calculation</td></tr>
+          <tr><td>Monthly rain total</td><td>Davis station</td></tr>
+          <tr><td>Year-to-date rain total</td><td>Davis station</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Next 5 Hours — Hourly Forecast Strip</h3>
+    <p>Shows the next 5 hours from now using Open-Meteo hourly forecast data. Each hour card shows: weather icon, temperature (°C), rain probability (%), UV index, and wind speed (km/h). The first card is labelled "Now" and uses live station data.</p>
+
+    <h3>4-Day Forecast</h3>
+    <p>Four day cards showing: day name, weather icon, plain-English description (Clear, Partly Cloudy, Rain, Thunderstorm etc.), high and low temperatures, total rain (mm), rain probability (%), and peak UV index. Sourced from Open-Meteo daily forecast, updated every 30 minutes.</p>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div><h2>Alert Banners</h2><p>Four automatic warnings shown above all slides when triggered</p></div>
+  </div>
+  <div class="section-body">
+    <p>Alert banners appear <strong>above the slide carousel</strong> and are visible on all three slides simultaneously. Multiple alerts can be active at the same time and stack vertically. They disappear automatically when the condition clears (checked every 15 seconds).</p>
+
+    <div class="alert-strip">
+      <div class="alert-box ab-lightning">
+        <div class="ab-label">⚡ Thunderstorm Alert</div>
+        <div class="ab-trigger"><strong>Trigger:</strong> Thunderstorm (WMO code 95/96/99) forecast in next 4 hours<br><strong>Style:</strong> Pulsing amber glow<br><strong>Action:</strong> Suspend play — lightning risk in area</div>
+      </div>
+      <div class="alert-box ab-frost">
+        <div class="ab-label">❄️ Frost Alert</div>
+        <div class="ab-trigger"><strong>Trigger:</strong> Overnight low &lt; 4°C (8 PM – 9 AM window)<br><strong>Style:</strong> Pulsing blue glow<br><strong>Action:</strong> Delay early tee times; hold carts on paths</div>
+      </div>
+      <div class="alert-box ab-fog">
+        <div class="ab-label">🌫️ Fog Alert</div>
+        <div class="ab-trigger"><strong>Trigger:</strong> Fog forecast tomorrow morning (WMO code 45 or 48)<br><strong>Style:</strong> Static grey bar<br><strong>Action:</strong> Check visibility before early tee times</div>
+      </div>
+      <div class="alert-box ab-carts">
+        <div class="ab-label">🛺 Carts on Paths</div>
+        <div class="ab-trigger"><strong>Trigger:</strong> 7-day surplus &gt; 10mm OR 24h rain ≥ 15mm<br><strong>Style:</strong> Static amber bar<br><strong>Action:</strong> Enforce paths-only policy for all carts</div>
+      </div>
+    </div>
+
+    <div class="callout callout-red">
+      <span class="callout-icon">⚡</span>
+      <div>The <strong>Thunderstorm Alert</strong> is the highest priority. It pulses to draw attention even from a distance. When this banner is active, pro shop staff should be advised immediately and play suspension procedures should be followed per the club's lightning policy.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div><h2>Night &amp; Pre-Dawn Mode</h2><p>After-hours display and overnight frost information</p></div>
+  </div>
+  <div class="section-body">
+    <p>Between sunset + 15 minutes and 30 minutes before sunrise, the Playability Banner on Slide 1 changes to a special night display. All other slides continue to show forecast and conditions data as normal.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Time Window</th><th>Mode</th><th>Display</th><th>Colour</th></tr></thead>
+        <tbody>
+          <tr><td>After sunset + 15 min</td><td>🌙 Course Closed</td><td>"Course Closed" with overnight low temp, humidity, next sunrise time, and pre-dawn countdown. Frost warning included if applicable.</td><td>Dark blue gradient (#060c18 → #0f1e3a)</td></tr>
+          <tr><td>30 min before sunrise</td><td>🌅 Pre-Dawn</td><td>"Pre-Dawn" — first light window approaching, greens being prepared</td><td>Purple/orange gradient</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>TV Night Stats Row</h3>
+    <p>In TV mode, the night banner shows an <strong>inline stats row</strong> (hidden on the standard golfer page) with dot-separated values:</p>
+    <div class="formula">
+2°C  ·  Today High 18°C  ·  Today Low 1°C  ·  85% RH  ·  Sunrise 6:42 AM  ·  Pre-dawn in 30 min
+    </div>
+
+    <h3>Frost Warnings in the Night Banner</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Overnight Low</th><th>Banner Detail Text</th><th>Border Colour</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 2°C</td><td>Hard frost likely — greens may be damaged. Delay early tee times and hold carts on paths until greens clear</td><td>Red</td></tr>
+          <tr><td>2–4°C</td><td>Frost expected overnight — greens may be affected. Monitor conditions before play</td><td>Orange</td></tr>
+          <tr><td>4–7°C</td><td>Light frost possible — check greens before early tee times</td><td>Yellow</td></tr>
+          <tr><td>≥ 7°C</td><td>No frost expected overnight</td><td>None</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 8 -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <div><h2>TV-Only Features</h2><p>Elements that only appear in TV mode</p></div>
+  </div>
+  <div class="section-body">
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Feature</th><th>Location</th><th>Why TV-Only</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Dew Point Tile</strong></td><td>Slide 1 — tile #5</td><td>Replaces Course Roll tile on the conditions grid. Dew point depression is especially relevant before early morning rounds</td></tr>
+          <tr><td><strong>Course Roll Card</strong></td><td>Slide 2 — first card</td><td>On the golfer page, Course Roll is shown as a tile. On TV it gets a full card with more detail and its own position in the insights grid</td></tr>
+          <tr><td><strong>Wind Holes Analysis</strong></td><td>Slide 2 — below insights</td><td>Three feature boxes showing hardest-into-wind, best tailwind, and worst-crosswind holes. Not shown on the golfer page</td></tr>
+          <tr><td><strong>Current Conditions Grid</strong></td><td>Slide 3</td><td>5-column readings grid with all station data. The golfer page uses a compact detail strip instead</td></tr>
+          <tr><td><strong>Night Stats Row</strong></td><td>Slide 1 — night banner</td><td>Inline text stats in the night banner. The golfer page shows pill badges instead</td></tr>
+          <tr><td><strong>Live Clock &amp; Date</strong></td><td>Header — top right</td><td>Updates every second. Shows time in 2.8em green text + full date below. Australia/Sydney timezone</td></tr>
+          <tr><td><strong>WWCC Logo Header</strong></td><td>Header — top left</td><td>Club logo, "Course Conditions &amp; Weather" title, and "Wagga Wagga Country Club" subtitle. Replaces the normal navigation tabs</td></tr>
+          <tr><td><strong>Slide Navigation Dots</strong></td><td>Footer</td><td>Three clickable green dots for manual slide control. Footer also shows last updated time and "1 of 3 — auto-rotates every 20s"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Visual Differences vs Golfer Page</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Aspect</th><th>Golfer Page</th><th>TV Mode</th></tr></thead>
+        <tbody>
+          <tr><td>Base font size</td><td>14px</td><td>20px (scaled up for viewing distance)</td></tr>
+          <tr><td>Clock display</td><td>Not shown</td><td>2.8em — visible at 10+ feet</td></tr>
+          <tr><td>Layout</td><td>Vertical scroll</td><td>3 fixed slides, no scroll, full 100vh</td></tr>
+          <tr><td>Background colour</td><td>Light (#f8fafc)</td><td>Dark (#1a252f) — easier on eyes in lounge lighting</td></tr>
+          <tr><td>Navigation</td><td>Tab buttons at top</td><td>Dot buttons at bottom</td></tr>
+          <tr><td>Insights layout</td><td>3 horizontal cards</td><td>3×2 grid (6 cards including Course Roll)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 9 -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div><h2>Data Sources &amp; Refresh Schedule</h2><p>What data powers the TV display and how often it updates</p></div>
+  </div>
+  <div class="section-body">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Source</th><th>Refresh Rate</th><th>Used In</th></tr></thead>
+        <tbody>
+          <tr><td>Live conditions (temp, wind, rain, pressure)</td><td>Davis WeatherLink v1 API</td><td>Every 60 seconds</td><td>All tiles, banner, alerts, conditions grid</td></tr>
+          <tr><td>All tiles, alerts, playability score</td><td>Calculated from live data</td><td>Every 15 seconds</td><td>All slides</td></tr>
+          <tr><td>24h leaf wetness / sub-hourly history</td><td>Davis WeatherLink v2 API</td><td>Every 30 minutes</td><td>Disease models (via GK page)</td></tr>
+          <tr><td>7-day ET &amp; rainfall history</td><td>Davis WeatherLink v2 API → localStorage</td><td>Every 60 minutes</td><td>Course Roll, Green Speed, water balance</td></tr>
+          <tr><td>4-day hourly + daily forecast</td><td>Open-Meteo API</td><td>Every 30 minutes</td><td>Forecast slide, UV timer, next spray window</td></tr>
+          <tr><td>Wind holes analysis</td><td>Live wind + 18-hole GPS database</td><td>Every 15 seconds</td><td>Slide 2 — Wind Holes card</td></tr>
+          <tr><td>Clock &amp; date display</td><td>Browser local clock (Sydney TZ)</td><td>Every 1 second</td><td>Header</td></tr>
+          <tr><td>Page update check</td><td>HTTP ETag check</td><td>Every 5 minutes</td><td>Auto-reloads page if new version available</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">🔄</span>
+      <div><strong>Auto-update:</strong> The page checks for new versions of itself every 5 minutes. If the dashboard HTML has been updated (e.g. new features added), the TV display will automatically reload to pick up the changes — no staff action needed.</div>
+    </div>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">📶</span>
+      <div><strong>Offline behaviour:</strong> If the internet drops, the display continues showing the last fetched data. The "last updated" timestamp in the footer turns red after 10 minutes of stale station data. Forecast data remains visible from the last successful fetch.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 10 -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div><h2>Setup &amp; IT Instructions</h2><p>How to install and configure the TV display</p></div>
+  </div>
+  <div class="section-body">
+
+    <h3>Accessing TV Mode</h3>
+    <div class="callout callout-dark">
+      <span class="callout-icon">🔗</span>
+      <div>
+        <strong>Standard dashboard:</strong><br>
+        <span style="color:#6ee7b7;font-family:monospace">weather.html</span><br><br>
+        <strong>TV/Kiosk mode — add ?tv=1 to the URL:</strong><br>
+        <span style="color:#6ee7b7;font-family:monospace">weather.html?tv=1</span>
+      </div>
+    </div>
+
+    <h3>Step-by-Step Setup</h3>
+    <div class="setup-steps">
+      <div class="setup-step">
+        <div class="setup-step-num">1</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Connect the display device</div>
+          <div class="setup-step-desc">Connect a PC, mini-PC, Chromecast, or tablet to the TV/monitor via HDMI. Alternatively use the screen's built-in browser if it supports modern HTML5.</div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">2</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Open the dashboard in a modern browser</div>
+          <div class="setup-step-desc">Use Google Chrome, Microsoft Edge, or Mozilla Firefox. Open the weather.html file and add <span class="td-mono">?tv=1</span> to the end of the URL in the address bar.</div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">3</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Go fullscreen</div>
+          <div class="setup-step-desc">Press <strong>F11</strong> to enter fullscreen mode and hide the browser address bar. The dashboard is designed to fill the entire screen with no scrolling.</div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">4</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Ensure internet connectivity</div>
+          <div class="setup-step-desc">The display requires internet access to fetch live station data and forecasts. Connect the device to the club WiFi or a wired ethernet connection. Check the "last updated" indicator stays green.</div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">5</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Set the display to stay on</div>
+          <div class="setup-step-desc">Disable screen sleep/screensaver on the device. On Windows: Settings → Power → Sleep → Never. On Mac: System Preferences → Energy Saver → turn off display sleep. On tablet: set auto-lock to Never.</div>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="setup-step-num">6</div>
+        <div class="setup-step-body">
+          <div class="setup-step-title">Optional: Set browser to open automatically</div>
+          <div class="setup-step-desc">On Windows: add a shortcut to the browser with the URL to the Windows startup folder (<span class="td-mono">shell:startup</span>). This ensures the display comes back up automatically after a power outage.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Recommended Hardware</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Location</th><th>Recommended Screen Size</th><th>Viewing Distance</th></tr></thead>
+        <tbody>
+          <tr><td>Entrance foyer / reception</td><td>55"–65" TV or monitor</td><td>10–15 feet</td></tr>
+          <tr><td>Member lounge / 19th hole</td><td>43"–55"</td><td>8–12 feet</td></tr>
+          <tr><td>Pro shop counter</td><td>27"–43" monitor</td><td>3–6 feet</td></tr>
+          <tr><td>Marshal / cart tablet</td><td>10"+ tablet</td><td>Handheld / arm's length</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">✅</span>
+      <div><strong>No ongoing maintenance required.</strong> Once set up, the display runs entirely automatically. Data refreshes, alerts appear and disappear, the clock ticks, and slides rotate — all without any staff interaction. The page also self-updates when new versions of the dashboard are published.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<div class="footer">
+  <p><strong>Wagga Wagga Country Club</strong> — TV &amp; Kiosk Display Reference Guide</p>
+  <p style="margin-top:6px">Powered by Davis WeatherLink live station data and Open-Meteo forecast service.<br>
+  TV mode activated by appending <strong>?tv=1</strong> to the dashboard URL · 3 slides · Auto-rotates every 20 seconds</p>
+  <p style="margin-top:10px;color:#9ca3af">Document prepared June 2026 · For IT staff and club management</p>
+</div>
+
+</body>
+</html>

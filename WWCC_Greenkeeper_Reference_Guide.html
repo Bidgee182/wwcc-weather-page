@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wagga Wagga Country Club — Greenkeeper's Reference Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --green-dark: #1a4a2e;
+    --green-mid: #2d7a4e;
+    --green-light: #4caf7d;
+    --green-pale: #e8f5ee;
+    --gold: #c9a227;
+    --gold-pale: #fdf8ec;
+    --text: #1c1c1e;
+    --text-muted: #6b7280;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+    --white: #ffffff;
+    --red: #dc2626;
+    --orange: #ea580c;
+    --yellow: #ca8a04;
+    --blue: #1d4ed8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    background: linear-gradient(160deg, var(--green-dark) 0%, var(--green-mid) 60%, var(--green-light) 100%);
+    color: white;
+    padding: 80px 60px 60px;
+    min-height: 320px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .cover-badge {
+    display: inline-block;
+    background: rgba(201,162,39,0.3);
+    border: 1px solid rgba(201,162,39,0.6);
+    color: #f5d87a;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+  }
+  .cover h1 {
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .cover h1 span { color: #a8e6bf; }
+  .cover-sub {
+    color: #a8e6bf;
+    font-size: 16px;
+    font-weight: 300;
+    opacity: 0.85;
+    margin-bottom: 36px;
+    max-width: 560px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .cover-meta-item { font-size: 13px; opacity: 0.75; }
+  .cover-meta-item strong { display: block; font-size: 15px; font-weight: 600; opacity: 1; color: white; }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* ── TABLE OF CONTENTS ── */
+  .toc {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 36px;
+    margin: 36px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .toc-list { list-style: none; }
+  .toc-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 14px;
+  }
+  .toc-list li:last-child { border-bottom: none; }
+  .toc-num {
+    font-weight: 700;
+    color: var(--green-mid);
+    min-width: 28px;
+  }
+  .toc-dots {
+    flex: 1;
+    border-bottom: 1px dotted #cbd5e1;
+    margin: 0 10px;
+    position: relative;
+    top: -3px;
+  }
+  .toc-pg { color: var(--text-muted); font-size: 13px; }
+  .toc-list a { color: var(--text); text-decoration: none; }
+  .toc-list a:hover { color: var(--green-mid); }
+
+  /* ── SECTIONS ── */
+  .section {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 28px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .section-header {
+    background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+    color: white;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-num {
+    background: rgba(255,255,255,0.2);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .section-header p {
+    font-size: 13px;
+    opacity: 0.75;
+    margin-top: 2px;
+  }
+  .section-body { padding: 28px; }
+
+  /* ── TYPOGRAPHY ── */
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--green-dark);
+    margin: 24px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--green-pale);
+  }
+  h3:first-child { margin-top: 0; }
+  p { margin-bottom: 12px; color: #374151; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; color: var(--text); }
+
+  /* ── TABLES ── */
+  .tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--green-dark);
+    color: white;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  tbody tr:nth-child(even) { background: var(--green-pale); }
+  tbody tr:hover { background: #d1f0e0; }
+  tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  .td-mono { font-family: 'Courier New', monospace; font-size: 12px; background: #f1f5f9; border-radius: 3px; padding: 1px 5px; }
+
+  /* ── FORMULA BLOCKS ── */
+  .formula {
+    background: #0f172a;
+    color: #a5f3b5;
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    margin: 14px 0;
+    overflow-x: auto;
+  }
+  .formula .comment { color: #64748b; }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 13.5px;
+  }
+  .callout-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+  .callout-green  { background: #d1fae5; border-left: 4px solid #10b981; }
+  .callout-blue   { background: #dbeafe; border-left: 4px solid #3b82f6; }
+  .callout-yellow { background: #fef9c3; border-left: 4px solid #f59e0b; }
+  .callout-red    { background: #fee2e2; border-left: 4px solid #ef4444; }
+
+  /* ── PILL BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #4c1d95; }
+
+  /* ── RISK TABLE COLOURS ── */
+  .risk-low     { color: #065f46; font-weight: 600; }
+  .risk-lowmod  { color: #ca8a04; font-weight: 600; }
+  .risk-mod     { color: #ea580c; font-weight: 600; }
+  .risk-high    { color: #dc2626; font-weight: 600; }
+  .risk-severe  { color: #7c3aed; font-weight: 600; }
+
+  /* ── GRID CARDS ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .card-item {
+    background: var(--green-pale);
+    border: 1px solid #b7e4cc;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .card-item-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--green-mid);
+    margin-bottom: 4px;
+  }
+  .card-item-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--green-dark);
+  }
+  .card-item-desc { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* ── REFRESH TABLE ── */
+  .refresh-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .refresh-row:last-child { border-bottom: none; }
+  .refresh-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-fast { background: #10b981; }
+  .dot-mid  { background: #f59e0b; }
+  .dot-slow { background: #6b7280; }
+  .refresh-interval { font-weight: 600; min-width: 110px; font-size: 13px; color: var(--green-dark); }
+  .refresh-desc { font-size: 13px; color: #374151; }
+
+  /* ── QUICK REF ── */
+  .qr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .qr-item {
+    border-radius: 8px;
+    padding: 12px 16px;
+    border: 1px solid;
+  }
+  .qr-go    { background: #d1fae5; border-color: #6ee7b7; }
+  .qr-warn  { background: #fef3c7; border-color: #fde68a; }
+  .qr-no    { background: #fee2e2; border-color: #fca5a5; }
+  .qr-info  { background: #dbeafe; border-color: #bfdbfe; }
+  .qr-val   { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+  .qr-label { font-size: 12px; color: #374151; }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 40px 24px 30px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+  .footer strong { color: var(--green-mid); }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; font-size: 12px; }
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 50px 40px; }
+    .section { break-inside: avoid; box-shadow: none; }
+    .no-print { display: none; }
+    .container { padding: 0 16px 40px; }
+  }
+
+  @media (max-width: 640px) {
+    .cover { padding: 48px 24px 40px; }
+    .cover h1 { font-size: 26px; }
+    .section-body { padding: 20px; }
+    .qr-grid { grid-template-columns: 1fr; }
+    .toc { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     COVER
+══════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">Confidential — Internal Document</div>
+  <h1>Wagga Wagga Country Club<br><span>Weather Dashboard</span></h1>
+  <p class="cover-sub">Greenkeeper's &amp; Greens Committee Reference Guide — A complete explanation of every section, calculation, and data source used in the GK Dashboard.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><strong>Prepared For</strong>Course Superintendent &amp; Greens Committee</div>
+    <div class="cover-meta-item"><strong>Document Version</strong>June 2026</div>
+    <div class="cover-meta-item"><strong>Station</strong>Davis WeatherLink — Wagga Wagga CC</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════
+     TABLE OF CONTENTS
+══════════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol class="toc-list">
+    <li><span class="toc-num">1</span><a href="#s1">Overview &amp; Data Sources</a><span class="toc-dots"></span><span class="toc-pg">Data feeds, refresh schedule</span></li>
+    <li><span class="toc-num">2</span><a href="#s2">Conditions Bar</a><span class="toc-dots"></span><span class="toc-pg">All 11 live values explained</span></li>
+    <li><span class="toc-num">3</span><a href="#s3">Delta T &amp; Wet-Bulb</a><span class="toc-dots"></span><span class="toc-pg">Stull (2011) formula</span></li>
+    <li><span class="toc-num">4</span><a href="#s4">Spraying Tab</a><span class="toc-dots"></span><span class="toc-pg">44 products, thresholds, Next Spray Window, GDD</span></li>
+    <li><span class="toc-num">5</span><a href="#s5">Disease Tab</a><span class="toc-dots"></span><span class="toc-pg">4 disease models with exact thresholds</span></li>
+    <li><span class="toc-num">6</span><a href="#s6">Mow Tab</a><span class="toc-dots"></span><span class="toc-pg">Dew detection &amp; burn-off estimation</span></li>
+    <li><span class="toc-num">7</span><a href="#s7">Irrigation Tab</a><span class="toc-dots"></span><span class="toc-pg">Water balance &amp; clay soil thresholds</span></li>
+    <li><span class="toc-num">8</span><a href="#s8">Station Tab</a><span class="toc-dots"></span><span class="toc-pg">All sensor readings &amp; pressure trend</span></li>
+    <li><span class="toc-num">9</span><a href="#s9">Reports Tab</a><span class="toc-dots"></span><span class="toc-pg">7 report types, email &amp; print</span></li>
+    <li><span class="toc-num">10</span><a href="#s10">Quick Reference</a><span class="toc-dots"></span><span class="toc-pg">Key thresholds at a glance</span></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 1 — OVERVIEW
+══════════════════════════════════════════════════ -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div>
+      <h2>Overview &amp; Data Sources</h2>
+      <p>Where the data comes from and how often it updates</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The dashboard draws live data from three separate sources, each updating on its own schedule. No manual data entry is required — everything refreshes automatically.</p>
+
+    <h3>Data Sources</h3>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">🌡️</span>
+      <div><strong>Davis WeatherLink Station (Your On-Site Sensor)</strong><br>Provides live current conditions every 60 seconds: temperature, humidity, wind speed/direction, rainfall today, evapotranspiration (ET), and pressure. Historical daily data is fetched hourly via the WeatherLink v2 API to build the 7-day record.</div>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">🌐</span>
+      <div><strong>Open-Meteo (Bureau-Quality Forecast)</strong><br>A high-resolution Australian weather forecast service. Provides 4-day hourly and daily forecasts every 30 minutes — used for the Next Spray Window, UV timer, and irrigation forecast. Freely available, no API key required.</div>
+    </div>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">💾</span>
+      <div><strong>On-Device Memory (7-Day Store)</strong><br>The browser stores a rolling 7-day record locally on the device. Each day records: ET, rainfall, max/min/mean temperature, mean humidity, and a rain-day flag. This is what powers disease models, GDD calculations, and weekly reports. Data older than 7 days is automatically deleted.</div>
+    </div>
+
+    <h3>Auto-Refresh Schedule</h3>
+    <div>
+      <div class="refresh-row"><span class="refresh-dot dot-fast"></span><span class="refresh-interval">Every 15 sec</span><span class="refresh-desc">All tiles, spray status, mow window, Next Spray Window — all UI panels</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-fast"></span><span class="refresh-interval">Every 60 sec</span><span class="refresh-desc">Live station data — temperature, wind, rain, ET, pressure (Davis v1)</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-mid"></span><span class="refresh-interval">Every 30 min</span><span class="refresh-desc">4-day forecast (Open-Meteo) and today's 24h rolling leaf wetness data (Davis v2)</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 60 min</span><span class="refresh-desc">Historical daily weather data (Davis v2) stored to 7-day local record</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 5 min</span><span class="refresh-desc">Update check — detects if a new version of the dashboard is available</span></div>
+    </div>
+
+    <div class="callout callout-red" style="margin-top:18px">
+      <span class="callout-icon">🔴</span>
+      <div><strong>Data Freshness Indicator</strong> — The "last updated" timestamp at the top of the dashboard turns <strong>red</strong> if the station data is more than 10 minutes old. This means the connection to the Davis station has dropped and the displayed values may be stale.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 2 — CONDITIONS BAR
+══════════════════════════════════════════════════ -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div>
+      <h2>Conditions Bar</h2>
+      <p>The 11 live values shown at the top of the dashboard</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>Every value in the conditions bar is either read directly from the Davis station or calculated from station readings. All values update every 60 seconds.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Value</th><th>Source</th><th>Units</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Temperature</strong></td><td>Live — Davis sensor</td><td>°C</td><td>Current air temperature at station height</td></tr>
+          <tr><td><strong>Relative Humidity</strong></td><td>Live — Davis sensor</td><td>%</td><td>Current RH at station height</td></tr>
+          <tr><td><strong>Delta T</strong></td><td>Calculated</td><td>°C</td><td>Dry bulb minus wet-bulb — see Section 3</td></tr>
+          <tr><td><strong>Dew Point</strong></td><td>Calculated from temp + RH</td><td>°C</td><td>Magnus formula: temperature at which air becomes saturated</td></tr>
+          <tr><td><strong>Wind Speed</strong></td><td>Live — Davis sensor</td><td>km/h</td><td>Converted from mph × 1.60934</td></tr>
+          <tr><td><strong>Wind Direction</strong></td><td>Live — Davis sensor</td><td>Compass</td><td>Bearing converted to N/NE/E/SE/S/SW/W/NW</td></tr>
+          <tr><td><strong>Pressure</strong></td><td>Live — Davis sensor</td><td>hPa</td><td>Converted from inHg × 33.8639</td></tr>
+          <tr><td><strong>Pressure Trend</strong></td><td>Calculated (ring buffer)</td><td>hPa/hr</td><td>↑ Rising, ↓ Falling, → Steady — see Section 8</td></tr>
+          <tr><td><strong>Rain Today</strong></td><td>Live — Davis sensor</td><td>mm</td><td>Cumulative since midnight reset</td></tr>
+          <tr><td><strong>ET Today</strong></td><td>Live — Davis sensor</td><td>mm</td><td>Penman-Monteith calculation by Davis console</td></tr>
+          <tr><td><strong>Daily Deficit</strong></td><td>Calculated</td><td>mm</td><td>ET Today minus Rain Today. Positive = drying; negative = surplus</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 3 — DELTA T
+══════════════════════════════════════════════════ -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div>
+      <h2>Delta T &amp; Wet-Bulb Temperature</h2>
+      <p>The key spray conditions indicator — Stull (2011) formula</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p><strong>Delta T (ΔT)</strong> is the difference between dry-bulb temperature and wet-bulb temperature. It is the most reliable single indicator of spray evaporation conditions. Too low = droplets stay wet and run off or bounce; too high = droplets evaporate before reaching the target leaf.</p>
+
+    <div class="card-grid">
+      <div class="card-item">
+        <div class="card-item-label">Too Low</div>
+        <div class="card-item-value" style="color:#1d4ed8">ΔT &lt; 2°C</div>
+        <div class="card-item-desc">Droplets won't evaporate — runoff risk, reduced efficacy</div>
+      </div>
+      <div class="card-item">
+        <div class="card-item-label">Ideal (Contact)</div>
+        <div class="card-item-value" style="color:#15803d">ΔT 2–8°C</div>
+        <div class="card-item-desc">Contact fungicides, herbicides, insecticides</div>
+      </div>
+      <div class="card-item">
+        <div class="card-item-label">Ideal (Systemic)</div>
+        <div class="card-item-value" style="color:#15803d">ΔT 2–10°C</div>
+        <div class="card-item-desc">Systemic fungicides, growth regulators, wetting agents</div>
+      </div>
+      <div class="card-item">
+        <div class="card-item-label">Too High</div>
+        <div class="card-item-value" style="color:#dc2626">ΔT &gt; 12°C</div>
+        <div class="card-item-desc">Droplets evaporate before hitting the leaf — total loss</div>
+      </div>
+    </div>
+
+    <h3>The Calculation — Stull (2011) Wet-Bulb Formula</h3>
+    <p>The wet-bulb temperature is calculated using the Stull (2011) empirical approximation — the same method recommended by APVMA and AgVic for pesticide application decisions.</p>
+
+    <div class="formula">
+Tw = T × arctan(0.151977 × √(RH + 8.313659))
+   + arctan(T + RH)
+   − arctan(RH − 1.676331)
+   + 0.00391838 × RH<sup style="font-size:10px">1.5</sup> × arctan(0.023101 × RH)
+   − 4.686035
+
+ΔT = T − Tw
+
+<span class="comment">Where:  T  = dry-bulb temperature (°C)
+        RH = relative humidity (%)
+        Tw = wet-bulb temperature (°C)</span>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">ℹ️</span>
+      <div>The <strong>Dew Point Depression (DPD)</strong> used in the Mow tab and disease leaf wetness model uses a separate but related Magnus formula:<br><code style="font-size:12px">DPD = Air Temperature − Dew Point</code>. The dew point is the temperature at which the air becomes fully saturated (100% RH).</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 4 — SPRAYING TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div>
+      <h2>Spraying Tab</h2>
+      <p>Product thresholds, spray status logic, Next Spray Window, GDD</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <h3>Product Selector</h3>
+    <p>The dropdown contains <strong>44 chemicals</strong> across 8 groups used at Wagga Wagga CC. Each product has 7 individual thresholds coded into the dashboard. When you select a product, all calculations on the Spray tab — including the 48-hour window scan and the wind strip — immediately update to that product's specific limits.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Threshold Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="td-mono">dtMin</span></td><td>Minimum Delta T for spraying (°C) — below this, droplets won't evaporate properly</td></tr>
+          <tr><td><span class="td-mono">dtMax</span></td><td>Ideal upper Delta T limit (°C)</td></tr>
+          <tr><td><span class="td-mono">dtWarnMax</span></td><td>Marginal upper limit — caution zone. Above dtMax but not yet a hard fail</td></tr>
+          <tr><td><span class="td-mono">tempMax</span></td><td>Ideal maximum air temperature (°C)</td></tr>
+          <tr><td><span class="td-mono">tempWarnMax</span></td><td>Marginal maximum temperature (°C)</td></tr>
+          <tr><td><span class="td-mono">windMax</span></td><td>Ideal maximum wind speed (km/h)</td></tr>
+          <tr><td><span class="td-mono">windWarnMax</span></td><td>Marginal maximum wind speed (km/h)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Spray Status Logic</h3>
+    <p>Three parameters are checked simultaneously — Delta T, Temperature, and Wind Speed:</p>
+
+    <div class="qr-grid" style="grid-template-columns:1fr 1fr 1fr; margin-bottom:14px;">
+      <div class="qr-item qr-go"><div class="qr-val" style="color:#065f46">✅ GO</div><div class="qr-label"><strong>Safe to Spray</strong> — All three parameters are within their ideal range</div></div>
+      <div class="qr-item qr-warn"><div class="qr-val" style="color:#92400e">⚠️ CAUTION</div><div class="qr-label"><strong>Marginal Conditions</strong> — At least one parameter is in the warning zone; none have failed outright</div></div>
+      <div class="qr-item qr-no"><div class="qr-val" style="color:#991b1b">🚫 NO-GO</div><div class="qr-label"><strong>Outside Limits</strong> — At least one parameter exceeds even the warning threshold</div></div>
+    </div>
+
+    <h3>Product Thresholds by Chemical Group</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Chemical Group</th><th>Products</th><th>ΔT Ideal</th><th>ΔT Warn</th><th>Temp Max</th><th>Wind Max</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Systemic Fungicides</strong></td><td>Signature, Banol, Headway Maxx, Subdue Maxx, Segway, Banner Maxx, Dedicate, Iprodione, Velista, Lexicon, Evolution, Compass</td><td>2–10°C</td><td>to 12°C</td><td>30°C (warn 35°C)</td><td>15 km/h (warn 20)</td></tr>
+          <tr><td><strong>Contact Fungicides</strong></td><td>Medallion, Thiram, Daconil, Manco Flow</td><td>2–8°C</td><td>to 10°C</td><td>28°C (warn 32°C)</td><td>12 km/h (warn 15)</td></tr>
+          <tr><td><strong>Contact Insecticides</strong></td><td>Acelyprin, Chlorpyrifos, Scarlet, Bifenthrin, Spinner, Waldo</td><td>2–8°C</td><td>to 10°C</td><td>28°C (warn 32°C)</td><td>12 km/h (warn 15)</td></tr>
+          <tr><td><strong>Systemic Insecticides</strong></td><td>Pride, Meridian, Pennicide, Fipronil</td><td>2–10°C</td><td>to 12°C</td><td>30°C (warn 35°C)</td><td>15 km/h (warn 20)</td></tr>
+          <tr><td><strong>Growth Regulators</strong></td><td>Primo Maxx, Paclo, Intercept</td><td>2–10°C</td><td>to 12°C</td><td>32°C (warn 36°C)</td><td>15 km/h (warn 20)</td></tr>
+          <tr><td><strong>Wetting Agents</strong></td><td>Qualibra, T-Fair, Express, Deepgreen</td><td>2–15°C</td><td>to 18°C</td><td>35°C (warn 40°C)</td><td>20 km/h (warn 25)</td></tr>
+          <tr><td><strong>Contact Herbicides</strong></td><td>Smackdown, Double Time</td><td>2–6°C</td><td>to 8°C</td><td>25°C (warn 28°C)</td><td>10 km/h (warn 15)</td></tr>
+          <tr><td><strong>Residual Herbicides</strong></td><td>Pylex, Monument, Tribute, Embargo, Sedge Hammer</td><td>2–8°C</td><td>to 10°C</td><td>28°C (warn 32°C)</td><td>15 km/h (warn 20)</td></tr>
+          <tr><td><strong>Residual Herbicides</strong></td><td>Stonewall, Barricade, Pronomide</td><td>2–10°C</td><td>to 12°C</td><td>30°C (warn 35°C)</td><td>15 km/h (warn 20)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Next Spray Window — 48-Hour Scan</h3>
+    <p>The dashboard scans the next <strong>48 hours</strong> of hourly forecast data from Open-Meteo. For each hour it:</p>
+    <ol style="margin:10px 0 10px 20px; line-height:2;">
+      <li>Calculates Delta T from forecast temperature and humidity (Stull 2011)</li>
+      <li>Checks Delta T is within the selected product's ideal range</li>
+      <li>Checks temperature is below the product's max</li>
+      <li>Checks wind speed is below the product's max</li>
+      <li>Checks rain probability is below 50%</li>
+    </ol>
+    <p>Hours passing all four checks are <strong>Ideal</strong>. Hours where 2 of 3 primary parameters are OK and none have hard-failed are <strong>Marginal</strong>. Consecutive qualifying hours are grouped into a window. The earliest window is displayed with its start time and duration.</p>
+
+    <h3>24-Hour Wind Forecast Strip</h3>
+    <p>Shows the next 24 hours of wind speed and direction, colour-coded to the selected product's wind thresholds (green = below ideal max, yellow = warning zone, red = no-go). Scroll sideways on narrow screens to see all hours.</p>
+
+    <h3>Growing Degree Days (GDD)</h3>
+    <p>GDD measures heat accumulation above the minimum temperature a grass needs to grow. It tells you how fast the grass is growing and helps time growth regulator (PGR) applications.</p>
+
+    <div class="formula">
+GDD (per day) = max(0,  (Daily Max Temp + Daily Min Temp) ÷ 2  −  Base Temperature)
+7-Day GDD    = Sum of daily GDD values over the past 7 days
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Grass Type</th><th>Locations</th><th>Base Temp</th><th>High Growth (7-day)</th><th>Moderate</th><th>Low / Dormant</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Bentgrass</strong></td><td>Greens (A4, Cobra, Oakley)</td><td>10°C</td><td class="risk-high">≥ 100 GDD</td><td class="risk-lowmod">50–99 GDD</td><td class="risk-low">&lt; 50 GDD</td></tr>
+          <tr><td><strong>Kikuyu</strong></td><td>Fairways &amp; rough</td><td>15°C</td><td class="risk-high">≥ 80 GDD</td><td class="risk-lowmod">35–79 GDD</td><td class="risk-low">&lt; 35 GDD</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tbl-wrap" style="margin-top:14px">
+      <table>
+        <thead><tr><th>Season</th><th>Months</th><th>Typical GDD/Day</th><th>Context</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Mid-Winter</strong></td><td>May–July</td><td>2–4</td><td>Both grasses largely dormant; low disease pressure; minimal PGR needed</td></tr>
+          <tr><td><strong>Spring</strong></td><td>August–October</td><td>Rising</td><td>Bentgrass waking; kikuyu still slow; disease risk transitions begin; begin PGR programme</td></tr>
+          <tr><td><strong>Summer</strong></td><td>November–January</td><td>15–20+</td><td>Peak disease pressure on bentgrass; kikuyu thriving; maximum PGR frequency</td></tr>
+          <tr><td><strong>Autumn</strong></td><td>February–April</td><td>Falling</td><td>GDD slowing; dollar spot still active on warm nights; recovery period for bentgrass</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 5 — DISEASE TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div>
+      <h2>Disease Tab</h2>
+      <p>Four disease models with exact conditions and risk thresholds</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>All four disease models run on a rolling <strong>24-hour window</strong> of sub-hourly data from the Davis WeatherLink v2 API (readings every 5–10 minutes), updated every 30 minutes. No physical leaf wetness sensor is required.</p>
+
+    <h3>How "Leaf Wetness" Is Determined</h3>
+    <p>The station infers leaf wetness from atmospheric conditions. An hour is counted as <strong>wet</strong> if either condition is true:</p>
+    <div class="callout callout-blue">
+      <span class="callout-icon">💧</span>
+      <div>
+        <strong>Condition 1:</strong> Rain occurred during that period (any measurable rainfall &gt; 0 mm)<br>
+        <strong>OR Condition 2:</strong> Dew Point Depression ≤ 2.7°C <strong>AND</strong> wind speed ≤ 3.6 m/s<br><br>
+        <em>When the air is very close to saturation (small DPD) and wind is calm, dew or condensation forms on leaf surfaces. Sub-hourly records are deduplicated so each calendar hour counts only once.</em>
+      </div>
+    </div>
+
+    <!-- Dollar Spot -->
+    <h3>Disease 1 — Dollar Spot <em style="font-weight:400;color:var(--text-muted)">(Sclerotinia homoeocarpa)</em></h3>
+    <p>Warm days with cool humid nights. The fungus infects during leaf wetness periods at temperatures between 15–30°C. The dashboard uses the <strong>Smith-Kerns logistic regression model</strong> from Penn State University — one of the most validated turf disease models in the world.</p>
+
+    <div class="formula">
+<span class="comment">// 5-day rolling average from the on-device historical store:</span>
+logit       = −11.4041 + (0.0894 × 5-day mean RH) + (0.1932 × 5-day mean Temperature)
+Probability = e^logit ÷ (1 + e^logit)     <span class="comment">// Result: 0% to 100%</span>
+
+<span class="comment">// Risk boost: >20% probability → raises risk one level
+//            >40% probability → raises risk a further level</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Wetness Hours (24h)</th><th>Temperature Range</th><th>Risk Level</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 12 hours</td><td>15–30°C</td><td class="risk-high">HIGH</td></tr>
+          <tr><td>8–11 hours</td><td>15–30°C</td><td class="risk-mod">MODERATE</td></tr>
+          <tr><td>4–7 hours</td><td>15–30°C</td><td class="risk-lowmod">LOW-MODERATE</td></tr>
+          <tr><td>&lt; 4 hours or temp outside range</td><td>Any</td><td class="risk-low">LOW</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Brown Patch -->
+    <h3>Disease 2 — Brown Patch <em style="font-weight:400;color:var(--text-muted)">(Rhizoctonia solani)</em></h3>
+    <p>Most damaging on bentgrass greens when night temperatures stay above 15°C with extended leaf wetness. The model monitors <strong>night hours only (10 PM – 6 AM Sydney time)</strong>.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Night Wetness Hours (22:00–06:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 12 hours</td><td>&gt; 15°C</td><td>&gt; 25°C</td><td class="risk-high">HIGH</td></tr>
+          <tr><td>≥ 8 hours</td><td>&gt; 15°C</td><td>Any</td><td class="risk-mod">MODERATE</td></tr>
+          <tr><td>≥ 4 hours</td><td>&gt; 15°C</td><td>Any</td><td class="risk-lowmod">LOW-MODERATE</td></tr>
+          <tr><td>&lt; 4 hours or night min ≤ 15°C</td><td>—</td><td>—</td><td class="risk-low">LOW</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pythium -->
+    <h3>Disease 3 — Pythium Blight <em style="font-weight:400;color:var(--text-muted)">(Pythium aphanidermatum)</em></h3>
+    <div class="callout callout-red">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>Most destructive turf disease.</strong> Can kill large areas of bentgrass overnight under extreme heat and humidity. A SEVERE rating demands immediate fungicide response and possible irrigation restriction.</div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Night Wetness Hours (22:00–06:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 14 hours</td><td>&gt; 20°C</td><td>&gt; 30°C</td><td class="risk-severe">SEVERE</td></tr>
+          <tr><td>≥ 10 hours</td><td>&gt; 20°C</td><td>Any</td><td class="risk-high">HIGH</td></tr>
+          <tr><td>≥ 6 hours</td><td>&gt; 20°C</td><td>Any</td><td class="risk-mod">MODERATE</td></tr>
+          <tr><td>&lt; 6 hours or night min ≤ 20°C</td><td>—</td><td>—</td><td class="risk-low">LOW</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Fusarium -->
+    <h3>Disease 4 — Fusarium Patch <em style="font-weight:400;color:var(--text-muted)">(Microdochium nivale)</em></h3>
+    <p>The primary <strong>winter disease risk</strong> in Wagga Wagga. Active between 0–21°C, with peak infection in cool wet periods (6–13°C). The model uses a cumulative scoring system — points accumulate from multiple risk factors simultaneously.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Risk Factor</th><th>Condition</th><th>Points</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="3"><strong>Consecutive high-RH hours</strong> (RH ≥ 90%)</td><td>≥ 20 consecutive hours</td><td><strong>+5</strong></td></tr>
+          <tr><td>12–19 consecutive hours</td><td><strong>+3</strong></td></tr>
+          <tr><td>6–11 consecutive hours</td><td><strong>+1</strong></td></tr>
+          <tr><td rowspan="3"><strong>Leaf wetness hours</strong> (24h window)</td><td>≥ 24 hours</td><td><strong>+3</strong></td></tr>
+          <tr><td>10–23 hours</td><td><strong>+2</strong></td></tr>
+          <tr><td>4–9 hours</td><td><strong>+1</strong></td></tr>
+          <tr><td rowspan="2"><strong>Rain days</strong> (last 6 days)</td><td>3 or more rain days</td><td><strong>+2</strong></td></tr>
+          <tr><td>1–2 rain days</td><td><strong>+1</strong></td></tr>
+          <tr><td><strong>Peak temperature bonus</strong></td><td>Current temp in 6–13°C range</td><td><strong>+1</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tbl-wrap" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Total Score</th><th>Risk Level</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 8 points</td><td class="risk-high">HIGH</td><td>Fungicide application strongly recommended</td></tr>
+          <tr><td>4–7 points</td><td class="risk-mod">MODERATE</td><td>Monitor closely; prepare fungicide programme</td></tr>
+          <tr><td>1–3 points</td><td class="risk-lowmod">LOW-MODERATE</td><td>Be aware; check forecast for sustained wet periods</td></tr>
+          <tr><td>0 or temp outside 0–21°C</td><td class="risk-low">LOW</td><td>No current risk</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 6 — MOW TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div>
+      <h2>Mow Tab</h2>
+      <p>Dew detection and burn-off time estimation</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The mow decision is based on <strong>Dew Point Depression (DPD)</strong> — the difference between current air temperature and the dew point. When DPD is small, dew or surface moisture is likely on the leaf, causing bruising, disease spread, and clipping issues if mown.</p>
+
+    <div class="card-grid">
+      <div class="card-item">
+        <div class="card-item-label">Threshold</div>
+        <div class="card-item-value">DPD ≥ 3.5°C</div>
+        <div class="card-item-desc">Surface is dry — safe to mow</div>
+      </div>
+      <div class="card-item">
+        <div class="card-item-label">Dew Present</div>
+        <div class="card-item-value" style="color:#dc2626">DPD &lt; 3.5°C</div>
+        <div class="card-item-desc">Dew or surface moisture likely — wait</div>
+      </div>
+    </div>
+
+    <h3>Dew Point Calculation (Magnus Formula)</h3>
+    <div class="formula">
+gamma     = ln(RH ÷ 100) + (17.625 × T) ÷ (243.04 + T)
+Dew Point = (243.04 × gamma) ÷ (17.625 − gamma)
+DPD       = Air Temperature − Dew Point
+
+<span class="comment">Where T = current temperature (°C), RH = relative humidity (%)</span>
+    </div>
+
+    <h3>Burn-Off Time Estimation</h3>
+    <p>When dew is present, the dashboard scans hourly forecast data forward hour by hour. It finds the first hour where:</p>
+    <div class="formula">Forecast Temperature − Current Dew Point  ≥  3.5°C</div>
+    <p>That hour is displayed as the estimated safe mowing time. This updates automatically as forecast data refreshes every 30 minutes.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 7 — IRRIGATION TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div>
+      <h2>Irrigation Tab</h2>
+      <p>7-day water balance and clay soil moisture status</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <h3>Water Balance Formula</h3>
+    <p>The dashboard tracks soil moisture using a simple but effective daily deficit model. ET represents water lost from the soil; rain represents water gained.</p>
+
+    <div class="formula">
+Daily Deficit (mm)    =  ET Today − Rain Today
+7-Day Running Balance =  Σ (ET per day) − Σ (Rain per day)  over 7 days
+
+<span class="comment">Positive balance = soil is drying (ET has exceeded rainfall)
+Negative balance = soil has a surplus (rain has exceeded ET)</span>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">💧</span>
+      <div><strong>ET Source:</strong> Your Davis station calculates ET using the Penman-Monteith method from temperature, humidity, solar radiation, and wind measured on site. Forecast ET for the 3-day outlook comes from Open-Meteo's FAO-56 Penman-Monteith reference ET.</div>
+    </div>
+
+    <h3>Clay Soil Moisture Zones</h3>
+    <p>The five zones are calibrated for Wagga Wagga's heavy clay soils. Clay holds water longer than sandy soils but is more prone to waterlogging and cracking at extremes.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>7-Day Balance</th><th>Zone</th><th>Soil State</th><th>Recommended Action</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;color:#1d4ed8">&lt; −12 mm surplus</td><td><span class="badge badge-blue">Waterlogged</span></td><td>Saturated — pore space full</td><td>Avoid all traffic; no irrigation; allow natural drainage</td></tr>
+          <tr><td style="font-weight:600;color:#15803d">−12 to −3 mm</td><td><span class="badge badge-green">Wet</span></td><td>Field capacity or above</td><td>Light traffic only; minimal to no irrigation</td></tr>
+          <tr><td style="font-weight:600;color:#166534">−3 to +12 mm</td><td><span class="badge" style="background:#bbf7d0;color:#14532d">Optimal</span></td><td>Balanced moisture</td><td>Normal play and operations; standard irrigation schedule</td></tr>
+          <tr><td style="font-weight:600;color:#ca8a04">+12 to +22 mm</td><td><span class="badge badge-yellow">Dry</span></td><td>Clay firming; minor stress</td><td>Consider irrigation; prioritise greens and tees</td></tr>
+          <tr><td style="font-weight:600;color:#dc2626">&gt; +22 mm</td><td><span class="badge badge-red">Very Dry</span></td><td>Cracking risk; plant stress</td><td>Irrigation required; increase frequency on clay fairways</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top:14px">The <strong>3-day forecast panel</strong> below the water balance shows projected daily ET, forecast rainfall, and the net balance per day — allowing you to plan irrigation decisions 3 days ahead.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 8 — STATION TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <div>
+      <h2>Station Tab</h2>
+      <p>All raw sensor readings, calculated values, and pressure trend algorithm</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Reading</th><th>Source</th><th>Calculation / Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Temperature</strong></td><td>Davis sensor (live)</td><td>°C, direct reading</td></tr>
+          <tr><td><strong>Relative Humidity</strong></td><td>Davis sensor (live)</td><td>%, direct reading</td></tr>
+          <tr><td><strong>Dew Point</strong></td><td>Calculated</td><td>Magnus formula from temperature + RH</td></tr>
+          <tr><td><strong>Wet Bulb</strong></td><td>Calculated</td><td>Stull (2011) full formula — see Section 3</td></tr>
+          <tr><td><strong>Delta T</strong></td><td>Calculated</td><td>Temperature minus wet-bulb (Stull 2011)</td></tr>
+          <tr><td><strong>Wind Speed</strong></td><td>Davis sensor (live)</td><td>Converted from mph × 1.60934 → km/h</td></tr>
+          <tr><td><strong>Wind Direction</strong></td><td>Davis sensor (live)</td><td>Compass bearing converted to 8-point compass label</td></tr>
+          <tr><td><strong>Wind Gust</strong></td><td>Davis sensor (live)</td><td>Shown only when gust is &gt; 3 km/h above sustained speed</td></tr>
+          <tr><td><strong>Pressure</strong></td><td>Davis sensor (live)</td><td>Converted from inHg × 33.8639 → hPa</td></tr>
+          <tr><td><strong>Pressure Trend</strong></td><td>Calculated (ring buffer)</td><td>See below — rate in hPa/hr over last 10 readings</td></tr>
+          <tr><td><strong>Rain Today</strong></td><td>Davis sensor (live)</td><td>mm, cumulative since midnight reset</td></tr>
+          <tr><td><strong>ET Today</strong></td><td>Davis sensor (live)</td><td>mm, cumulative since midnight reset</td></tr>
+          <tr><td><strong>Rain Month</strong></td><td>Davis sensor (live)</td><td>mm, month-to-date</td></tr>
+          <tr><td><strong>Rain Year</strong></td><td>Davis sensor (live)</td><td>mm, year-to-date</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Pressure Trend Algorithm</h3>
+    <p>The dashboard stores the <strong>last 10 pressure readings with timestamps</strong> in a ring buffer in memory. The trend is calculated from the difference across the full buffer window:</p>
+
+    <div class="formula">
+Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
+
+<span class="comment">Requires at least 2 readings with ≥ 2 minutes between them</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Rate</th><th>Display</th><th>Colour</th><th>Meteorological Significance</th></tr></thead>
+        <tbody>
+          <tr><td>&gt; +0.5 hPa/hr</td><td><strong>Rising ↑</strong></td><td style="color:#15803d">Green</td><td>High pressure building — improving conditions likely</td></tr>
+          <tr><td>−0.5 to +0.5 hPa/hr</td><td><strong>Steady →</strong></td><td style="color:#6b7280">Grey</td><td>Stable air mass</td></tr>
+          <tr><td>&lt; −0.5 hPa/hr</td><td><strong>Falling ↓</strong></td><td style="color:#ea580c">Orange</td><td>Low pressure approaching — deteriorating conditions possible</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 9 — REPORTS TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div>
+      <h2>Reports Tab</h2>
+      <p>7 pre-built reports with email and print functionality</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>Seven reports can be generated at any time from live and stored data. Each opens in a preview panel and can be <strong>printed</strong> or <strong>emailed</strong>.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Report</th><th>Best Used For</th><th>What It Contains</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>☀️ Morning Briefing</strong></td>
+            <td>Daily team briefing; greens committee updates</td>
+            <td>Current conditions, spray status, mow/dew status, highest disease risk, soil moisture zone, disease risk table, GDD context</td>
+          </tr>
+          <tr>
+            <td><strong>🌿 Spray Report</strong></td>
+            <td>Documenting spray applications; chemical records</td>
+            <td>Selected product and its thresholds, current spray status badge, current ΔT/temp/wind, 7-day spray status history, 3-day forecast spray status</td>
+          </tr>
+          <tr>
+            <td><strong>💧 Irrigation Report</strong></td>
+            <td>Irrigation scheduling; water use reporting</td>
+            <td>7-day water balance table (ET, rain, deficit per day), current ET and rain today, soil moisture zone, water balance summary</td>
+          </tr>
+          <tr>
+            <td><strong>🦠 Disease Risk</strong></td>
+            <td>Fungicide timing decisions; greens committee awareness</td>
+            <td>All 4 disease risk levels, key factors per disease, 7-day wetness and temperature history, recommendations</td>
+          </tr>
+          <tr>
+            <td><strong>🌡️ GDD Growth</strong></td>
+            <td>PGR timing; mowing frequency decisions</td>
+            <td>7-day accumulated GDD for bentgrass and kikuyu, 3-day forecast GDD, seasonal context, mowing/PGR notes per grass type</td>
+          </tr>
+          <tr>
+            <td><strong>📅 Weekly Summary</strong></td>
+            <td>End-of-week committee reports; record keeping</td>
+            <td>7-day table (max/min/rain/ET/spray status/GDD), totals for the week, disease alert, pressure trend, recommendations</td>
+          </tr>
+          <tr>
+            <td><strong>📡 Full Station Dump</strong></td>
+            <td>Technical review; data verification</td>
+            <td>All current sensor readings and all available 7-day historical data in tabular format</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Email Functionality</h3>
+    <div class="callout callout-green">
+      <span class="callout-icon">✉️</span>
+      <div>
+        <strong>Copy to Clipboard</strong> — Selects the full formatted report for pasting into any email application.<br><br>
+        <strong>Open in Email Client</strong> — Opens your default email app with the subject pre-filled and the report text in the body. The body is limited to 2,000 characters in the email link; use Copy to Clipboard for the full report.<br><br>
+        <strong>Print</strong> — Sends the preview to your printer or saves as PDF.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 10 — QUICK REFERENCE
+══════════════════════════════════════════════════ -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div>
+      <h2>Quick Reference</h2>
+      <p>Key thresholds at a glance for daily operational decisions</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <h3>Spraying Conditions</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Parameter</th><th>Too Low / No-Go</th><th>Ideal</th><th>Too High / No-Go</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Delta T — Contact products</strong></td><td class="risk-high">&lt; 2°C</td><td class="risk-low">2–8°C</td><td class="risk-high">&gt; 10°C (warn &gt; 8°C)</td></tr>
+          <tr><td><strong>Delta T — Systemic products</strong></td><td class="risk-high">&lt; 2°C</td><td class="risk-low">2–10°C</td><td class="risk-high">&gt; 12°C (warn &gt; 10°C)</td></tr>
+          <tr><td><strong>Delta T — Wetting agents</strong></td><td class="risk-high">&lt; 2°C</td><td class="risk-low">2–15°C</td><td class="risk-high">&gt; 18°C (warn &gt; 15°C)</td></tr>
+          <tr><td><strong>Delta T — Contact herbicides</strong></td><td class="risk-high">&lt; 2°C</td><td class="risk-low">2–6°C</td><td class="risk-high">&gt; 8°C (warn &gt; 6°C)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Mowing</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>DPD Value</th><th>Decision</th></tr></thead>
+        <tbody>
+          <tr><td class="risk-low">≥ 3.5°C</td><td>Surface dry — <strong>Safe to mow</strong></td></tr>
+          <tr><td class="risk-high">&lt; 3.5°C</td><td>Dew or moisture present — <strong>Wait for burn-off</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Irrigation</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>7-Day Balance</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td class="risk-low">&gt; +22 mm deficit</td><td>Very Dry</td><td>Irrigation required</td></tr>
+          <tr><td class="risk-lowmod">+12 to +22 mm</td><td>Dry</td><td>Consider irrigation</td></tr>
+          <tr><td class="risk-low">−3 to +12 mm</td><td>Optimal</td><td>Standard schedule</td></tr>
+          <tr><td style="color:#1d4ed8;font-weight:600">&lt; −12 mm</td><td>Waterlogged</td><td>No irrigation; rest course</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Disease Risk Actions</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Disease</th><th>Key Trigger</th><th>HIGH Risk Action</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Dollar Spot</strong></td><td>≥ 12h wet, 15–30°C, high Smith-Kerns probability</td><td>Apply systemic fungicide (Signature, Banner Maxx, Iprodione)</td></tr>
+          <tr><td><strong>Brown Patch</strong></td><td>≥ 12h night wet, night min &gt; 15°C, day &gt; 25°C</td><td>Apply systemic fungicide; reduce evening irrigation</td></tr>
+          <tr><td><strong>Pythium Blight</strong></td><td>≥ 14h night wet, night min &gt; 20°C, day &gt; 30°C</td><td><strong>Urgent</strong> — Apply Banol or Subdue Maxx immediately; restrict irrigation</td></tr>
+          <tr><td><strong>Fusarium Patch</strong></td><td>Score ≥ 8 (sustained humidity + wet + rain days)</td><td>Apply fungicide (Headway Maxx, Dedicate); reduce shade where possible</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>GDD Growth Guide</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>GDD 7-Day</th><th>Bentgrass Status</th><th>Kikuyu Status</th><th>PGR Guidance</th></tr></thead>
+        <tbody>
+          <tr><td class="risk-low">&lt; 50 / &lt; 35</td><td>Dormant / Slow</td><td>Dormant / Slow</td><td>No PGR; reduce mowing frequency</td></tr>
+          <tr><td class="risk-lowmod">50–99 / 35–79</td><td>Moderate growth</td><td>Moderate growth</td><td>Light PGR application if required</td></tr>
+          <tr><td class="risk-high">≥ 100 / ≥ 80</td><td>High growth</td><td>High growth</td><td>Regular PGR programme; increase mowing frequency</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════ -->
+<div class="footer">
+  <p><strong>Wagga Wagga Country Club</strong> — Greenkeeper's Weather Dashboard Reference Guide</p>
+  <p style="margin-top:6px">All calculations performed in real-time using live Davis WeatherLink station data and Open-Meteo forecast service.<br>
+  Disease models: Smith-Kerns (Penn State University, 2018); Leaf wetness: CART inference method; ΔT: Stull (2011).</p>
+  <p style="margin-top:10px;color:#9ca3af">Document prepared June 2026 · For internal use only</p>
+</div>
+
+</body>
+</html>

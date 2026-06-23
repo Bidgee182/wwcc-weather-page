@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wagga Wagga Country Club — Golfer Weather Page Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --navy: #0f2942;
+    --navy-mid: #1a4a7a;
+    --navy-light: #2d7abf;
+    --navy-pale: #e8f2fb;
+    --gold: #c9a227;
+    --gold-dark: #9a7a10;
+    --gold-pale: #fdf8ec;
+    --text: #1c1c1e;
+    --text-muted: #6b7280;
+    --border: #e2e8f0;
+    --bg: #f8fafc;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-mid) 55%, var(--navy-light) 100%);
+    color: white;
+    padding: 80px 60px 60px;
+    min-height: 320px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 450px; height: 450px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    background: rgba(201,162,39,0.08);
+  }
+  .cover-badge {
+    display: inline-block;
+    background: rgba(201,162,39,0.25);
+    border: 1px solid rgba(201,162,39,0.55);
+    color: #f5d87a;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+  }
+  .cover h1 { font-size: 38px; font-weight: 700; line-height: 1.2; margin-bottom: 12px; }
+  .cover h1 span { color: #93c5fd; }
+  .cover-sub { color: #93c5fd; font-size: 16px; font-weight: 300; opacity: 0.85; margin-bottom: 36px; max-width: 560px; }
+  .cover-meta { display: flex; gap: 32px; flex-wrap: wrap; }
+  .cover-meta-item { font-size: 13px; opacity: 0.75; }
+  .cover-meta-item strong { display: block; font-size: 15px; font-weight: 600; opacity: 1; color: white; }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px 60px; }
+
+  /* ── TOC ── */
+  .toc {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 36px;
+    margin: 36px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .toc-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 20px; }
+  .toc-list { list-style: none; }
+  .toc-list li { display: flex; align-items: baseline; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .toc-list li:last-child { border-bottom: none; }
+  .toc-num { font-weight: 700; color: var(--navy-mid); min-width: 28px; }
+  .toc-dots { flex: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 10px; position: relative; top: -3px; }
+  .toc-pg { color: var(--text-muted); font-size: 13px; }
+  .toc-list a { color: var(--text); text-decoration: none; }
+  .toc-list a:hover { color: var(--navy-mid); }
+
+  /* ── SECTIONS ── */
+  .section { background: white; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 28px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .section-header {
+    background: linear-gradient(135deg, var(--navy), var(--navy-mid));
+    color: white;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-num { background: rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
+  .section-header h2 { font-size: 18px; font-weight: 600; margin: 0; }
+  .section-header p { font-size: 13px; opacity: 0.75; margin-top: 2px; }
+  .section-body { padding: 28px; }
+
+  /* ── TYPOGRAPHY ── */
+  h3 { font-size: 15px; font-weight: 600; color: var(--navy); margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--navy-pale); }
+  h3:first-child { margin-top: 0; }
+  p { margin-bottom: 12px; color: #374151; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; color: var(--text); }
+
+  /* ── TABLES ── */
+  .tbl-wrap { overflow-x: auto; margin: 14px 0; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: var(--navy); color: white; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; padding: 10px 14px; text-align: left; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: var(--navy-pale); }
+  tbody tr:hover { background: #bfdbfe; }
+  tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  .td-mono { font-family: 'Courier New', monospace; font-size: 12px; background: #f1f5f9; border-radius: 3px; padding: 1px 5px; }
+
+  /* ── FORMULA BLOCKS ── */
+  .formula { background: #0f172a; color: #93c5fd; border-radius: 8px; padding: 16px 20px; font-family: 'Courier New', monospace; font-size: 12.5px; line-height: 1.8; margin: 14px 0; overflow-x: auto; }
+  .formula .comment { color: #64748b; }
+  .formula .val { color: #86efac; }
+
+  /* ── CALLOUTS ── */
+  .callout { border-radius: 8px; padding: 14px 18px; margin: 14px 0; display: flex; gap: 12px; align-items: flex-start; font-size: 13.5px; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; line-height: 1.4; }
+  .callout-green  { background: #d1fae5; border-left: 4px solid #10b981; }
+  .callout-blue   { background: #dbeafe; border-left: 4px solid #3b82f6; }
+  .callout-yellow { background: #fef9c3; border-left: 4px solid #f59e0b; }
+  .callout-red    { background: #fee2e2; border-left: 4px solid #ef4444; }
+  .callout-purple { background: #ede9fe; border-left: 4px solid #8b5cf6; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.3px; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-yellow { background: #fef3c7; color: #92400e; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-purple { background: #ede9fe; color: #4c1d95; }
+  .badge-dark   { background: #1e293b; color: #94a3b8; }
+
+  /* ── PLAYABILITY BANNER ── */
+  .play-band {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+  }
+  .play-item {
+    flex: 1;
+    min-width: 130px;
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+    border: 1px solid transparent;
+  }
+  .play-name { font-size: 15px; font-weight: 700; }
+  .play-score { font-size: 12px; margin-top: 3px; }
+  .pb-outstanding { background: linear-gradient(135deg,#145a2c,#1e8449); color:white; }
+  .pb-excellent   { background: linear-gradient(135deg,#1a3a5c,#1f6fa1); color:white; }
+  .pb-good        { background: linear-gradient(135deg,#5a4800,#c9a007); color:white; }
+  .pb-fair        { background: linear-gradient(135deg,#6e3a00,#d4680a); color:white; }
+  .pb-tough       { background: linear-gradient(135deg,#6e1a15,#b03020); color:white; }
+  .pb-danger      { background: linear-gradient(135deg,#3d0000,#7a0000); color:white; border-color:#dc2626; }
+
+  /* ── TILE COLOUR CHIPS ── */
+  .tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 14px 0; }
+  .tile-chip { border-radius: 8px; padding: 12px 14px; }
+  .tile-chip-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; opacity: 0.75; }
+  .tile-chip-desc  { font-size: 13px; margin-top: 4px; font-weight: 500; }
+  .tc-green  { background: linear-gradient(135deg,#145a2c,#1e8449); color:white; }
+  .tc-yellow { background: linear-gradient(135deg,#5a4800,#c9a007); color:white; }
+  .tc-orange { background: linear-gradient(135deg,#6e3a00,#d4680a); color:white; }
+  .tc-red    { background: linear-gradient(135deg,#6e1a15,#b03020); color:white; }
+  .tc-blue   { background: linear-gradient(135deg,#1a3a5c,#1f6fa1); color:white; }
+  .tc-purple { background: linear-gradient(135deg,#3b0a5c,#7d3c98); color:white; }
+  .tc-dark   { background: linear-gradient(135deg,#0d1420,#1a252f); color:#94a3b8; }
+
+  /* ── CARD GRID ── */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 14px 0; }
+  .card-item { background: var(--navy-pale); border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; }
+  .card-item-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--navy-mid); margin-bottom: 4px; }
+  .card-item-value { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .card-item-desc  { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* ── FOOTER ── */
+  .footer { text-align: center; padding: 40px 24px 30px; color: var(--text-muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 20px; }
+  .footer strong { color: var(--navy-mid); }
+
+  /* ── SCORE FACTOR ROWS ── */
+  .factor-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .factor-row:last-child { border-bottom: none; }
+  .factor-icon { width: 28px; text-align: center; font-size: 16px; flex-shrink: 0; }
+  .factor-name { min-width: 160px; font-weight: 600; }
+  .factor-detail { color: #374151; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; font-size: 12px; }
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 50px 40px; }
+    .section { break-inside: avoid; box-shadow: none; }
+    .tile-chip, .play-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .container { padding: 0 16px 40px; }
+  }
+
+  @media (max-width: 640px) {
+    .cover { padding: 48px 24px 40px; }
+    .cover h1 { font-size: 26px; }
+    .section-body { padding: 20px; }
+    .toc { padding: 24px 20px; }
+    .play-band { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     COVER
+══════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">Member & Staff Reference — Golfer Weather Page</div>
+  <h1>Wagga Wagga Country Club<br><span>Golfer Weather Page</span></h1>
+  <p class="cover-sub">A plain-English guide to every tile, score, alert, and forecast shown on the Golfer tab — what it means and how it is calculated.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><strong>Prepared For</strong>Members, Pro Shop Staff &amp; Starters</div>
+    <div class="cover-meta-item"><strong>Document Version</strong>June 2026</div>
+    <div class="cover-meta-item"><strong>Data Sources</strong>Davis WeatherLink &amp; Open-Meteo</div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════
+     TABLE OF CONTENTS
+══════════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol class="toc-list">
+    <li><span class="toc-num">1</span><a href="#s1">Overview &amp; Data Sources</a><span class="toc-dots"></span><span class="toc-pg">Where the data comes from</span></li>
+    <li><span class="toc-num">2</span><a href="#s2">Playing Conditions Banner</a><span class="toc-dots"></span><span class="toc-pg">Overall score: Outstanding → Not Playable</span></li>
+    <li><span class="toc-num">3</span><a href="#s3">The 8 Condition Tiles</a><span class="toc-dots"></span><span class="toc-pg">Feels Like, Wind, Rain, UV, Course Roll, Daylight &amp; more</span></li>
+    <li><span class="toc-num">4</span><a href="#s4">Insight Cards</a><span class="toc-dots"></span><span class="toc-pg">Best Time to Play, Green Speed, Ball @ 150m</span></li>
+    <li><span class="toc-num">5</span><a href="#s5">Frost &amp; UV Exposure Cards</a><span class="toc-dots"></span><span class="toc-pg">Overnight frost risk, safe sun time</span></li>
+    <li><span class="toc-num">6</span><a href="#s6">Alert Banners</a><span class="toc-dots"></span><span class="toc-pg">Thunderstorm, frost, fog, carts on paths</span></li>
+    <li><span class="toc-num">7</span><a href="#s7">Hourly Forecast</a><span class="toc-dots"></span><span class="toc-pg">Next 5 hours — temp, rain, UV, wind</span></li>
+    <li><span class="toc-num">8</span><a href="#s8">4-Day Forecast</a><span class="toc-dots"></span><span class="toc-pg">4-day outlook with daily summary</span></li>
+    <li><span class="toc-num">9</span><a href="#s9">Conditions Detail Strip</a><span class="toc-dots"></span><span class="toc-pg">All raw readings at the bottom</span></li>
+    <li><span class="toc-num">10</span><a href="#s10">Tile Colour Guide</a><span class="toc-dots"></span><span class="toc-pg">What each colour means at a glance</span></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 1 — OVERVIEW
+══════════════════════════════════════════════════ -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div>
+      <h2>Overview &amp; Data Sources</h2>
+      <p>Where the information comes from and how often it updates</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The Golfer page pulls live data from two sources and combines them with a 7-day history stored in the browser to produce all the readings, scores, and forecasts you see.</p>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">🌡️</span>
+      <div><strong>Davis WeatherLink Station (On-Site, Wagga Wagga CC)</strong><br>
+      Provides live current conditions updated every 60 seconds: temperature, humidity, wind speed and direction, gusts, rainfall today, barometric pressure, and evapotranspiration (ET). This is your actual on-course weather — not a nearby airport or generic forecast.</div>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">🌐</span>
+      <div><strong>Open-Meteo (Hourly &amp; Daily Forecast)</strong><br>
+      A high-resolution forecast service providing 4-day hourly and daily forecasts: temperature, humidity, rain probability, UV index, wind, cloud cover, sunrise and sunset times. Updated every 30 minutes.</div>
+    </div>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">💾</span>
+      <div><strong>On-Device 7-Day History</strong><br>
+      The browser stores a rolling 7-day record of daily ET and rainfall totals. This is what drives the Course Roll tile, Green Speed card, and wet course alerts. It updates automatically every hour from the Davis WeatherLink v2 API.</div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>What Refreshes</th><th>How Often</th></tr></thead>
+        <tbody>
+          <tr><td>Live conditions (temp, wind, rain, pressure)</td><td>Every 60 seconds</td></tr>
+          <tr><td>All tiles, alerts, playability score</td><td>Every 15 seconds</td></tr>
+          <tr><td>Hourly &amp; daily forecast (Open-Meteo)</td><td>Every 30 minutes</td></tr>
+          <tr><td>Historical daily ET &amp; rain (7-day store)</td><td>Every 60 minutes</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-red" style="margin-top:18px">
+      <span class="callout-icon">🔴</span>
+      <div><strong>Stale Data Warning</strong> — If the "last updated" timestamp turns red, the connection to the Davis station has dropped and live values may be more than 10 minutes old. Forecast data (Open-Meteo) is unaffected.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 2 — PLAYING CONDITIONS BANNER
+══════════════════════════════════════════════════ -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div>
+      <h2>Playing Conditions Banner</h2>
+      <p>The overall playability rating shown at the top of the page</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The large banner at the top of the Golfer page gives an instant overall rating of playing conditions. It is calculated by a <strong>penalty point system</strong> — the dashboard starts at zero and adds penalty points for each factor that makes conditions worse. The total score determines the rating.</p>
+
+    <div class="play-band">
+      <div class="play-item pb-outstanding"><div class="play-name">Outstanding</div><div class="play-score">Score: 0</div></div>
+      <div class="play-item pb-excellent"><div class="play-name">Excellent</div><div class="play-score">Score: 1</div></div>
+      <div class="play-item pb-good"><div class="play-name">Good</div><div class="play-score">Score: 2–3</div></div>
+      <div class="play-item pb-fair"><div class="play-name">Fair</div><div class="play-score">Score: 4–5</div></div>
+      <div class="play-item pb-tough"><div class="play-name">Tough</div><div class="play-score">Score: 6–7</div></div>
+      <div class="play-item pb-danger"><div class="play-name">Not Playable</div><div class="play-score">Score: 8+</div></div>
+    </div>
+
+    <h3>How Penalty Points Are Added</h3>
+
+    <div class="factor-row"><span class="factor-icon">🌡️</span><span class="factor-name">Feels Like Temp</span><span class="factor-detail">+3 pts if &lt; 6°C or &gt; 36°C (dangerously cold/hot) · +2 pts if &lt; 10°C or &gt; 32°C · +1 pt if &lt; 14°C or &gt; 28°C</span></div>
+    <div class="factor-row"><span class="factor-icon">💨</span><span class="factor-name">Wind Speed</span><span class="factor-detail">+2 pts if &gt; 40 km/h (very strong) · +1 pt if &gt; 25 km/h</span></div>
+    <div class="factor-row"><span class="factor-icon">🌧️</span><span class="factor-name">24-Hour Rain Total</span><span class="factor-detail">+4 pts if ≥ 30 mm · +3 pts if ≥ 15 mm · +2 pts if ≥ 5 mm · +1 pt if ≥ 0.5 mm</span></div>
+    <div class="factor-row"><span class="factor-icon">🌦️</span><span class="factor-name">Forecast Rain (if no actual rain)</span><span class="factor-detail">+2 pts if &gt; 70% probability · +1 pt if &gt; 40% probability</span></div>
+    <div class="factor-row"><span class="factor-icon">☀️</span><span class="factor-name">UV Index</span><span class="factor-detail">+2 pts if &gt; 10 (extreme) · +1 pt if &gt; 7 (very high)</span></div>
+    <div class="factor-row"><span class="factor-icon">☁️</span><span class="factor-name">Cloud Cover</span><span class="factor-detail">+1 pt if &gt; 85% overcast</span></div>
+    <div class="factor-row"><span class="factor-icon">🌅</span><span class="factor-name">Daylight Quality</span><span class="factor-detail">+1 pt within 30 min of sunrise · +1 pt low morning light · +1–3 pts as sunset approaches · +3 pts after sunset</span></div>
+    <div class="factor-row"><span class="factor-icon">💧</span><span class="factor-name">Course Condition</span><span class="factor-detail">+2 pts if waterlogged (7-day balance &lt; −20 mm surplus) · +1 pt if wet (−5 to −20 mm surplus)</span></div>
+    <div class="factor-row"><span class="factor-icon">💦</span><span class="factor-name">Humidity</span><span class="factor-detail">+2 pts if RH &gt; 90% · +1 pt if RH &gt; 80%</span></div>
+
+    <div class="callout callout-blue" style="margin-top:18px">
+      <span class="callout-icon">ℹ️</span>
+      <div>The banner also shows a short summary line: <em>"Feels 24°C · Calm · No rain expected"</em> — listing the key factors contributing to the current rating.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 3 — THE 8 CONDITION TILES
+══════════════════════════════════════════════════ -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div>
+      <h2>The 8 Condition Tiles</h2>
+      <p>Each tile explained — what it shows, how it's calculated, and what the colours mean</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <!-- FEELS LIKE -->
+    <h3>Tile 1 — Feels Like Temperature</h3>
+    <p>Not just the air temperature — this is how hot or cold it actually <em>feels</em> on your skin, accounting for wind chill and the humidity effect on heat dissipation. It uses the <strong>Australian Apparent Temperature (AT) formula</strong>:</p>
+
+    <div class="formula">
+e  = (RH ÷ 100) × 6.105 × exp(17.27 × T ÷ (237.7 + T))
+AT = T + (0.33 × e) − (0.70 × wind m/s) − 4.00
+
+<span class="comment">Where: T  = air temperature (°C)
+       RH = relative humidity (%)
+       e  = water vapour pressure
+       AT = apparent / feels-like temperature (°C)</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Feels Like</th><th>Colour</th><th>Message to Golfer</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 8°C</td><td><span class="badge badge-red">Red</span></td><td>Very cold — extra layers needed</td></tr>
+          <tr><td>8–12°C</td><td><span class="badge badge-orange">Orange</span></td><td>Cold — warm clothing recommended</td></tr>
+          <tr><td>12–15°C</td><td><span class="badge badge-yellow">Yellow</span></td><td>Cool but very playable</td></tr>
+          <tr><td>15–26°C</td><td><span class="badge badge-green">Green</span></td><td>Ideal golfing temperature</td></tr>
+          <tr><td>26–30°C</td><td><span class="badge badge-yellow">Yellow</span></td><td>Warm — keep the water bottle handy</td></tr>
+          <tr><td>30–35°C</td><td><span class="badge badge-orange">Orange</span></td><td>Hot — stay in the shade between holes</td></tr>
+          <tr><td>&gt; 35°C</td><td><span class="badge badge-red">Red</span></td><td>Dangerously hot — consider postponing</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- WIND -->
+    <h3>Tile 2 — Wind</h3>
+    <p>Shows current wind speed (km/h) and direction from the Davis station. The description uses a Beaufort-style scale. If gusts are more than 5 km/h above the sustained speed, a gust note is appended.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Speed</th><th>Description</th><th>Colour</th><th>Effect on Play</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 1 km/h</td><td>Calm</td><td><span class="badge badge-green">Green</span></td><td>No effect on shots</td></tr>
+          <tr><td>1–6 km/h</td><td>Light Air</td><td><span class="badge badge-green">Green</span></td><td>Minimal effect</td></tr>
+          <tr><td>6–12 km/h</td><td>Light Breeze</td><td><span class="badge badge-green">Green</span></td><td>Minimal effect</td></tr>
+          <tr><td>12–20 km/h</td><td>Gentle Breeze</td><td><span class="badge badge-green">Green</span></td><td>Minimal effect on shots</td></tr>
+          <tr><td>20–29 km/h</td><td>Moderate Breeze</td><td><span class="badge badge-yellow">Yellow</span></td><td>Club up or down 1 into wind</td></tr>
+          <tr><td>29–39 km/h</td><td>Fresh Breeze</td><td><span class="badge badge-orange">Orange</span></td><td>Strong wind — significant ball drift</td></tr>
+          <tr><td>39–50 km/h</td><td>Strong Breeze</td><td><span class="badge badge-red">Red</span></td><td>Very strong — challenging conditions</td></tr>
+          <tr><td>≥ 50 km/h</td><td>Near Gale+</td><td><span class="badge badge-red">Red</span></td><td>Extreme — consider suspending play</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Wind direction is shown using a 16-point compass: N, NNE, NE, ENE, E, ESE, SE, SSE, S, SSW, SW, WSW, W, WNW, NW, NNW.</p>
+
+    <!-- RAIN CHANCE -->
+    <h3>Tile 3 — Rain Chance (Today)</h3>
+    <p>Combines two data points: the <strong>actual rain already fallen today</strong> (from Davis station) and the <strong>forecast probability of more rain</strong> (from Open-Meteo).</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Situation</th><th>Colour</th><th>Message</th></tr></thead>
+        <tbody>
+          <tr><td>Rain &gt; 0 mm + prob ≥ 50%</td><td><span class="badge badge-red">Red</span></td><td>{actual} mm already today · {prob}% chance of more</td></tr>
+          <tr><td>Rain &gt; 0 mm + prob &lt; 50%</td><td><span class="badge badge-orange">Orange</span></td><td>{actual} mm already today · {prob}% chance of more</td></tr>
+          <tr><td>No rain + prob &lt; 20%</td><td><span class="badge badge-green">Green</span></td><td>Very unlikely — enjoy your round</td></tr>
+          <tr><td>No rain + prob 20–40%</td><td><span class="badge badge-green">Green</span></td><td>Possible but unlikely — probably fine</td></tr>
+          <tr><td>No rain + prob 40–60%</td><td><span class="badge badge-yellow">Yellow</span></td><td>About 50/50 — pack a brolly just in case</td></tr>
+          <tr><td>No rain + prob 60–80%</td><td><span class="badge badge-orange">Orange</span></td><td>More likely than not — bring an umbrella</td></tr>
+          <tr><td>No rain + prob ≥ 80%</td><td><span class="badge badge-red">Red</span></td><td>Very likely — gear up for rain</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- UV -->
+    <h3>Tile 4 — UV Index</h3>
+    <p>Shows the current hour's UV index from Open-Meteo. If the forecast peak for the day is higher than the current reading, a note is shown advising of the upcoming peak.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>UV Index</th><th>Level</th><th>Colour</th><th>Advice</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>None</td><td><span class="badge badge-dark">Dark</span></td><td>No UV radiation — no protection needed</td></tr>
+          <tr><td>1–2</td><td>Low</td><td><span class="badge badge-green">Green</span></td><td>No sunscreen required</td></tr>
+          <tr><td>3–5</td><td>Moderate</td><td><span class="badge badge-yellow">Yellow</span></td><td>Sunscreen recommended</td></tr>
+          <tr><td>6–7</td><td>High</td><td><span class="badge badge-orange">Orange</span></td><td>Sunscreen essential — reapply every 2 hours</td></tr>
+          <tr><td>8–10</td><td>Very High</td><td><span class="badge badge-red">Red</span></td><td>Seek shade at midday — reapply often</td></tr>
+          <tr><td>&gt; 10</td><td>Extreme</td><td><span class="badge badge-purple">Purple</span></td><td>Avoid outdoor activity midday if possible</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- COURSE ROLL -->
+    <h3>Tile 5 — Course Roll</h3>
+    <p>Indicates how firm or soft the course is underfoot. Calculated from the <strong>7-day water balance</strong>: total evapotranspiration (ET) minus total rainfall over the past 7 days.</p>
+
+    <div class="formula">
+7-Day Deficit = Sum(ET per day) − Sum(Rain per day)  <span class="comment">over rolling 7 days</span>
+
+<span class="comment">Positive = drying out (ET exceeds rain)
+Negative = surplus (rain exceeds ET)</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>7-Day Balance</th><th>Status</th><th>Colour</th><th>What Golfers Notice</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; −10 mm surplus</td><td>Waterlogged</td><td><span class="badge badge-blue">Blue</span></td><td>Soft underfoot — carts on paths; expect casual water</td></tr>
+          <tr><td>−10 to 0 mm</td><td>Soft</td><td><span class="badge badge-blue">Blue</span></td><td>Good grip — ball sits up; approach shots hold well</td></tr>
+          <tr><td>0 to +15 mm</td><td>Normal</td><td><span class="badge badge-green">Green</span></td><td>Playing true — ideal ball roll on fairways</td></tr>
+          <tr><td>+15 to +30 mm</td><td>Firm</td><td><span class="badge badge-yellow">Yellow</span></td><td>Ball running on — allow extra run on approaches</td></tr>
+          <tr><td>&gt; +30 mm</td><td>Very Firm</td><td><span class="badge badge-orange">Orange</span></td><td>Hard and fast — significant run; greens receptive</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 24H RAIN -->
+    <h3>Tile 6 — 24-Hour Rain Total</h3>
+    <p>The combined rainfall from today plus yesterday (from the 7-day stored history). This gives a true rolling 24-hour picture of how much water has fallen on the course, not just since midnight.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>24h Total</th><th>Colour</th><th>Course Effect</th></tr></thead>
+        <tbody>
+          <tr><td>0 mm</td><td><span class="badge badge-dark">Idle</span></td><td>No rain — course is dry</td></tr>
+          <tr><td>0–5 mm</td><td><span class="badge badge-green">Green</span></td><td>Trace — negligible effect on course</td></tr>
+          <tr><td>5–15 mm</td><td><span class="badge badge-green">Green</span></td><td>Light rain — fairways slightly softer</td></tr>
+          <tr><td>15–30 mm</td><td><span class="badge badge-blue">Blue</span></td><td>Moderate — course playing soft</td></tr>
+          <tr><td>&gt; 30 mm</td><td><span class="badge badge-orange">Orange</span></td><td>Heavy — expect soft or wet conditions; possible casual water</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DAYLIGHT -->
+    <h3>Tile 7 — Daylight / Sunset Countdown</h3>
+    <p>Sunrise and sunset times come from Open-Meteo forecast data. The tile shows a live countdown and changes colour as daylight diminishes. <strong>First Light</strong> = 30 minutes before sunrise. <strong>Last Light</strong> = 15 minutes after sunset.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Time of Day</th><th>Icon</th><th>Colour</th><th>Display</th></tr></thead>
+        <tbody>
+          <tr><td>Before First Light</td><td>🌙</td><td><span class="badge badge-dark">Dark</span></td><td>"First Light In" + countdown · First Light time + Sunrise time shown</td></tr>
+          <tr><td>First Light → Sunrise</td><td>🌅</td><td><span class="badge badge-yellow">Yellow</span></td><td>"First Light" · "Playable now · Sunrise at {time}"</td></tr>
+          <tr><td>&gt; 2 hours to sunset</td><td>🌇</td><td><span class="badge badge-green">Green</span></td><td>"Sunset In {X}h {Y}m" · "Plenty of time"</td></tr>
+          <tr><td>1–2 hours to sunset</td><td>🌇</td><td><span class="badge badge-yellow">Yellow</span></td><td>"Start wrapping up"</td></tr>
+          <tr><td>30–60 min to sunset</td><td>🌇</td><td><span class="badge badge-orange">Orange</span></td><td>"Getting dark soon — finish your hole!"</td></tr>
+          <tr><td>&lt; 30 min to sunset</td><td>🌇</td><td><span class="badge badge-red">Red</span></td><td>"Last chance — sunset {time}"</td></tr>
+          <tr><td>Sunset → Last Light</td><td>🌆</td><td><span class="badge badge-orange">Orange</span></td><td>"Last Light" · "Finish up now"</td></tr>
+          <tr><td>After Last Light</td><td>🌙</td><td><span class="badge badge-dark">Dark</span></td><td>"After Dark" · "Course closed · First light tomorrow ~{time}"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- HUMIDITY -->
+    <h3>Tile 8 — Humidity</h3>
+    <p>Shows current relative humidity from the Davis station and its impact on grip and comfort.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Humidity</th><th>Colour</th><th>Impact on Play</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 25%</td><td><span class="badge badge-yellow">Yellow</span></td><td>Very dry — stay hydrated; hands may feel dry on grip</td></tr>
+          <tr><td>25–45%</td><td><span class="badge badge-green">Green</span></td><td>Comfortable — ideal for grip and feel</td></tr>
+          <tr><td>45–70%</td><td><span class="badge badge-green">Green</span></td><td>Good humidity — grip and ball feel unaffected</td></tr>
+          <tr><td>70–85%</td><td><span class="badge badge-yellow">Yellow</span></td><td>Muggy — grip may slip; keep a towel handy</td></tr>
+          <tr><td>&gt; 85%</td><td><span class="badge badge-orange">Orange</span></td><td>Very humid — difficult grip; ball checks up quickly</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 4 — INSIGHT CARDS
+══════════════════════════════════════════════════ -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div>
+      <h2>Insight Cards</h2>
+      <p>Best Time to Play Today · Green Speed · Ball Flight at 150m</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <!-- BEST TIME -->
+    <h3>Card 1 — Best Time to Play Today</h3>
+    <p>The dashboard scans <strong>every hour between sunrise and one hour before sunset</strong>, scores each hour, then identifies the best consecutive 3-hour block to play.</p>
+
+    <p><strong>How each hour is scored:</strong> Starting from 100 points, penalties are deducted:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Factor</th><th>Penalty Points</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Temperature</strong> &lt; 8°C or &gt; 38°C</td><td>−40 pts</td></tr>
+          <tr><td><strong>Temperature</strong> &lt; 12°C or &gt; 32°C</td><td>−15 pts</td></tr>
+          <tr><td><strong>Temperature</strong> &lt; 15°C or &gt; 28°C</td><td>−5 pts</td></tr>
+          <tr><td><strong>Rain probability</strong> above 15%</td><td>−(probability − 15) × 1.2 pts</td></tr>
+          <tr><td><strong>UV index</strong> &gt; 10 (extreme)</td><td>−20 pts</td></tr>
+          <tr><td><strong>UV index</strong> &gt; 7 (very high)</td><td>−8 pts</td></tr>
+          <tr><td><strong>Wind</strong> &gt; 50 km/h</td><td>−35 pts</td></tr>
+          <tr><td><strong>Wind</strong> &gt; 35 km/h</td><td>−20 pts</td></tr>
+          <tr><td><strong>Wind</strong> &gt; 25 km/h</td><td>−10 pts</td></tr>
+          <tr><td><strong>Wind</strong> &gt; 15 km/h</td><td>−5 pts</td></tr>
+          <tr><td><strong>Course wet</strong> (≥ 30 mm in 24h)</td><td>−25 pts</td></tr>
+          <tr><td><strong>Course wet</strong> (≥ 15 mm in 24h)</td><td>−15 pts</td></tr>
+          <tr><td><strong>Course wet</strong> (≥ 5 mm in 24h)</td><td>−8 pts</td></tr>
+          <tr><td><strong>Low morning light</strong> (&lt; 30 min after sunrise)</td><td>−15 pts</td></tr>
+          <tr><td><strong>Early morning light</strong> (&lt; 90 min after sunrise)</td><td>−8 pts</td></tr>
+          <tr><td><strong>Near sunset</strong> (&lt; 60 min before)</td><td>−20 pts</td></tr>
+          <tr><td><strong>Approaching sunset</strong> (&lt; 90 min before)</td><td>−12 pts</td></tr>
+          <tr><td><strong>Late afternoon</strong> (&lt; 120 min before sunset)</td><td>−5 pts</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The <strong>3-hour block average score</strong> determines the quality label:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Average Score</th><th>Quality Label</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 80</td><td><span class="badge badge-green">Ideal</span></td></tr>
+          <tr><td>60–79</td><td><span class="badge badge-green">Good</span></td></tr>
+          <tr><td>40–59</td><td><span class="badge badge-yellow">Acceptable</span></td></tr>
+          <tr><td>&lt; 40</td><td><span class="badge badge-orange">Best Available</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The card shows the recommended time window (e.g. <strong>10 AM – 1 PM</strong>), the quality label, and a short summary of any issues or the key conditions for that window.</p>
+
+    <!-- GREEN SPEED -->
+    <h3>Card 2 — Green Speed</h3>
+    <p>Tells golfers how fast or slow the greens are likely to be running, based on the same 7-day water balance used in the Course Roll tile. Wetter greens are slower and more receptive; drier greens are faster and harder to hold.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>7-Day Balance</th><th>Green Speed</th><th>Surface</th><th>Putting Note</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; −10 mm surplus</td><td><span class="badge badge-blue">Slower than usual</span></td><td>Soft &amp; Receptive</td><td>Putts will die quickly — be aggressive on approaches</td></tr>
+          <tr><td>−10 to 0 mm</td><td><span class="badge badge-blue">Slightly slow</span></td><td>Taking Spin</td><td>Soft greens — ball checks up; great for holding approaches</td></tr>
+          <tr><td>0 to +15 mm</td><td><span class="badge badge-green">Normal</span></td><td>Running True</td><td>Standard pace — putts are predictable</td></tr>
+          <tr><td>+15 to +30 mm</td><td><span class="badge badge-yellow">Slightly fast</span></td><td>Some Run</td><td>Firming up — putts have more pace; approach shots may release</td></tr>
+          <tr><td>&gt; +30 mm</td><td><span class="badge badge-orange">Faster than usual</span></td><td>Fast &amp; Bouncy</td><td>Hard and fast — careful on downhill putts; ball will run through</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- BALL FLIGHT -->
+    <h3>Card 3 — Ball Flight at 150m</h3>
+    <p>Shows how far the ball will actually fly in current atmospheric conditions compared to a standard 150m shot. Three factors affect carry distance:</p>
+
+    <div class="formula">
+Base distance    = 150 m
+Temperature adj  = (Air Temp − 20°C)  × 0.20 m   <span class="comment">warmer = farther</span>
+Pressure adj     = (1015 − Pressure)  × 0.03 m   <span class="comment">lower pressure = farther</span>
+Humidity adj     = (RH − 50%)         × 0.005 m  <span class="comment">minor effect</span>
+
+Playing distance = round(150 + temp adj + pressure adj + humidity adj)
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Difference from 150m</th><th>Club Recommendation</th><th>Colour</th></tr></thead>
+        <tbody>
+          <tr><td>Within ±1 m</td><td>Normal — no change needed</td><td><span class="badge badge-green">Green</span></td></tr>
+          <tr><td>+1 to +4 m longer</td><td>Club down (ball flying farther)</td><td><span class="badge badge-blue">Blue</span></td></tr>
+          <tr><td>−1 to −4 m shorter</td><td>Club up (ball flying shorter)</td><td><span class="badge badge-yellow">Yellow</span></td></tr>
+          <tr><td>&gt; +4 m longer</td><td>Club down</td><td><span class="badge badge-blue">Blue</span></td></tr>
+          <tr><td>&gt; −4 m shorter</td><td>Club up</td><td><span class="badge badge-orange">Orange</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The card also notes the specific contributing conditions — for example: <em>"Warm air (+3m) · Low pressure (+1m) · Result: 4m farther than usual"</em>.</p>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">💡</span>
+      <div><strong>Wind is not included in the ball distance calculation</strong> — it is too variable hole-to-hole. The current wind speed and direction is shown separately below the distance so golfers can factor it in themselves for each shot.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 5 — FROST & UV CARDS
+══════════════════════════════════════════════════ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div>
+      <h2>Frost Risk &amp; UV Exposure Cards</h2>
+      <p>Overnight frost prediction and safe sun exposure timing</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <h3>Frost Risk (Overnight)</h3>
+    <p>The dashboard scans the forecast for the window from <strong>8 PM tonight to 9 AM tomorrow</strong> and finds the minimum expected temperature. This drives both the frost card and the frost alert banner.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Overnight Low</th><th>Status</th><th>Colour</th><th>Recommendation</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 2°C</td><td><span class="badge badge-red">High Risk</span></td><td>Red</td><td>Hard frost likely — greens may be damaged. Consider delaying early tee times and holding carts on paths until greens clear</td></tr>
+          <tr><td>2–4°C</td><td><span class="badge badge-orange">Frost Likely</span></td><td>Orange</td><td>Frost expected overnight — greens may be affected in the morning. Monitor conditions before play</td></tr>
+          <tr><td>4–7°C</td><td><span class="badge badge-yellow">Frost Possible</span></td><td>Yellow</td><td>Light frost possible — check greens before early tee times</td></tr>
+          <tr><td>≥ 7°C</td><td><span class="badge badge-green">No Frost</span></td><td>Green</td><td>Overnight low above 7°C — no frost expected</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>UV Exposure Timer</h3>
+    <p>Based on the current UV index, the card calculates the <strong>safe sun exposure time</strong> for a moderately fair-skinned golfer wearing SPF 30 sunscreen:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>UV Index</th><th>Level</th><th>Safe Time (SPF 30)</th><th>Colour</th></tr></thead>
+        <tbody>
+          <tr><td>≤ 2</td><td>Low</td><td>No limit</td><td><span class="badge badge-green">Green</span></td></tr>
+          <tr><td>3–5</td><td>Moderate</td><td>60 minutes</td><td><span class="badge badge-yellow">Yellow</span></td></tr>
+          <tr><td>6–7</td><td>High</td><td>30 minutes</td><td><span class="badge badge-orange">Orange</span></td></tr>
+          <tr><td>8–10</td><td>Very High</td><td>15 minutes</td><td><span class="badge badge-red">Red</span></td></tr>
+          <tr><td>&gt; 10</td><td>Extreme</td><td>10 minutes</td><td><span class="badge badge-red">Red</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The card counts down the remaining safe time. When the timer reaches zero it shows <strong>"Reapply Now"</strong> — a reminder to reapply sunscreen immediately.</p>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">☀️</span>
+      <div>Wagga Wagga regularly records UV indices above 10 in summer. An 18-hole round takes 4+ hours — reapplication every 2 hours regardless of the timer is strongly recommended on high UV days.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 6 — ALERT BANNERS
+══════════════════════════════════════════════════ -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div>
+      <h2>Alert Banners</h2>
+      <p>Automatic warnings shown above the page when specific thresholds are triggered</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>Alert banners appear automatically at the top of the Golfer page when specific conditions are forecast or observed. They disappear once the conditions pass.</p>
+
+    <div class="callout callout-yellow">
+      <span class="callout-icon">⚡</span>
+      <div>
+        <strong>Thunderstorm Alert</strong><br>
+        <strong>Trigger:</strong> WMO weather code 95, 96, or 99 (thunderstorm with or without hail) forecast in the next 4 hours.<br>
+        <strong>Message:</strong> "Thunderstorm forecast in the next 3 hours — lightning risk in the area"<br>
+        <strong>Action:</strong> Suspend play immediately if thunder is heard. The 30/30 rule applies: seek shelter if thunder follows lightning by less than 30 seconds; wait 30 minutes after last thunder before resuming.
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">❄️</span>
+      <div>
+        <strong>Frost Alert</strong><br>
+        <strong>Trigger:</strong> Overnight forecast minimum below 4°C (8 PM – 9 AM window).<br>
+        <strong>Below 2°C:</strong> "Frost likely overnight — delay early tee times, hold carts on paths until greens clear"<br>
+        <strong>2–4°C:</strong> "Frost possible overnight — monitor greens before early tee times"<br>
+        <strong>Action:</strong> Starter should check greens before first tee times. Walking on frosted bentgrass causes cell rupture and brown footprint damage.
+      </div>
+    </div>
+
+    <div class="callout callout-yellow" style="background:#f0f0f0; border-color:#9ca3af;">
+      <span class="callout-icon">🌫️</span>
+      <div>
+        <strong>Fog Alert</strong><br>
+        <strong>Trigger:</strong> WMO weather code 45 (fog) or 48 (rime fog) forecast for tomorrow morning (up to noon).<br>
+        <strong>Message:</strong> "Fog forecast tomorrow morning — check visibility before early tee times"<br>
+        <strong>Action:</strong> If visibility is less than 50m, consider delaying tee times until fog lifts.
+      </div>
+    </div>
+
+    <div class="callout callout-yellow" style="background:#f5efe6; border-color:#b45309;">
+      <span class="callout-icon">🛺</span>
+      <div>
+        <strong>Carts on Paths Alert</strong><br>
+        <strong>Trigger:</strong> Either of these conditions:<br>
+        &nbsp;• 7-day water balance shows surplus &gt; 10 mm (waterlogged soil)<br>
+        &nbsp;• 24-hour rainfall total ≥ 15 mm<br>
+        <strong>Message:</strong> "Course wet — carts on paths only"<br>
+        <strong>Action:</strong> Enforce path-only policy for all motorised carts to prevent turf damage on saturated ground.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 7 — HOURLY FORECAST
+══════════════════════════════════════════════════ -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div>
+      <h2>Hourly Forecast</h2>
+      <p>The next 5 hours — temperature, rain, UV, and wind</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The hourly strip shows the <strong>next 5 hours</strong> from the current time using Open-Meteo forecast data. The first column is labelled "Now".</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Source</th><th>Colour Coding</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Time</strong></td><td>Current hour + next 4 hours in 12h format</td><td>—</td></tr>
+          <tr><td><strong>Icon</strong></td><td>WMO weather code from forecast</td><td>Rain icon ≥ 70% · Light rain 40–70% · Drizzle 15–40% · Sun &lt; 15% + UV &gt; 5</td></tr>
+          <tr><td><strong>Temperature</strong></td><td>Open-Meteo hourly temperature (°C)</td><td>Blue if &lt; 10°C · Red if &gt; 30°C · Default otherwise</td></tr>
+          <tr><td><strong>Rain Chance</strong></td><td>Hourly precipitation probability (%)</td><td>Blue if ≥ 0.1 mm forecast · Grey if 0 mm</td></tr>
+          <tr><td><strong>Rain (mm)</strong></td><td>Hourly precipitation forecast (mm)</td><td>Blue if ≥ 0.1 mm · Grey if 0</td></tr>
+          <tr><td><strong>UV</strong></td><td>Open-Meteo hourly UV index</td><td>Matches UV tile thresholds above</td></tr>
+          <tr><td><strong>Wind</strong></td><td>Open-Meteo hourly wind speed (km/h)</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 8 — 4-DAY FORECAST
+══════════════════════════════════════════════════ -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <div>
+      <h2>4-Day Forecast</h2>
+      <p>Today plus 3 days ahead — daily conditions at a glance</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The 4-day forecast uses Open-Meteo daily data. Each day card shows:</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Day</strong></td><td>"Today" or the day name (Mon, Tue, etc.)</td></tr>
+          <tr><td><strong>Icon</strong></td><td>WMO weather code icon for the expected condition</td></tr>
+          <tr><td><strong>Description</strong></td><td>Plain-English condition (Clear, Partly Cloudy, Rain, Thunderstorm, etc.)</td></tr>
+          <tr><td><strong>Hi / Lo</strong></td><td>Daily maximum and minimum temperature (°C)</td></tr>
+          <tr><td><strong>Rain (mm)</strong></td><td>Total forecast rainfall for the day</td></tr>
+          <tr><td><strong>Rain Chance</strong></td><td>Maximum hourly rain probability for the day (%)</td></tr>
+          <tr><td><strong>UV Max</strong></td><td>Daily peak UV index</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>WMO Weather Code Descriptions</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>WMO Code Range</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>Clear sky</td></tr>
+          <tr><td>1–3</td><td>Partly cloudy</td></tr>
+          <tr><td>45–48</td><td>Foggy / rime fog</td></tr>
+          <tr><td>51–55</td><td>Drizzle</td></tr>
+          <tr><td>61–65</td><td>Rain (light to heavy)</td></tr>
+          <tr><td>71–77</td><td>Snow</td></tr>
+          <tr><td>80–82</td><td>Showers</td></tr>
+          <tr><td>95–99</td><td>Thunderstorm</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 9 — CONDITIONS DETAIL STRIP
+══════════════════════════════════════════════════ -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div>
+      <h2>Conditions Detail Strip</h2>
+      <p>All raw readings shown at the bottom of the Golfer page</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>The strip at the bottom of the page shows the underlying sensor readings for anyone who wants the raw numbers.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Reading</th><th>Source</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Air Temp</strong></td><td>Davis sensor (live)</td><td>°C to 1 decimal place</td></tr>
+          <tr><td><strong>Humidity</strong></td><td>Davis sensor (live)</td><td>% relative humidity</td></tr>
+          <tr><td><strong>Dew Point</strong></td><td>Calculated from temp + RH</td><td>Magnus formula; °C to 1 decimal</td></tr>
+          <tr><td><strong>UV Now</strong></td><td>Open-Meteo current hour</td><td>Current hourly UV index</td></tr>
+          <tr><td><strong>Rain Today</strong></td><td>Davis sensor (live)</td><td>mm since midnight</td></tr>
+          <tr><td><strong>Wind</strong></td><td>Davis sensor (live)</td><td>Speed (km/h) + 16-point compass direction</td></tr>
+          <tr><td><strong>Sunrise / Sunset</strong></td><td>Open-Meteo forecast</td><td>12-hour format (e.g. 6:32 AM / 5:15 PM)</td></tr>
+          <tr><td><strong>Pressure</strong></td><td>Davis sensor (live)</td><td>hPa + trend: ↑ Rising (green) · → Steady (grey) · ↓ Falling (orange)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">📊</span>
+      <div><strong>Pressure Trend</strong> — The ↑ / → / ↓ arrow next to pressure is calculated from a 10-reading rolling buffer. Rising pressure (&gt; +0.5 hPa/hr) generally indicates improving conditions. Falling pressure (&lt; −0.5 hPa/hr) can indicate an approaching low or deteriorating weather. The rate is computed in hPa per hour.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 10 — TILE COLOUR GUIDE
+══════════════════════════════════════════════════ -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div>
+      <h2>Tile Colour Guide</h2>
+      <p>What each tile colour means at a glance — consistent across all tiles</p>
+    </div>
+  </div>
+  <div class="section-body">
+    <p>Every tile on the Golfer page uses the same colour language. Once you know the system, you can read the page at a glance without reading the detail text.</p>
+
+    <div class="tile-grid">
+      <div class="tile-chip tc-green"><div class="tile-chip-label">Green</div><div class="tile-chip-desc">Optimal — ideal conditions for golf</div></div>
+      <div class="tile-chip tc-yellow"><div class="tile-chip-label">Yellow / Gold</div><div class="tile-chip-desc">Caution — manageable but worth noting</div></div>
+      <div class="tile-chip tc-orange"><div class="tile-chip-label">Orange</div><div class="tile-chip-desc">Warning — challenging; some adjustment needed</div></div>
+      <div class="tile-chip tc-red"><div class="tile-chip-label">Red</div><div class="tile-chip-desc">Danger — poor or unsafe conditions</div></div>
+      <div class="tile-chip tc-blue"><div class="tile-chip-label">Blue</div><div class="tile-chip-desc">Wet / Soft — water-related conditions</div></div>
+      <div class="tile-chip tc-purple"><div class="tile-chip-label">Purple</div><div class="tile-chip-desc">Extreme — exceptional severity (UV only)</div></div>
+      <div class="tile-chip tc-dark"><div class="tile-chip-label">Dark</div><div class="tile-chip-desc">Night / Pre-dawn — outside playable hours</div></div>
+    </div>
+
+    <h3>Quick Reference — Ideal Conditions at a Glance</h3>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Factor</th><th>Ideal Range</th><th>Action Required At</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Feels Like Temp</strong></td><td>15–26°C</td><td>&lt; 8°C or &gt; 35°C</td></tr>
+          <tr><td><strong>Wind</strong></td><td>&lt; 20 km/h</td><td>&gt; 40 km/h — consider suspension</td></tr>
+          <tr><td><strong>Rain Probability</strong></td><td>&lt; 20%</td><td>&gt; 80% — pack rain gear</td></tr>
+          <tr><td><strong>UV Index</strong></td><td>≤ 2 (no protection needed)</td><td>≥ 6 — sunscreen essential</td></tr>
+          <tr><td><strong>Course Roll</strong></td><td>0 to +15 mm deficit (Normal)</td><td>&lt; −10 mm — carts on paths</td></tr>
+          <tr><td><strong>Frost Risk</strong></td><td>Overnight low ≥ 7°C</td><td>&lt; 2°C — delay early tee times</td></tr>
+          <tr><td><strong>Playing Conditions</strong></td><td>Outstanding or Excellent</td><td>Tough or Not Playable</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════ -->
+<div class="footer">
+  <p><strong>Wagga Wagga Country Club</strong> — Golfer Weather Page Reference Guide</p>
+  <p style="margin-top:6px">All conditions updated automatically from the on-site Davis WeatherLink station and Open-Meteo forecast service.<br>
+  Apparent Temperature: Australian Bureau of Meteorology AT formula · Ball Flight: atmospheric adjustment model · Playability: multi-factor penalty scoring system.</p>
+  <p style="margin-top:10px;color:#9ca3af">Document prepared June 2026 · For member &amp; staff reference</p>
+</div>
+
+</body>
+</html>
