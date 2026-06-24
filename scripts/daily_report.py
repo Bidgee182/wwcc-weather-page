@@ -482,6 +482,42 @@ RISK_ROW_BG = {
     'SEVERE':   '#f5f3ff',
 }
 
+# Shared inline style fragments
+_HDR = ('background:linear-gradient(135deg,#1a4a2e,#2d7a4e);'
+        'padding:18px 24px;')
+_CIRCLE = ('display:inline-block;width:32px;height:32px;line-height:32px;'
+           'text-align:center;border-radius:50%;'
+           'background:rgba(255,255,255,0.2);'
+           'color:white;font-weight:700;font-size:14px;'
+           'margin-right:10px;vertical-align:middle;')
+_HDR_TXT = 'color:white;font-size:16px;font-weight:700;vertical-align:middle;'
+_HDR_SUB = 'color:rgba(255,255,255,0.8);font-size:12px;margin-top:3px;'
+_CARD    = ('background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;'
+            'padding:14px 16px;')
+_LABEL   = ('font-size:10px;font-weight:700;letter-spacing:1.5px;'
+            'text-transform:uppercase;color:#94a3b8;margin-bottom:6px;')
+_VAL     = 'font-size:22px;font-weight:700;color:#111827;line-height:1.2;'
+_SUB     = 'font-size:12px;color:#64748b;margin-top:4px;'
+
+
+def sec_header(num, title, subtitle=''):
+    """Green gradient section header matching the guide style."""
+    sub_html = (f'<div style="{_HDR_SUB}">{subtitle}</div>' if subtitle else '')
+    return f"""<tr><td style="{_HDR}">
+      <span style="{_CIRCLE}">{num}</span>
+      <span style="{_HDR_TXT}">{title}</span>
+      {sub_html}
+    </td></tr>"""
+
+
+def card(label, value, sub=''):
+    """Metric card."""
+    sub_html = f'<div style="{_SUB}">{sub}</div>' if sub else ''
+    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="{_CARD}">
+      <tr><td><div style="{_LABEL}">{label}</div>
+      <div style="{_VAL}">{value}</div>
+      {sub_html}</td></tr></table>"""
+
 
 def build_daily_html(row, target_date, history):
     """Generate the HTML email body for the daily morning report."""
@@ -506,19 +542,19 @@ def build_daily_html(row, target_date, history):
 
     frost_banner = ''
     if frost_flag:
-        frost_banner = '''
-  <tr><td style="background:#0c1a2e;border-left:4px solid #60a5fa;
-      padding:12px 28px;color:#93c5fd;font-size:13px;">
-      ❄️ &nbsp;<strong>Frost recorded overnight</strong> — greens should be checked
-      before early morning play.</td></tr>'''
+        frost_banner = (
+            '<tr><td style="background:#0c1a2e;border-left:4px solid #60a5fa;'
+            'padding:12px 24px;color:#93c5fd;font-size:13px;">'
+            '&#10052; &nbsp;<strong style="color:#bfdbfe;">Frost recorded overnight'
+            '</strong> — greens should be checked before early morning play.</td></tr>')
 
     disease_banner = ''
     if da_flag:
-        disease_banner = '''
-  <tr><td style="background:#1c0a0a;border-left:4px solid #ef4444;
-      padding:12px 28px;color:#fca5a5;font-size:13px;">
-      🦠 &nbsp;<strong>Disease alert</strong> — at least one disease reached
-      HIGH or SEVERE risk yesterday.</td></tr>'''
+        disease_banner = (
+            '<tr><td style="background:#1c0a0a;border-left:4px solid #ef4444;'
+            'padding:12px 24px;color:#fca5a5;font-size:13px;">'
+            '&#129440; &nbsp;<strong style="color:#fecaca;">Disease alert</strong>'
+            ' — at least one disease reached HIGH or SEVERE risk yesterday.</td></tr>')
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -526,239 +562,323 @@ def build_daily_html(row, target_date, history):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;padding:28px 0;">
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
-    style="max-width:600px;width:100%;border-radius:14px;
-    box-shadow:0 4px 24px rgba(0,0,0,0.10);overflow:hidden;">
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
-  <!-- ── HEADER ── -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e 0%,#2d7a4e 100%);padding:32px 28px 28px;">
+  <!-- COVER HEADER -->
+  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
+      padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;
-            color:#6ee7b7;font-weight:700;margin-bottom:8px;">Wagga Wagga Country Club</div>
-        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;">
-            Morning Weather Briefing</div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:6px;">{date_str}</div>
+      <td valign="top">
+        <div style="display:inline-block;background:rgba(201,162,39,0.25);
+            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Daily Briefing</div>
+        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
+            margin-bottom:8px;">Morning Weather Briefing</div>
+        <div style="font-size:14px;color:#a8e6bf;font-weight:300;
+            margin-bottom:10px;">{date_str}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
+            text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="font-size:44px;line-height:1;padding-left:12px;">⛳</td>
+      <td align="right" valign="top" style="font-size:48px;line-height:1;
+          padding-left:12px;opacity:0.9;">&#9971;</td>
     </tr></table>
   </td></tr>
 
-  <!-- ── ALERT BANNERS ── -->
   {frost_banner}
   {disease_banner}
 
-  <!-- ── SECTION: YESTERDAY AT A GLANCE ── -->
-  <tr><td style="background:white;padding:24px 28px 8px;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-        color:#94a3b8;margin-bottom:16px;">Yesterday at a Glance</div>
-
-    <!-- Row 1: Temperature | Rain & ET | Wind -->
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="33%" style="padding:0 5px 12px 0;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:2px;">Temperature</td></tr>
-            <tr><td style="font-size:21px;font-weight:700;color:#111827;
-                line-height:1;padding-bottom:4px;">
-                {row['temp_max']}° / {row['temp_min']}°C</td></tr>
-            <tr><td style="font-size:12px;color:#64748b;padding-top:0;">
-                Mean {row['temp_mean']}°C &nbsp;·&nbsp; RH {row['rh_mean']}%</td></tr>
-          </table>
-        </td>
-        <td width="33%" style="padding:0 3px 12px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:2px;">Rain &amp; ET</td></tr>
-            <tr><td style="font-size:21px;font-weight:700;color:#111827;
-                line-height:1;padding-bottom:4px;">{row['rain_mm']} mm</td></tr>
-            <tr><td style="font-size:12px;color:#64748b;padding-top:0;">
-                ET {row['et_mm']} mm &nbsp;·&nbsp; Net {net_str} mm</td></tr>
-          </table>
-        </td>
-        <td width="33%" style="padding:0 0 12px 5px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:2px;">Wind</td></tr>
-            <tr><td style="font-size:21px;font-weight:700;color:#111827;
-                line-height:1;padding-bottom:4px;">{row['wind_max_kmh']} km/h</td></tr>
-            <tr><td style="font-size:12px;color:#64748b;padding-top:0;">
-                Mean {row['wind_mean_kmh']} km/h &nbsp;·&nbsp; ΔT {row['delta_t_mean']}°C</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Row 2: Soil | UV & Pressure -->
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="50%" style="padding:0 5px 20px 0;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:2px;">Soil Moisture</td></tr>
-            <tr><td style="font-size:21px;font-weight:700;color:#111827;
-                line-height:1;padding-bottom:4px;">{row['soil_zone']}</td></tr>
-            <tr><td style="font-size:12px;color:#64748b;padding-top:0;">
-                7-day balance: {soil_bal:+.1f} mm</td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding:0 0 20px 5px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:2px;">UV &amp; Pressure</td></tr>
-            <tr><td style="font-size:21px;font-weight:700;color:#111827;
-                line-height:1;padding-bottom:4px;">UV {uv_str}</td></tr>
-            <tr><td style="font-size:12px;color:#64748b;padding-top:0;">
-                Pressure {pressure_str} hPa</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+  <!-- SECTION 1: YESTERDAY AT A GLANCE -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+            color:white;font-weight:700;font-size:13px;margin-right:10px;
+            vertical-align:middle;">1</span>
+        <span style="color:white;font-size:15px;font-weight:700;
+            vertical-align:middle;">Yesterday at a Glance</span>
+      </td>
+    </tr></table>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Key weather measurements for the past 24 hours</div>
   </td></tr>
 
-  <!-- ── SECTION: DISEASE RISK ── -->
-  <tr><td style="background:white;padding:0 28px 20px;">
-    <div style="border-top:1px solid #f1f5f9;padding-top:20px;margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-          color:#94a3b8;margin-bottom:12px;">Disease Risk</div>
-      <span style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:20px;
-          padding:4px 14px;font-size:12px;color:#065f46;font-weight:600;">
-          Leaf wetness: {row['leaf_wet_hours']} hrs yesterday</span>
-    </div>
-    <table width="100%" cellpadding="0" cellspacing="0"
-        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:13px;">
-      <tr style="background:{ds_bg};">
-        <td style="padding:11px 14px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;width:45%;">Dollar Spot</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;">
-            {risk_badge(row['dollar_spot_risk'])}
-            <span style="font-size:11px;color:#64748b;margin-left:8px;">
-                {row['dollar_spot_pct']}% probability</span></td>
-      </tr>
-      <tr style="background:{fs_bg};">
-        <td style="padding:11px 14px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;">Fusarium Patch</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;">
-            {risk_badge(row['fusarium_risk'])}
-            <span style="font-size:11px;color:#64748b;margin-left:8px;">
-                Score {row['fusarium_score']}</span></td>
-      </tr>
-      <tr style="background:{bp_bg};">
-        <td style="padding:11px 14px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;">Brown Patch</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;">
-            {risk_badge(row['brown_patch_risk'])}</td>
-      </tr>
-      <tr style="background:{py_bg};">
-        <td style="padding:11px 14px;font-weight:600;color:#1f2937;">Pythium Blight</td>
-        <td style="padding:11px 14px;text-align:right;">
-            {risk_badge(row['pythium_risk'])}</td>
+  <tr><td style="background:white;padding:20px 24px 8px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+      <tr>
+        <td width="33%" style="padding-right:6px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Temperature</div>
+              <div style="font-size:22px;font-weight:700;color:#111827;
+                  line-height:1.1;margin-bottom:5px;">{row['temp_max']}° / {row['temp_min']}°C</div>
+              <div style="font-size:12px;color:#64748b;">Mean {row['temp_mean']}°C &nbsp;·&nbsp; RH {row['rh_mean']}%</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Rain &amp; ET</div>
+              <div style="font-size:22px;font-weight:700;color:#111827;
+                  line-height:1.1;margin-bottom:5px;">{row['rain_mm']} mm</div>
+              <div style="font-size:12px;color:#64748b;">ET {row['et_mm']} mm &nbsp;·&nbsp; Net {net_str} mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding-left:6px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Wind</div>
+              <div style="font-size:22px;font-weight:700;color:#111827;
+                  line-height:1.1;margin-bottom:5px;">{row['wind_max_kmh']} km/h</div>
+              <div style="font-size:12px;color:#64748b;">Mean {row['wind_mean_kmh']} km/h &nbsp;·&nbsp; &#916;T {row['delta_t_mean']}°C</div>
+            </td></tr>
+          </table>
+        </td>
       </tr>
     </table>
-  </td></tr>
-
-  <!-- ── SECTION: GDD ── -->
-  <tr><td style="background:white;padding:0 28px 20px;">
-    <div style="border-top:1px solid #f1f5f9;padding-top:20px;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-        color:#94a3b8;margin-bottom:12px;">Growing Degree Days</div>
-    <table width="100%" cellpadding="0" cellspacing="0">
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
         <td width="50%" style="padding-right:5px;vertical-align:top;">
           <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#065f46;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:4px;">Bentgrass — base 10°C</td></tr>
-            <tr><td style="font-size:22px;font-weight:700;color:#1a4a2e;
-                line-height:1;padding-bottom:4px;">{row['gdd_bent']} GDD today</td></tr>
-            <tr><td style="font-size:12px;color:#2d7a4e;font-weight:600;padding-top:0;">
-                7-day total: {row['gdd_bent_7d']} GDD</td></tr>
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Soil Moisture</div>
+              <div style="font-size:22px;font-weight:700;color:#111827;
+                  line-height:1.1;margin-bottom:5px;">{row['soil_zone']}</div>
+              <div style="font-size:12px;color:#64748b;">7-day balance: {soil_bal:+.1f} mm</div>
+            </td></tr>
           </table>
         </td>
         <td width="50%" style="padding-left:5px;vertical-align:top;">
           <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;">
-            <tr><td style="font-size:10px;color:#713f12;font-weight:700;letter-spacing:1px;
-                text-transform:uppercase;padding-bottom:4px;">Kikuyu — base 15°C</td></tr>
-            <tr><td style="font-size:22px;font-weight:700;color:#713f12;
-                line-height:1;padding-bottom:4px;">{row['gdd_kik']} GDD today</td></tr>
-            <tr><td style="font-size:12px;color:#92400e;font-weight:600;padding-top:0;">
-                7-day total: {row['gdd_kik_7d']} GDD</td></tr>
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">UV &amp; Pressure</div>
+              <div style="font-size:22px;font-weight:700;color:#111827;
+                  line-height:1.1;margin-bottom:5px;">UV {uv_str}</div>
+              <div style="font-size:12px;color:#64748b;">Pressure: {pressure_str} hPa</div>
+            </td></tr>
           </table>
         </td>
       </tr>
     </table>
-    </div>
   </td></tr>
 
-  <!-- ── SECTION: SPRAY CONDITIONS ── -->
-  <tr><td style="background:white;padding:0 28px 28px;">
-    <div style="border-top:1px solid #f1f5f9;padding-top:20px;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-        color:#94a3b8;margin-bottom:12px;">Spray Conditions — Yesterday</div>
+  <!-- SECTION 2: GROWING DEGREE DAYS -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+            color:white;font-weight:700;font-size:13px;margin-right:10px;
+            vertical-align:middle;">2</span>
+        <span style="color:white;font-size:15px;font-weight:700;
+            vertical-align:middle;">Growing Degree Days</span>
+      </td>
+    </tr></table>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Heat accumulation for grass growth — base temperatures apply</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td width="33%" style="padding-right:5px;">
-          <table width="100%" cellpadding="0" cellspacing="0"
-              style="background:#dcfce7;border:1px solid #86efac;border-radius:10px;
-              text-align:center;padding:16px 8px;">
-            <tr><td style="font-size:10px;font-weight:700;color:#14532d;
-                letter-spacing:2px;text-transform:uppercase;padding-bottom:8px;">GO</td></tr>
-            <tr><td style="font-size:36px;font-weight:700;color:#15803d;
-                line-height:1;padding-bottom:6px;">{row['spray_go_hours']}</td></tr>
-            <tr><td style="font-size:11px;color:#166534;font-weight:600;">hours</td></tr>
+        <td width="50%" style="padding-right:5px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">
+                  Bentgrass &mdash; base 10°C</div>
+              <div style="font-size:28px;font-weight:700;color:#1a4a2e;
+                  line-height:1;margin-bottom:6px;">{row['gdd_bent']} GDD</div>
+              <div style="font-size:12px;color:#2d7a4e;font-weight:600;
+                  margin-bottom:10px;">Today's accumulation</div>
+              <div>
+                <span style="background:#1a4a2e;color:white;padding:4px 12px;
+                    border-radius:20px;font-size:11px;font-weight:700;">
+                    7-day: {row['gdd_bent_7d']} GDD</span>
+              </div>
+            </td></tr>
           </table>
         </td>
-        <td width="33%" style="padding:0 3px;">
-          <table width="100%" cellpadding="0" cellspacing="0"
-              style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;
-              text-align:center;padding:16px 8px;">
-            <tr><td style="font-size:10px;font-weight:700;color:#713f12;
-                letter-spacing:2px;text-transform:uppercase;padding-bottom:8px;">CAUTION</td></tr>
-            <tr><td style="font-size:36px;font-weight:700;color:#a16207;
-                line-height:1;padding-bottom:6px;">{row['spray_caution_hours']}</td></tr>
-            <tr><td style="font-size:11px;color:#92400e;font-weight:600;">hours</td></tr>
-          </table>
-        </td>
-        <td width="33%" style="padding-left:5px;">
-          <table width="100%" cellpadding="0" cellspacing="0"
-              style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;
-              text-align:center;padding:16px 8px;">
-            <tr><td style="font-size:10px;font-weight:700;color:#7f1d1d;
-                letter-spacing:2px;text-transform:uppercase;padding-bottom:8px;">NO-GO</td></tr>
-            <tr><td style="font-size:36px;font-weight:700;color:#dc2626;
-                line-height:1;padding-bottom:6px;">{row['spray_nogo_hours']}</td></tr>
-            <tr><td style="font-size:11px;color:#991b1b;font-weight:600;">hours</td></tr>
+        <td width="50%" style="padding-left:5px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#713f12;margin-bottom:6px;">
+                  Kikuyu &mdash; base 15°C</div>
+              <div style="font-size:28px;font-weight:700;color:#713f12;
+                  line-height:1;margin-bottom:6px;">{row['gdd_kik']} GDD</div>
+              <div style="font-size:12px;color:#92400e;font-weight:600;
+                  margin-bottom:10px;">Today's accumulation</div>
+              <div>
+                <span style="background:#713f12;color:white;padding:4px 12px;
+                    border-radius:20px;font-size:11px;font-weight:700;">
+                    7-day: {row['gdd_kik_7d']} GDD</span>
+              </div>
+            </td></tr>
           </table>
         </td>
       </tr>
     </table>
-    </div>
   </td></tr>
 
-  <!-- ── FOOTER ── -->
-  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;
-      padding:18px 28px;text-align:center;border-radius:0 0 14px 14px;">
-    <div style="font-size:11px;color:#94a3b8;line-height:2;">
-      Wagga Wagga Country Club &nbsp;·&nbsp; Automated Daily Report<br>
-      Davis WeatherLink &amp; Open-Meteo archive data
+  <!-- SECTION 3: DISEASE RISK -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+            color:white;font-weight:700;font-size:13px;margin-right:10px;
+            vertical-align:middle;">3</span>
+        <span style="color:white;font-size:15px;font-weight:700;
+            vertical-align:middle;">Disease Risk</span>
+      </td>
+    </tr></table>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Based on yesterday's temperature, humidity and leaf wetness</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
+    <div style="margin-bottom:14px;">
+      <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
+          padding:5px 16px;border-radius:20px;font-size:12px;font-weight:700;">
+          &#127807; Leaf wetness: {row['leaf_wet_hours']} hrs</span>
     </div>
-    <div style="margin-top:10px;">
-      <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
-          style="display:inline-block;background:#1a4a2e;color:white;
-          text-decoration:none;font-size:12px;font-weight:700;
-          padding:8px 20px;border-radius:20px;letter-spacing:0.5px;">
-          Open Live Dashboard</a>
-    </div>
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <tr style="background:#1a4a2e;">
+        <th style="padding:10px 14px;text-align:left;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:38%;">Disease</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:26%;">Risk Level</th>
+        <th style="padding:10px 14px;text-align:right;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Detail</th>
+      </tr>
+      <tr style="background:{ds_bg};">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Dollar Spot</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {risk_badge(row['dollar_spot_risk'])}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
+            font-size:12px;color:#64748b;">{row['dollar_spot_pct']}% probability</td>
+      </tr>
+      <tr style="background:{fs_bg};">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Fusarium Patch</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {risk_badge(row['fusarium_risk'])}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
+            font-size:12px;color:#64748b;">Score: {row['fusarium_score']}</td>
+      </tr>
+      <tr style="background:{bp_bg};">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Brown Patch</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {risk_badge(row['brown_patch_risk'])}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
+            font-size:12px;color:#64748b;">Night humidity model</td>
+      </tr>
+      <tr style="background:{py_bg};">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;">
+            Pythium Blight</td>
+        <td style="padding:11px 14px;text-align:center;">
+            {risk_badge(row['pythium_risk'])}</td>
+        <td style="padding:11px 14px;text-align:right;font-size:12px;color:#64748b;">
+            Night temp &amp; wetness</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- SECTION 4: SPRAY CONDITIONS -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td>
+        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+            color:white;font-weight:700;font-size:13px;margin-right:10px;
+            vertical-align:middle;">4</span>
+        <span style="color:white;font-size:15px;font-weight:700;
+            vertical-align:middle;">Spray Conditions</span>
+      </td>
+    </tr></table>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Hours yesterday classified by Delta T and wind thresholds</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="33%" style="padding-right:6px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#dcfce7;border:2px solid #86efac;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#15803d;color:white;padding:3px 16px;
+                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+                  GO</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#15803d;
+                line-height:1;padding:8px 0;">{row['spray_go_hours']}</td></tr>
+            <tr><td style="font-size:12px;color:#166534;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding:0 3px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#fef9c3;border:2px solid #fde047;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#a16207;color:white;padding:3px 16px;
+                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+                  CAUTION</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#a16207;
+                line-height:1;padding:8px 0;">{row['spray_caution_hours']}</td></tr>
+            <tr><td style="font-size:12px;color:#92400e;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding-left:6px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#fee2e2;border:2px solid #fca5a5;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#dc2626;color:white;padding:3px 16px;
+                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+                  NO-GO</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#dc2626;
+                line-height:1;padding:8px 0;">{row['spray_nogo_hours']}</td></tr>
+            <tr><td style="font-size:12px;color:#991b1b;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Daily Report</div>
+    <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
+        style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
+        font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;
+        letter-spacing:0.5px;">&#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
+        Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
   </td></tr>
 
 </table>
