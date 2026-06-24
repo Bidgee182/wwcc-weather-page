@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To
+from sendgrid.helpers.mail import Mail, To, Email
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION — loaded from GitHub Secrets (environment variables)
@@ -39,7 +39,7 @@ DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET',   'urw4q7amnhwnajydf3r1ubgg
 DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '10489')
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
-EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'weather@wwcc.com.au')
+EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 
 # Comma-separated list of email addresses from secret, e.g.:
 # "greenkeeper@wwcc.com.au,committee@wwcc.com.au"
@@ -807,7 +807,7 @@ def send_email(subject, html_body, recipients):
         print('No email recipients configured.')
         return
     message = Mail(
-        from_email=EMAIL_FROM,
+        from_email=Email(EMAIL_FROM, 'WWCC Weather'),
         subject=subject,
         html_content=html_body,
     )
