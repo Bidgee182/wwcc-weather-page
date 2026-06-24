@@ -2,9 +2,12 @@ name: WWCC Daily Weather Report
 
 on:
   schedule:
-    # 8 PM UTC = 6 AM AEST (UTC+10)
-    # During AEDT daylight saving (Oct-Apr) this runs at 7 AM local — close enough
-    - cron: '0 20 * * *'
+    # Two entries so the report always arrives at 6 AM Sydney time regardless of DST.
+    # AEST  (UTC+10) Apr–Oct: 8 PM UTC  = 6 AM next day
+    # AEDT  (UTC+11) Oct–Apr: 7 PM UTC  = 6 AM next day
+    # The script guards against duplicate runs on DST transition days.
+    - cron: '0 20 * * *'   # 6 AM AEST
+    - cron: '0 19 * * *'   # 6 AM AEDT
 
   # Allow manual trigger from GitHub Actions tab for testing
   workflow_dispatch:
