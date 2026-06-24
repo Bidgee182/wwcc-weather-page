@@ -907,6 +907,13 @@ def main():
     yesterday  = (now_sydney - timedelta(days=1)).date()
     print(f'Running daily report for {yesterday} (Sydney time)')
 
+    # Guard against duplicate runs (two cron entries cover AEST and AEDT —
+    # on DST transition days both fire within an hour of each other).
+    existing = read_csv_history(3)
+    if any(r.get('date') == yesterday.isoformat() for r in existing):
+        print(f'Report for {yesterday} already exists in CSV — skipping duplicate run.')
+        return
+
     # ── 1. Fetch data ──────────────────────────────────────────────────────
     print('Fetching Davis v2 historic data...')
     davis_records = fetch_davis_historic(yesterday)
