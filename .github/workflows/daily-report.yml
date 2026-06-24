@@ -39,9 +39,10 @@ jobs:
           DAVIS_V2_KEY:     ${{ secrets.DAVIS_V2_KEY }}
           DAVIS_V2_SECRET:  ${{ secrets.DAVIS_V2_SECRET }}
           DAVIS_V2_STATION: ${{ secrets.DAVIS_V2_STATION }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
-          EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
+          SENDGRID_API_KEY:          ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_GK_RECIPIENTS:       ${{ secrets.EMAIL_GK_RECIPIENTS }}
+          EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
+          EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
         run: python scripts/daily_report.py
 
       - name: Commit updated data to repository
