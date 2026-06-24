@@ -15,8 +15,6 @@ Runs via GitHub Actions every morning at 6 AM AEST.
 
 import os
 import csv
-import hmac
-import hashlib
 import math
 import json
 import time
@@ -25,7 +23,7 @@ from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To
+from sendgrid.helpers.mail import Mail, To, Email
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION — loaded from GitHub Secrets (environment variables)
@@ -39,7 +37,7 @@ DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET',   'urw4q7amnhwnajydf3r1ubgg
 DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '10489')
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
-EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'weather@wwcc.com.au')
+EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 
 # Comma-separated list of email addresses from secret, e.g.:
 # "greenkeeper@wwcc.com.au,committee@wwcc.com.au"
@@ -246,21 +244,6 @@ def pythium_risk(night_wet_hours, night_min, day_temp):
 # DAVIS WEATHERLINK v2 API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def davis_v2_sign(params):
-    """Compute HMAC-SHA256 signature for Davis v2 API."""
-    params['api-key'] = DAVIS_V2_KEY
-    params['t']       = str(int(time.time()))
-    sorted_params     = sorted(params.items())
-    param_str         = ''.join(f'{k}{v}' for k, v in sorted_params)
-    sig = hmac.new(
-        DAVIS_V2_SECRET.encode(),
-        param_str.encode(),
-        hashlib.sha256
-    ).hexdigest()
-    params['api-signature'] = sig
-    return params
-
-
 def fetch_davis_historic(target_date):
     """
     Fetch sub-hourly records for target_date (date object, Sydney time).
@@ -274,14 +257,15 @@ def fetch_davis_historic(target_date):
     start_ts  = int(day_start.timestamp())
     end_ts    = int(day_end.timestamp())
 
-    params = davis_v2_sign({
+    url = f'https://api.weatherlink.com/v2/historic/{DAVIS_V2_STATION}'
+    params = {
+        'api-key':         DAVIS_V2_KEY,
         'start-timestamp': str(start_ts),
         'end-timestamp':   str(end_ts),
-    })
-
-    url = f'https://api.weatherlink.com/v2/historic/{DAVIS_V2_STATION}'
+    }
+    headers = {'X-Api-Secret': DAVIS_V2_SECRET}
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, headers=headers, timeout=30)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -807,7 +791,7 @@ def send_email(subject, html_body, recipients):
         print('No email recipients configured.')
         return
     message = Mail(
-        from_email=EMAIL_FROM,
+        from_email=Email(EMAIL_FROM, 'WWCC Weather'),
         subject=subject,
         html_content=html_body,
     )
