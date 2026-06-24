@@ -41,8 +41,16 @@ EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 
 # Comma-separated list of email addresses from secret, e.g.:
 # "greenkeeper@wwcc.com.au,committee@wwcc.com.au"
-EMAIL_RECIPIENTS_ALL     = os.environ.get('EMAIL_RECIPIENTS', '').split(',')
-EMAIL_RECIPIENTS_GK_ONLY = [EMAIL_RECIPIENTS_ALL[0]] if EMAIL_RECIPIENTS_ALL else []
+# Greenkeeper addresses (daily + weekly + monthly + annual)
+EMAIL_GK_RECIPIENTS = [
+    a.strip() for a in os.environ.get('EMAIL_GK_RECIPIENTS', '').split(',') if a.strip()
+]
+# Committee addresses (weekly + monthly + annual only)
+EMAIL_COMMITTEE_RECIPIENTS = [
+    a.strip() for a in os.environ.get('EMAIL_COMMITTEE_RECIPIENTS', '').split(',') if a.strip()
+]
+EMAIL_RECIPIENTS_ALL     = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
+EMAIL_RECIPIENTS_GK_ONLY = EMAIL_GK_RECIPIENTS
 
 CLUB_LAT = -35.1082
 CLUB_LON =  147.3598
@@ -890,101 +898,780 @@ def build_daily_html(row, target_date, history):
 
 
 def build_weekly_html(history, week_end_date):
-    """Generate HTML for the weekly summary email."""
-    date_str = week_end_date.strftime('Week ending %A, %-d %B %Y')
-    rows_html = ''
-    totals    = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0}
+    """Generate styled HTML for the weekly summary email."""
+    date_str    = week_end_date.strftime('Week ending %A, %-d %B %Y')
+    totals      = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0}
+    alert_days  = 0
+    frost_days  = 0
+    rows_html   = ''
 
-    for row in history:
-        d = row.get('date', '')
-        rows_html += f"""
-        <tr style="background:#f8fafc;">
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;">{d}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('temp_max','--')}/{row.get('temp_min','--')}°C</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('rain_mm','--')}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('et_mm','--')}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('gdd_bent','--')}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('dollar_spot_risk','--')}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('fusarium_risk','--')}</td>
-          <td style="padding:8px 10px;font-size:12px;border-bottom:1px solid #e2e8f0;text-align:center;">
-              {row.get('spray_go_hours','--')}h GO</td>
-        </tr>"""
+    for i, row in enumerate(history):
+        bg = '#f8fafc' if i % 2 == 0 else 'white'
+        ds  = row.get('dollar_spot_risk', '')
+        fus = row.get('fusarium_risk', '')
+        if row.get('disease_alert') in ('True', True): alert_days += 1
+        if row.get('frost_flag')    in ('True', True): frost_days += 1
         totals['rain']     += safe_float(row.get('rain_mm'), 0)
         totals['et']       += safe_float(row.get('et_mm'), 0)
         totals['gdd_bent'] += safe_float(row.get('gdd_bent'), 0)
         totals['gdd_kik']  += safe_float(row.get('gdd_kik'), 0)
+        ds_cell  = risk_badge(ds)  if ds  else '--'
+        fus_cell = risk_badge(fus) if fus else '--'
+        rows_html += f"""
+      <tr style="background:{bg};">
+        <td style="padding:9px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;white-space:nowrap;">{row.get('date','')}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('temp_max','--')}/{row.get('temp_min','--')}°C</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('rain_mm','--')}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('et_mm','--')}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('gdd_bent','--')}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{ds_cell}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{fus_cell}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('spray_go_hours','--')} hrs</td>
+      </tr>"""
+
+    water_bal = totals['rain'] - totals['et']
 
     html = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0;">
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
-<table width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;">
+<table width="640" cellpadding="0" cellspacing="0"
+    style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);
-      padding:28px 32px;border-radius:12px 12px 0 0;color:white;">
-    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-        color:#6ee7b7;margin-bottom:6px;">Wagga Wagga Country Club</div>
-    <div style="font-size:22px;font-weight:700;">Weekly Weather Summary</div>
-    <div style="font-size:14px;opacity:0.8;margin-top:4px;">{date_str}</div>
+  <!-- COVER HEADER -->
+  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
+      padding:36px 28px 30px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="top">
+        <div style="display:inline-block;background:rgba(201,162,39,0.25);
+            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Weekly Summary</div>
+        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
+            margin-bottom:8px;">Weekly Weather Summary</div>
+        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{date_str}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
+            text-transform:uppercase;">Wagga Wagga Country Club</div>
+      </td>
+      <td align="right" valign="top" style="font-size:48px;line-height:1;
+          padding-left:12px;opacity:0.9;">&#9971;</td>
+    </tr></table>
   </td></tr>
 
-  <tr><td style="background:white;padding:24px 32px;border-radius:0 0 12px 12px;">
+  <!-- SECTION 1: 7-DAY DATA TABLE -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">1</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Daily Breakdown</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Weather, GDD and disease risk for each day this week</div>
+  </td></tr>
 
+  <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0"
-        style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;font-size:12px;">
-      <tr style="background:#1a4a2e;color:white;">
-        <th style="padding:10px;text-align:left;">Date</th>
-        <th style="padding:10px;text-align:center;">Hi/Lo</th>
-        <th style="padding:10px;text-align:center;">Rain mm</th>
-        <th style="padding:10px;text-align:center;">ET mm</th>
-        <th style="padding:10px;text-align:center;">GDD Bent</th>
-        <th style="padding:10px;text-align:center;">Dollar Spot</th>
-        <th style="padding:10px;text-align:center;">Fusarium</th>
-        <th style="padding:10px;text-align:center;">Spray</th>
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
+      <tr style="background:#1a4a2e;">
+        <th style="padding:10px 12px;text-align:left;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Date</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Hi/Lo</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Rain mm</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">ET mm</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">GDD Bent</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Dollar Spot</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Fusarium</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Spray GO</th>
       </tr>
       {rows_html}
-      <tr style="background:#e8f5ee;font-weight:700;">
-        <td style="padding:10px;font-size:12px;">7-Day Total</td>
+      <tr style="background:#e8f5ee;">
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;">
+            7-Day Total</td>
         <td></td>
-        <td style="padding:10px;text-align:center;font-size:12px;">{totals['rain']:.1f} mm</td>
-        <td style="padding:10px;text-align:center;font-size:12px;">{totals['et']:.1f} mm</td>
-        <td style="padding:10px;text-align:center;font-size:12px;">{totals['gdd_bent']:.0f}</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['rain']:.1f} mm</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['et']:.1f} mm</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['gdd_bent']:.1f}</td>
         <td></td><td></td><td></td>
       </tr>
     </table>
+  </td></tr>
 
-    <table width="100%" cellpadding="8" cellspacing="6" style="margin-top:16px;">
+  <!-- SECTION 2: WEEKLY TOTALS -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">2</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Weekly Totals</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Cumulative water, ET and heat accumulation for the week</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-            <div style="font-size:11px;color:#64748b;font-weight:700;">Total Rainfall</div>
-            <div style="font-size:22px;font-weight:700;">{totals['rain']:.1f} mm</div></td>
-        <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-            <div style="font-size:11px;color:#64748b;font-weight:700;">Total ET</div>
-            <div style="font-size:22px;font-weight:700;">{totals['et']:.1f} mm</div></td>
-        <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-            <div style="font-size:11px;color:#64748b;font-weight:700;">Water Balance</div>
-            <div style="font-size:22px;font-weight:700;">{totals['rain']-totals['et']:+.1f} mm</div></td>
-        <td style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-            <div style="font-size:11px;color:#64748b;font-weight:700;">GDD Bent 7d</div>
-            <div style="font-size:22px;font-weight:700;">{totals['gdd_bent']:.0f}</div></td>
+        <td width="25%" style="padding-right:6px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;
+              text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">Rainfall</div>
+              <div style="font-size:24px;font-weight:700;color:#1a4a2e;
+                  line-height:1;">{totals['rain']:.1f}</div>
+              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+              text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#64748b;margin-bottom:6px;">Total ET</div>
+              <div style="font-size:24px;font-weight:700;color:#111827;
+                  line-height:1;">{totals['et']:.1f}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:{'#e8f5ee' if water_bal >= 0 else '#fef2f2'};
+              border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#065f46' if water_bal >= 0 else '#991b1b'};margin-bottom:6px;">
+                  Water Balance</div>
+              <div style="font-size:24px;font-weight:700;
+                  color:{'#1a4a2e' if water_bal >= 0 else '#dc2626'};line-height:1;">
+                  {water_bal:+.1f}</div>
+              <div style="font-size:11px;
+                  color:{'#2d7a4e' if water_bal >= 0 else '#991b1b'};margin-top:4px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding-left:6px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;
+              text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#713f12;margin-bottom:6px;">GDD Bent</div>
+              <div style="font-size:24px;font-weight:700;color:#713f12;
+                  line-height:1;">{totals['gdd_bent']:.1f}</div>
+              <div style="font-size:11px;color:#92400e;margin-top:4px;">this week</div>
+            </td></tr>
+          </table>
+        </td>
       </tr>
     </table>
   </td></tr>
 
-  <tr><td style="padding:16px 0;text-align:center;font-size:11px;color:#94a3b8;">
-    Wagga Wagga Country Club Weather Dashboard &nbsp;·&nbsp; Automated Weekly Report
+  <!-- SECTION 3: DISEASE & FROST SUMMARY -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">3</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Disease &amp; Frost Alerts</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Days this week where conditions triggered alerts</div>
   </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="50%" style="padding-right:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
+              border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
+                  Disease Alert Days</div>
+              <div style="font-size:40px;font-weight:700;
+                  color:{'#dc2626' if alert_days > 0 else '#15803d'};line-height:1;">
+                  {alert_days}</div>
+              <div style="font-size:12px;
+                  color:{'#991b1b' if alert_days > 0 else '#166534'};margin-top:6px;">
+                  {'HIGH or SEVERE risk days' if alert_days > 0 else 'No high-risk days'}</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="50%" style="padding-left:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
+              border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
+                  Frost Days</div>
+              <div style="font-size:40px;font-weight:700;
+                  color:{'#2563eb' if frost_days > 0 else '#15803d'};line-height:1;">
+                  {frost_days}</div>
+              <div style="font-size:12px;
+                  color:{'#1e40af' if frost_days > 0 else '#166534'};margin-top:6px;">
+                  {'nights below 2°C' if frost_days > 0 else 'No frost this week'}</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Weekly Report</div>
+    <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
+        style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
+        font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
+        &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
+        Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
+  </td></tr>
+
 </table>
 </td></tr>
 </table>
-</body></html>"""
+</body>
+</html>"""
+    return html
+
+
+def build_monthly_html(history, month_label):
+    """Generate styled HTML for the monthly summary email."""
+    totals     = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0}
+    alert_days = 0
+    frost_days = 0
+    rows_html  = ''
+
+    for i, row in enumerate(history):
+        bg = '#f8fafc' if i % 2 == 0 else 'white'
+        ds  = row.get('dollar_spot_risk', '')
+        fus = row.get('fusarium_risk', '')
+        if row.get('disease_alert') in ('True', True): alert_days += 1
+        if row.get('frost_flag')    in ('True', True): frost_days += 1
+        totals['rain']     += safe_float(row.get('rain_mm'), 0)
+        totals['et']       += safe_float(row.get('et_mm'), 0)
+        totals['gdd_bent'] += safe_float(row.get('gdd_bent'), 0)
+        totals['gdd_kik']  += safe_float(row.get('gdd_kik'), 0)
+        ds_cell  = risk_badge(ds)  if ds  else '--'
+        fus_cell = risk_badge(fus) if fus else '--'
+        rows_html += f"""
+      <tr style="background:{bg};">
+        <td style="padding:7px 10px;font-size:11px;color:#374151;border-bottom:1px solid #f1f5f9;white-space:nowrap;">{row.get('date','')}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('temp_max','--')}/{row.get('temp_min','--')}°C</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('rain_mm','--')}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('et_mm','--')}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('gdd_bent','--')}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{ds_cell}</td>
+        <td style="padding:7px 10px;font-size:11px;text-align:center;border-bottom:1px solid #f1f5f9;">{fus_cell}</td>
+      </tr>"""
+
+    water_bal = totals['rain'] - totals['et']
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
+<tr><td align="center">
+<table width="640" cellpadding="0" cellspacing="0"
+    style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+
+  <!-- COVER HEADER -->
+  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
+      padding:36px 28px 30px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="top">
+        <div style="display:inline-block;background:rgba(201,162,39,0.25);
+            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Monthly Summary</div>
+        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
+            margin-bottom:8px;">Monthly Weather Summary</div>
+        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{month_label}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
+            text-transform:uppercase;">Wagga Wagga Country Club</div>
+      </td>
+      <td align="right" valign="top" style="font-size:48px;line-height:1;
+          padding-left:12px;opacity:0.9;">&#9971;</td>
+    </tr></table>
+  </td></tr>
+
+  <!-- SECTION 1: DAILY DATA TABLE -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">1</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Daily Records</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Complete daily log for the month</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:11px;">
+      <tr style="background:#1a4a2e;">
+        <th style="padding:9px 10px;text-align:left;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">Date</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">Hi/Lo</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">Rain mm</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">ET mm</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">GDD Bent</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">Dollar Spot</th>
+        <th style="padding:9px 10px;text-align:center;color:white;font-size:10px;
+            font-weight:700;letter-spacing:0.5px;">Fusarium</th>
+      </tr>
+      {rows_html}
+      <tr style="background:#e8f5ee;">
+        <td style="padding:9px 10px;font-size:11px;font-weight:700;color:#1a4a2e;">
+            Monthly Total</td>
+        <td></td>
+        <td style="padding:9px 10px;font-size:11px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['rain']:.1f} mm</td>
+        <td style="padding:9px 10px;font-size:11px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['et']:.1f} mm</td>
+        <td style="padding:9px 10px;font-size:11px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['gdd_bent']:.1f}</td>
+        <td></td><td></td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- SECTION 2: MONTHLY TOTALS -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">2</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Monthly Totals</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Cumulative water, evapotranspiration and heat for the month</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="20%" style="padding-right:5px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:5px;">Rainfall</div>
+              <div style="font-size:20px;font-weight:700;color:#1a4a2e;line-height:1;">
+                  {totals['rain']:.0f}</div>
+              <div style="font-size:10px;color:#2d7a4e;margin-top:3px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="20%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#64748b;margin-bottom:5px;">Total ET</div>
+              <div style="font-size:20px;font-weight:700;color:#111827;line-height:1;">
+                  {totals['et']:.0f}</div>
+              <div style="font-size:10px;color:#64748b;margin-top:3px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="20%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:{'#e8f5ee' if water_bal >= 0 else '#fef2f2'};
+              border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#065f46' if water_bal >= 0 else '#991b1b'};margin-bottom:5px;">Balance</div>
+              <div style="font-size:20px;font-weight:700;
+                  color:{'#1a4a2e' if water_bal >= 0 else '#dc2626'};line-height:1;">
+                  {water_bal:+.0f}</div>
+              <div style="font-size:10px;
+                  color:{'#2d7a4e' if water_bal >= 0 else '#991b1b'};margin-top:3px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="20%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:5px;">GDD Bent</div>
+              <div style="font-size:20px;font-weight:700;color:#1a4a2e;line-height:1;">
+                  {totals['gdd_bent']:.0f}</div>
+              <div style="font-size:10px;color:#2d7a4e;margin-top:3px;">base 10°C</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="20%" style="padding-left:5px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#713f12;margin-bottom:5px;">GDD Kik</div>
+              <div style="font-size:20px;font-weight:700;color:#713f12;line-height:1;">
+                  {totals['gdd_kik']:.0f}</div>
+              <div style="font-size:10px;color:#92400e;margin-top:3px;">base 15°C</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- SECTION 3: DISEASE & FROST -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">3</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Disease &amp; Frost Summary</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Alert days recorded during the month</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="50%" style="padding-right:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
+              border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
+                  Disease Alert Days</div>
+              <div style="font-size:44px;font-weight:700;
+                  color:{'#dc2626' if alert_days > 0 else '#15803d'};line-height:1;">
+                  {alert_days}</div>
+              <div style="font-size:12px;
+                  color:{'#991b1b' if alert_days > 0 else '#166534'};margin-top:6px;">
+                  {'days with HIGH or SEVERE risk' if alert_days > 0 else 'No high-risk days'}</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="50%" style="padding-left:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
+              border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
+                  Frost Days</div>
+              <div style="font-size:44px;font-weight:700;
+                  color:{'#2563eb' if frost_days > 0 else '#15803d'};line-height:1;">
+                  {frost_days}</div>
+              <div style="font-size:12px;
+                  color:{'#1e40af' if frost_days > 0 else '#166534'};margin-top:6px;">
+                  {'nights below 2°C' if frost_days > 0 else 'No frost this month'}</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Monthly Report</div>
+    <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
+        style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
+        font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
+        &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
+        Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+    return html
+
+
+def build_yearly_html(history, year_label):
+    """Generate styled HTML for the annual summary email — monthly aggregates."""
+    from collections import defaultdict
+    months = defaultdict(lambda: {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0,
+                                   'gdd_kik': 0.0, 'alert_days': 0, 'frost_days': 0,
+                                   'days': 0})
+    for row in history:
+        d = row.get('date', '')
+        if not d or len(d) < 7:
+            continue
+        month_key = d[:7]  # YYYY-MM
+        m = months[month_key]
+        m['rain']      += safe_float(row.get('rain_mm'), 0)
+        m['et']        += safe_float(row.get('et_mm'), 0)
+        m['gdd_bent']  += safe_float(row.get('gdd_bent'), 0)
+        m['gdd_kik']   += safe_float(row.get('gdd_kik'), 0)
+        m['days']      += 1
+        if row.get('disease_alert') in ('True', True): m['alert_days'] += 1
+        if row.get('frost_flag')    in ('True', True): m['frost_days'] += 1
+
+    year_totals = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0,
+                   'alert_days': 0, 'frost_days': 0}
+    rows_html = ''
+    month_names = {
+        '01':'January','02':'February','03':'March','04':'April',
+        '05':'May','06':'June','07':'July','08':'August',
+        '09':'September','10':'October','11':'November','12':'December'
+    }
+
+    for i, (mk, m) in enumerate(sorted(months.items())):
+        bg = '#f8fafc' if i % 2 == 0 else 'white'
+        mn = month_names.get(mk[5:7], mk)
+        bal = m['rain'] - m['et']
+        bal_col = '#065f46' if bal >= 0 else '#dc2626'
+        year_totals['rain']       += m['rain']
+        year_totals['et']         += m['et']
+        year_totals['gdd_bent']   += m['gdd_bent']
+        year_totals['gdd_kik']    += m['gdd_kik']
+        year_totals['alert_days'] += m['alert_days']
+        year_totals['frost_days'] += m['frost_days']
+        ad_cell = (f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;'
+                   f'border-radius:10px;font-size:11px;font-weight:700;">{m["alert_days"]}</span>'
+                   if m['alert_days'] > 0 else
+                   f'<span style="color:#94a3b8;font-size:11px;">0</span>')
+        rows_html += f"""
+      <tr style="background:{bg};">
+        <td style="padding:9px 12px;font-size:12px;font-weight:600;color:#374151;
+            border-bottom:1px solid #f1f5f9;">{mn}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;">{m['rain']:.0f} mm</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;">{m['et']:.0f} mm</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            color:{bal_col};font-weight:600;border-bottom:1px solid #f1f5f9;">{bal:+.0f} mm</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;">{m['gdd_bent']:.0f}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;">{m['gdd_kik']:.0f}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;">{ad_cell}</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;
+            border-bottom:1px solid #f1f5f9;color:#64748b;">{m['frost_days']}</td>
+      </tr>"""
+
+    annual_bal = year_totals['rain'] - year_totals['et']
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
+<tr><td align="center">
+<table width="660" cellpadding="0" cellspacing="0"
+    style="max-width:660px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+
+  <!-- COVER HEADER -->
+  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
+      padding:36px 28px 30px;">
+    <table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="top">
+        <div style="display:inline-block;background:rgba(201,162,39,0.25);
+            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Annual Summary</div>
+        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
+            margin-bottom:8px;">Annual Weather Summary</div>
+        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{year_label}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
+            text-transform:uppercase;">Wagga Wagga Country Club</div>
+      </td>
+      <td align="right" valign="top" style="font-size:48px;line-height:1;
+          padding-left:12px;opacity:0.9;">&#9971;</td>
+    </tr></table>
+  </td></tr>
+
+  <!-- SECTION 1: MONTHLY BREAKDOWN TABLE -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">1</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Monthly Breakdown</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Aggregated weather totals for each month of the year</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
+      <tr style="background:#1a4a2e;">
+        <th style="padding:10px 12px;text-align:left;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Month</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Rain</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">ET</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Balance</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">GDD Bent</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">GDD Kik</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Alert Days</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Frost</th>
+      </tr>
+      {rows_html}
+      <tr style="background:#e8f5ee;">
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;">Annual Total</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;text-align:center;">{year_totals['rain']:.0f} mm</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;text-align:center;">{year_totals['et']:.0f} mm</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;text-align:center;
+            color:{'#065f46' if annual_bal >= 0 else '#dc2626'};">{annual_bal:+.0f} mm</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;text-align:center;">{year_totals['gdd_bent']:.0f}</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;text-align:center;">{year_totals['gdd_kik']:.0f}</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#dc2626;text-align:center;">{year_totals['alert_days']}</td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#2563eb;text-align:center;">{year_totals['frost_days']}</td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- SECTION 2: ANNUAL HIGHLIGHTS -->
+  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
+        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
+        color:white;font-weight:700;font-size:13px;margin-right:10px;
+        vertical-align:middle;">2</span>
+    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
+        Annual Highlights</span>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
+        margin-left:38px;">Key totals for the full year</div>
+  </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="25%" style="padding-right:5px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">Annual Rain</div>
+              <div style="font-size:26px;font-weight:700;color:#1a4a2e;line-height:1;">
+                  {year_totals['rain']:.0f}</div>
+              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">mm</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">GDD Bentgrass</div>
+              <div style="font-size:26px;font-weight:700;color:#1a4a2e;line-height:1;">
+                  {year_totals['gdd_bent']:.0f}</div>
+              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">base 10°C</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding:0 3px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:{'#fef2f2' if year_totals['alert_days'] > 0 else '#f0fdf4'};
+              border:1px solid {'#fca5a5' if year_totals['alert_days'] > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#991b1b' if year_totals['alert_days'] > 0 else '#065f46'};margin-bottom:6px;">
+                  Disease Days</div>
+              <div style="font-size:26px;font-weight:700;
+                  color:{'#dc2626' if year_totals['alert_days'] > 0 else '#15803d'};line-height:1;">
+                  {year_totals['alert_days']}</div>
+              <div style="font-size:11px;
+                  color:{'#991b1b' if year_totals['alert_days'] > 0 else '#166534'};margin-top:4px;">
+                  alert days</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="25%" style="padding-left:5px;vertical-align:top;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:{'#eff6ff' if year_totals['frost_days'] > 0 else '#f0fdf4'};
+              border:1px solid {'#93c5fd' if year_totals['frost_days'] > 0 else '#86efac'};
+              border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;
+                  color:{'#1d4ed8' if year_totals['frost_days'] > 0 else '#065f46'};margin-bottom:6px;">
+                  Frost Days</div>
+              <div style="font-size:26px;font-weight:700;
+                  color:{'#2563eb' if year_totals['frost_days'] > 0 else '#15803d'};line-height:1;">
+                  {year_totals['frost_days']}</div>
+              <div style="font-size:11px;
+                  color:{'#1e40af' if year_totals['frost_days'] > 0 else '#166534'};margin-top:4px;">
+                  nights below 2°C</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Annual Report</div>
+    <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
+        style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
+        font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
+        &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
+        Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
     return html
 
 
@@ -1184,10 +1871,23 @@ def main():
         print('1st of month — sending monthly summary...')
         month_history = read_csv_history(31)
         month_name    = (yesterday - timedelta(days=1)).strftime('%B %Y')
-        monthly_html  = build_weekly_html(month_history,
-                                          yesterday - timedelta(days=1))
+        monthly_html  = build_monthly_html(month_history, month_name)
         month_subject = f'WWCC Monthly Weather Summary — {month_name}'
         send_email(month_subject, monthly_html, EMAIL_RECIPIENTS_ALL)
+        monthly_path  = report_dir / f'{yesterday.isoformat()}-monthly.html'
+        monthly_path.write_text(monthly_html, encoding='utf-8')
+
+    # ── 11. Annual summary (1st January only) ─────────────────────────────
+    if yesterday.month == 1 and yesterday.day == 1:
+        print('1st January — sending annual summary...')
+        prev_year     = yesterday.year - 1
+        year_history  = read_csv_history(366)
+        year_label    = f'Full Year {prev_year}'
+        yearly_html   = build_yearly_html(year_history, year_label)
+        year_subject  = f'WWCC Annual Weather Summary — {prev_year}'
+        send_email(year_subject, yearly_html, EMAIL_RECIPIENTS_ALL)
+        yearly_path   = report_dir / f'{prev_year}-annual.html'
+        yearly_path.write_text(yearly_html, encoding='utf-8')
 
     print('Done.')
 
