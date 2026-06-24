@@ -1,0 +1,50 @@
+name: WWCC Daily Weather Report
+
+on:
+  schedule:
+    # 8 PM UTC = 6 AM AEST (UTC+10)
+    # During AEDT daylight saving (Oct-Apr) this runs at 7 AM local — close enough
+    - cron: '0 20 * * *'
+
+  # Allow manual trigger from GitHub Actions tab for testing
+  workflow_dispatch:
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit the CSV back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run daily weather report
+        env:
+          DAVIS_DID:        ${{ secrets.DAVIS_DID }}
+          DAVIS_PASS:       ${{ secrets.DAVIS_PASS }}
+          DAVIS_TOKEN:      ${{ secrets.DAVIS_TOKEN }}
+          DAVIS_V2_KEY:     ${{ secrets.DAVIS_V2_KEY }}
+          DAVIS_V2_SECRET:  ${{ secrets.DAVIS_V2_SECRET }}
+          DAVIS_V2_STATION: ${{ secrets.DAVIS_V2_STATION }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+          EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
+        run: python scripts/daily_report.py
+
+      - name: Commit updated data to repository
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/
+          git diff --staged --quiet || git commit -m "Daily log $(date -u +%Y-%m-%d)"
+          git push
