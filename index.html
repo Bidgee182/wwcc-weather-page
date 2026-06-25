@@ -1227,7 +1227,8 @@ function getCurrentHourUV() {
 }
 
 // ── localStorage helpers ──────────────────────────────────────────
-const STORAGE_VERSION = '5';
+const STORAGE_VERSION = '6';
+let _csvDaily = {};  // populated by loadCSVBalance() from data/daily_log.csv
 if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
     localStorage.removeItem('wx_daily');
     localStorage.setItem('wx_storage_ver', STORAGE_VERSION);
@@ -1251,6 +1252,68 @@ function saveDailyRecord(et, rain) {
     const cutoffStr  = cutoffDate.toISOString().slice(0, 10);
     for (const key of Object.keys(store)) { if (key < cutoffStr) delete store[key]; }
     localStorage.setItem('wx_daily', JSON.stringify(store));
+}
+
+// ── CSV-backed daily store ────────────────────────────────────────
+// Returns merged object: CSV provides cross-device baseline for past days;
+// localStorage (written by Davis API calls) takes precedence when available.
+function getDailyStore() {
+    const local   = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const merged  = Object.assign({}, _csvDaily, local);  // localStorage wins on conflict
+    const offsetMs   = sydneyOffsetMs();
+    const cutoffDate = new Date(Date.now() + offsetMs);
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 7);
+    const cutoffStr  = cutoffDate.toISOString().slice(0, 10);
+    for (const key of Object.keys(merged)) { if (key < cutoffStr) delete merged[key]; }
+    return merged;
+}
+
+async function loadCSVBalance() {
+    try {
+        const resp = await fetch('data/daily_log.csv');
+        if (!resp.ok) return;
+        const text = await resp.text();
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return;
+        const headers  = lines[0].split(',');
+        const col = h => headers.indexOf(h);
+        const iDate    = col('date');
+        const iET      = col('et_mm');
+        const iRain    = col('rain_mm');
+        const iTMax    = col('temp_max');
+        const iTMin    = col('temp_min');
+        const iRH      = col('rh_mean');
+        const iTMean   = col('temp_mean');
+        const iRainDay = col('rain_day');
+        const parsed = {};
+        for (let i = 1; i < lines.length; i++) {
+            const cols    = lines[i].split(',');
+            const date    = cols[iDate]?.trim();
+            if (!date) continue;
+            const et      = parseFloat(cols[iET]);
+            const rain    = parseFloat(cols[iRain]);
+            const tempMax = parseFloat(cols[iTMax]);
+            const tempMin = parseFloat(cols[iTMin]);
+            const meanRH  = parseFloat(cols[iRH]);
+            const meanTemp = parseFloat(cols[iTMean]);
+            const rainDay = cols[iRainDay]?.trim().toLowerCase() === 'true';
+            parsed[date] = {          // last row per date wins (CSV may have duplicates)
+                et:       isNaN(et)       ? 0    : et,
+                rain:     isNaN(rain)     ? 0    : rain,
+                tempMax:  isNaN(tempMax)  ? null : tempMax,
+                tempMin:  isNaN(tempMin)  ? null : tempMin,
+                meanRH:   isNaN(meanRH)   ? null : meanRH,
+                meanTemp: isNaN(meanTemp) ? null : meanTemp,
+                rainDay
+            };
+        }
+        _csvDaily = parsed;
+        renderWeekly();
+        updateInsights();
+        checkCartsOnPaths();
+    } catch(e) {
+        console.warn('[CSV balance] load failed:', e);
+    }
 }
 
 // ── Tab switcher (used internally; tabs hidden when URL mode is active) ───
@@ -1299,7 +1362,7 @@ function spClass(ok, warn) {
 
 // ── Weekly table (greenkeeper) ────────────────────────────────────
 function renderWeekly() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     if (Object.keys(store).length === 0) return;
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const today    = todayKey();
@@ -1680,7 +1743,7 @@ async function exportMonthCSV() {
 
 // ── Soil Moisture Gauge ───────────────────────────────────────────
 function updateSoilMoisture() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const deficit = totalET - totalRain;
@@ -1777,7 +1840,7 @@ function _sprayBadge(deltaT, temp, windKmh, p) {
 }
 
 function _soilStatus() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let et = 0, rain = 0;
     for (const k of Object.keys(store)) { et += store[k].et || 0; rain += store[k].rain || 0; }
     const deficit = et - rain;
@@ -1797,7 +1860,7 @@ function _irrRecommendation(deficit) {
 }
 
 function _gddForGrass(base) {
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     let total = 0;
     for (let d = 1; d <= 7; d++) {
@@ -2045,7 +2108,7 @@ function _rptSpray() {
 
 // 3 - Irrigation Report
 function _rptIrrigation() {
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     let rows = [], totalET = 0, totalRain = 0;
@@ -2149,7 +2212,7 @@ function _rptGDD() {
         { label: 'Bentgrass', color: '#2980b9', base: 10, locations: 'Greens - A4, Cobra, Oakley' },
         { label: 'Kikuyu',    color: '#27ae60', base: 15, locations: 'Fairways & rough' },
     ];
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -2216,7 +2279,7 @@ function _rptGDD() {
 
 // 6 - Weekly Summary
 function _rptWeekly() {
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     let rows = [], totET = 0, totRain = 0, totBGdd = 0, totKGdd = 0, sprayDays = 0;
@@ -2658,7 +2721,7 @@ function _emailSpray() {
 }
 
 function _emailIrrigation() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     let tableRows = [], totET = 0, totRain = 0;
@@ -2768,7 +2831,7 @@ function _emailGDD() {
         { label: 'Bentgrass', color: '#1a6ead', base: 10, locations: 'Greens - A4, Cobra, Oakley' },
         { label: 'Kikuyu',    color: '#1a7a42', base: 15, locations: 'Fairways & rough' },
     ];
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -2824,7 +2887,7 @@ function _emailGDD() {
 }
 
 function _emailWeekly() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     let tableRows = [], totET = 0, totRain = 0, totBGdd = 0, totKGdd = 0, sprayDays = 0;
@@ -3212,7 +3275,7 @@ function updateGDD() {
         { label: 'Kikuyu',     color: '#27ae60', base: 15, locations: 'Fairways & rough' },
     ];
 
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -3346,7 +3409,7 @@ function updateRainfallSummary() {
     if (yEl) yEl.textContent = yearStr;
 
     // 7-day total from localStorage
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let rain7 = 0, et7 = 0;
     for (const k of Object.keys(store)) { rain7 += store[k].rain || 0; et7 += store[k].et || 0; }
 
@@ -3403,7 +3466,7 @@ function updateRainfallSummary() {
 
 // ── Irrigation recommendation ─────────────────────────────────────
 function updateRecommendation() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const weeklyDeficit = Math.max(0, totalET - totalRain);
@@ -3554,7 +3617,7 @@ function updateTileDewPoint() {
 
 // Tile 6 - 24h Rain (coloured tile)
 function updateTileRain24h() {
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const today = todayKey();
     const yd = new Date(Date.now() + offsetMs);
@@ -3767,7 +3830,7 @@ function updatePlayabilityBanner(at) {
 
     // Rain - use 24h rolling total (today live + yesterday stored) so overnight rain shows up
     const _off24 = sydneyOffsetMs();
-    const _store24 = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const _store24 = getDailyStore();
     const _ydDate24 = new Date(Date.now() + _off24); _ydDate24.setUTCDate(_ydDate24.getUTCDate() - 1);
     const rain24h = actualRain + (_store24[_ydDate24.toISOString().slice(0, 10)]?.rain || 0);
     if      (rain24h >= 30)  { score += 4; factors.push(`${rain24h.toFixed(1)} mm (24h) - very wet course`); }
@@ -3831,7 +3894,7 @@ function updatePlayabilityBanner(at) {
     }
 
     // Course conditions - 7-day ET/rain balance (graduated)
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const weekDeficit = totalET - totalRain;
@@ -3986,7 +4049,7 @@ function checkCartsOnPaths() {
     const bar1 = document.getElementById('carts-alert');
     const bar2 = document.getElementById('tv-carts-alert');
     if (!bar1 && !bar2) return;
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const offsetMs = sydneyOffsetMs();
@@ -4255,7 +4318,7 @@ function updateBestTime() {
 function updateGreenSpeed() {
     const el = document.getElementById('green-speed-content');
     if (!el) return;
-    const store = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const deficit = totalET - totalRain;
@@ -4738,7 +4801,7 @@ async function fetchHistoricalWeather() {
 // Smith-Kerns Dollar Spot model: 5-day rolling logistic regression
 // Returns probability 0–1, or null if insufficient data.
 function getSmithKerns5Day() {
-    const store    = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
     const temps = [], rhs = [];
     for (let d = 1; d <= 5; d++) {           // historical days only (not today)
@@ -4927,7 +4990,7 @@ async function fetchTodayWetness() {
         const inRange  = tempC != null && tempC >= 0 && tempC <= 21;
         const peakTemp = tempC != null && tempC >= 6 && tempC <= 13;
         // Count rain days in last 6 days from wx_daily store
-        const store6 = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+        const store6 = getDailyStore();
         let rainDaysIn6 = anyRain ? 1 : 0;
         for (let d = 1; d <= 5; d++) {
             const dt = new Date(Date.now() + offsetMs);
@@ -5330,6 +5393,7 @@ async function checkForUpdates() {
 // ── Boot ──────────────────────────────────────────────────────────
 initTVMode();
 initSprayProductSelect();
+loadCSVBalance();
 getWeatherData();
 getForecast();
 fetchHistoricalWeather();
