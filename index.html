@@ -1250,6 +1250,8 @@ const _wx_alerts = { lightning: false, fog: false, frost: false, frostText: '', 
 let _customMessages = [];   // array loaded from data/kiosk_message.json
 let _tickerActive   = [];
 let _tickerIdx      = 0;
+let _editingMsgId   = null; // id of message being edited, or null
+let _msgFilter      = 'all'; // 'all' | 'urgent' | 'alert' | 'default'
 let _tickerTimer    = null;
 if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
     localStorage.removeItem('wx_daily');
@@ -4192,11 +4194,26 @@ async function addKioskMessage() {
     if (!msg) { _panelStatus('Please enter a message.', 'warn'); return; }
     if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
     btn.disabled = true;
-    _panelStatus('Posting...', 'info');
+    const isEdit = _editingMsgId !== null;
+    _panelStatus(isEdit ? 'Updating...' : 'Posting...', 'info');
     try {
         const hours      = type === 'default' ? NaN : parseFloat(dur?.value);
         const expires_at = isNaN(hours) ? null : new Date(Date.now() + hours * 3600000).toISOString();
-        const newMsg     = { id: Date.now(), text: msg, type, expires_at };
+        const msgId      = isEdit ? _editingMsgId : Date.now();
+        const newMsg     = { id: msgId, text: msg, type, expires_at, pending: true };
+
+        // Show immediately in panel as pending
+        if (isEdit) {
+            _customMessages = _customMessages.map(m => m.id === msgId ? newMsg : m);
+        } else {
+            _customMessages = [..._customMessages, newMsg];
+        }
+        _cancelEdit();
+        ta.value = '';
+        _refreshTicker();
+        _renderMsgPanel();
+        _panelStatus(isEdit ? 'Updating on GitHub...' : 'Saving to GitHub...', 'info');
+
         let current = [];
         try {
             const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
@@ -4204,12 +4221,19 @@ async function addKioskMessage() {
         } catch {}
         if (!Array.isArray(current)) current = [];
         const now = new Date();
-        current = current.filter(m => m.expires_at === null || new Date(m.expires_at) > now);
-        current.push(newMsg);
+        const saved = { id: msgId, text: msg, type, expires_at };
+        if (isEdit) {
+            current = current.map(m => m.id === msgId ? saved : m);
+        } else {
+            current = current.filter(m => m.expires_at === null || new Date(m.expires_at) > now);
+            current.push(saved);
+        }
         await _writeKiosk(current);
-        ta.value = '';
-        _panelStatus('Posted! Screens update within ~60 seconds.', 'ok');
-        setTimeout(checkKioskMessage, 4000);
+        // Remove pending flag now that it's saved
+        _customMessages = _customMessages.map(m => m.id === msgId ? { ...m, pending: false } : m);
+        _panelStatus(isEdit ? 'Updated!' : 'Posted!', 'ok');
+        _renderMsgPanel();
+        setTimeout(checkKioskMessage, 5000);
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
     }
@@ -4218,6 +4242,11 @@ async function addKioskMessage() {
 
 async function removeKioskMessage(id) {
     if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
+    // Remove immediately from local list
+    _customMessages = _customMessages.filter(m => m.id !== id);
+    if (_editingMsgId === id) _cancelEdit();
+    _refreshTicker();
+    _renderMsgPanel();
     _panelStatus('Removing...', 'info');
     try {
         let current = [];
@@ -4228,7 +4257,7 @@ async function removeKioskMessage(id) {
         if (!Array.isArray(current)) current = [];
         await _writeKiosk(current.filter(m => m.id !== id));
         _panelStatus('Message removed.', 'ok');
-        setTimeout(checkKioskMessage, 4000);
+        setTimeout(checkKioskMessage, 5000);
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
     }
@@ -4271,6 +4300,42 @@ function _patClear() {
     _renderMsgPanel();
 }
 
+function _setMsgFilter(f) {
+    _msgFilter = f;
+    _renderMsgPanel();
+}
+
+function editKioskMessage(id) {
+    const m = _customMessages.find(m => m.id === id);
+    if (!m) return;
+    _editingMsgId = id;
+    document.getElementById('panel-msg-text').value = m.text;
+    const typeEl = document.getElementById('panel-msg-type');
+    if (typeEl) { typeEl.value = m.type || 'alert'; _onMsgTypeChange(); }
+    if (m.expires_at) {
+        const durEl = document.getElementById('panel-msg-duration');
+        if (durEl) {
+            const hoursLeft = (new Date(m.expires_at) - Date.now()) / 3600000;
+            const opts = [0.5, 1, 2, 4, 8, 12, 24, 48];
+            durEl.value = String(opts.reduce((a, b) => Math.abs(b - hoursLeft) < Math.abs(a - hoursLeft) ? b : a));
+        }
+    }
+    const btn = document.getElementById('panel-add-btn');
+    if (btn) btn.textContent = '✏️ Update Message';
+    const cancelBtn = document.getElementById('panel-edit-cancel');
+    if (cancelBtn) cancelBtn.style.display = 'block';
+    document.getElementById('panel-msg-text').focus();
+    _panelStatus('Editing — make changes and click Update.', 'info');
+}
+
+function _cancelEdit() {
+    _editingMsgId = null;
+    const btn = document.getElementById('panel-add-btn');
+    if (btn) btn.textContent = '📢 Post to Screens';
+    const cancelBtn = document.getElementById('panel-edit-cancel');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
 function _renderMsgPanel() {
     // Show/hide token section
     const hasPat = !!localStorage.getItem('wx_github_pat');
@@ -4279,19 +4344,33 @@ function _renderMsgPanel() {
     if (savedEl) savedEl.style.display = hasPat ? 'flex' : 'none';
     if (entryEl) entryEl.style.display = hasPat ? 'none' : 'block';
 
+    // Render filter buttons
+    const filterBar = document.getElementById('panel-filter-bar');
+    if (filterBar) {
+        const filters = [['all','All'],['urgent','🚨 Urgent'],['alert','📢 Alert'],['default','💬 Default']];
+        filterBar.innerHTML = filters.map(([val, label]) => {
+            const active = _msgFilter === val;
+            return `<button onclick="_setMsgFilter('${val}')" style="background:${active ? '#3d5166' : '#0d1117'};border:1px solid ${active ? '#7f8c8d' : '#2c3e50'};color:${active ? '#ecf0f1' : '#7f8c8d'};border-radius:4px;padding:3px 10px;font-size:0.75em;cursor:pointer;">${label}</button>`;
+        }).join('');
+    }
+
     const list = document.getElementById('panel-msg-list');
     if (!list) return;
-    if (_customMessages.length === 0) {
-        list.innerHTML = '<div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">No active messages</div>';
+
+    const typeOrder = { urgent: 0, alert: 1, default: 2 };
+    let msgs = [..._customMessages].sort((a, b) => (typeOrder[a.type||'alert'] || 1) - (typeOrder[b.type||'alert'] || 1));
+    if (_msgFilter !== 'all') msgs = msgs.filter(m => (m.type || 'alert') === _msgFilter);
+
+    if (msgs.length === 0) {
+        list.innerHTML = '<div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">No messages</div>';
         return;
     }
     const now = new Date();
-    const typeOrder = { urgent: 0, alert: 1, default: 2 };
-    const sorted = [..._customMessages].sort((a, b) => (typeOrder[a.type||'alert'] || 1) - (typeOrder[b.type||'alert'] || 1));
-    list.innerHTML = sorted.map(m => {
+    list.innerHTML = msgs.map(m => {
         const type = m.type || 'alert';
         const badgeColor = type === 'urgent' ? '#e74c3c' : type === 'default' ? '#7f8c8d' : '#27ae60';
         const badgeLabel = type === 'urgent' ? '🚨 Urgent' : type === 'default' ? '💬 Default' : '📢 Alert';
+        const pendingBadge = m.pending ? ' <span style="color:#f39c12;font-size:0.8em;">⏳ saving…</span>' : '';
         let timeStr;
         if (!m.expires_at) {
             timeStr = '<span style="color:#27ae60">Permanent</span>';
@@ -4301,12 +4380,16 @@ function _renderMsgPanel() {
             const mn = Math.floor((ms % 3600000) / 60000);
             timeStr  = `<span style="color:#7f8c8d">expires ${h}h ${mn}m</span>`;
         }
-        return `<div style="background:#0d1117;border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;">
+        const isEditing = m.id === _editingMsgId;
+        return `<div style="background:${isEditing ? '#1a2a3a' : '#0d1117'};border:1px solid ${isEditing ? '#3d5166' : 'transparent'};border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;">
             <div style="flex:1;font-size:0.88em;color:#ecf0f1;line-height:1.4;">
-                <span style="display:inline-block;background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;border-radius:4px;padding:1px 7px;font-size:0.75em;margin-bottom:5px;">${badgeLabel}</span><br>
+                <span style="display:inline-block;background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;border-radius:4px;padding:1px 7px;font-size:0.75em;margin-bottom:5px;">${badgeLabel}</span>${pendingBadge}<br>
                 ${m.text}<br><span style="font-size:0.8em">${timeStr}</span>
             </div>
-            <button onclick="removeKioskMessage(${m.id})" style="background:#3d1a00;border:1px solid #7d3a00;color:#ecf0f1;border-radius:4px;padding:4px 10px;font-size:0.78em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Remove</button>
+            <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+                <button onclick="editKioskMessage(${m.id})" style="background:#1a3a5c;border:1px solid #2d6a9f;color:#ecf0f1;border-radius:4px;padding:4px 10px;font-size:0.78em;cursor:pointer;white-space:nowrap;">Edit</button>
+                <button onclick="removeKioskMessage(${m.id})" style="background:#3d1a00;border:1px solid #7d3a00;color:#ecf0f1;border-radius:4px;padding:4px 10px;font-size:0.78em;cursor:pointer;white-space:nowrap;">Remove</button>
+            </div>
         </div>`;
     }).join('');
 }
@@ -5694,7 +5777,10 @@ setInterval(checkForUpdates, 300000);
     </div>
     <p style="font-size:0.78em;color:#7f8c8d;margin-bottom:16px;line-height:1.5;">Messages scroll on the TV kiosk and golfer page. Urgent messages flash red while scrolling. Weather alerts are automatic.</p>
 
-    <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Active Messages</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;">Active Messages</div>
+    </div>
+    <div id="panel-filter-bar" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;"></div>
     <div id="panel-msg-list"><div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">Loading...</div></div>
 
     <div style="border-top:1px solid #2c3e50;margin-top:16px;padding-top:16px;">
@@ -5728,8 +5814,12 @@ setInterval(checkForUpdates, 300000);
         </div>
 
         <button id="panel-add-btn" onclick="addKioskMessage()"
-            style="width:100%;background:#1a6a3a;border:none;color:white;border-radius:6px;padding:12px;font-size:0.9em;font-weight:bold;cursor:pointer;margin-bottom:8px;letter-spacing:0.3px;">
+            style="width:100%;background:#1a6a3a;border:none;color:white;border-radius:6px;padding:12px;font-size:0.9em;font-weight:bold;cursor:pointer;margin-bottom:6px;letter-spacing:0.3px;">
             &#128226; Post to Screens
+        </button>
+        <button id="panel-edit-cancel" onclick="_cancelEdit();document.getElementById('panel-msg-text').value='';_panelStatus('','');"
+            style="display:none;width:100%;background:none;border:1px solid #3d5166;color:#7f8c8d;border-radius:6px;padding:8px;font-size:0.82em;cursor:pointer;margin-bottom:6px;">
+            Cancel Edit
         </button>
         <div id="panel-status" style="font-size:0.8em;min-height:1.2em;text-align:center;color:#7f8c8d;"></div>
     </div>
