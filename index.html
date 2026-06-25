@@ -5768,28 +5768,22 @@ setInterval(checkForUpdates, 300000);
 
 <!-- ── Custom message slide-in panel ─────────────────────────── -->
 <div id="msg-panel-overlay" onclick="closeMsgPanel()" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.55);z-index:9998;"></div>
-<div id="msg-panel" style="display:none;position:fixed;top:0;right:0;width:340px;max-width:100vw;height:100vh;background:#1a252f;border-left:2px solid #3d5166;z-index:9999;overflow-y:auto;padding:20px;box-sizing:border-box;transform:translateX(100%);transition:transform 0.3s ease;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<div id="msg-panel" style="display:none;position:fixed;top:0;right:0;width:420px;max-width:100vw;height:100vh;background:#1a252f;border-left:2px solid #3d5166;z-index:9999;overflow-y:auto;padding:20px;box-sizing:border-box;transform:translateX(100%);transition:transform 0.3s ease;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <h3 style="margin:0;color:#ecf0f1;font-size:1em;letter-spacing:0.5px;">&#128226; Screen Messages</h3>
         <button onclick="closeMsgPanel()" style="background:none;border:none;color:#7f8c8d;font-size:1.4em;cursor:pointer;line-height:1;padding:0 4px;">&#10005;</button>
     </div>
-    <p style="font-size:0.78em;color:#7f8c8d;margin-bottom:16px;line-height:1.5;">Messages scroll on the TV kiosk and golfer page. Urgent messages flash red while scrolling. Weather alerts are automatic.</p>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;">Active Messages</div>
-    </div>
-    <div id="panel-filter-bar" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;"></div>
-    <div id="panel-msg-list"><div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">Loading...</div></div>
-
-    <div style="border-top:1px solid #2c3e50;margin-top:16px;padding-top:16px;">
+    <!-- ── New Message (pinned at top) ── -->
+    <div style="background:#0d1117;border:1px solid #2c3e50;border-radius:8px;padding:14px;margin-bottom:16px;">
         <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">New Message</div>
         <textarea id="panel-msg-text"
             placeholder="e.g. Holes 12-14 closed for maintenance today. Play continues on all other holes."
-            style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:10px;font-size:0.88em;resize:vertical;min-height:72px;box-sizing:border-box;margin-bottom:10px;font-family:inherit;"></textarea>
+            style="width:100%;background:#1a252f;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:10px;font-size:0.88em;resize:vertical;min-height:72px;box-sizing:border-box;margin-bottom:10px;font-family:inherit;"></textarea>
 
         <div style="margin-bottom:10px;">
             <label style="font-size:0.8em;color:#7f8c8d;display:block;margin-bottom:5px;">Type:</label>
-            <select id="panel-msg-type" onchange="_onMsgTypeChange()" style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
+            <select id="panel-msg-type" onchange="_onMsgTypeChange()" style="width:100%;background:#1a252f;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
                 <option value="default">💬 Default — always scrolls, no expiry</option>
                 <option value="alert" selected>📢 Alert — timed message</option>
                 <option value="urgent">🚨 Urgent — flashing red background while scrolling</option>
@@ -5798,7 +5792,7 @@ setInterval(checkForUpdates, 300000);
 
         <div id="panel-duration-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <label style="font-size:0.8em;color:#7f8c8d;white-space:nowrap;">Show for:</label>
-            <select id="panel-msg-duration" style="flex:1;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
+            <select id="panel-msg-duration" style="flex:1;background:#1a252f;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
                 <option value="0.5">30 minutes</option>
                 <option value="1">1 hour</option>
                 <option value="2">2 hours</option>
@@ -5821,6 +5815,13 @@ setInterval(checkForUpdates, 300000);
         </button>
         <div id="panel-status" style="font-size:0.8em;min-height:1.2em;text-align:center;color:#7f8c8d;"></div>
     </div>
+
+    <!-- ── Active Messages ── -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;">Active Messages</div>
+    </div>
+    <div id="panel-filter-bar" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;"></div>
+    <div id="panel-msg-list" style="max-height:340px;overflow-y:auto;padding-right:2px;"><div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">Loading...</div></div>
 
     <!-- GitHub Token section -->
     <div style="border-top:1px solid #2c3e50;margin-top:20px;padding-top:16px;">
