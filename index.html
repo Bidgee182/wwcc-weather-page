@@ -1104,7 +1104,7 @@ const CLUB_LON    = '147.3598';
 const CLUB_ELEV_M = 147;
 const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) - adjust as needed
 const GITHUB_REPO    = 'Bidgee182/wwcc-weather-page';
-const GITHUB_PAT     = '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';  // fine-grained PAT with contents:write on this repo
+// GitHub PAT is stored in localStorage (wx_github_pat) on the GK device only - never hardcoded here
 
 // ── Global state ──────────────────────────────────────────────────
 let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
@@ -4123,10 +4123,11 @@ function _stopTicker() {
 
 // ── Custom screen messages ────────────────────────────────────────
 async function _kioskSHA() {
+    const pat = localStorage.getItem('wx_github_pat') || '';
     try {
         const r = await fetch(
             `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message.json`,
-            { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: 'application/vnd.github+json' } }
+            { headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' } }
         );
         if (!r.ok) return null;
         return (await r.json()).sha || null;
@@ -4134,12 +4135,13 @@ async function _kioskSHA() {
 }
 
 async function _writeKiosk(messages) {
+    const pat     = localStorage.getItem('wx_github_pat') || '';
     const sha     = await _kioskSHA();
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(messages, null, 2))));
     const body    = { message: 'Update screen messages', content, ...(sha ? { sha } : {}) };
     const r = await fetch(
         `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message.json`,
-        { method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_PAT}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        { method: 'PUT', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
     if (!r.ok) throw new Error(((await r.json()).message) || r.statusText);
 }
@@ -4150,7 +4152,7 @@ async function addKioskMessage() {
     const btn = document.getElementById('panel-add-btn');
     const msg = ta?.value?.trim();
     if (!msg) { _panelStatus('Please enter a message.', 'warn'); return; }
-    if (GITHUB_PAT.startsWith('ghp_REPLACE')) { _panelStatus('GitHub token not set. See setup instructions.', 'err'); return; }
+    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
     btn.disabled = true;
     _panelStatus('Posting...', 'info');
     try {
@@ -4177,7 +4179,7 @@ async function addKioskMessage() {
 }
 
 async function removeKioskMessage(id) {
-    if (GITHUB_PAT.startsWith('ghp_REPLACE')) { _panelStatus('GitHub token not set.', 'err'); return; }
+    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
     _panelStatus('Removing...', 'info');
     try {
         let current = [];
@@ -4217,7 +4219,28 @@ function _panelStatus(msg, type) {
     el.style.color = type === 'ok' ? '#27ae60' : type === 'warn' ? '#d4ac0d' : type === 'err' ? '#e74c3c' : '#7f8c8d';
 }
 
+function _patSave() {
+    const val = (document.getElementById('panel-pat-input')?.value || '').trim();
+    if (!val) return;
+    localStorage.setItem('wx_github_pat', val);
+    document.getElementById('panel-pat-input').value = '';
+    _renderMsgPanel();
+    _panelStatus('Token saved on this device.', 'ok');
+}
+
+function _patClear() {
+    localStorage.removeItem('wx_github_pat');
+    _renderMsgPanel();
+}
+
 function _renderMsgPanel() {
+    // Show/hide token section
+    const hasPat = !!localStorage.getItem('wx_github_pat');
+    const savedEl = document.getElementById('panel-pat-saved');
+    const entryEl = document.getElementById('panel-pat-entry');
+    if (savedEl) savedEl.style.display = hasPat ? 'flex' : 'none';
+    if (entryEl) entryEl.style.display = hasPat ? 'none' : 'block';
+
     const list = document.getElementById('panel-msg-list');
     if (!list) return;
     if (_customMessages.length === 0) {
@@ -5646,6 +5669,21 @@ setInterval(checkForUpdates, 300000);
             &#128226; Post to Screens
         </button>
         <div id="panel-status" style="font-size:0.8em;min-height:1.2em;text-align:center;color:#7f8c8d;"></div>
+    </div>
+
+    <!-- GitHub Token section -->
+    <div style="border-top:1px solid #2c3e50;margin-top:20px;padding-top:16px;">
+        <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">GitHub Token (this device only)</div>
+        <div id="panel-pat-saved" style="display:none;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:0.82em;color:#27ae60;">&#10003; Token saved on this device</span>
+            <button onclick="_patClear()" style="background:none;border:1px solid #3d5166;color:#e74c3c;border-radius:4px;padding:2px 8px;font-size:0.75em;cursor:pointer;">Clear</button>
+        </div>
+        <div id="panel-pat-entry" style="display:none;">
+            <p style="font-size:0.76em;color:#f39c12;margin-bottom:8px;line-height:1.4;">&#9888; Token required to post messages. Enter your GitHub fine-grained PAT (Contents: read &amp; write).</p>
+            <input id="panel-pat-input" type="password" placeholder="github_pat_..."
+                style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #f39c12;border-radius:6px;padding:9px 10px;font-size:0.82em;box-sizing:border-box;margin-bottom:8px;font-family:monospace;" />
+            <button onclick="_patSave()" style="width:100%;background:#1a4a7a;border:none;color:white;border-radius:6px;padding:10px;font-size:0.85em;font-weight:bold;cursor:pointer;">Save Token</button>
+        </div>
     </div>
 </div>
 
