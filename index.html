@@ -531,6 +531,14 @@
             0%   { transform: translateX(100vw); }
             100% { transform: translateX(-100%); }
         }
+        @keyframes tickerTextPulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.25; }
+        }
+        @keyframes tickerBgFlash {
+            0%, 100% { background: #3d0000; }
+            50%       { background: #7d1a00; }
+        }
     </style>
 </head>
 <body>
@@ -4060,7 +4068,7 @@ function checkCartsOnPaths() {
 // ── Unified alert ticker ──────────────────────────────────────────
 function _buildTickerItems() {
     const items = [];
-    if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c' });
+    if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c', urgent: true });
     if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff' });
     if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6' });
     if (_wx_alerts.carts)     items.push({ text: 'Course wet - carts on paths only', icon: '🛺', color: '#d4ac0d' });
@@ -4073,6 +4081,40 @@ function _buildTickerItems() {
     return items;
 }
 
+function _tickerGetUrgent() {
+    return (_tickerActive || []).find(it => it.urgent) || null;
+}
+
+function _flashUrgentItem() {
+    const urgent = _tickerGetUrgent();
+    if (!urgent) { _showTickerItem(0); return; }
+
+    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
+    const el = document.getElementById(tickerId);
+    if (!el) return;
+
+    el.style.display      = 'flex';
+    el.style.borderBottom = '2px solid #e74c3c';
+    el.style.animation    = 'tickerBgFlash 0.8s ease-in-out infinite';
+
+    const span = el.querySelector('.ticker-text');
+    if (!span) return;
+
+    span.textContent     = urgent.icon + '  ' + urgent.text;
+    span.style.transform = 'none';
+    span.style.animation = 'tickerTextPulse 0.8s ease-in-out infinite';
+
+    _tickerTimer = setTimeout(() => {
+        // Stop flash, restore bar, start normal scroll cycle
+        el.style.animation = 'none';
+        el.style.background = '#0d1117';
+        span.style.animation = 'none';
+        span.textContent = '';
+        _tickerIdx = 0;
+        _showTickerItem(0);
+    }, 10000);
+}
+
 function _showTickerItem(idx) {
     const items = _tickerActive;
     if (!items || items.length === 0) { _stopTicker(); return; }
@@ -4082,6 +4124,8 @@ function _showTickerItem(idx) {
     const el = document.getElementById(tickerId);
     if (!el) return;
 
+    el.style.animation    = 'none';
+    el.style.background   = '#0d1117';
     el.style.display      = 'flex';
     el.style.borderBottom = '2px solid ' + item.color;
 
@@ -4091,10 +4135,9 @@ function _showTickerItem(idx) {
     const text = item.icon + '  ' + item.text;
     span.textContent = text;
 
-    // Duration: scale with text length for consistent scroll speed
-    const duration = Math.max(10, text.length * 0.18);
+    // Duration: scale with text length for consistent scroll speed (slowed)
+    const duration = Math.max(14, text.length * 0.26);
 
-    // Remove old listener, reset animation, then play once
     span.onanimationend = null;
     span.style.animation = 'none';
     void span.offsetWidth; // force reflow
@@ -4103,10 +4146,17 @@ function _showTickerItem(idx) {
         span.onanimationend = null;
         span.style.animation = 'none';
         span.textContent = '';
-        // Pause 500ms before next message scrolls in
+
+        const nextIdx = (idx + 1) % items.length;
+        const cycleComplete = nextIdx === 0;
+
         _tickerTimer = setTimeout(() => {
-            _tickerIdx = (idx + 1) % items.length;
-            _showTickerItem(_tickerIdx);
+            if (cycleComplete && _tickerGetUrgent()) {
+                _flashUrgentItem();
+            } else {
+                _tickerIdx = nextIdx;
+                _showTickerItem(nextIdx);
+            }
         }, 500);
     };
 
@@ -4125,7 +4175,13 @@ function _refreshTicker() {
     _tickerActive = items;
     _tickerIdx    = 0;
     if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
-    _showTickerItem(0);
+
+    // Start with flash if there's an urgent item, otherwise normal scroll
+    if (_tickerGetUrgent()) {
+        _flashUrgentItem();
+    } else {
+        _showTickerItem(0);
+    }
 }
 
 function _stopTicker() {
@@ -4133,7 +4189,9 @@ function _stopTicker() {
     const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
     const el = document.getElementById(tickerId);
     if (!el) return;
-    el.style.display = 'none';
+    el.style.display    = 'none';
+    el.style.animation  = 'none';
+    el.style.background = '#0d1117';
     const span = el.querySelector('.ticker-text');
     if (span) { span.onanimationend = null; span.style.animation = 'none'; }
 }
