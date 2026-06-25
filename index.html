@@ -4070,51 +4070,21 @@ function checkCartsOnPaths() {
 // ── Unified alert ticker ──────────────────────────────────────────
 function _buildTickerItems() {
     const items = [];
-    if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c', urgent: true });
-    if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff' });
-    if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6' });
-    if (_wx_alerts.carts)     items.push({ text: 'Course wet - carts on paths only', icon: '🛺', color: '#d4ac0d' });
+    if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c', type: 'urgent', urgent: true });
+    if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff', type: 'alert' });
+    if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6', type: 'alert' });
+    if (_wx_alerts.carts)     items.push({ text: 'Course wet - carts on paths only', icon: '🛺', color: '#d4ac0d', type: 'alert' });
     const now = new Date();
     for (const m of _customMessages) {
         if (!m.text) continue;
         if (m.expires_at !== null && new Date(m.expires_at) <= now) continue;
-        items.push({ text: m.text, icon: '📢', color: '#27ae60' });
+        const type   = m.type || 'alert';
+        const urgent = type === 'urgent';
+        const icon   = type === 'urgent' ? '🚨' : type === 'default' ? '💬' : '📢';
+        const color  = type === 'urgent' ? '#e74c3c' : type === 'default' ? '#7f8c8d' : '#27ae60';
+        items.push({ text: m.text, icon, color, type, urgent });
     }
     return items;
-}
-
-function _tickerGetUrgent() {
-    return (_tickerActive || []).find(it => it.urgent) || null;
-}
-
-function _flashUrgentItem() {
-    const urgent = _tickerGetUrgent();
-    if (!urgent) { _showTickerItem(0); return; }
-
-    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
-    const el = document.getElementById(tickerId);
-    if (!el) return;
-
-    el.style.display      = 'flex';
-    el.style.borderBottom = '2px solid #e74c3c';
-    el.style.animation    = 'tickerBgFlash 0.8s ease-in-out infinite';
-
-    const span = el.querySelector('.ticker-text');
-    if (!span) return;
-
-    span.textContent     = urgent.icon + '  ' + urgent.text;
-    span.style.transform = 'none';
-    span.style.animation = 'tickerTextPulse 0.8s ease-in-out infinite';
-
-    _tickerTimer = setTimeout(() => {
-        // Stop flash, restore bar, start normal scroll cycle
-        el.style.animation = 'none';
-        el.style.background = '#0d1117';
-        span.style.animation = 'none';
-        span.textContent = '';
-        _tickerIdx = 0;
-        _showTickerItem(0);
-    }, 10000);
 }
 
 function _showTickerItem(idx) {
@@ -4126,10 +4096,14 @@ function _showTickerItem(idx) {
     const el = document.getElementById(tickerId);
     if (!el) return;
 
-    el.style.animation    = 'none';
-    el.style.background   = '#0d1117';
     el.style.display      = 'flex';
     el.style.borderBottom = '2px solid ' + item.color;
+    if (item.urgent) {
+        el.style.animation = 'tickerBgFlash 0.8s ease-in-out infinite';
+    } else {
+        el.style.animation = 'none';
+        el.style.background = '#0d1117';
+    }
 
     const span = el.querySelector('.ticker-text');
     if (!span) return;
@@ -4137,7 +4111,6 @@ function _showTickerItem(idx) {
     const text = item.icon + '  ' + item.text;
     span.textContent = text;
 
-    // Duration: scale with text length for consistent scroll speed (slowed)
     const duration = Math.max(14, text.length * 0.26);
 
     span.onanimationend = null;
@@ -4148,17 +4121,9 @@ function _showTickerItem(idx) {
         span.onanimationend = null;
         span.style.animation = 'none';
         span.textContent = '';
-
-        const nextIdx = (idx + 1) % items.length;
-        const cycleComplete = nextIdx === 0;
-
         _tickerTimer = setTimeout(() => {
-            if (cycleComplete && _tickerGetUrgent()) {
-                _flashUrgentItem();
-            } else {
-                _tickerIdx = nextIdx;
-                _showTickerItem(nextIdx);
-            }
+            _tickerIdx = (idx + 1) % items.length;
+            _showTickerItem(_tickerIdx);
         }, 500);
     };
 
@@ -4177,13 +4142,7 @@ function _refreshTicker() {
     _tickerActive = items;
     _tickerIdx    = 0;
     if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
-
-    // Start with flash if there's an urgent item, otherwise normal scroll
-    if (_tickerGetUrgent()) {
-        _flashUrgentItem();
-    } else {
-        _showTickerItem(0);
-    }
+    _showTickerItem(0);
 }
 
 function _stopTicker() {
@@ -4225,18 +4184,19 @@ async function _writeKiosk(messages) {
 }
 
 async function addKioskMessage() {
-    const ta  = document.getElementById('panel-msg-text');
-    const dur = document.getElementById('panel-msg-duration');
-    const btn = document.getElementById('panel-add-btn');
-    const msg = ta?.value?.trim();
+    const ta   = document.getElementById('panel-msg-text');
+    const type = document.getElementById('panel-msg-type')?.value || 'alert';
+    const dur  = document.getElementById('panel-msg-duration');
+    const btn  = document.getElementById('panel-add-btn');
+    const msg  = ta?.value?.trim();
     if (!msg) { _panelStatus('Please enter a message.', 'warn'); return; }
     if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
     btn.disabled = true;
     _panelStatus('Posting...', 'info');
     try {
-        const hours     = parseFloat(dur.value);
+        const hours      = type === 'default' ? NaN : parseFloat(dur?.value);
         const expires_at = isNaN(hours) ? null : new Date(Date.now() + hours * 3600000).toISOString();
-        const newMsg    = { id: Date.now(), text: msg, expires_at };
+        const newMsg     = { id: Date.now(), text: msg, type, expires_at };
         let current = [];
         try {
             const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
@@ -4326,7 +4286,12 @@ function _renderMsgPanel() {
         return;
     }
     const now = new Date();
-    list.innerHTML = _customMessages.map(m => {
+    const typeOrder = { urgent: 0, alert: 1, default: 2 };
+    const sorted = [..._customMessages].sort((a, b) => (typeOrder[a.type||'alert'] || 1) - (typeOrder[b.type||'alert'] || 1));
+    list.innerHTML = sorted.map(m => {
+        const type = m.type || 'alert';
+        const badgeColor = type === 'urgent' ? '#e74c3c' : type === 'default' ? '#7f8c8d' : '#27ae60';
+        const badgeLabel = type === 'urgent' ? '🚨 Urgent' : type === 'default' ? '💬 Default' : '📢 Alert';
         let timeStr;
         if (!m.expires_at) {
             timeStr = '<span style="color:#27ae60">Permanent</span>';
@@ -4337,10 +4302,19 @@ function _renderMsgPanel() {
             timeStr  = `<span style="color:#7f8c8d">expires ${h}h ${mn}m</span>`;
         }
         return `<div style="background:#0d1117;border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;">
-            <div style="flex:1;font-size:0.88em;color:#ecf0f1;line-height:1.4;">${m.text}<br><span style="font-size:0.8em">${timeStr}</span></div>
+            <div style="flex:1;font-size:0.88em;color:#ecf0f1;line-height:1.4;">
+                <span style="display:inline-block;background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}55;border-radius:4px;padding:1px 7px;font-size:0.75em;margin-bottom:5px;">${badgeLabel}</span><br>
+                ${m.text}<br><span style="font-size:0.8em">${timeStr}</span>
+            </div>
             <button onclick="removeKioskMessage(${m.id})" style="background:#3d1a00;border:1px solid #7d3a00;color:#ecf0f1;border-radius:4px;padding:4px 10px;font-size:0.78em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Remove</button>
         </div>`;
     }).join('');
+}
+
+function _onMsgTypeChange() {
+    const type = document.getElementById('panel-msg-type')?.value;
+    const row  = document.getElementById('panel-duration-row');
+    if (row) row.style.display = type === 'default' ? 'none' : 'flex';
 }
 
 function openMsgPanel() {
@@ -5718,7 +5692,7 @@ setInterval(checkForUpdates, 300000);
         <h3 style="margin:0;color:#ecf0f1;font-size:1em;letter-spacing:0.5px;">&#128226; Screen Messages</h3>
         <button onclick="closeMsgPanel()" style="background:none;border:none;color:#7f8c8d;font-size:1.4em;cursor:pointer;line-height:1;padding:0 4px;">&#10005;</button>
     </div>
-    <p style="font-size:0.78em;color:#7f8c8d;margin-bottom:16px;line-height:1.5;">Messages appear as a fading ticker on the TV kiosk and golfer page. Multiple messages cycle automatically. Weather alerts share the same ticker.</p>
+    <p style="font-size:0.78em;color:#7f8c8d;margin-bottom:16px;line-height:1.5;">Messages scroll on the TV kiosk and golfer page. Urgent messages flash red while scrolling. Weather alerts are automatic.</p>
 
     <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Active Messages</div>
     <div id="panel-msg-list"><div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">Loading...</div></div>
@@ -5728,7 +5702,17 @@ setInterval(checkForUpdates, 300000);
         <textarea id="panel-msg-text"
             placeholder="e.g. Holes 12-14 closed for maintenance today. Play continues on all other holes."
             style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:10px;font-size:0.88em;resize:vertical;min-height:72px;box-sizing:border-box;margin-bottom:10px;font-family:inherit;"></textarea>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+
+        <div style="margin-bottom:10px;">
+            <label style="font-size:0.8em;color:#7f8c8d;display:block;margin-bottom:5px;">Type:</label>
+            <select id="panel-msg-type" onchange="_onMsgTypeChange()" style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
+                <option value="default">💬 Default — always scrolls, no expiry</option>
+                <option value="alert" selected>📢 Alert — timed message</option>
+                <option value="urgent">🚨 Urgent — flashing red background while scrolling</option>
+            </select>
+        </div>
+
+        <div id="panel-duration-row" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <label style="font-size:0.8em;color:#7f8c8d;white-space:nowrap;">Show for:</label>
             <select id="panel-msg-duration" style="flex:1;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
                 <option value="0.5">30 minutes</option>
@@ -5742,6 +5726,7 @@ setInterval(checkForUpdates, 300000);
                 <option value="null">Forever (manual remove only)</option>
             </select>
         </div>
+
         <button id="panel-add-btn" onclick="addKioskMessage()"
             style="width:100%;background:#1a6a3a;border:none;color:white;border-radius:6px;padding:12px;font-size:0.9em;font-weight:bold;cursor:pointer;margin-bottom:8px;letter-spacing:0.3px;">
             &#128226; Post to Screens
