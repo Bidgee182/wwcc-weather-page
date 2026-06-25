@@ -4233,7 +4233,6 @@ async function addKioskMessage() {
         _customMessages = _customMessages.map(m => m.id === msgId ? { ...m, pending: false } : m);
         _panelStatus(isEdit ? 'Updated!' : 'Posted!', 'ok');
         _renderMsgPanel();
-        setTimeout(checkKioskMessage, 5000);
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
     }
@@ -4257,7 +4256,6 @@ async function removeKioskMessage(id) {
         if (!Array.isArray(current)) current = [];
         await _writeKiosk(current.filter(m => m.id !== id));
         _panelStatus('Message removed.', 'ok');
-        setTimeout(checkKioskMessage, 5000);
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
     }
