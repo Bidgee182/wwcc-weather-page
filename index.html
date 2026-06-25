@@ -835,6 +835,14 @@
             <div style="font-size:0.75em;color:#7f8c8d;margin-top:4px">Files download as CSV - compatible with Excel and Google Sheets</div>
         </div>
 
+        <!-- Reference Guide -->
+        <div style="text-align:center;padding:10px 0 4px;">
+            <a href="WWCC_Greenkeeper_Reference_Guide.html" target="_blank"
+               style="display:inline-block;background:#1a252f;color:#7f8c8d;border:1px solid #3d5166;border-radius:8px;padding:10px 22px;font-size:0.82em;text-decoration:none;letter-spacing:0.5px;">
+                &#128214; Greenkeeper Reference Guide
+            </a>
+        </div>
+
     <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
     </div><!-- end gk-tab-reports -->
 
@@ -1025,6 +1033,13 @@
         <div class="ds-item"><div class="ds-lbl">Wind</div><div class="ds-val" id="ds-wind">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Sunrise / Sunset</div><div class="ds-val" id="ds-sun">-- / --</div></div>
         <div class="ds-item"><div class="ds-lbl">Pressure</div><div class="ds-val" id="ds-pressure">-- hPa</div></div>
+    </div>
+
+    <div style="text-align:center;padding:16px 0 8px;">
+        <a href="WWCC_Golfer_Page_Guide.html" target="_blank"
+           style="color:#4a8fa8;font-size:0.8em;text-decoration:none;opacity:0.75;">
+            &#63; How to read this page
+        </a>
     </div>
 
 </div><!-- end #view-golfer -->
@@ -3281,7 +3296,7 @@ function updateGDD() {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
                 <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
                     <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">7-Day Accumulated</div>
-                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.total7Day > 0 ? g.total7Day.toFixed(0) : '--'}</div>
+                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.histDays > 0 ? g.total7Day.toFixed(0) : '--'}</div>
                     <div style="font-size:0.68em;color:#7f8c8d">GDD last 7 days</div>
                 </div>
                 <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
