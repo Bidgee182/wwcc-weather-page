@@ -796,6 +796,27 @@
             <div id="report-preview-content"></div>
         </div>
 
+        <!-- Automated Daily Report Preview -->
+        <div class="card">
+            <h2>&#128231; Automated Daily Report</h2>
+            <p style="font-size:0.82em;color:#7f8c8d;margin-bottom:14px;line-height:1.5;">
+                The GitHub Actions script runs each morning and sends the full rich-HTML briefing to the greenkeeper. Use the button below to preview yesterday's automated report in a new window — exactly as it was emailed.
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <button onclick="viewAutomatedReport()" style="background:#1a4a2e;border:none;color:white;border-radius:8px;padding:12px 10px;font-size:0.88em;font-weight:bold;cursor:pointer;letter-spacing:0.3px;">
+                    &#9971; View Yesterday's Report
+                </button>
+                <a href="https://github.com/Bidgee182/wwcc-weather-page/actions" target="_blank"
+                   style="display:block;background:#24292e;color:white;border-radius:8px;padding:12px 10px;font-size:0.88em;font-weight:bold;cursor:pointer;text-decoration:none;text-align:center;letter-spacing:0.3px;">
+                    &#9654; Run Test Now (GitHub)
+                </a>
+            </div>
+            <div style="font-size:0.75em;color:#7f8c8d;line-height:1.5;">
+                <strong style="color:#95a5a6;">View Yesterday's Report</strong> — opens the saved HTML email from the last automated run.<br>
+                <strong style="color:#95a5a6;">Run Test Now</strong> — opens GitHub Actions. Click <em>WWCC Daily Weather Report</em> &rarr; <em>Run workflow</em> to trigger a test send immediately.
+            </div>
+        </div>
+
         <!-- CSV Data Exports -->
         <div class="card">
             <h2>&#8659; Raw Data Export (CSV)</h2>
@@ -2242,6 +2263,54 @@ function generateReport(type) {
 
 function printReport() {
     window.print();
+}
+
+// ── Automated daily report preview ────────────────────────────────
+function viewAutomatedReport() {
+    const offsetMs  = sydneyOffsetMs();
+    const yesterday = new Date(Date.now() + offsetMs - 86400000);
+    const y  = yesterday.getUTCFullYear();
+    const m  = String(yesterday.getUTCMonth() + 1).padStart(2, '0');
+    const d  = String(yesterday.getUTCDate()).padStart(2, '0');
+    const reportUrl = `https://bidgee182.github.io/wwcc-weather-page/data/reports/${y}/${m}/${y}-${m}-${d}.html`;
+
+    const win = window.open('', '_blank', 'width=740,height=860');
+    if (!win) { alert('Popup blocked — please allow popups for this page.'); return; }
+
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Loading\u2026</title>
+<style>body{margin:0;background:#1a2a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;color:#a8e6bf;}
+.sp{width:40px;height:40px;border:4px solid #2d7a4e;border-top-color:#4caf7d;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:20px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+p{font-size:0.9em;color:#7f8c8d;margin-top:8px}a{color:#4caf7d}</style>
+</head><body><div class="sp"></div><div style="font-size:1.1em;font-weight:bold;">Loading automated report\u2026</div>
+<p>Fetching: <a href="${reportUrl}" target="_blank">${y}-${m}-${d}.html</a></p></body></html>`);
+    win.document.close();
+
+    fetch(reportUrl)
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.text();
+        })
+        .then(html => {
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
+        })
+        .catch(() => {
+            win.document.open();
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>No Report Found</title>
+<style>body{margin:0;background:#1a2a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;color:#a8e6bf;text-align:center;padding:40px;}
+h2{color:#4caf7d;margin-bottom:16px}p{color:#7f8c8d;line-height:1.7;max-width:480px}
+.btn{display:inline-block;margin-top:24px;padding:12px 28px;background:#24292e;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:0.9em;}
+</style></head><body>
+<h2>&#9971; No Report for ${y}-${m}-${d}</h2>
+<p>The automated report for yesterday hasn't been generated yet, or the GitHub Action hasn't run.<br><br>
+To send a test report right now, open GitHub Actions and manually trigger a run:</p>
+<a class="btn" href="https://github.com/Bidgee182/wwcc-weather-page/actions" target="_blank">&#9654;&nbsp; Open GitHub Actions</a>
+<p style="margin-top:20px;font-size:0.82em;">Click <strong>WWCC Daily Weather Report</strong> &rarr; <strong>Run workflow</strong> &rarr; <strong>Run workflow</strong></p>
+</body></html>`);
+            win.document.close();
+        });
 }
 
 // ── Email report ──────────────────────────────────────────────────
