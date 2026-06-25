@@ -4117,6 +4117,11 @@ function _refreshTicker() {
     const items = _buildTickerItems();
     if (items.length === 0) { _stopTicker(); return; }
 
+    // Only restart if the item list has actually changed
+    const same = _tickerActive.length === items.length &&
+        items.every((it, i) => it.text === _tickerActive[i].text);
+    if (same) return;
+
     _tickerActive = items;
     _tickerIdx    = 0;
     if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
