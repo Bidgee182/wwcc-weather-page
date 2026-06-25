@@ -525,6 +525,12 @@
 
         /* ── TV Slide 2 - 6-card 3×2 insights grid ── */
         body.tv-mode #tv-s1 .golfer-insights { grid-template-columns: repeat(3, 1fr); }
+
+        /* ── Scrolling ticker animation ── */
+        @keyframes wwccTicker {
+            0%   { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
     </style>
 </head>
 <body>
@@ -866,8 +872,8 @@
 </div>
 
 <!-- Unified alert ticker (weather alerts + custom screen messages) -->
-<div id="ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;padding:10px 20px;text-align:center;box-sizing:border-box;">
-    <span class="ticker-text" style="font-size:0.92em;font-weight:bold;color:#fff;letter-spacing:0.3px;transition:opacity 0.7s ease;opacity:1;"></span>
+<div id="ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;overflow:hidden;border-bottom:2px solid #27ae60;box-sizing:border-box;height:36px;display:flex;align-items:center;">
+    <span class="ticker-text" style="display:inline-block;white-space:nowrap;font-size:0.88em;font-weight:bold;color:#fff;letter-spacing:0.4px;padding-right:120px;"></span>
 </div>
 
 <!-- ══════════════ GOLFER VIEW ══════════════ -->
@@ -1064,8 +1070,8 @@
     </div>
 
     <!-- Unified alert ticker (TV/kiosk) -->
-    <div id="tv-ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;padding:8px 20px;text-align:center;box-sizing:border-box;">
-        <span class="ticker-text" style="font-size:0.88em;font-weight:bold;color:#fff;letter-spacing:0.3px;transition:opacity 0.7s ease;opacity:1;"></span>
+    <div id="tv-ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;overflow:hidden;border-bottom:2px solid #27ae60;box-sizing:border-box;height:40px;display:flex;align-items:center;">
+        <span class="ticker-text" style="display:inline-block;white-space:nowrap;font-size:1em;font-weight:bold;color:#fff;letter-spacing:0.4px;padding-right:120px;"></span>
     </div>
 
     <div class="tv-slides-wrap">
@@ -4071,55 +4077,47 @@ function _refreshTicker() {
     const items = _buildTickerItems();
     _tickerActive = items;
     if (items.length === 0) { _stopTicker(); return; }
-    if (!_tickerTimer) {
-        _tickerIdx = 0;
-        _showTickerItem(items[0]);
-        if (items.length > 1) _tickerTimer = setInterval(_advanceTicker, 6000);
-    }
-}
 
-function _advanceTicker() {
-    _tickerActive = _buildTickerItems();
-    if (_tickerActive.length === 0) { _stopTicker(); return; }
-    if (_tickerActive.length === 1) {
-        clearInterval(_tickerTimer); _tickerTimer = null;
-        _showTickerItem(_tickerActive[0]);
-        return;
-    }
-    _tickerIdx = (_tickerIdx + 1) % _tickerActive.length;
-    const item = _tickerActive[_tickerIdx];
-    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const span = el.querySelector('.ticker-text');
-        if (!span) return;
-        span.style.opacity = '0';
-        setTimeout(() => {
-            span.textContent = item.icon + ' ' + item.text;
-            el.style.borderBottom = '2px solid ' + item.color;
-            span.style.opacity = '1';
-        }, 700);
-    });
-}
+    // Join all items into one scrolling string with a visible gap between each
+    const sep  = '          \u25C6          '; // wide spaces + diamond
+    const full = items.map(it => it.icon + '  ' + it.text).join(sep);
 
-function _showTickerItem(item) {
-    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.display    = 'block';
-        el.style.borderBottom = '2px solid ' + item.color;
-        const span = el.querySelector('.ticker-text');
-        if (span) { span.textContent = item.icon + ' ' + item.text; span.style.opacity = '1'; }
-    });
+    // Border colour = highest priority item (first one)
+    const borderColor = items[0].color;
+
+    // Duration: scale with string length so it scrolls at a consistent speed
+    const duration = Math.max(14, full.length * 0.13);
+
+    // Only update the ticker for the current mode
+    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
+    const el = document.getElementById(tickerId);
+    if (!el) return;
+
+    el.style.display      = 'flex';
+    el.style.borderBottom = '2px solid ' + borderColor;
+
+    const span = el.querySelector('.ticker-text');
+    if (!span) return;
+
+    span.textContent = full;
+    // Reset animation so it restarts cleanly when content changes
+    span.style.animation = 'none';
+    void span.offsetWidth; // force reflow
+    span.style.animation = `wwccTicker ${duration}s linear infinite`;
 }
 
 function _stopTicker() {
-    if (_tickerTimer) { clearInterval(_tickerTimer); _tickerTimer = null; }
-    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
+    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
+    const el = document.getElementById(tickerId);
+    if (!el) return;
+    el.style.display = 'none';
+    const span = el.querySelector('.ticker-text');
+    if (span) span.style.animation = 'none';
 }
+
+// _advanceTicker and _showTickerItem are no longer used (replaced by continuous scroll)
+function _advanceTicker() {}
+function _showTickerItem() {}
 
 // ── Custom screen messages ────────────────────────────────────────
 async function _kioskSHA() {
