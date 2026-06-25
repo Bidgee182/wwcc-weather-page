@@ -517,7 +517,8 @@
         .ab-fog   { background:linear-gradient(90deg,#1c2833,#2c3e50,#1c2833); border-top:2px solid #7f8c8d; border-bottom:2px solid #7f8c8d; }
         .ab-frost      { background:linear-gradient(90deg,#0a1628,#1a3a5c,#0a1628); border-top:2px solid #74b9ff; border-bottom:2px solid #74b9ff; animation:lightning-pulse 2s ease-in-out infinite; }
         .ab-frost-warn { background:linear-gradient(90deg,#0d2137,#1f4a6e,#0d2137); border-top:2px solid #aed6f1; border-bottom:2px solid #aed6f1; }
-        .ab-carts { background:linear-gradient(90deg,#3d2b00,#7d5a00,#3d2b00); border-top:2px solid #d4ac0d; border-bottom:2px solid #d4ac0d; }
+        .ab-carts  { background:linear-gradient(90deg,#3d2b00,#7d5a00,#3d2b00); border-top:2px solid #d4ac0d; border-bottom:2px solid #d4ac0d; }
+        .ab-custom { background:linear-gradient(90deg,#0d3320,#1a6a3a,#0d3320); border-top:2px solid #27ae60; border-bottom:2px solid #27ae60; font-size:1.05em; }
 
         /* ── Pressure Trend (TV mode: 5-col cc-grid) ── */
         body.tv-mode .cc-grid { grid-template-columns: repeat(5, 1fr); }
@@ -547,8 +548,9 @@
 </div>
 
 <!-- Last updated -->
-<div id="last-updated-bar" style="text-align:right;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
-    Last updated: <span id="last-updated" class="lu-fresh">--</span>
+<div id="last-updated-bar" style="display:flex;justify-content:flex-end;align-items:center;gap:10px;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
+    <span>Last updated: <span id="last-updated" class="lu-fresh">--</span></span>
+    <button onclick="openMsgPanel()" title="Post message to screens" style="background:#1a252f;border:1px solid #3d5166;color:#95a5a6;border-radius:6px;padding:4px 12px;font-size:1em;cursor:pointer;line-height:1.4;">&#128226;</button>
 </div>
 
 <!-- ══════════════ GREENKEEPER VIEW ══════════════ -->
@@ -863,11 +865,10 @@
     </div>
 </div>
 
-<!-- Lightning / Thunderstorm Alert -->
-<div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 4 hours - lightning risk in the area</div>
-<div class="alert-bar ab-fog"   id="fog-alert">🌫️ Fog forecast tomorrow morning - check visibility before early tee times</div>
-<div class="alert-bar ab-frost" id="frost-alert">❄️ Frost expected overnight - greens may be affected, check before early tee times</div>
-<div class="alert-bar ab-carts" id="carts-alert">🛺 Course wet - carts on paths only</div>
+<!-- Unified alert ticker (weather alerts + custom screen messages) -->
+<div id="ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;padding:10px 20px;text-align:center;box-sizing:border-box;">
+    <span class="ticker-text" style="font-size:0.92em;font-weight:bold;color:#fff;letter-spacing:0.3px;transition:opacity 0.7s ease;opacity:1;"></span>
+</div>
 
 <!-- ══════════════ GOLFER VIEW ══════════════ -->
 <div id="view-golfer" style="display:none">
@@ -1062,10 +1063,10 @@
         </div>
     </div>
 
-    <div class="lightning-bar" id="tv-lightning-alert">⚡ Thunderstorm forecast in the next 4 hours - lightning risk in the area</div>
-    <div class="alert-bar ab-fog"   id="tv-fog-alert">🌫️ Fog forecast tomorrow morning - check visibility before early tee times</div>
-    <div class="alert-bar ab-frost" id="tv-frost-alert">❄️ Frost expected overnight - greens may be affected, check before early tee times</div>
-    <div class="alert-bar ab-carts" id="tv-carts-alert">🛺 Course wet - carts on paths only</div>
+    <!-- Unified alert ticker (TV/kiosk) -->
+    <div id="tv-ticker-bar" style="display:none;position:sticky;top:0;z-index:997;width:100%;background:#0d1117;padding:8px 20px;text-align:center;box-sizing:border-box;">
+        <span class="ticker-text" style="font-size:0.88em;font-weight:bold;color:#fff;letter-spacing:0.3px;transition:opacity 0.7s ease;opacity:1;"></span>
+    </div>
 
     <div class="tv-slides-wrap">
         <div class="tv-slide tv-slide-active" id="tv-s0"></div>
@@ -1102,6 +1103,8 @@ const CLUB_LAT    = '-35.1082';
 const CLUB_LON    = '147.3598';
 const CLUB_ELEV_M = 147;
 const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) - adjust as needed
+const GITHUB_REPO    = 'Bidgee182/wwcc-weather-page';
+const GITHUB_PAT     = 'ghp_REPLACE_WITH_YOUR_TOKEN';  // fine-grained PAT with contents:write on this repo
 
 // ── Global state ──────────────────────────────────────────────────
 let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
@@ -1229,6 +1232,11 @@ function getCurrentHourUV() {
 // ── localStorage helpers ──────────────────────────────────────────
 const STORAGE_VERSION = '6';
 let _csvDaily = {};  // populated by loadCSVBalance() from data/daily_log.csv
+const _wx_alerts = { lightning: false, fog: false, frost: false, frostText: '', carts: false };
+let _customMessages = [];   // array loaded from data/kiosk_message.json
+let _tickerActive   = [];
+let _tickerIdx      = 0;
+let _tickerTimer    = null;
 if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
     localStorage.removeItem('wx_daily');
     localStorage.setItem('wx_storage_ver', STORAGE_VERSION);
@@ -3971,10 +3979,7 @@ function renderTVCurrentCard(at, dp, nowUV) {
 
 // ── Lightning / Thunderstorm Alert ───────────────────────────────
 function checkThunderstorm() {
-    const bar1 = document.getElementById('lightning-alert');
-    const bar2 = document.getElementById('tv-lightning-alert');
-    if (!bar1 && !bar2) return;
-    if (!hourlyFc || !hourlyFc.time) { return; }
+    if (!hourlyFc || !hourlyFc.time) return;
     const stormCodes = new Set([95, 96, 99]);
     const offsetMs = sydneyOffsetMs();
     const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
@@ -3985,15 +3990,12 @@ function checkThunderstorm() {
         const code = hourlyFc.weather_code ? hourlyFc.weather_code[i] : null;
         if (code !== null && stormCodes.has(code)) { found = true; break; }
     }
-    if (bar1) bar1.classList.toggle('lb-active', found);
-    if (bar2) bar2.classList.toggle('lb-active', found);
+    _wx_alerts.lightning = found;
+    _refreshTicker();
 }
 
 // ── Fog Alert (tomorrow morning) ─────────────────────────────────
 function checkFog() {
-    const bar1 = document.getElementById('fog-alert');
-    const bar2 = document.getElementById('tv-fog-alert');
-    if (!bar1 && !bar2) return;
     if (!hourlyFc || !hourlyFc.weather_code) return;
     const fogCodes = new Set([45, 48]);
     const offsetMs = sydneyOffsetMs();
@@ -4005,15 +4007,12 @@ function checkFog() {
         if (hour > 12) continue;
         if (fogCodes.has(hourlyFc.weather_code[i])) { found = true; break; }
     }
-    if (bar1) bar1.classList.toggle('ab-active', found);
-    if (bar2) bar2.classList.toggle('ab-active', found);
+    _wx_alerts.fog = found;
+    _refreshTicker();
 }
 
 // ── Frost Alert (overnight window) ───────────────────────────────
 function checkFrostAlert() {
-    const bar1 = document.getElementById('frost-alert');
-    const bar2 = document.getElementById('tv-frost-alert');
-    if (!bar1 && !bar2) return;
     if (!hourlyFc || !hourlyFc.temperature_2m) return;
     const offsetMs = sydneyOffsetMs();
     const now = Date.now();
@@ -4027,37 +4026,237 @@ function checkFrostAlert() {
         const t = hourlyFc.temperature_2m[i];
         if (t != null && t < minTemp) minTemp = t;
     }
-    let active = false, msg = '', cls = 'alert-bar';
     if (minTemp < 2) {
-        active = true;
-        cls += ' ab-frost';
-        msg = '❄️ Frost likely overnight - delay early tee times, hold carts on paths until greens clear';
+        _wx_alerts.frost     = true;
+        _wx_alerts.frostText = 'Frost likely overnight - delay early tee times, hold carts on paths until greens clear';
     } else if (minTemp < 4) {
-        active = true;
-        cls += ' ab-frost-warn';
-        msg = '❄️ Frost possible overnight - monitor greens before early tee times';
+        _wx_alerts.frost     = true;
+        _wx_alerts.frostText = 'Frost possible overnight - monitor greens before early tee times';
+    } else {
+        _wx_alerts.frost     = false;
+        _wx_alerts.frostText = '';
     }
-    [bar1, bar2].forEach(bar => {
-        if (!bar) return;
-        bar.className = cls + (active ? ' ab-active' : '');
-        bar.textContent = msg;
-    });
+    _refreshTicker();
 }
 
 // ── Carts on Paths Alert ──────────────────────────────────────────
 function checkCartsOnPaths() {
-    const bar1 = document.getElementById('carts-alert');
-    const bar2 = document.getElementById('tv-carts-alert');
-    if (!bar1 && !bar2) return;
     const store = getDailyStore();
     let totalET = 0, totalRain = 0;
     for (const k of Object.keys(store)) { totalET += store[k].et || 0; totalRain += store[k].rain || 0; }
     const offsetMs = sydneyOffsetMs();
     const ydDate = new Date(Date.now() + offsetMs); ydDate.setUTCDate(ydDate.getUTCDate() - 1);
     const rain24h = (wx.rainToday || 0) + (store[ydDate.toISOString().slice(0, 10)]?.rain || 0);
-    const found = (totalET - totalRain) < -10 || rain24h >= 15;
-    if (bar1) bar1.classList.toggle('ab-active', found);
-    if (bar2) bar2.classList.toggle('ab-active', found);
+    _wx_alerts.carts = (totalET - totalRain) < -10 || rain24h >= 15;
+    _refreshTicker();
+}
+
+// ── Unified alert ticker ──────────────────────────────────────────
+function _buildTickerItems() {
+    const items = [];
+    if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c' });
+    if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff' });
+    if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6' });
+    if (_wx_alerts.carts)     items.push({ text: 'Course wet - carts on paths only', icon: '🛺', color: '#d4ac0d' });
+    const now = new Date();
+    for (const m of _customMessages) {
+        if (!m.text) continue;
+        if (m.expires_at !== null && new Date(m.expires_at) <= now) continue;
+        items.push({ text: m.text, icon: '📢', color: '#27ae60' });
+    }
+    return items;
+}
+
+function _refreshTicker() {
+    const items = _buildTickerItems();
+    _tickerActive = items;
+    if (items.length === 0) { _stopTicker(); return; }
+    if (!_tickerTimer) {
+        _tickerIdx = 0;
+        _showTickerItem(items[0]);
+        if (items.length > 1) _tickerTimer = setInterval(_advanceTicker, 6000);
+    }
+}
+
+function _advanceTicker() {
+    _tickerActive = _buildTickerItems();
+    if (_tickerActive.length === 0) { _stopTicker(); return; }
+    if (_tickerActive.length === 1) {
+        clearInterval(_tickerTimer); _tickerTimer = null;
+        _showTickerItem(_tickerActive[0]);
+        return;
+    }
+    _tickerIdx = (_tickerIdx + 1) % _tickerActive.length;
+    const item = _tickerActive[_tickerIdx];
+    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const span = el.querySelector('.ticker-text');
+        if (!span) return;
+        span.style.opacity = '0';
+        setTimeout(() => {
+            span.textContent = item.icon + ' ' + item.text;
+            el.style.borderBottom = '2px solid ' + item.color;
+            span.style.opacity = '1';
+        }, 700);
+    });
+}
+
+function _showTickerItem(item) {
+    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display    = 'block';
+        el.style.borderBottom = '2px solid ' + item.color;
+        const span = el.querySelector('.ticker-text');
+        if (span) { span.textContent = item.icon + ' ' + item.text; span.style.opacity = '1'; }
+    });
+}
+
+function _stopTicker() {
+    if (_tickerTimer) { clearInterval(_tickerTimer); _tickerTimer = null; }
+    ['ticker-bar', 'tv-ticker-bar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+// ── Custom screen messages ────────────────────────────────────────
+async function _kioskSHA() {
+    try {
+        const r = await fetch(
+            `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message.json`,
+            { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: 'application/vnd.github+json' } }
+        );
+        if (!r.ok) return null;
+        return (await r.json()).sha || null;
+    } catch { return null; }
+}
+
+async function _writeKiosk(messages) {
+    const sha     = await _kioskSHA();
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(messages, null, 2))));
+    const body    = { message: 'Update screen messages', content, ...(sha ? { sha } : {}) };
+    const r = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message.json`,
+        { method: 'PUT', headers: { Authorization: `Bearer ${GITHUB_PAT}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    if (!r.ok) throw new Error(((await r.json()).message) || r.statusText);
+}
+
+async function addKioskMessage() {
+    const ta  = document.getElementById('panel-msg-text');
+    const dur = document.getElementById('panel-msg-duration');
+    const btn = document.getElementById('panel-add-btn');
+    const msg = ta?.value?.trim();
+    if (!msg) { _panelStatus('Please enter a message.', 'warn'); return; }
+    if (GITHUB_PAT.startsWith('ghp_REPLACE')) { _panelStatus('GitHub token not set. See setup instructions.', 'err'); return; }
+    btn.disabled = true;
+    _panelStatus('Posting...', 'info');
+    try {
+        const hours     = parseFloat(dur.value);
+        const expires_at = isNaN(hours) ? null : new Date(Date.now() + hours * 3600000).toISOString();
+        const newMsg    = { id: Date.now(), text: msg, expires_at };
+        let current = [];
+        try {
+            const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
+            if (r.ok) current = await r.json();
+        } catch {}
+        if (!Array.isArray(current)) current = [];
+        const now = new Date();
+        current = current.filter(m => m.expires_at === null || new Date(m.expires_at) > now);
+        current.push(newMsg);
+        await _writeKiosk(current);
+        ta.value = '';
+        _panelStatus('Posted! Screens update within ~60 seconds.', 'ok');
+        setTimeout(checkKioskMessage, 4000);
+    } catch(e) {
+        _panelStatus('Error: ' + e.message, 'err');
+    }
+    btn.disabled = false;
+}
+
+async function removeKioskMessage(id) {
+    if (GITHUB_PAT.startsWith('ghp_REPLACE')) { _panelStatus('GitHub token not set.', 'err'); return; }
+    _panelStatus('Removing...', 'info');
+    try {
+        let current = [];
+        try {
+            const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
+            if (r.ok) current = await r.json();
+        } catch {}
+        if (!Array.isArray(current)) current = [];
+        await _writeKiosk(current.filter(m => m.id !== id));
+        _panelStatus('Message removed.', 'ok');
+        setTimeout(checkKioskMessage, 4000);
+    } catch(e) {
+        _panelStatus('Error: ' + e.message, 'err');
+    }
+}
+
+async function checkKioskMessage() {
+    try {
+        const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) { _customMessages = []; _refreshTicker(); return; }
+        const data = await r.json();
+        if (!Array.isArray(data)) { _customMessages = []; _refreshTicker(); return; }
+        const now = new Date();
+        _customMessages = data.filter(m => m.expires_at === null || new Date(m.expires_at) > now);
+        _refreshTicker();
+        _renderMsgPanel();
+    } catch {
+        _customMessages = [];
+        _refreshTicker();
+    }
+}
+
+function _panelStatus(msg, type) {
+    const el = document.getElementById('panel-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = type === 'ok' ? '#27ae60' : type === 'warn' ? '#d4ac0d' : type === 'err' ? '#e74c3c' : '#7f8c8d';
+}
+
+function _renderMsgPanel() {
+    const list = document.getElementById('panel-msg-list');
+    if (!list) return;
+    if (_customMessages.length === 0) {
+        list.innerHTML = '<div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">No active messages</div>';
+        return;
+    }
+    const now = new Date();
+    list.innerHTML = _customMessages.map(m => {
+        let timeStr;
+        if (!m.expires_at) {
+            timeStr = '<span style="color:#27ae60">Permanent</span>';
+        } else {
+            const ms = new Date(m.expires_at) - now;
+            const h  = Math.floor(ms / 3600000);
+            const mn = Math.floor((ms % 3600000) / 60000);
+            timeStr  = `<span style="color:#7f8c8d">expires ${h}h ${mn}m</span>`;
+        }
+        return `<div style="background:#0d1117;border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;">
+            <div style="flex:1;font-size:0.88em;color:#ecf0f1;line-height:1.4;">${m.text}<br><span style="font-size:0.8em">${timeStr}</span></div>
+            <button onclick="removeKioskMessage(${m.id})" style="background:#3d1a00;border:1px solid #7d3a00;color:#ecf0f1;border-radius:4px;padding:4px 10px;font-size:0.78em;cursor:pointer;white-space:nowrap;flex-shrink:0;">Remove</button>
+        </div>`;
+    }).join('');
+}
+
+function openMsgPanel() {
+    const panel = document.getElementById('msg-panel');
+    panel.style.display   = 'block';
+    panel.style.transform = 'translateX(100%)';
+    document.getElementById('msg-panel-overlay').style.display = 'block';
+    requestAnimationFrame(() => { panel.style.transform = 'translateX(0)'; });
+    _renderMsgPanel();
+    document.getElementById('panel-status').textContent = '';
+}
+
+function closeMsgPanel() {
+    const panel = document.getElementById('msg-panel');
+    panel.style.transform = 'translateX(100%)';
+    document.getElementById('msg-panel-overlay').style.display = 'none';
+    setTimeout(() => { panel.style.display = 'none'; }, 310);
 }
 
 // ── Barometric Pressure Trend ─────────────────────────────────────
@@ -5394,6 +5593,7 @@ async function checkForUpdates() {
 initTVMode();
 initSprayProductSelect();
 loadCSVBalance();
+checkKioskMessage();
 getWeatherData();
 getForecast();
 fetchHistoricalWeather();
@@ -5403,10 +5603,51 @@ setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyFore
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
+setInterval(checkKioskMessage,    120000);   // refresh custom messages every 2 minutes
+setInterval(_renderMsgPanel,       60000);   // update countdown timers in panel
 // Check for updated HTML every 5 minutes; also record baseline after 3s
 setTimeout(checkForUpdates, 3000);
 setInterval(checkForUpdates, 300000);
 </script>
+
+<!-- ── Custom message slide-in panel ─────────────────────────── -->
+<div id="msg-panel-overlay" onclick="closeMsgPanel()" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.55);z-index:9998;"></div>
+<div id="msg-panel" style="display:none;position:fixed;top:0;right:0;width:340px;max-width:100vw;height:100vh;background:#1a252f;border-left:2px solid #3d5166;z-index:9999;overflow-y:auto;padding:20px;box-sizing:border-box;transform:translateX(100%);transition:transform 0.3s ease;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 style="margin:0;color:#ecf0f1;font-size:1em;letter-spacing:0.5px;">&#128226; Screen Messages</h3>
+        <button onclick="closeMsgPanel()" style="background:none;border:none;color:#7f8c8d;font-size:1.4em;cursor:pointer;line-height:1;padding:0 4px;">&#10005;</button>
+    </div>
+    <p style="font-size:0.78em;color:#7f8c8d;margin-bottom:16px;line-height:1.5;">Messages appear as a fading ticker on the TV kiosk and golfer page. Multiple messages cycle automatically. Weather alerts share the same ticker.</p>
+
+    <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Active Messages</div>
+    <div id="panel-msg-list"><div style="color:#7f8c8d;font-size:0.82em;padding:6px 0;">Loading...</div></div>
+
+    <div style="border-top:1px solid #2c3e50;margin-top:16px;padding-top:16px;">
+        <div style="font-size:0.72em;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">New Message</div>
+        <textarea id="panel-msg-text"
+            placeholder="e.g. Holes 12-14 closed for maintenance today. Play continues on all other holes."
+            style="width:100%;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:10px;font-size:0.88em;resize:vertical;min-height:72px;box-sizing:border-box;margin-bottom:10px;font-family:inherit;"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <label style="font-size:0.8em;color:#7f8c8d;white-space:nowrap;">Show for:</label>
+            <select id="panel-msg-duration" style="flex:1;background:#0d1117;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
+                <option value="0.5">30 minutes</option>
+                <option value="1">1 hour</option>
+                <option value="2">2 hours</option>
+                <option value="4">4 hours</option>
+                <option value="8" selected>8 hours</option>
+                <option value="12">12 hours</option>
+                <option value="24">24 hours</option>
+                <option value="48">2 days</option>
+                <option value="null">Forever (manual remove only)</option>
+            </select>
+        </div>
+        <button id="panel-add-btn" onclick="addKioskMessage()"
+            style="width:100%;background:#1a6a3a;border:none;color:white;border-radius:6px;padding:12px;font-size:0.9em;font-weight:bold;cursor:pointer;margin-bottom:8px;letter-spacing:0.3px;">
+            &#128226; Post to Screens
+        </button>
+        <div id="panel-status" style="font-size:0.8em;min-height:1.2em;text-align:center;color:#7f8c8d;"></div>
+    </div>
+</div>
 
 </body>
 </html>

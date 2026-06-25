@@ -203,7 +203,7 @@
     <li><span class="toc-num">3</span><a href="#s3">Slide 1 - Current Weather</a><span class="toc-dots"></span><span class="toc-pg">Playability banner + 8 condition tiles</span></li>
     <li><span class="toc-num">4</span><a href="#s4">Slide 2 - Golf Conditions</a><span class="toc-dots"></span><span class="toc-pg">Insights, Green Speed, Ball Flight, Wind Holes</span></li>
     <li><span class="toc-num">5</span><a href="#s5">Slide 3 - Weather Forecast</a><span class="toc-dots"></span><span class="toc-pg">Current readings, hourly strip, 4-day outlook</span></li>
-    <li><span class="toc-num">6</span><a href="#s6">Alert Banners</a><span class="toc-dots"></span><span class="toc-pg">Thunderstorm, frost, fog, carts on paths</span></li>
+    <li><span class="toc-num">6</span><a href="#s6">Ticker Bar &amp; Alerts</a><span class="toc-dots"></span><span class="toc-pg">Unified fading ticker - weather alerts + custom messages</span></li>
     <li><span class="toc-num">7</span><a href="#s7">Night &amp; Pre-Dawn Mode</a><span class="toc-dots"></span><span class="toc-pg">After-hours display, frost warnings</span></li>
     <li><span class="toc-num">8</span><a href="#s8">TV-Only Features</a><span class="toc-dots"></span><span class="toc-pg">Dew Point tile, Wind Holes card, clock</span></li>
     <li><span class="toc-num">9</span><a href="#s9">Data Sources &amp; Refresh Schedule</a><span class="toc-dots"></span><span class="toc-pg">What updates when</span></li>
@@ -470,33 +470,63 @@ Playing distance = 150m
 <div class="section" id="s6">
   <div class="section-header">
     <div class="section-num">6</div>
-    <div><h2>Alert Banners</h2><p>Four automatic warnings shown above all slides when triggered</p></div>
+    <div><h2>Ticker Bar &amp; Alerts</h2><p>Unified fading ticker showing weather alerts and custom management messages</p></div>
   </div>
   <div class="section-body">
-    <p>Alert banners appear <strong>above the slide carousel</strong> and are visible on all three slides simultaneously. Multiple alerts can be active at the same time and stack vertically. They disappear automatically when the condition clears (checked every 15 seconds).</p>
+    <p>A single <strong>sticky ticker bar</strong> sits above the slide carousel and is visible on all three slides simultaneously. It cycles through all active items - weather alerts and custom management messages - with a 0.7-second fade transition between each. When nothing is active, the bar hides completely.</p>
 
-    <div class="alert-strip">
-      <div class="alert-box ab-lightning">
-        <div class="ab-label">⚡ Thunderstorm Alert</div>
-        <div class="ab-trigger"><strong>Trigger:</strong> Thunderstorm (WMO code 95/96/99) forecast in next 4 hours<br><strong>Style:</strong> Pulsing amber glow<br><strong>Action:</strong> Suspend play - lightning risk in area</div>
+    <div class="callout callout-dark">
+      <span class="callout-icon">📢</span>
+      <div><strong>What can appear in the ticker (in priority order):</strong><br>
+        ⚡ Thunderstorm alert · ❄️ Frost alert · 🌫️ Fog alert · 🛺 Carts on paths · 💬 Custom management messages
       </div>
-      <div class="alert-box ab-frost">
-        <div class="ab-label">❄️ Frost Alert</div>
-        <div class="ab-trigger"><strong>Trigger:</strong> Overnight low &lt; 4°C (8 PM – 9 AM window)<br><strong>Style:</strong> Pulsing blue glow<br><strong>Action:</strong> Delay early tee times; hold carts on paths</div>
-      </div>
-      <div class="alert-box ab-fog">
-        <div class="ab-label">🌫️ Fog Alert</div>
-        <div class="ab-trigger"><strong>Trigger:</strong> Fog forecast tomorrow morning (WMO code 45 or 48)<br><strong>Style:</strong> Static grey bar<br><strong>Action:</strong> Check visibility before early tee times</div>
-      </div>
-      <div class="alert-box ab-carts">
-        <div class="ab-label">🛺 Carts on Paths</div>
-        <div class="ab-trigger"><strong>Trigger:</strong> 7-day surplus &gt; 10mm OR 24h rain ≥ 15mm<br><strong>Style:</strong> Static amber bar<br><strong>Action:</strong> Enforce paths-only policy for all carts</div>
-      </div>
+    </div>
+
+    <h3>Alert Triggers</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Alert</th><th>Auto Trigger</th><th>Action for Staff</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>⚡ Thunderstorm</strong></td>
+            <td>WMO weather code 95, 96, or 99 forecast in the next 4 hours</td>
+            <td>Advise pro shop immediately; follow club lightning policy - suspend play</td>
+          </tr>
+          <tr>
+            <td><strong>❄️ Frost</strong></td>
+            <td>Overnight low below 4°C (8 PM – 9 AM window). Text varies: below 2°C = "Hard frost likely"; 2–4°C = "Frost expected"</td>
+            <td>Delay early tee times; hold carts on paths until greens clear</td>
+          </tr>
+          <tr>
+            <td><strong>🌫️ Fog</strong></td>
+            <td>WMO code 45 (fog) or 48 (rime fog) forecast for tomorrow morning</td>
+            <td>Check visibility before early tee times; delay if under 50m</td>
+          </tr>
+          <tr>
+            <td><strong>🛺 Carts on Paths</strong></td>
+            <td>7-day water balance surplus &gt; 10 mm OR 24h rainfall ≥ 15 mm</td>
+            <td>Enforce paths-only policy for all motorised carts</td>
+          </tr>
+          <tr>
+            <td><strong>💬 Custom Messages</strong></td>
+            <td>Posted manually by the greenkeeper via the 📢 panel on the GK Dashboard</td>
+            <td>Informational - read message and act accordingly</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Custom Management Messages</h3>
+    <p>The greenkeeper can post custom messages from the GK Dashboard at any time using the <strong>📢 button</strong> near the Last Updated timestamp. These messages are saved to GitHub and appear on the TV kiosk ticker within <strong>2 minutes</strong>. Messages have a configurable duration (30 min to Forever) and can be removed at any time from the GK panel.</p>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">✅</span>
+      <div>All weather alerts are fully automatic - no staff action is needed to activate or deactivate them. The ticker checks conditions every 15 seconds and checks for new custom messages every 2 minutes. The ticker bar disappears entirely when no alerts or messages are active.</div>
     </div>
 
     <div class="callout callout-red">
       <span class="callout-icon">⚡</span>
-      <div>The <strong>Thunderstorm Alert</strong> is the highest priority. It pulses to draw attention even from a distance. When this banner is active, pro shop staff should be advised immediately and play suspension procedures should be followed per the club's lightning policy.</div>
+      <div>The <strong>Thunderstorm Alert</strong> is the highest priority item in the ticker. It appears first in the cycle and uses pulsing amber styling to draw attention from a distance. When it is active, pro shop staff should be notified immediately and the club's lightning suspension procedure should be followed.</div>
     </div>
   </div>
 </div>

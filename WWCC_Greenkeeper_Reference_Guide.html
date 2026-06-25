@@ -388,6 +388,7 @@
     <li><span class="toc-num">8</span><a href="#s8">Station Tab</a><span class="toc-dots"></span><span class="toc-pg">All sensor readings &amp; pressure trend</span></li>
     <li><span class="toc-num">9</span><a href="#s9">Reports Tab</a><span class="toc-dots"></span><span class="toc-pg">7 report types, email &amp; print</span></li>
     <li><span class="toc-num">10</span><a href="#s10">Quick Reference</a><span class="toc-dots"></span><span class="toc-pg">Key thresholds at a glance</span></li>
+    <li><span class="toc-num">11</span><a href="#s11">Ticker Bar &amp; Screen Messages</a><span class="toc-dots"></span><span class="toc-pg">📢 Custom messages + unified alert ticker</span></li>
   </ol>
 </div>
 
@@ -696,11 +697,11 @@ Probability = e^logit ÷ (1 + e^logit)     <span class="comment">// Result: 0% t
 
     <!-- Brown Patch -->
     <h3>Disease 2 - Brown Patch <em style="font-weight:400;color:var(--text-muted)">(Rhizoctonia solani)</em></h3>
-    <p>Most damaging on bentgrass greens when night temperatures stay above 15°C with extended leaf wetness. The model monitors <strong>night hours only (10 PM – 6 AM Sydney time)</strong>.</p>
+    <p>Most damaging on bentgrass greens when night temperatures stay above 15°C with extended leaf wetness. The model monitors <strong>night hours only (8 PM – 8 AM Sydney time)</strong>.</p>
 
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Night Wetness Hours (22:00–06:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
+        <thead><tr><th>Night Wetness Hours (20:00–08:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
         <tbody>
           <tr><td>≥ 12 hours</td><td>&gt; 15°C</td><td>&gt; 25°C</td><td class="risk-high">HIGH</td></tr>
           <tr><td>≥ 8 hours</td><td>&gt; 15°C</td><td>Any</td><td class="risk-mod">MODERATE</td></tr>
@@ -719,9 +720,9 @@ Probability = e^logit ÷ (1 + e^logit)     <span class="comment">// Result: 0% t
 
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Night Wetness Hours (22:00–06:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
+        <thead><tr><th>Night Wetness Hours (20:00–08:00)</th><th>Night Minimum Temp</th><th>Day Temp</th><th>Risk Level</th></tr></thead>
         <tbody>
-          <tr><td>≥ 14 hours</td><td>&gt; 20°C</td><td>&gt; 30°C</td><td class="risk-severe">SEVERE</td></tr>
+          <tr><td>≥ 12 hours</td><td>&gt; 20°C</td><td>&gt; 30°C</td><td class="risk-severe">SEVERE</td></tr>
           <tr><td>≥ 10 hours</td><td>&gt; 20°C</td><td>Any</td><td class="risk-high">HIGH</td></tr>
           <tr><td>≥ 6 hours</td><td>&gt; 20°C</td><td>Any</td><td class="risk-mod">MODERATE</td></tr>
           <tr><td>&lt; 6 hours or night min ≤ 20°C</td><td>-</td><td>-</td><td class="risk-low">LOW</td></tr>
@@ -1037,7 +1038,7 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
         <tbody>
           <tr><td><strong>Dollar Spot</strong></td><td>≥ 12h wet, 15–30°C, high Smith-Kerns probability</td><td>Apply systemic fungicide (Signature, Banner Maxx, Iprodione)</td></tr>
           <tr><td><strong>Brown Patch</strong></td><td>≥ 12h night wet, night min &gt; 15°C, day &gt; 25°C</td><td>Apply systemic fungicide; reduce evening irrigation</td></tr>
-          <tr><td><strong>Pythium Blight</strong></td><td>≥ 14h night wet, night min &gt; 20°C, day &gt; 30°C</td><td><strong>Urgent</strong> - Apply Banol or Subdue Maxx immediately; restrict irrigation</td></tr>
+          <tr><td><strong>Pythium Blight</strong></td><td>≥ 12h night wet, night min &gt; 20°C, day &gt; 30°C</td><td><strong>Urgent</strong> - Apply Banol or Subdue Maxx immediately; restrict irrigation</td></tr>
           <tr><td><strong>Fusarium Patch</strong></td><td>Score ≥ 8 (sustained humidity + wet + rain days)</td><td>Apply fungicide (Headway Maxx, Dedicate); reduce shade where possible</td></tr>
         </tbody>
       </table>
@@ -1054,6 +1055,97 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
         </tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 11 - TICKER BAR & SCREEN MESSAGES
+══════════════════════════════════════════════════ -->
+<div class="section" id="s11">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <div>
+      <h2>Ticker Bar &amp; Screen Messages</h2>
+      <p>Unified alert ticker + custom messages sent to the golfer page and TV kiosk</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <h3>How the Ticker Bar Works</h3>
+    <p>All weather alerts and custom management messages are shown in a single <strong>sticky ticker bar</strong> at the top of every page (GK, golfer, and TV kiosk). When more than one item is active, the bar cycles through them one at a time with a 0.7-second fade transition. When nothing is active, the bar hides completely.</p>
+
+    <div class="callout callout-blue">
+      <span class="callout-icon">📢</span>
+      <div><strong>What can appear in the ticker:</strong><br>
+        ⚡ Thunderstorm alert (auto - WMO code 95/96/99 in next 4 hours)<br>
+        ❄️ Frost alert (auto - overnight low below 4°C)<br>
+        🌫️ Fog alert (auto - fog forecast tomorrow morning)<br>
+        🛺 Carts on paths (auto - 7-day surplus &gt;10mm or 24h rain ≥15mm)<br>
+        💬 Custom management messages (manually posted via the 📢 panel)
+      </div>
+    </div>
+
+    <p>The automatic weather alerts use the same trigger thresholds documented in Sections 4 and 5. They appear and disappear without any manual action.</p>
+
+    <h3>Posting a Custom Screen Message</h3>
+    <p>The <strong>📢 button</strong> sits in the top-right corner of the GK Dashboard, next to the "Last updated" timestamp. Clicking it opens a slide-in panel from the right side of the screen.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Step</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1. Open panel</strong></td><td>Click the <strong>📢</strong> button near "Last updated" (top right of the GK page)</td></tr>
+          <tr><td><strong>2. Type message</strong></td><td>Enter your message text in the text box - keep it short enough to read in the ticker</td></tr>
+          <tr><td><strong>3. Set duration</strong></td><td>Choose how long the message stays active (see duration options below)</td></tr>
+          <tr><td><strong>4. Post</strong></td><td>Click <strong>Post Message</strong> - the message is saved to GitHub and appears within 2 minutes on all screens</td></tr>
+          <tr><td><strong>5. Remove</strong></td><td>Tap the <strong>×</strong> button next to any active message in the panel list to remove it immediately</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Duration Options</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Duration</th><th>Typical Use</th></tr></thead>
+        <tbody>
+          <tr><td><strong>30 minutes</strong></td><td>Urgent short notice - spraying in progress, temporary course closure</td></tr>
+          <tr><td><strong>1 hour</strong></td><td>Staff meeting, greens maintenance in a specific area</td></tr>
+          <tr><td><strong>2 hours</strong></td><td>Morning maintenance window, aerification on specific holes</td></tr>
+          <tr><td><strong>4 hours</strong></td><td>Half-day closure, major works on back 9</td></tr>
+          <tr><td><strong>8 hours</strong></td><td>Full-day notice - competition preparation, function day</td></tr>
+          <tr><td><strong>Forever</strong></td><td>Permanent notice until manually removed - season-long changes, rule updates</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Expired messages are removed automatically. Forever messages remain until you tap × to delete them.</p>
+
+    <h3>Where Messages Appear</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Page</th><th>Ticker Location</th><th>Refresh Rate</th></tr></thead>
+        <tbody>
+          <tr><td><strong>GK Dashboard</strong></td><td>Sticky bar at top, below the conditions bar</td><td>Updates immediately on post</td></tr>
+          <tr><td><strong>Golfer Page</strong></td><td>Sticky bar at the very top of the page</td><td>Polls GitHub every 2 minutes</td></tr>
+          <tr><td><strong>TV Kiosk</strong></td><td>Sticky bar above the slide carousel</td><td>Polls GitHub every 2 minutes</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>GitHub PAT Setup (One-Time)</h3>
+    <div class="callout callout-yellow">
+      <span class="callout-icon">🔑</span>
+      <div><strong>A GitHub Personal Access Token (PAT) is required</strong> to write messages to the shared message file.<br><br>
+      To create one: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → New token.<br>
+      Set <strong>Repository access</strong> to <em>Bidgee182/wwcc-weather-page</em> and grant <strong>Contents: Read and write</strong>.<br><br>
+      Replace the placeholder <span style="font-family:monospace;background:#f1f5f9;padding:1px 5px;border-radius:3px">ghp_REPLACE_WITH_YOUR_TOKEN</span> in the <code>GITHUB_PAT</code> line near the top of <code>index.html</code> with your generated token. This only needs to be done once.</div>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">✅</span>
+      <div>If the PAT is not yet set, the 📢 panel will still open and allow you to compose a message, but the <strong>Post Message</strong> button will show an error. Weather alert items (lightning, frost, fog, carts) continue to work without a PAT - they never write to GitHub.</div>
+    </div>
+
   </div>
 </div>
 

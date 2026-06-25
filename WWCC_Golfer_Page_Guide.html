@@ -257,7 +257,7 @@
     <li><span class="toc-num">3</span><a href="#s3">The 8 Condition Tiles</a><span class="toc-dots"></span><span class="toc-pg">Feels Like, Wind, Rain, UV, Course Roll, Daylight &amp; more</span></li>
     <li><span class="toc-num">4</span><a href="#s4">Insight Cards</a><span class="toc-dots"></span><span class="toc-pg">Best Time to Play, Green Speed, Ball @ 150m</span></li>
     <li><span class="toc-num">5</span><a href="#s5">Frost &amp; UV Exposure Cards</a><span class="toc-dots"></span><span class="toc-pg">Overnight frost risk, safe sun time</span></li>
-    <li><span class="toc-num">6</span><a href="#s6">Alert Banners</a><span class="toc-dots"></span><span class="toc-pg">Thunderstorm, frost, fog, carts on paths</span></li>
+    <li><span class="toc-num">6</span><a href="#s6">Ticker Bar &amp; Alerts</a><span class="toc-dots"></span><span class="toc-pg">Thunderstorm, frost, fog, carts, management messages</span></li>
     <li><span class="toc-num">7</span><a href="#s7">Hourly Forecast</a><span class="toc-dots"></span><span class="toc-pg">Next 5 hours - temp, rain, UV, wind</span></li>
     <li><span class="toc-num">8</span><a href="#s8">4-Day Forecast</a><span class="toc-dots"></span><span class="toc-pg">4-day outlook with daily summary</span></li>
     <li><span class="toc-num">9</span><a href="#s9">Conditions Detail Strip</a><span class="toc-dots"></span><span class="toc-pg">All raw readings at the bottom</span></li>
@@ -710,54 +710,54 @@ Playing distance = round(150 + temp adj + pressure adj + humidity adj)
   <div class="section-header">
     <div class="section-num">6</div>
     <div>
-      <h2>Alert Banners</h2>
-      <p>Automatic warnings shown above the page when specific thresholds are triggered</p>
+      <h2>Ticker Bar &amp; Alerts</h2>
+      <p>Unified fading ticker showing weather alerts and management messages</p>
     </div>
   </div>
   <div class="section-body">
-    <p>Alert banners appear automatically at the top of the Golfer page when specific conditions are forecast or observed. They disappear once the conditions pass.</p>
+    <p>A single <strong>sticky ticker bar</strong> appears at the very top of the Golfer page when there is anything to show. It cycles through all active items - weather alerts and management messages - with a smooth 0.7-second fade. When nothing is active, the bar hides completely and does not take up any space.</p>
 
-    <div class="callout callout-yellow">
-      <span class="callout-icon">⚡</span>
-      <div>
-        <strong>Thunderstorm Alert</strong><br>
-        <strong>Trigger:</strong> WMO weather code 95, 96, or 99 (thunderstorm with or without hail) forecast in the next 4 hours.<br>
-        <strong>Message:</strong> "Thunderstorm forecast in the next 3 hours - lightning risk in the area"<br>
-        <strong>Action:</strong> Suspend play immediately if thunder is heard. The 30/30 rule applies: seek shelter if thunder follows lightning by less than 30 seconds; wait 30 minutes after last thunder before resuming.
-      </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Alert</th><th>Trigger</th><th>What to Do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>⚡ Thunderstorm</strong></td>
+            <td>Thunderstorm (WMO 95/96/99) forecast in next 4 hours</td>
+            <td>Seek shelter immediately if thunder is heard. 30/30 rule: shelter if thunder within 30 sec of lightning; wait 30 min after last thunder</td>
+          </tr>
+          <tr>
+            <td><strong>❄️ Frost</strong></td>
+            <td>Overnight low below 4°C (8 PM – 9 AM window). Text varies by severity: below 2°C = hard frost likely; 2–4°C = frost expected</td>
+            <td>Delay early tee times if greens are affected; avoid walking on frosted bentgrass greens</td>
+          </tr>
+          <tr>
+            <td><strong>🌫️ Fog</strong></td>
+            <td>WMO code 45 or 48 (fog/rime) forecast for tomorrow morning</td>
+            <td>Check visibility before heading out; delay if under 50m</td>
+          </tr>
+          <tr>
+            <td><strong>🛺 Carts on Paths</strong></td>
+            <td>7-day surplus &gt; 10 mm OR 24h rain ≥ 15 mm</td>
+            <td>All motorised carts must remain on paths only</td>
+          </tr>
+          <tr>
+            <td><strong>💬 Management Message</strong></td>
+            <td>Posted by greenkeeper via the GK Dashboard</td>
+            <td>Read and follow the instruction in the message</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="callout callout-blue">
-      <span class="callout-icon">❄️</span>
-      <div>
-        <strong>Frost Alert</strong><br>
-        <strong>Trigger:</strong> Overnight forecast minimum below 4°C (8 PM – 9 AM window).<br>
-        <strong>Below 2°C:</strong> "Frost likely overnight - delay early tee times, hold carts on paths until greens clear"<br>
-        <strong>2–4°C:</strong> "Frost possible overnight - monitor greens before early tee times"<br>
-        <strong>Action:</strong> Starter should check greens before first tee times. Walking on frosted bentgrass causes cell rupture and brown footprint damage.
-      </div>
+      <span class="callout-icon">ℹ️</span>
+      <div>All weather alerts are <strong>automatic</strong> - no staff action required to post them. Management messages are posted by the greenkeeper from the GK Dashboard and can cover anything: spraying in progress, hole closures, competition notices, or course status updates. The ticker bar disappears when all alerts have cleared and no messages are active.</div>
     </div>
 
-    <div class="callout callout-yellow" style="background:#f0f0f0; border-color:#9ca3af;">
-      <span class="callout-icon">🌫️</span>
-      <div>
-        <strong>Fog Alert</strong><br>
-        <strong>Trigger:</strong> WMO weather code 45 (fog) or 48 (rime fog) forecast for tomorrow morning (up to noon).<br>
-        <strong>Message:</strong> "Fog forecast tomorrow morning - check visibility before early tee times"<br>
-        <strong>Action:</strong> If visibility is less than 50m, consider delaying tee times until fog lifts.
-      </div>
-    </div>
-
-    <div class="callout callout-yellow" style="background:#f5efe6; border-color:#b45309;">
-      <span class="callout-icon">🛺</span>
-      <div>
-        <strong>Carts on Paths Alert</strong><br>
-        <strong>Trigger:</strong> Either of these conditions:<br>
-        &nbsp;• 7-day water balance shows surplus &gt; 10 mm (waterlogged soil)<br>
-        &nbsp;• 24-hour rainfall total ≥ 15 mm<br>
-        <strong>Message:</strong> "Course wet - carts on paths only"<br>
-        <strong>Action:</strong> Enforce path-only policy for all motorised carts to prevent turf damage on saturated ground.
-      </div>
+    <div class="callout callout-yellow">
+      <span class="callout-icon">⚡</span>
+      <div>The <strong>Thunderstorm Alert</strong> is the most urgent item. It appears in pulsing amber styling and always cycles first when active. Suspend play and seek a substantial shelter - not a tree. Follow the club's lightning suspension policy.</div>
     </div>
   </div>
 </div>
