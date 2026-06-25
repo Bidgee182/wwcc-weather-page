@@ -652,11 +652,13 @@ RISK_ROW_BG = {
 }
 
 # Shared inline style fragments
-_HDR = ('background:linear-gradient(135deg,#1a4a2e,#2d7a4e);'
+# Note: linear-gradient is stripped by most email clients — use solid background-color
+# and the bgcolor HTML attribute (Outlook reads the attribute, not the CSS property).
+_HDR = ('background-color:#1a4a2e;'
         'padding:18px 24px;')
 _CIRCLE = ('display:inline-block;width:32px;height:32px;line-height:32px;'
            'text-align:center;border-radius:50%;'
-           'background:rgba(255,255,255,0.2);'
+           'background-color:rgba(255,255,255,0.2);'
            'color:white;font-weight:700;font-size:14px;'
            'margin-right:10px;vertical-align:middle;')
 _HDR_TXT = 'color:white;font-size:16px;font-weight:700;vertical-align:middle;'
@@ -670,9 +672,9 @@ _SUB     = 'font-size:12px;color:#64748b;margin-top:4px;'
 
 
 def sec_header(num, title, subtitle=''):
-    """Green gradient section header matching the guide style."""
+    """Dark-green section header. Uses bgcolor attribute for Outlook compatibility."""
     sub_html = (f'<div style="{_HDR_SUB}">{subtitle}</div>' if subtitle else '')
-    return f"""<tr><td style="{_HDR}">
+    return f"""<tr><td bgcolor="#1a4a2e" style="{_HDR}">
       <span style="{_CIRCLE}">{num}</span>
       <span style="{_HDR_TXT}">{title}</span>
       {sub_html}
@@ -798,7 +800,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
             l_pad = 'padding-left:4px;'  if i > 0 else ''
             cols.append(f"""<td width="25%" style="{r_pad}{l_pad}vertical-align:top;">
           <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:{bg_col};border:{bdr_style};border-radius:10px;text-align:center;">
+              bgcolor="{bg_col}"
+              style="background-color:{bg_col};border:{bdr_style};border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
                   color:{lbl_color};margin-bottom:2px;">{heading}</div>
@@ -833,8 +836,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     box-shadow:0 4px 20px rgba(0,0,0,0.08);">
 
   <!-- HEADER -->
-  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
-      padding:36px 28px 30px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
         <div style="display:inline-block;background:rgba(201,162,39,0.25);
@@ -991,7 +993,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     </div>
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-      <tr style="background:#1a4a2e;">
+      <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
         <th style="padding:10px 14px;text-align:left;color:white;font-size:11px;
             font-weight:700;letter-spacing:0.5px;width:34%;">Disease</th>
         <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
@@ -1102,7 +1104,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   {forecast_html}
 
   <!-- FOOTER -->
-  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club - Automated Daily Report</div>
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
@@ -1168,8 +1170,7 @@ def build_weekly_html(history, week_end_date):
     style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
-      padding:36px 28px 30px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
         <div style="display:inline-block;background:rgba(201,162,39,0.25);
@@ -1192,7 +1193,7 @@ def build_weekly_html(history, week_end_date):
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
-      <tr style="background:#1a4a2e;">
+      <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
         <th style="padding:10px 12px;text-align:left;color:white;font-size:11px;
             font-weight:700;letter-spacing:0.5px;">Date</th>
         <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
@@ -1340,7 +1341,7 @@ def build_weekly_html(history, week_end_date):
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Weekly Report</div>
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
@@ -1404,8 +1405,7 @@ def build_monthly_html(history, month_label):
     style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
-      padding:36px 28px 30px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
         <div style="display:inline-block;background:rgba(201,162,39,0.25);
@@ -1582,7 +1582,7 @@ def build_monthly_html(history, month_label):
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Monthly Report</div>
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
@@ -1677,8 +1677,7 @@ def build_yearly_html(history, year_label):
     style="max-width:660px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
-      padding:36px 28px 30px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
         <div style="display:inline-block;background:rgba(201,162,39,0.25);
@@ -1826,7 +1825,7 @@ def build_yearly_html(history, year_label):
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Annual Report</div>
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
