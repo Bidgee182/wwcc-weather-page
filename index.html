@@ -4214,21 +4214,12 @@ async function addKioskMessage() {
         _renderMsgPanel();
         _panelStatus(isEdit ? 'Updating on GitHub...' : 'Saving to GitHub...', 'info');
 
-        let current = [];
-        try {
-            const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
-            if (r.ok) current = await r.json();
-        } catch {}
-        if (!Array.isArray(current)) current = [];
+        // Derive write content from local _customMessages — avoids stale GitHub Pages cache
         const now = new Date();
-        const saved = { id: msgId, text: msg, type, expires_at };
-        if (isEdit) {
-            current = current.map(m => m.id === msgId ? saved : m);
-        } else {
-            current = current.filter(m => m.expires_at === null || new Date(m.expires_at) > now);
-            current.push(saved);
-        }
-        await _writeKiosk(current);
+        const toWrite = _customMessages
+            .filter(m => m.expires_at === null || new Date(m.expires_at) > now)
+            .map(({ pending, ...m }) => m);
+        await _writeKiosk(toWrite);
         // Remove pending flag now that it's saved
         _customMessages = _customMessages.map(m => m.id === msgId ? { ...m, pending: false } : m);
         _panelStatus(isEdit ? 'Updated!' : 'Posted!', 'ok');
@@ -4248,13 +4239,11 @@ async function removeKioskMessage(id) {
     _renderMsgPanel();
     _panelStatus('Removing...', 'info');
     try {
-        let current = [];
-        try {
-            const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
-            if (r.ok) current = await r.json();
-        } catch {}
-        if (!Array.isArray(current)) current = [];
-        await _writeKiosk(current.filter(m => m.id !== id));
+        const now = new Date();
+        const toWrite = _customMessages
+            .filter(m => m.expires_at === null || new Date(m.expires_at) > now)
+            .map(({ pending, ...m }) => m);
+        await _writeKiosk(toWrite);
         _panelStatus('Message removed.', 'ok');
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
@@ -5759,7 +5748,7 @@ setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyFore
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
-setInterval(checkKioskMessage,    120000);   // refresh custom messages every 2 minutes
+setInterval(checkKioskMessage,     30000);   // refresh custom messages every 30 seconds
 setInterval(_renderMsgPanel,       60000);   // update countdown timers in panel
 // Check for updated HTML every 5 minutes; also record baseline after 3s
 setTimeout(checkForUpdates, 3000);
