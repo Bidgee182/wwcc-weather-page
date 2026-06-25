@@ -564,7 +564,7 @@
 <!-- Last updated -->
 <div id="last-updated-bar" style="display:flex;justify-content:flex-end;align-items:center;gap:10px;font-size:0.75em;color:#7f8c8d;margin-bottom:6px;padding-right:4px">
     <span>Last updated: <span id="last-updated" class="lu-fresh">--</span></span>
-    <button onclick="openMsgPanel()" title="Post message to screens" style="background:#1a252f;border:1px solid #3d5166;color:#95a5a6;border-radius:6px;padding:4px 12px;font-size:1em;cursor:pointer;line-height:1.4;">&#128226;</button>
+    <button id="msg-panel-btn" onclick="openMsgPanel()" title="Post message to screens" style="background:#1a252f;border:1px solid #3d5166;color:#95a5a6;border-radius:6px;padding:4px 12px;font-size:1em;cursor:pointer;line-height:1.4;">&#128226;</button>
 </div>
 
 <!-- ══════════════ GREENKEEPER VIEW ══════════════ -->
@@ -1348,6 +1348,8 @@ function switchTab(tab) {
     document.getElementById('subtitle').textContent = isGk
         ? 'Live Weather \u0026 Turf Management'
         : 'Course Conditions for Players';
+    const msgBtn = document.getElementById('msg-panel-btn');
+    if (msgBtn) msgBtn.style.display = isGk ? '' : 'none';
     if (!GK_MODE && !TV_MODE) localStorage.setItem('wx_active_tab', tab);
 }
 
