@@ -4073,46 +4073,64 @@ function _buildTickerItems() {
     return items;
 }
 
-function _refreshTicker() {
-    const items = _buildTickerItems();
-    _tickerActive = items;
-    if (items.length === 0) { _stopTicker(); return; }
+function _showTickerItem(idx) {
+    const items = _tickerActive;
+    if (!items || items.length === 0) { _stopTicker(); return; }
 
-    // Join all items into one scrolling string with a visible gap between each
-    const sep  = '          \u25C6          '; // wide spaces + diamond
-    const full = items.map(it => it.icon + '  ' + it.text).join(sep);
-
-    // Border colour = highest priority item (first one)
-    const borderColor = items[0].color;
-
-    // Duration: scale with string length so it scrolls at a consistent speed
-    const duration = Math.max(14, full.length * 0.13);
-
-    // Only update the ticker for the current mode
+    const item = items[idx % items.length];
     const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
     const el = document.getElementById(tickerId);
     if (!el) return;
 
     el.style.display      = 'flex';
-    el.style.borderBottom = '2px solid ' + borderColor;
+    el.style.borderBottom = '2px solid ' + item.color;
 
     const span = el.querySelector('.ticker-text');
     if (!span) return;
 
-    span.textContent = full;
-    // Reset animation so it restarts cleanly when content changes
+    const text = item.icon + '  ' + item.text;
+    span.textContent = text;
+
+    // Duration: scale with text length for consistent scroll speed
+    const duration = Math.max(10, text.length * 0.18);
+
+    // Remove old listener, reset animation, then play once
+    span.onanimationend = null;
     span.style.animation = 'none';
     void span.offsetWidth; // force reflow
-    span.style.animation = `wwccTicker ${duration}s linear infinite`;
+
+    span.onanimationend = () => {
+        span.onanimationend = null;
+        span.style.animation = 'none';
+        span.textContent = '';
+        // Pause 500ms before next message scrolls in
+        _tickerTimer = setTimeout(() => {
+            _tickerIdx = (idx + 1) % items.length;
+            _showTickerItem(_tickerIdx);
+        }, 500);
+    };
+
+    span.style.animation = `wwccTicker ${duration}s linear 1`;
+}
+
+function _refreshTicker() {
+    const items = _buildTickerItems();
+    if (items.length === 0) { _stopTicker(); return; }
+
+    _tickerActive = items;
+    _tickerIdx    = 0;
+    if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
+    _showTickerItem(0);
 }
 
 function _stopTicker() {
+    if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
     const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
     const el = document.getElementById(tickerId);
     if (!el) return;
     el.style.display = 'none';
     const span = el.querySelector('.ticker-text');
-    if (span) span.style.animation = 'none';
+    if (span) { span.onanimationend = null; span.style.animation = 'none'; }
 }
 
 // _advanceTicker and _showTickerItem are no longer used (replaced by continuous scroll)
