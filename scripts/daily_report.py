@@ -480,6 +480,117 @@ def fetch_openmeteo_forecast(target_date):
     return fog_flag, lightning_flag
 
 
+# WMO weather-code → icon and description (used in 4-day forecast strip)
+_WMO_ICON = {
+    0:'&#9728;', 1:'&#9728;', 2:'&#9925;', 3:'&#9925;',
+    45:'&#127787;', 48:'&#127787;',
+    51:'&#127783;', 53:'&#127783;', 55:'&#127783;',
+    61:'&#127783;', 63:'&#127783;', 65:'&#127783;',
+    71:'&#10052;', 73:'&#10052;', 75:'&#10052;',
+    80:'&#127783;', 81:'&#127783;', 82:'&#127783;',
+    95:'&#9928;',  96:'&#9928;',  99:'&#9928;',
+}
+_WMO_DESC = {
+    0:'Clear', 1:'Mostly clear', 2:'Partly cloudy', 3:'Overcast',
+    45:'Foggy', 48:'Foggy',
+    51:'Drizzle', 53:'Drizzle', 55:'Heavy drizzle',
+    61:'Shower', 63:'Rain', 65:'Heavy rain',
+    71:'Snow', 73:'Snow', 75:'Heavy snow',
+    80:'Shower', 81:'Showers', 82:'Heavy showers',
+    95:'Thunderstorm', 96:'Thunderstorm', 99:'Thunderstorm',
+}
+
+
+def fetch_4day_forecast(today_date):
+    """
+    Fetch daily max/min temp, precipitation sum and dominant weather code
+    for today + 3 days from Open-Meteo forecast API.
+    Returns a list of up to 4 dicts; empty list on failure.
+    """
+    end_date = today_date + timedelta(days=3)
+    url = 'https://api.open-meteo.com/v1/forecast'
+    params = {
+        'latitude':   CLUB_LAT,
+        'longitude':  CLUB_LON,
+        'daily':      'temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code',
+        'start_date': today_date.strftime('%Y-%m-%d'),
+        'end_date':   end_date.strftime('%Y-%m-%d'),
+        'timezone':   'Australia/Sydney',
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        log.warning(f'4-day forecast error: {e}')
+        return []
+
+    daily  = data.get('daily', {})
+    dates  = daily.get('time', [])
+    maxes  = daily.get('temperature_2m_max', [])
+    mins   = daily.get('temperature_2m_min', [])
+    precip = daily.get('precipitation_sum', [])
+    codes  = daily.get('weather_code', [])
+
+    days = []
+    for i, d_str in enumerate(dates):
+        code = int(codes[i])  if i < len(codes)  and codes[i]  is not None else 0
+        mn   = float(mins[i]) if i < len(mins)   and mins[i]   is not None else None
+        mx   = float(maxes[i])if i < len(maxes)  and maxes[i]  is not None else None
+        pr   = float(precip[i])if i < len(precip) and precip[i] is not None else 0.0
+        dt   = datetime.strptime(d_str, '%Y-%m-%d').date()
+        days.append({
+            'date':       dt,
+            'label':      dt.strftime('%a %-d %b'),
+            'max_c':      round(mx, 0) if mx is not None else None,
+            'min_c':      round(mn, 0) if mn is not None else None,
+            'precip_mm':  round(pr, 1),
+            'icon':       _WMO_ICON.get(code, '&#9925;'),
+            'desc':       _WMO_DESC.get(code, 'Variable'),
+            'frost_risk': mn is not None and mn <= 2.0,
+        })
+    return days
+
+
+def _disease_outlook(max_c, min_c, precip_mm):
+    """
+    Return categorical disease risk estimates from forecast temperature and
+    precipitation. Used to populate the today/tomorrow columns of the disease
+    table in build_daily_html().
+    """
+    mean_c = ((max_c or 0) + (min_c or 0)) / 2 if max_c is not None and min_c is not None else None
+
+    # Dollar Spot: warm mean temps with moisture
+    if mean_c is None:
+        ds = '--'
+    elif mean_c < 12:
+        ds = 'LOW'
+    elif mean_c < 18:
+        ds = 'LOW-MOD' if precip_mm > 0 else 'LOW'
+    elif mean_c < 24:
+        ds = 'MODERATE'
+    else:
+        ds = 'HIGH'
+
+    # Fusarium Patch: cool moist conditions 4-22 C
+    if min_c is None or max_c is None:
+        fs = '--'
+    elif 4 <= (min_c or 0) <= 18 and (max_c or 0) <= 22:
+        fs = 'MODERATE' if (precip_mm > 0 or (min_c or 0) < 10) else 'LOW-MOD'
+    elif (min_c or 0) < 4 or (max_c or 0) < 8:
+        fs = 'LOW-MOD'
+    else:
+        fs = 'LOW'
+
+    # Brown Patch: warm humid nights above 20 C
+    bp = 'MODERATE' if min_c is not None and min_c >= 20 else 'LOW'
+
+    # Pythium Blight: hot days above 30 C with moisture
+    py = 'MODERATE' if max_c is not None and max_c >= 30 and precip_mm > 0 else 'LOW'
+
+    return {'dollar_spot': ds, 'fusarium': fs, 'brown_patch': bp, 'pythium': py}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CSV MANAGEMENT
 # ─────────────────────────────────────────────────────────────────────────────
@@ -577,20 +688,30 @@ def card(label, value, sub=''):
       {sub_html}</td></tr></table>"""
 
 
-def build_daily_html(row, target_date, history):
-    """Generate the HTML email body for the daily morning report."""
-    date_str   = target_date.strftime('%A, %-d %B %Y')
+def build_daily_html(row, target_date, history, forecast_days=None):
+    """Generate the HTML email body for the daily morning report (Demo 1 layout)."""
+    yesterday_str = target_date.strftime('%A, %-d %B %Y')
     frost_flag = row['frost_flag'] == 'True' or row['frost_flag'] is True
     da_flag    = row['disease_alert'] == 'True' or row['disease_alert'] is True
 
     # Pre-compute display values
-    et_val       = safe_float(row.get('et_mm'), 0)
-    rain_val     = safe_float(row.get('rain_mm'), 0)
-    net_water    = round(et_val - rain_val, 1)
-    net_str      = f'{net_water:+.1f}'
-    soil_bal     = safe_float(row.get('soil_balance_7d'), 0)
-    uv_str       = row.get('uv_max') if row.get('uv_max') not in (None, '', 'None') else '--'
-    pressure_str = row.get('pressure_mean_hpa') if row.get('pressure_mean_hpa') not in (None, '', 'None') else '--'
+    et_val        = safe_float(row.get('et_mm'), 0)
+    rain_val      = safe_float(row.get('rain_mm'), 0)
+    net_water     = round(et_val - rain_val, 1)
+    net_str       = f'{net_water:+.1f}'
+    soil_bal      = safe_float(row.get('soil_balance_7d'), 0)
+    uv_str        = row.get('uv_max') if row.get('uv_max') not in (None, '', 'None') else '--'
+    pres_str      = row.get('pressure_mean_hpa') if row.get('pressure_mean_hpa') not in (None, '', 'None') else '--'
+    night_min_str = row.get('night_min') if row.get('night_min') not in (None, '', 'None') else '--'
+
+    # Soil card colour scheme
+    soil_zone_val = row.get('soil_zone', 'Unknown')
+    if soil_zone_val == 'Optimal':
+        soil_bg, soil_bdr = '#f0fdf4', '#bbf7d0'
+        soil_lbl_c, soil_val_c, soil_sub_c = '#065f46', '#1a4a2e', '#166534'
+    else:
+        soil_bg, soil_bdr = '#f8fafc', '#e2e8f0'
+        soil_lbl_c, soil_val_c, soil_sub_c = '#94a3b8', '#111827', '#64748b'
 
     # Disease row background colours
     ds_bg = RISK_ROW_BG.get(row.get('dollar_spot_risk', ''), '#f8fafc')
@@ -598,13 +719,27 @@ def build_daily_html(row, target_date, history):
     bp_bg = RISK_ROW_BG.get(row.get('brown_patch_risk', ''), '#f8fafc')
     py_bg = RISK_ROW_BG.get(row.get('pythium_risk', ''), '#f8fafc')
 
+    # Disease outlook for today (forecast_days[0]) and tomorrow (forecast_days[1])
+    fd0  = forecast_days[0] if forecast_days and len(forecast_days) > 0 else None
+    fd1  = forecast_days[1] if forecast_days and len(forecast_days) > 1 else None
+    out0 = _disease_outlook(fd0['max_c'], fd0['min_c'], fd0['precip_mm']) if fd0 else None
+    out1 = _disease_outlook(fd1['max_c'], fd1['min_c'], fd1['precip_mm']) if fd1 else None
+
+    def _no_badge():
+        return ('<span style="background:#f1f5f9;color:#94a3b8;padding:4px 14px;'
+                'border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">--</span>')
+
+    def outlook_badge(risk):
+        return risk_badge(risk) if risk and risk != '--' else _no_badge()
+
+    # Alert banners
     frost_banner = ''
     if frost_flag:
         frost_banner = (
             '<tr><td style="background:#0c1a2e;border-left:4px solid #60a5fa;'
             'padding:12px 24px;color:#93c5fd;font-size:13px;">'
-            '&#10052; &nbsp;<strong style="color:#bfdbfe;">Frost recorded overnight'
-            '</strong> — greens should be checked before early morning play.</td></tr>')
+            '&#10052; &nbsp;<strong style="color:#bfdbfe;">Frost recorded overnight</strong>'
+            ' - greens should be checked before early morning play.</td></tr>')
 
     disease_banner = ''
     if da_flag:
@@ -618,23 +753,71 @@ def build_daily_html(row, target_date, history):
             '<tr><td style="background:#1c0a0a;border-left:4px solid #ef4444;'
             'padding:12px 24px;color:#fca5a5;font-size:13px;">'
             f'&#129440; &nbsp;<strong style="color:#fecaca;">Disease alert</strong>'
-            f' — {triggered_str} reached HIGH or SEVERE risk yesterday.</td></tr>')
+            f' - {triggered_str} reached HIGH or SEVERE risk yesterday.</td></tr>')
 
     fog_banner = ''
     if row.get('fog_forecast') in (True, 'True'):
         fog_banner = (
             '<tr><td style="background:#1c1c2e;border-left:4px solid #94a3b8;'
             'padding:12px 24px;color:#cbd5e1;font-size:13px;">'
-            '&#127787;&#65039; &nbsp;<strong style="color:#e2e8f0;">Fog forecast this morning'
-            '</strong> — check visibility before early tee times.</td></tr>')
+            '&#127787; &nbsp;<strong style="color:#e2e8f0;">Fog forecast this morning</strong>'
+            ' - check visibility before early tee times.</td></tr>')
 
     lightning_banner = ''
     if row.get('lightning_forecast') in (True, 'True'):
         lightning_banner = (
             '<tr><td style="background:#1a0a00;border-left:4px solid #f97316;'
             'padding:12px 24px;color:#fdba74;font-size:13px;">'
-            '&#9889; &nbsp;<strong style="color:#fed7aa;">Thunderstorm forecast today'
-            '</strong> — monitor conditions and suspend play if lightning is detected.</td></tr>')
+            '&#9889; &nbsp;<strong style="color:#fed7aa;">Thunderstorm forecast today</strong>'
+            ' - monitor conditions and suspend play if lightning is detected.</td></tr>')
+
+    # 4-day forecast strip (Section 5)
+    forecast_html = ''
+    if forecast_days:
+        cols = []
+        for i, fd in enumerate(forecast_days[:4]):
+            is_today  = (i == 0)
+            bg_col    = '#eff6ff' if is_today else '#f8fafc'
+            bdr_style = '2px solid #93c5fd' if is_today else '1px solid #e2e8f0'
+            lbl_color = '#1d4ed8' if is_today else '#64748b'
+            heading   = 'Today' if is_today else fd['label'].split(' ')[0]
+            subdate   = fd['label']
+            max_c     = f"{fd['max_c']:.0f}" if fd['max_c'] is not None else '--'
+            min_c     = f"{fd['min_c']:.0f}" if fd['min_c'] is not None else '--'
+            precip    = f"{fd['precip_mm']:.0f}" if fd['precip_mm'] is not None else '0'
+            if fd['frost_risk']:
+                badge = ('<span style="background:#172554;color:#93c5fd;padding:3px 8px;'
+                         'border-radius:12px;font-size:10px;font-weight:700;">&#10052; Frost</span>')
+            elif fd.get('desc') not in ('Clear', 'Mostly clear', 'Partly cloudy', 'Overcast', 'Variable'):
+                badge = (f'<span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;'
+                         f'border-radius:12px;font-size:10px;font-weight:700;">{fd["desc"]}</span>')
+            else:
+                badge = ('<span style="background:#f1f5f9;color:#475569;padding:3px 8px;'
+                         'border-radius:12px;font-size:10px;font-weight:700;">Fine</span>')
+            r_pad = 'padding-right:4px;' if i < 3 else ''
+            l_pad = 'padding-left:4px;'  if i > 0 else ''
+            cols.append(f"""<td width="25%" style="{r_pad}{l_pad}vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              style="background:{bg_col};border:{bdr_style};border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:{lbl_color};margin-bottom:2px;">{heading}</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">{subdate}</div>
+              <div style="font-size:28px;margin-bottom:6px;">{fd['icon']}</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">{max_c}° / {min_c}°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">{precip} mm</div>
+              <div style="margin-top:8px;">{badge}</div>
+            </td></tr>
+          </table>
+        </td>""")
+
+        forecast_html = f"""
+  {sec_header('5', '4-Day Forecast', 'Open-Meteo forecast for Wagga Wagga')}
+  <tr><td style="background:white;padding:20px 24px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>{''.join(cols)}</tr>
+    </table>
+  </td></tr>"""
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -646,9 +829,10 @@ def build_daily_html(row, target_date, history):
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
-    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.08);">
 
-  <!-- COVER HEADER -->
+  <!-- HEADER -->
   <tr><td style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);
       padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
@@ -660,7 +844,7 @@ def build_daily_html(row, target_date, history):
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Morning Weather Briefing</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;
-            margin-bottom:10px;">{date_str}</div>
+            margin-bottom:10px;">{yesterday_str}</div>
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
@@ -674,9 +858,10 @@ def build_daily_html(row, target_date, history):
   {fog_banner}
   {lightning_banner}
 
-  {sec_header('1', 'Yesterday at a Glance', 'Key weather measurements for the past 24 hours')}
+  {sec_header('1', 'Yesterday at a Glance', f'Key weather measurements for {yesterday_str}')}
 
   <tr><td style="background:white;padding:20px 24px 8px;">
+    <!-- Row 1: Temp / Rain / Wind -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
       <tr>
         <td width="33%" style="padding-right:6px;vertical-align:top;">
@@ -687,7 +872,8 @@ def build_daily_html(row, target_date, history):
                   text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Temperature</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['temp_max']}° / {row['temp_min']}°C</div>
-              <div style="font-size:12px;color:#64748b;">Mean {row['temp_mean']}°C &nbsp;·&nbsp; RH {row['rh_mean']}%</div>
+              <div style="font-size:12px;color:#64748b;">Mean {row['temp_mean']}°C - RH {row['rh_mean']}%</div>
+              <div style="font-size:12px;color:#64748b;margin-top:3px;">Overnight min {night_min_str}°C</div>
             </td></tr>
           </table>
         </td>
@@ -699,7 +885,7 @@ def build_daily_html(row, target_date, history):
                   text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Rain &amp; ET</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['rain_mm']} mm</div>
-              <div style="font-size:12px;color:#64748b;">ET {row['et_mm']} mm &nbsp;·&nbsp; Net {net_str} mm</div>
+              <div style="font-size:12px;color:#64748b;">ET {row['et_mm']} mm - Net {net_str} mm</div>
             </td></tr>
           </table>
         </td>
@@ -711,23 +897,24 @@ def build_daily_html(row, target_date, history):
                   text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Wind</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['wind_max_kmh']} km/h</div>
-              <div style="font-size:12px;color:#64748b;">Mean {row['wind_mean_kmh']} km/h &nbsp;·&nbsp; &#916;T {row['delta_t_mean']}°C</div>
+              <div style="font-size:12px;color:#64748b;">Mean {row['wind_mean_kmh']} km/h - Delta T {row['delta_t_mean']}°C</div>
             </td></tr>
           </table>
         </td>
       </tr>
     </table>
+    <!-- Row 2: Soil / UV + Pressure -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
         <td width="50%" style="padding-right:5px;vertical-align:top;">
           <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+              style="background:{soil_bg};border:1px solid {soil_bdr};border-radius:10px;">
             <tr><td>
               <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Soil Moisture</div>
-              <div style="font-size:22px;font-weight:700;color:#111827;
-                  line-height:1.1;margin-bottom:5px;">{row['soil_zone']}</div>
-              <div style="font-size:12px;color:#64748b;">7-day balance: {soil_bal:+.1f} mm</div>
+                  text-transform:uppercase;color:{soil_lbl_c};margin-bottom:6px;">Soil Moisture</div>
+              <div style="font-size:22px;font-weight:700;color:{soil_val_c};
+                  line-height:1.1;margin-bottom:5px;">{soil_zone_val}</div>
+              <div style="font-size:12px;color:{soil_sub_c};">7-day balance: {soil_bal:+.1f} mm</div>
             </td></tr>
           </table>
         </td>
@@ -739,7 +926,7 @@ def build_daily_html(row, target_date, history):
                   text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">UV &amp; Pressure</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">UV {uv_str}</div>
-              <div style="font-size:12px;color:#64748b;">Pressure: {pressure_str} hPa</div>
+              <div style="font-size:12px;color:#64748b;">Pressure {pres_str} hPa - Leaf wet {row['leaf_wet_hours']} hrs</div>
             </td></tr>
           </table>
         </td>
@@ -747,7 +934,7 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
-  {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth — base temperatures apply')}
+  {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth - base temperatures apply')}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -758,11 +945,11 @@ def build_daily_html(row, target_date, history):
             <tr><td>
               <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#065f46;margin-bottom:6px;">
-                  Bentgrass &mdash; base 10°C</div>
+                  Bentgrass - base 10 C</div>
               <div style="font-size:28px;font-weight:700;color:#1a4a2e;
                   line-height:1;margin-bottom:6px;">{row['gdd_bent']} GDD</div>
               <div style="font-size:12px;color:#2d7a4e;font-weight:600;
-                  margin-bottom:10px;">Today's accumulation</div>
+                  margin-bottom:10px;">Yesterday accumulation</div>
               <div>
                 <span style="background:#1a4a2e;color:white;padding:4px 14px;
                     border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
@@ -777,11 +964,11 @@ def build_daily_html(row, target_date, history):
             <tr><td>
               <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#713f12;margin-bottom:6px;">
-                  Kikuyu &mdash; base 15°C</div>
+                  Kikuyu - base 15 C</div>
               <div style="font-size:28px;font-weight:700;color:#713f12;
                   line-height:1;margin-bottom:6px;">{row['gdd_kik']} GDD</div>
               <div style="font-size:12px;color:#92400e;font-weight:600;
-                  margin-bottom:10px;">Today's accumulation</div>
+                  margin-bottom:10px;">Yesterday accumulation</div>
               <div>
                 <span style="background:#713f12;color:white;padding:4px 14px;
                     border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
@@ -794,57 +981,74 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
-  {sec_header('3', 'Disease Risk', "Based on yesterday's temperature, humidity and leaf wetness")}
+  {sec_header('3', 'Disease Risk', 'Yesterday actuals + estimated outlook from forecast')}
 
   <tr><td style="background:white;padding:20px 24px;">
     <div style="margin-bottom:14px;">
       <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
           padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
-          &#127807; Leaf wetness: {row['leaf_wet_hours']} hrs</span>
+          &#127807; Leaf wetness yesterday: {row['leaf_wet_hours']} hrs</span>
     </div>
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
       <tr style="background:#1a4a2e;">
         <th style="padding:10px 14px;text-align:left;color:white;font-size:11px;
-            font-weight:700;letter-spacing:0.5px;width:38%;">Disease</th>
+            font-weight:700;letter-spacing:0.5px;width:34%;">Disease</th>
         <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
-            font-weight:700;letter-spacing:0.5px;width:26%;">Risk Level</th>
-        <th style="padding:10px 14px;text-align:right;color:white;font-size:11px;
-            font-weight:700;letter-spacing:0.5px;">Detail</th>
+            font-weight:700;letter-spacing:0.5px;width:22%;">Yesterday</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:22%;">Today est.</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Tomorrow est.</th>
       </tr>
       <tr style="background:{ds_bg};">
         <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;">Dollar Spot</td>
+            border-bottom:1px solid #e2e8f0;">Dollar Spot<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">{row['dollar_spot_pct']}% probability</span></td>
         <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
             {risk_badge(row['dollar_spot_risk'])}</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
-            font-size:12px;color:#64748b;">{row['dollar_spot_pct']}% probability</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out0['dollar_spot'] if out0 else None)}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out1['dollar_spot'] if out1 else None)}</td>
       </tr>
       <tr style="background:{fs_bg};">
         <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;">Fusarium Patch</td>
+            border-bottom:1px solid #e2e8f0;">Fusarium Patch<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Score: {row['fusarium_score']}</span></td>
         <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
             {risk_badge(row['fusarium_risk'])}</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
-            font-size:12px;color:#64748b;">Score: {row['fusarium_score']}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out0['fusarium'] if out0 else None)}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out1['fusarium'] if out1 else None)}</td>
       </tr>
       <tr style="background:{bp_bg};">
         <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
-            border-bottom:1px solid #e2e8f0;">Brown Patch</td>
+            border-bottom:1px solid #e2e8f0;">Brown Patch<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Night humidity model</span></td>
         <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
             {risk_badge(row['brown_patch_risk'])}</td>
-        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:right;
-            font-size:12px;color:#64748b;">Night humidity model</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out0['brown_patch'] if out0 else None)}</td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            {outlook_badge(out1['brown_patch'] if out1 else None)}</td>
       </tr>
       <tr style="background:{py_bg};">
         <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;">
-            Pythium Blight</td>
+            Pythium Blight<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Night temp and wetness</span></td>
         <td style="padding:11px 14px;text-align:center;">
             {risk_badge(row['pythium_risk'])}</td>
-        <td style="padding:11px 14px;text-align:right;font-size:12px;color:#64748b;">
-            Night temp &amp; wetness</td>
+        <td style="padding:11px 14px;text-align:center;">
+            {outlook_badge(out0['pythium'] if out0 else None)}</td>
+        <td style="padding:11px 14px;text-align:center;">
+            {outlook_badge(out1['pythium'] if out1 else None)}</td>
       </tr>
     </table>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding-left:2px;">
+        Today and tomorrow estimates are model projections based on forecast temperature and rainfall.
+    </div>
   </td></tr>
 
   {sec_header('4', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
@@ -895,16 +1099,18 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
+  {forecast_html}
+
   <!-- FOOTER -->
   <tr><td style="background:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
-        margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Daily Report</div>
+        margin-bottom:14px;">Wagga Wagga Country Club - Automated Daily Report</div>
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
         style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
         font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;
         letter-spacing:0.5px;">&#9971; &nbsp;Open Greenkeeper Dashboard</a>
     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
-        Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
+        Davis WeatherLink - Open-Meteo archive and forecast</div>
   </td></tr>
 
 </table>
@@ -1774,6 +1980,10 @@ def main():
     if lightning_forecast:
         log.info('Thunderstorm forecast detected for today.')
 
+    log.info('Fetching 4-day forecast...')
+    forecast_days = fetch_4day_forecast(today)
+    log.info(f'  {len(forecast_days)} day(s) of forecast loaded')
+
     # ── 5. Build CSV row ───────────────────────────────────────────────────
     row = {
         'date':              yesterday.isoformat(),
@@ -1820,7 +2030,7 @@ def main():
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f'{yesterday.isoformat()}.html'
     history_for_report = read_csv_history(7)
-    daily_html = build_daily_html(row, yesterday, history_for_report)
+    daily_html = build_daily_html(row, yesterday, history_for_report, forecast_days=forecast_days)
     report_path.write_text(daily_html, encoding='utf-8')
     log.info(f'Report saved: {report_path}')
 
@@ -1880,7 +2090,8 @@ if __name__ == '__main__':
             sys.exit(1)
         log.info(f'--resend: re-sending email for {yesterday} using existing CSV data.')
         history = read_csv_history(7)
-        daily_html = build_daily_html(row, yesterday, history)
+        forecast_days = fetch_4day_forecast(now_sydney.date())
+        daily_html = build_daily_html(row, yesterday, history, forecast_days=forecast_days)
         subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')

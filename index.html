@@ -1804,67 +1804,152 @@ function _rptMorning() {
     const dewC = (wx.temp !== null && wx.rh !== null) ? calcDewPoint(wx.temp, wx.rh) : null;
     const dpd  = dewC !== null ? wx.temp - dewC : null;
     const dewOk = dpd !== null && dpd >= 3.5;
-    const spBadge = (wx.temp !== null && wx.deltaT !== null) ? _sprayBadge(wx.deltaT, wx.temp, wx.windKmh, p) : _badge('info', 'No data');
 
-    // Burn-off estimate
+    // Dew burn-off estimate
     let burnStr = '';
     if (!dewOk && dewC !== null && hourlyFc?.temperature_2m) {
-        const offsetMs    = sydneyOffsetMs();
-        const nowHourStr  = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+        const offsetMs   = sydneyOffsetMs();
+        const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
         for (let i = 0; i < hourlyFc.time.length; i++) {
             if (hourlyFc.time[i].slice(0, 13) < nowHourStr) continue;
             const ft = hourlyFc.temperature_2m[i];
             if (ft !== null && ft - dewC >= 3.5) {
                 const h = parseInt(hourlyFc.time[i].split('T')[1], 10);
-                burnStr = `Est. dew burn-off ${h % 12 || 12}:00 ${h >= 12 ? 'PM' : 'AM'}`;
+                burnStr = `Est. burn-off ${h % 12 || 12}:00 ${h >= 12 ? 'PM' : 'AM'}`;
                 break;
             }
         }
         if (!burnStr) burnStr = 'Dew may persist - monitor';
     }
 
-    const highestRisk = (() => {
-        const el = document.getElementById('disease-tbody');
-        if (!el) return null;
-        const rows = el.querySelectorAll('tr');
-        for (const r of rows) {
+    // Read all 4 disease risks from the live DOM table
+    const diseaseRisks = (() => {
+        const map = { 'Dollar Spot': '--', 'Fusarium Patch': '--', 'Brown Patch': '--', 'Pythium Blight': '--' };
+        const el  = document.getElementById('disease-tbody');
+        if (!el) return map;
+        el.querySelectorAll('tr').forEach(r => {
             const cells = r.querySelectorAll('td');
             if (cells.length >= 2) {
-                const riskEl = cells[1].querySelector('span');
-                if (riskEl && (riskEl.classList.contains('dr-high') || riskEl.classList.contains('dr-severe')))
-                    return cells[0].textContent;
+                const name    = cells[0].textContent.trim().split('\n')[0].trim();
+                const riskEl  = cells[1].querySelector('span');
+                if (riskEl && name in map) map[name] = riskEl.textContent.trim();
             }
-        }
-        return null;
+        });
+        return map;
     })();
 
-    let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
+    // Pill badge helper (inline-styled, matches Demo 1 / daily email)
+    const pill = (risk) => {
+        const s = { LOW: 'background:#dcfce7;color:#166534', 'LOW-MOD': 'background:#fefce8;color:#713f12',
+                    MODERATE: 'background:#fed7aa;color:#9a3412', HIGH: 'background:#fee2e2;color:#dc2626',
+                    SEVERE: 'background:#f5f3ff;color:#6d28d9' }[risk]
+                  || 'background:#f1f5f9;color:#94a3b8';
+        return `<span style="${s};padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">${risk || '--'}</span>`;
+    };
 
-    html += _sec('Current Conditions', [
-        _row('Air Temperature',  wx.temp  !== null ? `${wx.temp.toFixed(1)}°C`    : '--'),
-        _row('Humidity',         wx.rh    !== null ? `${wx.rh.toFixed(0)}%`       : '--'),
-        _row('Delta T',          wx.deltaT !== null ? `${wx.deltaT.toFixed(1)}°C` : '--'),
-        _row('Wind Speed',       `${wx.windKmh.toFixed(0)} km/h ${wx.windDir}`),
-        _row('Pressure',         wx.pressure !== null ? `${wx.pressure.toFixed(0)} hPa` : '--'),
-    ].join(''));
+    // Spray status pill
+    const sprayStatus = (() => {
+        if (wx.temp === null || wx.deltaT === null) return pill('--');
+        const dtOk  = wx.deltaT >= p.dtMin && wx.deltaT <= p.dtMax;
+        const dtW   = wx.deltaT > p.dtMax  && wx.deltaT <= p.dtWarnMax;
+        const tOk   = wx.temp   < p.tempMax;
+        const tW    = wx.temp   >= p.tempMax && wx.temp <= p.tempWarnMax;
+        const wOk   = wx.windKmh < p.windMax;
+        const wW    = wx.windKmh >= p.windMax && wx.windKmh <= p.windWarnMax;
+        if (dtOk && tOk && wOk)
+            return `<span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">GO - Safe to spray</span>`;
+        if ((!dtOk && !dtW) || (!tOk && !tW) || (!wOk && !wW))
+            return `<span style="background:#fee2e2;color:#dc2626;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">NO-GO - Outside limits</span>`;
+        return `<span style="background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">CAUTION - Marginal</span>`;
+    })();
 
-    html += _sec("Today's Forecast", [
-        _row('High / Low',       fc.todayMax != null ? `${fc.todayMax.toFixed(0)}°C / ${fc.todayMin?.toFixed(0)}°C` : '--'),
-        _row('Rain Probability',  fc.todayRainProb != null ? `${fc.todayRainProb}%` : '--'),
-        _row('UV Index Max',     fc.uvMax != null ? fc.uvMax : '--'),
-        _row('Sunrise / Sunset', `${fc.sunrise} / ${fc.sunset}`),
-    ].join(''));
+    // Soil pill
+    const soilPill = soil.cls === 'good'
+        ? `<span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">${soil.label}</span>`
+        : soil.cls === 'bad'
+        ? `<span style="background:#fee2e2;color:#dc2626;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">${soil.label}</span>`
+        : `<span style="background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">${soil.label}</span>`;
 
-    html += _sec('Key Decisions', [
-        _row(`Spray (${p.label})`, spBadge),
-        _row('Mow / Dew', dewOk ? _badge('good', 'Clear - Safe to mow') : _badge('warn', burnStr || 'Dew present')),
-        _row('Soil Moisture',     _badge(soil.cls, soil.label)),
-        _row('Irrigation',        soil.deficit >= 12 ? _badge('warn', `Apply ~${Math.max(0, soil.deficit - 5).toFixed(0)} mm`) : _badge('good', 'Not required')),
-        _row('Disease Alert',     highestRisk ? _badge('bad', `High risk: ${highestRisk}`) : _badge('good', 'No high-risk diseases')),
-    ].join(''));
+    // Shared inline styles
+    const HDR   = 'background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:14px 18px;';
+    const CIR   = 'display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);color:white;font-weight:700;font-size:13px;margin-right:8px;vertical-align:middle;';
+    const HTXT  = 'color:white;font-size:14px;font-weight:700;vertical-align:middle;';
+    const CARD  = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;';
+    const LBL   = 'font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;';
+    const VAL   = 'font-size:20px;font-weight:700;color:#111827;line-height:1.1;margin-bottom:3px;';
+    const SUB   = 'font-size:11px;color:#64748b;';
 
-    html += `<div class="rpt-generated">Generated ${_rptNow()} - Wagga Wagga Country Club</div>`;
-    return { title: '☀️ Morning Briefing', html };
+    const secHdr = (n, title) =>
+        `<div style="${HDR}margin-top:10px;"><span style="${CIR}">${n}</span><span style="${HTXT}">${title}</span></div>`;
+
+    const metricCard = (label, value, sub='') =>
+        `<div style="${CARD}"><div style="${LBL}">${label}</div><div style="${VAL}">${value}</div>${sub ? `<div style="${SUB}">${sub}</div>` : ''}</div>`;
+
+    const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Sydney', weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+    let html = `<div style="background:#f0f4f8;padding:16px;margin:-16px;border-radius:8px;font-family:Arial,Helvetica,sans-serif;">`;
+
+    // Header
+    html += `<div style="background:linear-gradient(160deg,#1a4a2e 0%,#2d7a4e 60%,#4caf7d 100%);border-radius:10px;padding:20px 20px 18px;margin-bottom:10px;">
+      <div style="display:inline-block;background:rgba(201,162,39,0.25);border:1px solid rgba(201,162,39,0.55);color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 12px;border-radius:20px;margin-bottom:10px;">Morning Briefing</div>
+      <div style="font-size:20px;font-weight:700;color:white;line-height:1.2;margin-bottom:4px;">Morning Weather Briefing</div>
+      <div style="font-size:12px;color:#a8e6bf;">${dateStr} - Wagga Wagga Country Club</div>
+    </div>`;
+
+    // Section 1: Current Conditions
+    html += secHdr('1', 'Current Conditions');
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 0 4px;">`;
+    html += metricCard('Temperature', wx.temp !== null ? `${wx.temp.toFixed(1)}°C` : '--', wx.rh !== null ? `RH ${wx.rh.toFixed(0)}%` : '');
+    html += metricCard('Wind', `${wx.windKmh.toFixed(0)} km/h`, `Dir ${wx.windDir} - Delta T ${wx.deltaT !== null ? wx.deltaT.toFixed(1) : '--'}°C`);
+    html += metricCard('Pressure', wx.pressure !== null ? `${wx.pressure.toFixed(0)} hPa` : '--', dewC !== null ? `Dew point ${dewC.toFixed(1)}°C` : '');
+    html += `</div>`;
+
+    // Section 2: Today's Forecast
+    html += secHdr('2', "Today's Forecast");
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;padding:10px 0 4px;">`;
+    html += metricCard('High / Low', fc.todayMax != null ? `${fc.todayMax.toFixed(0)}° / ${fc.todayMin?.toFixed(0)}°` : '--', 'Temperature');
+    html += metricCard('Rain Prob.', fc.todayRainProb != null ? `${fc.todayRainProb}%` : '--', 'Chance of rain');
+    html += metricCard('UV Index', fc.uvMax != null ? `${fc.uvMax}` : '--', 'Maximum today');
+    html += metricCard('Sunrise / Set', fc.sunrise || '--', fc.sunset || '');
+    html += `</div>`;
+
+    // Section 3: Key Decisions
+    html += secHdr('3', 'Key Decisions');
+    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin:8px 0 4px;">`;
+    const rows3 = [
+        [`Spray (${p.label})`,   sprayStatus],
+        ['Mow / Dew',            dewOk ? `<span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">Clear - Safe to mow</span>` : `<span style="background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">${burnStr || 'Dew present'}</span>`],
+        ['Soil Moisture',        soilPill],
+        ['Irrigation',           soil.deficit >= 12 ? `<span style="background:#fef9c3;color:#a16207;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">Apply ~${Math.max(0,soil.deficit-5).toFixed(0)} mm</span>` : `<span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">Not required</span>`],
+    ];
+    rows3.forEach(([lbl, val], idx) => {
+        const border = idx < rows3.length - 1 ? 'border-bottom:1px solid #f1f5f9;' : '';
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${border}flex-wrap:wrap;gap:4px;"><span style="font-size:13px;color:#374151;">${lbl}</span>${val}</div>`;
+    });
+    html += `</div>`;
+
+    // Section 4: Disease Risk
+    html += secHdr('4', 'Disease Risk');
+    html += `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:8px 0 4px;">
+      <tr style="background:#1a4a2e;">
+        <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;width:55%;">Disease</th>
+        <th style="padding:9px 12px;text-align:center;color:white;font-size:11px;font-weight:700;">Current Risk</th>
+      </tr>`;
+    Object.entries(diseaseRisks).forEach(([name, risk], idx) => {
+        const isLast  = idx === Object.keys(diseaseRisks).length - 1;
+        const border  = isLast ? '' : 'border-bottom:1px solid #e2e8f0;';
+        const rowBg   = { LOW:'#f0fdf4', 'LOW-MOD':'#fefce8', MODERATE:'#fff7ed', HIGH:'#fef2f2', SEVERE:'#f5f3ff' }[risk] || '#f8fafc';
+        html += `<tr style="background:${rowBg};">
+          <td style="padding:10px 12px;font-size:13px;font-weight:600;color:#1f2937;${border}">${name}</td>
+          <td style="padding:10px 12px;text-align:center;${border}">${pill(risk)}</td>
+        </tr>`;
+    });
+    html += `</table>`;
+
+    html += `<div style="font-size:11px;color:#94a3b8;text-align:center;padding:10px 0 4px;">Generated ${_rptNow()} - Wagga Wagga Country Club</div>`;
+    html += `</div>`;
+
+    return { title: '&#9728;&#65039; Morning Briefing', html };
 }
 
 // 2 - Spray Report
