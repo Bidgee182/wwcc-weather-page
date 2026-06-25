@@ -330,9 +330,14 @@
             <td>The address emails are sent from (must be a verified sender in SendGrid)</td>
           </tr>
           <tr>
-            <td class="key">EMAIL_RECIPIENTS</td>
-            <td>greenkeeper@wwcc.com.au,secretary@wwcc.com.au</td>
-            <td>Comma-separated list. <strong>First address = greenkeeper only (daily).</strong> All addresses get the weekly and monthly summary.</td>
+            <td class="key">EMAIL_GK_RECIPIENTS</td>
+            <td>greenkeeper@wwcc.com.au</td>
+            <td>Comma-separated list of greenkeeper email addresses. Receives the daily morning briefing, weekly, and monthly summaries.</td>
+          </tr>
+          <tr>
+            <td class="key">EMAIL_COMMITTEE_RECIPIENTS</td>
+            <td>secretary@wwcc.com.au,captain@wwcc.com.au</td>
+            <td>Comma-separated list of committee/management addresses. Receives weekly and monthly summaries only (not the daily briefing).</td>
           </tr>
         </tbody>
       </table>

@@ -4811,7 +4811,7 @@ async function fetchTodayWetness() {
     let minTempC  = Infinity;
     let rhSum     = 0, rhCount = 0;
     const wetHourSet    = new Set();   // distinct Sydney hours that are wet
-    const nightHourSet  = new Set();   // distinct night hours (22–05) that are wet
+    const nightHourSet  = new Set();   // distinct night hours (20–08) that are wet
     const highRHHourSet = new Set();   // hours where any reading RH ≥ 90% (Fusarium)
     let anyRain = false;               // any rain in 24h window (Fusarium rain-day track)
 
@@ -4835,7 +4835,7 @@ async function fetchTodayWetness() {
             // Key = YYYY-MM-DDTHH so each calendar-hour is counted once
             const hourKey = recTime.toISOString().slice(0, 13);
             wetHourSet.add(hourKey);
-            if (hr >= 22 || hr < 6) nightHourSet.add(hourKey);
+            if (hr >= 20 || hr < 8) nightHourSet.add(hourKey);
         }
         // Fusarium tracking: high-RH hours and any rain
         if (h != null && parseFloat(h) >= 90) {
@@ -4914,7 +4914,7 @@ async function fetchTodayWetness() {
         const nightOk = nightMinC != null && nightMinC > 20;
         const dayOk   = tempC != null && tempC > 30;
         let risk, cls, note;
-        if (nightWet >= 14 && nightOk && dayOk) { risk = 'SEVERE';   cls = 'dr-severe'; note = `${nightWet}h night wet, extreme heat`; }
+        if (nightWet >= 12 && nightOk && dayOk) { risk = 'SEVERE';   cls = 'dr-severe'; note = `${nightWet}h night wet, extreme heat`; }
         else if (nightWet >= 10 && nightOk)     { risk = 'HIGH';     cls = 'dr-high';   note = `${nightWet}h night wet, nights>${nightMinC}°C`; }
         else if (nightWet >= 6 && nightOk)      { risk = 'MODERATE'; cls = 'dr-mod';    note = `${nightWet}h night wet`; }
         else                                     { risk = 'LOW';      cls = 'dr-low';    note = nightOk ? `Only ${nightWet}h wet at night` : 'Night temp below 20°C'; }

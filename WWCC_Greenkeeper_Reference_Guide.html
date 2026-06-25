@@ -379,7 +379,7 @@
   <div class="toc-title">Contents</div>
   <ol class="toc-list">
     <li><span class="toc-num">1</span><a href="#s1">Overview &amp; Data Sources</a><span class="toc-dots"></span><span class="toc-pg">Data feeds, refresh schedule</span></li>
-    <li><span class="toc-num">2</span><a href="#s2">Conditions Bar</a><span class="toc-dots"></span><span class="toc-pg">All 11 live values explained</span></li>
+    <li><span class="toc-num">2</span><a href="#s2">Conditions Bar</a><span class="toc-dots"></span><span class="toc-pg">All 6 live values explained</span></li>
     <li><span class="toc-num">3</span><a href="#s3">Delta T &amp; Wet-Bulb</a><span class="toc-dots"></span><span class="toc-pg">Stull (2011) formula</span></li>
     <li><span class="toc-num">4</span><a href="#s4">Spraying Tab</a><span class="toc-dots"></span><span class="toc-pg">44 products, thresholds, Next Spray Window, GDD</span></li>
     <li><span class="toc-num">5</span><a href="#s5">Disease Tab</a><span class="toc-dots"></span><span class="toc-pg">4 disease models with exact thresholds</span></li>
@@ -446,7 +446,7 @@
     <div class="section-num">2</div>
     <div>
       <h2>Conditions Bar</h2>
-      <p>The 11 live values shown at the top of the dashboard</p>
+      <p>The 6 live values shown at the top of the dashboard</p>
     </div>
   </div>
   <div class="section-body">
@@ -603,7 +603,7 @@ Tw = T × arctan(0.151977 × √(RH + 8.313659))
       <li>Checks Delta T is within the selected product's ideal range</li>
       <li>Checks temperature is below the product's max</li>
       <li>Checks wind speed is below the product's max</li>
-      <li>Checks rain probability is below 50%</li>
+      <li>Checks rain probability is below 30%</li>
     </ol>
     <p>Hours passing all four checks are <strong>Ideal</strong>. Hours where 2 of 3 primary parameters are OK and none have hard-failed are <strong>Marginal</strong>. Consecutive qualifying hours are grouped into a window. The earliest window is displayed with its start time and duration.</p>
 
@@ -877,7 +877,7 @@ Negative balance = soil has a surplus (rain has exceeded ET)</span>
           <tr><td><strong>Wet Bulb</strong></td><td>Calculated</td><td>Stull (2011) full formula - see Section 3</td></tr>
           <tr><td><strong>Delta T</strong></td><td>Calculated</td><td>Temperature minus wet-bulb (Stull 2011)</td></tr>
           <tr><td><strong>Wind Speed</strong></td><td>Davis sensor (live)</td><td>Converted from mph × 1.60934 → km/h</td></tr>
-          <tr><td><strong>Wind Direction</strong></td><td>Davis sensor (live)</td><td>Compass bearing converted to 8-point compass label</td></tr>
+          <tr><td><strong>Wind Direction</strong></td><td>Davis sensor (live)</td><td>Compass bearing converted to 16-point compass label (N, NNE, NE, ENE, E, etc.)</td></tr>
           <tr><td><strong>Wind Gust</strong></td><td>Davis sensor (live)</td><td>Shown only when gust is &gt; 3 km/h above sustained speed</td></tr>
           <tr><td><strong>Pressure</strong></td><td>Davis sensor (live)</td><td>Converted from inHg × 33.8639 → hPa</td></tr>
           <tr><td><strong>Pressure Trend</strong></td><td>Calculated (ring buffer)</td><td>See below - rate in hPa/hr over last 10 readings</td></tr>

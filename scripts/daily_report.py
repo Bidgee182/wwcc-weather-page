@@ -249,7 +249,7 @@ def brown_patch_risk(night_wet_hours, night_min, day_temp):
 
 
 def pythium_risk(night_wet_hours, night_min, day_temp):
-    if night_wet_hours >= 14 and (night_min or 0) > 20 and (day_temp or 0) > 30:
+    if night_wet_hours >= 12 and (night_min or 0) > 20 and (day_temp or 0) > 30:
         return 'SEVERE'
     elif night_wet_hours >= 10 and (night_min or 0) > 20:
         return 'HIGH'
@@ -346,7 +346,7 @@ def process_davis_records(records):
 
         # Leaf wetness per hour (CART model)
         wet   = is_cart_wet(t_c, rh, ws_ms, rain_mm)
-        night = hour >= 22 or hour < 6
+        night = hour >= 20 or hour < 8
 
         # Track overnight temperatures separately for accurate night_min
         if night and t_c is not None:
@@ -368,7 +368,7 @@ def process_davis_records(records):
 
     wet_hours       = sum(1 for h in hourly.values() if h['wet'])
     night_wet_hours = sum(1 for h in hourly.values() if h['wet'] and h['night'])
-    # True overnight minimum (10 PM–6 AM only); falls back to daily minimum if no night data
+    # True overnight minimum (8 PM–8 AM only); falls back to daily minimum if no night data
     night_min       = round(min(night_temps), 1) if night_temps else temp_min
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
 
