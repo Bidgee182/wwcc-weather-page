@@ -672,12 +672,37 @@ _SUB     = 'font-size:12px;color:#64748b;margin-top:4px;'
 
 
 def sec_header(num, title, subtitle=''):
-    """Dark-green section header. Uses bgcolor attribute for Outlook compatibility."""
-    sub_html = (f'<div style="{_HDR_SUB}">{subtitle}</div>' if subtitle else '')
-    return f"""<tr><td bgcolor="#1a4a2e" style="{_HDR}">
-      <span style="{_CIRCLE}">{num}</span>
-      <span style="{_HDR_TXT}">{title}</span>
-      {sub_html}
+    """
+    Dark-green section header, fully Outlook-compatible.
+
+    The numbered circle is a nested <table> cell with HTML width/height/bgcolor
+    attributes so Outlook renders it as a coloured box (no rounding in Outlook,
+    rounded in Gmail/Apple Mail via border-radius on the <td>).
+    rgba() is replaced with a solid mid-green (#2d7a4e) so Outlook doesn't
+    ignore it. The number and title sit in a 2-column inner table so they
+    align vertically without relying on inline-block or line-height tricks.
+    """
+    sub_html = (f'<tr><td colspan="2" style="padding:4px 0 0 0;'
+                f'color:#a8d8bc;font-size:12px;">{subtitle}</td></tr>'
+                if subtitle else '')
+    return f"""<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  {num}
+              </td></tr>
+            </table>
+          </td>
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">{title}</td>
+        </tr>
+        {sub_html}
+      </table>
     </td></tr>"""
 
 
