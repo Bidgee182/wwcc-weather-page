@@ -405,9 +405,14 @@
           <div class="sub">One row added to daily_log.csv — permanent record</div>
         </div>
       </div>
-      <p>The schedule runs at <strong>8:00 PM UTC</strong>, which equals <strong>6:00 AM AEST</strong> (UTC+10). During daylight saving (October to April) this becomes 7:00 AM AEDT — close enough for a morning briefing.</p>
+      <p>The workflow uses <strong>two cron entries</strong> to handle Australian daylight saving automatically:</p>
+      <ul>
+        <li><strong>AEST (May to October):</strong> runs at 19:10 UTC = 6:10 AM AEST</li>
+        <li><strong>AEDT (October to April):</strong> runs at 18:10 UTC = 5:10 AM AEDT</li>
+      </ul>
+      <p>Both entries run year-round; one will be off-season but harmless (the duplicate-send guard in the script prevents double sending). The 10-minute offset compensates for typical GitHub Actions queue delays.</p>
       <div class="tip">
-        <strong>Daylight saving note:</strong> GitHub Actions schedules run in UTC and do not adjust for daylight saving. The report will arrive one hour later (7 AM instead of 6 AM) from October through April. If timing is critical, the cron schedule in <span class="screen-path">.github/workflows/daily-report.yml</span> can be adjusted seasonally.
+        <strong>No manual DST adjustment needed:</strong> the dual-cron setup handles AEST/AEDT switching automatically. If you need to change the delivery time, update both cron entries in <span class="screen-path">.github/workflows/daily-report.yml</span>.
       </div>
     </div>
   </div>

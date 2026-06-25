@@ -864,7 +864,7 @@
 </div>
 
 <!-- Lightning / Thunderstorm Alert -->
-<div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 3 hours - lightning risk in the area</div>
+<div class="lightning-bar" id="lightning-alert">⚡ Thunderstorm forecast in the next 4 hours - lightning risk in the area</div>
 <div class="alert-bar ab-fog"   id="fog-alert">🌫️ Fog forecast tomorrow morning - check visibility before early tee times</div>
 <div class="alert-bar ab-frost" id="frost-alert">❄️ Frost expected overnight - greens may be affected, check before early tee times</div>
 <div class="alert-bar ab-carts" id="carts-alert">🛺 Course wet - carts on paths only</div>
@@ -1062,7 +1062,7 @@
         </div>
     </div>
 
-    <div class="lightning-bar" id="tv-lightning-alert">⚡ Thunderstorm forecast in the next 3 hours - lightning risk in the area</div>
+    <div class="lightning-bar" id="tv-lightning-alert">⚡ Thunderstorm forecast in the next 4 hours - lightning risk in the area</div>
     <div class="alert-bar ab-fog"   id="tv-fog-alert">🌫️ Fog forecast tomorrow morning - check visibility before early tee times</div>
     <div class="alert-bar ab-frost" id="tv-frost-alert">❄️ Frost expected overnight - greens may be affected, check before early tee times</div>
     <div class="alert-bar ab-carts" id="tv-carts-alert">🛺 Course wet - carts on paths only</div>
@@ -1397,7 +1397,7 @@ function updateSprayForecastNote(currentlyGood, currentlyBad) {
     if (!noteEl || !hourlyFc || !hourlyFc.windspeed_10m) { if (noteEl) noteEl.style.display = 'none'; return; }
     const offsetMs   = sydneyOffsetMs();
     const nowHourStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
-    // Scan next 3 hours of forecast
+    // Scan next 4 hours of forecast (current hour + 3 ahead)
     let futureGood = null, futureBad = null, hoursAhead = 0;
     for (let i = 0; i < hourlyFc.time.length && hoursAhead < 3; i++) {
         if (hourlyFc.time[i].slice(0, 13) <= nowHourStr) continue;
