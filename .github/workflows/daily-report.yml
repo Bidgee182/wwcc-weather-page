@@ -13,6 +13,15 @@ on:
 
   # Allow manual trigger from GitHub Actions tab for testing
   workflow_dispatch:
+    inputs:
+      resend:
+        description: 'Resend email for today using existing CSV data (skip re-fetch)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   daily-report:
@@ -45,7 +54,12 @@ jobs:
           EMAIL_GK_RECIPIENTS:       ${{ secrets.EMAIL_GK_RECIPIENTS }}
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
           EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
-        run: python scripts/daily_report.py
+        run: |
+          if [ "${{ github.event.inputs.resend }}" = "true" ]; then
+            python scripts/daily_report.py --resend
+          else
+            python scripts/daily_report.py
+          fi
 
       - name: Commit updated data to repository
         run: |

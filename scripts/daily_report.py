@@ -1868,4 +1868,21 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    if '--resend' in sys.argv:
+        # Re-send the email for the most recent CSV row without re-fetching or re-writing data.
+        now_sydney = datetime.now(tz=TZ)
+        yesterday  = (now_sydney - timedelta(days=1)).date()
+        rows = read_csv_history(3)
+        row  = next((r for r in reversed(rows) if r.get('date') == yesterday.isoformat()), None)
+        if row is None:
+            log.warning(f'No CSV row found for {yesterday} — run normally first.')
+            sys.exit(1)
+        log.info(f'--resend: re-sending email for {yesterday} using existing CSV data.')
+        history = read_csv_history(7)
+        daily_html = build_daily_html(row, yesterday, history)
+        subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
+        send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
+        log.info('Done.')
+    else:
+        main()
