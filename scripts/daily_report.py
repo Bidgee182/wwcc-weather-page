@@ -18,12 +18,20 @@ import csv
 import math
 import json
 import time
+import logging
 import requests
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, To, Email
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%dT%H:%M:%S',
+)
+log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION — loaded from GitHub Secrets (environment variables)
@@ -82,6 +90,8 @@ CSV_HEADERS = [
     'rain_day',
     'frost_flag',
     'disease_alert',
+    'fog_forecast',
+    'lightning_forecast',
 ]
 
 
@@ -277,7 +287,7 @@ def fetch_davis_historic(target_date):
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        print(f'Davis v2 API error: {e}')
+        log.error(f'Davis v2 API error: {e}')
         return []
 
     records = []
@@ -292,7 +302,7 @@ def process_davis_records(records):
     Extract daily summary and hourly wetness from Davis v2 records.
     Returns dict of processed values.
     """
-    temps_c, rh_vals, wind_ms_vals, rain_total, et_total = [], [], [], 0.0, 0.0
+    temps_c, night_temps, rh_vals, wind_kmh_vals, rain_total, et_total = [], [], [], [], 0.0, 0.0
     pressures = []
     hourly    = {}  # hour_int -> {'wet': bool, 'night': bool, 'rh': float}
 
@@ -311,7 +321,7 @@ def process_davis_records(records):
         rh = rec.get('hum') or rec.get('hum_out')
         rh = float(rh) if rh is not None else None
 
-        # Wind (mph -> m/s and km/h)
+        # Wind (mph -> m/s for leaf-wetness model; mph -> km/h for reporting)
         ws_mph  = rec.get('wind_speed_avg') or rec.get('wind_speed_last')
         ws_ms   = float(ws_mph) * 0.44704 if ws_mph is not None else None
         ws_kmh  = float(ws_mph) * 1.60934 if ws_mph is not None else None
@@ -330,13 +340,17 @@ def process_davis_records(records):
 
         if t_c is not None: temps_c.append(t_c)
         if rh   is not None: rh_vals.append(rh)
-        if ws_kmh is not None: wind_ms_vals.append(ws_kmh)
+        if ws_kmh is not None: wind_kmh_vals.append(ws_kmh)
         rain_total += rain_mm
         et_total   += et_mm
 
         # Leaf wetness per hour (CART model)
         wet   = is_cart_wet(t_c, rh, ws_ms, rain_mm)
         night = hour >= 22 or hour < 6
+
+        # Track overnight temperatures separately for accurate night_min
+        if night and t_c is not None:
+            night_temps.append(t_c)
         if hour not in hourly:
             hourly[hour] = {'wet': wet, 'night': night, 'rh': rh or 0}
         else:
@@ -348,14 +362,14 @@ def process_davis_records(records):
     temp_min  = round(min(temps_c), 1)          if temps_c     else None
     temp_mean = round(sum(temps_c)/len(temps_c), 1) if temps_c else None
     rh_mean   = round(sum(rh_vals)/len(rh_vals), 1) if rh_vals  else None
-    wind_max  = round(max(wind_ms_vals), 1)     if wind_ms_vals else None
-    wind_mean = round(sum(wind_ms_vals)/len(wind_ms_vals), 1) if wind_ms_vals else None
+    wind_max  = round(max(wind_kmh_vals), 1)     if wind_kmh_vals else None
+    wind_mean = round(sum(wind_kmh_vals)/len(wind_kmh_vals), 1) if wind_kmh_vals else None
     pres_mean = round(sum(pressures)/len(pressures), 1) if pressures else None
 
     wet_hours       = sum(1 for h in hourly.values() if h['wet'])
     night_wet_hours = sum(1 for h in hourly.values() if h['wet'] and h['night'])
-    night_min       = min((t for t in temps_c
-                           if datetime.fromtimestamp(0, tz=TZ)), default=None)
+    # True overnight minimum (10 PM–6 AM only); falls back to daily minimum if no night data
+    night_min       = round(min(night_temps), 1) if night_temps else temp_min
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
 
     # Consecutive RH >= 90 (simplified: total hours as proxy)
@@ -395,7 +409,7 @@ def process_davis_records(records):
         'delta_t_mean':    dt_mean,
         'wet_hours':       wet_hours,
         'night_wet_hours': night_wet_hours,
-        'night_min':       min(temps_c) if temps_c else None,
+        'night_min':       night_min,
         'consec_rh90':     consec_rh90,
         'spray_go':        spray_counts['GO'],
         'spray_caution':   spray_counts['CAUTION'],
@@ -426,8 +440,44 @@ def fetch_openmeteo_archive(target_date):
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
-        print(f'Open-Meteo archive error: {e}')
+        log.warning(f'Open-Meteo archive error: {e}')
         return None
+
+
+# WMO weather code sets used for alert detection
+_FOG_CODES   = {45, 48}
+_STORM_CODES = {95, 96, 99}
+
+
+def fetch_openmeteo_forecast(target_date):
+    """
+    Fetch today's hourly weather_code forecast from Open-Meteo.
+    Returns (fog_flag, lightning_flag):
+      fog_flag       — fog forecast during morning hours (5–10 AM)
+      lightning_flag — thunderstorm forecast during daytime hours (6 AM–8 PM)
+    """
+    date_str = target_date.strftime('%Y-%m-%d')
+    url = 'https://api.open-meteo.com/v1/forecast'
+    params = {
+        'latitude':   CLUB_LAT,
+        'longitude':  CLUB_LON,
+        'hourly':     'weather_code',
+        'start_date': date_str,
+        'end_date':   date_str,
+        'timezone':   'Australia/Sydney',
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        log.warning(f'Open-Meteo forecast error: {e}')
+        return False, False
+
+    codes = data.get('hourly', {}).get('weather_code', [])
+    fog_flag       = any(codes[h] in _FOG_CODES   for h in range(5, 11)  if h < len(codes))
+    lightning_flag = any(codes[h] in _STORM_CODES for h in range(6, 21)  if h < len(codes))
+    return fog_flag, lightning_flag
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -459,7 +509,7 @@ def append_csv_row(row_dict):
 
 def safe_float(val, default=None):
     try:
-        return float(val) if val not in (None, '', 'None') else default
+        return float(val) if val is not None and str(val).strip() not in ('', 'None') else default
     except (ValueError, TypeError):
         return default
 
@@ -478,8 +528,8 @@ RISK_COLOURS = {
 
 def risk_badge(risk):
     bg, fg = RISK_COLOURS.get(risk, ('#f1f5f9', '#374151'))
-    return (f'<span style="background:{bg};color:{fg};padding:2px 10px;'
-            f'border-radius:12px;font-size:12px;font-weight:700;">{risk}</span>')
+    return (f'<span style="background:{bg};color:{fg};padding:4px 14px;'
+            f'border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">{risk}</span>')
 
 
 RISK_ROW_BG = {
@@ -558,11 +608,33 @@ def build_daily_html(row, target_date, history):
 
     disease_banner = ''
     if da_flag:
+        triggered = []
+        if row.get('dollar_spot_risk')  in ('HIGH', 'SEVERE'): triggered.append('Dollar Spot')
+        if row.get('fusarium_risk')     in ('HIGH', 'SEVERE'): triggered.append('Fusarium Patch')
+        if row.get('brown_patch_risk')  in ('HIGH', 'SEVERE'): triggered.append('Brown Patch')
+        if row.get('pythium_risk')      in ('HIGH', 'SEVERE'): triggered.append('Pythium Blight')
+        triggered_str = ', '.join(triggered) if triggered else 'one or more diseases'
         disease_banner = (
             '<tr><td style="background:#1c0a0a;border-left:4px solid #ef4444;'
             'padding:12px 24px;color:#fca5a5;font-size:13px;">'
-            '&#129440; &nbsp;<strong style="color:#fecaca;">Disease alert</strong>'
-            ' — at least one disease reached HIGH or SEVERE risk yesterday.</td></tr>')
+            f'&#129440; &nbsp;<strong style="color:#fecaca;">Disease alert</strong>'
+            f' — {triggered_str} reached HIGH or SEVERE risk yesterday.</td></tr>')
+
+    fog_banner = ''
+    if row.get('fog_forecast') in (True, 'True'):
+        fog_banner = (
+            '<tr><td style="background:#1c1c2e;border-left:4px solid #94a3b8;'
+            'padding:12px 24px;color:#cbd5e1;font-size:13px;">'
+            '&#127787;&#65039; &nbsp;<strong style="color:#e2e8f0;">Fog forecast this morning'
+            '</strong> — check visibility before early tee times.</td></tr>')
+
+    lightning_banner = ''
+    if row.get('lightning_forecast') in (True, 'True'):
+        lightning_banner = (
+            '<tr><td style="background:#1a0a00;border-left:4px solid #f97316;'
+            'padding:12px 24px;color:#fdba74;font-size:13px;">'
+            '&#9889; &nbsp;<strong style="color:#fed7aa;">Thunderstorm forecast today'
+            '</strong> — monitor conditions and suspend play if lightning is detected.</td></tr>')
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -599,22 +671,10 @@ def build_daily_html(row, target_date, history):
 
   {frost_banner}
   {disease_banner}
+  {fog_banner}
+  {lightning_banner}
 
-  <!-- SECTION 1: YESTERDAY AT A GLANCE -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-            color:white;font-weight:700;font-size:13px;margin-right:10px;
-            vertical-align:middle;">1</span>
-        <span style="color:white;font-size:15px;font-weight:700;
-            vertical-align:middle;">Yesterday at a Glance</span>
-      </td>
-    </tr></table>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Key weather measurements for the past 24 hours</div>
-  </td></tr>
+  {sec_header('1', 'Yesterday at a Glance', 'Key weather measurements for the past 24 hours')}
 
   <tr><td style="background:white;padding:20px 24px 8px;">
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
@@ -687,21 +747,7 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
-  <!-- SECTION 2: GROWING DEGREE DAYS -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-            color:white;font-weight:700;font-size:13px;margin-right:10px;
-            vertical-align:middle;">2</span>
-        <span style="color:white;font-size:15px;font-weight:700;
-            vertical-align:middle;">Growing Degree Days</span>
-      </td>
-    </tr></table>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Heat accumulation for grass growth — base temperatures apply</div>
-  </td></tr>
+  {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth — base temperatures apply')}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -718,8 +764,8 @@ def build_daily_html(row, target_date, history):
               <div style="font-size:12px;color:#2d7a4e;font-weight:600;
                   margin-bottom:10px;">Today's accumulation</div>
               <div>
-                <span style="background:#1a4a2e;color:white;padding:4px 12px;
-                    border-radius:20px;font-size:11px;font-weight:700;">
+                <span style="background:#1a4a2e;color:white;padding:4px 14px;
+                    border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
                     7-day: {row['gdd_bent_7d']} GDD</span>
               </div>
             </td></tr>
@@ -737,8 +783,8 @@ def build_daily_html(row, target_date, history):
               <div style="font-size:12px;color:#92400e;font-weight:600;
                   margin-bottom:10px;">Today's accumulation</div>
               <div>
-                <span style="background:#713f12;color:white;padding:4px 12px;
-                    border-radius:20px;font-size:11px;font-weight:700;">
+                <span style="background:#713f12;color:white;padding:4px 14px;
+                    border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
                     7-day: {row['gdd_kik_7d']} GDD</span>
               </div>
             </td></tr>
@@ -748,26 +794,12 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
-  <!-- SECTION 3: DISEASE RISK -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-            color:white;font-weight:700;font-size:13px;margin-right:10px;
-            vertical-align:middle;">3</span>
-        <span style="color:white;font-size:15px;font-weight:700;
-            vertical-align:middle;">Disease Risk</span>
-      </td>
-    </tr></table>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Based on yesterday's temperature, humidity and leaf wetness</div>
-  </td></tr>
+  {sec_header('3', 'Disease Risk', "Based on yesterday's temperature, humidity and leaf wetness")}
 
   <tr><td style="background:white;padding:20px 24px;">
     <div style="margin-bottom:14px;">
       <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
-          padding:5px 16px;border-radius:20px;font-size:12px;font-weight:700;">
+          padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
           &#127807; Leaf wetness: {row['leaf_wet_hours']} hrs</span>
     </div>
     <table width="100%" cellpadding="0" cellspacing="0"
@@ -815,21 +847,7 @@ def build_daily_html(row, target_date, history):
     </table>
   </td></tr>
 
-  <!-- SECTION 4: SPRAY CONDITIONS -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td>
-        <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-            text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-            color:white;font-weight:700;font-size:13px;margin-right:10px;
-            vertical-align:middle;">4</span>
-        <span style="color:white;font-size:15px;font-weight:700;
-            vertical-align:middle;">Spray Conditions</span>
-      </td>
-    </tr></table>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Hours yesterday classified by Delta T and wind thresholds</div>
-  </td></tr>
+  {sec_header('4', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
 
   <tr><td style="background:white;padding:20px 24px 28px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -839,8 +857,8 @@ def build_daily_html(row, target_date, history):
               style="background:#dcfce7;border:2px solid #86efac;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#15803d;color:white;padding:3px 16px;
-                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+              <span style="background:#15803d;color:white;padding:4px 14px;
+                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
                   GO</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#15803d;
                 line-height:1;padding:8px 0;">{row['spray_go_hours']}</td></tr>
@@ -852,8 +870,8 @@ def build_daily_html(row, target_date, history):
               style="background:#fef9c3;border:2px solid #fde047;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#a16207;color:white;padding:3px 16px;
-                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+              <span style="background:#a16207;color:white;padding:4px 14px;
+                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
                   CAUTION</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#a16207;
                 line-height:1;padding:8px 0;">{row['spray_caution_hours']}</td></tr>
@@ -865,8 +883,8 @@ def build_daily_html(row, target_date, history):
               style="background:#fee2e2;border:2px solid #fca5a5;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#dc2626;color:white;padding:3px 16px;
-                  border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;">
+              <span style="background:#dc2626;color:white;padding:4px 14px;
+                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
                   NO-GO</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#dc2626;
                 line-height:1;padding:8px 0;">{row['spray_nogo_hours']}</td></tr>
@@ -930,6 +948,9 @@ def build_weekly_html(history, week_end_date):
       </tr>"""
 
     water_bal = totals['rain'] - totals['et']
+    w_sec1 = sec_header('1', 'Daily Breakdown',   'Weather, GDD and disease risk for each day this week')
+    w_sec2 = sec_header('2', 'Weekly Totals',     'Cumulative water, ET and heat accumulation for the week')
+    w_sec3 = sec_header('3', 'Disease &amp; Frost Alerts', 'Days this week where conditions triggered alerts')
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -960,17 +981,7 @@ def build_weekly_html(history, week_end_date):
     </tr></table>
   </td></tr>
 
-  <!-- SECTION 1: 7-DAY DATA TABLE -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">1</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Daily Breakdown</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Weather, GDD and disease risk for each day this week</div>
-  </td></tr>
+  {w_sec1}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0"
@@ -1009,17 +1020,7 @@ def build_weekly_html(history, week_end_date):
     </table>
   </td></tr>
 
-  <!-- SECTION 2: WEEKLY TOTALS -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">2</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Weekly Totals</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Cumulative water, ET and heat accumulation for the week</div>
-  </td></tr>
+  {w_sec2}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -1085,17 +1086,7 @@ def build_weekly_html(history, week_end_date):
     </table>
   </td></tr>
 
-  <!-- SECTION 3: DISEASE & FROST SUMMARY -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">3</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Disease &amp; Frost Alerts</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Days this week where conditions triggered alerts</div>
-  </td></tr>
+  {w_sec3}
 
   <tr><td style="background:white;padding:20px 24px 28px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -1193,6 +1184,9 @@ def build_monthly_html(history, month_label):
       </tr>"""
 
     water_bal = totals['rain'] - totals['et']
+    m_sec1 = sec_header('1', 'Daily Records',          'Complete daily log for the month')
+    m_sec2 = sec_header('2', 'Monthly Totals',         'Cumulative water, evapotranspiration and heat for the month')
+    m_sec3 = sec_header('3', 'Disease &amp; Frost Summary', 'Alert days recorded during the month')
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1223,17 +1217,7 @@ def build_monthly_html(history, month_label):
     </tr></table>
   </td></tr>
 
-  <!-- SECTION 1: DAILY DATA TABLE -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">1</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Daily Records</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Complete daily log for the month</div>
-  </td></tr>
+  {m_sec1}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0"
@@ -1270,17 +1254,7 @@ def build_monthly_html(history, month_label):
     </table>
   </td></tr>
 
-  <!-- SECTION 2: MONTHLY TOTALS -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">2</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Monthly Totals</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Cumulative water, evapotranspiration and heat for the month</div>
-  </td></tr>
+  {m_sec2}
 
   <tr><td style="background:white;padding:20px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -1354,17 +1328,7 @@ def build_monthly_html(history, month_label):
     </table>
   </td></tr>
 
-  <!-- SECTION 3: DISEASE & FROST -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
-    <span style="display:inline-block;width:28px;height:28px;line-height:28px;
-        text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
-        color:white;font-weight:700;font-size:13px;margin-right:10px;
-        vertical-align:middle;">3</span>
-    <span style="color:white;font-size:15px;font-weight:700;vertical-align:middle;">
-        Disease &amp; Frost Summary</span>
-    <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;
-        margin-left:38px;">Alert days recorded during the month</div>
-  </td></tr>
+  {m_sec3}
 
   <tr><td style="background:white;padding:20px 24px 28px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -1682,10 +1646,10 @@ def build_yearly_html(history, year_label):
 def send_email(subject, html_body, recipients):
     """Send HTML email via SendGrid."""
     if not SENDGRID_API_KEY:
-        print('No SendGrid API key — skipping email send.')
+        log.warning('No SendGrid API key — skipping email send.')
         return
     if not recipients or recipients == ['']:
-        print('No email recipients configured.')
+        log.warning('No email recipients configured.')
         return
     message = Mail(
         from_email=Email(EMAIL_FROM, 'WWCC Weather'),
@@ -1699,9 +1663,9 @@ def send_email(subject, html_body, recipients):
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
-        print(f'Email sent: {response.status_code} to {recipients}')
+        log.info(f'Email sent: {response.status_code} to {recipients}')
     except Exception as e:
-        print(f'Email send error: {e}')
+        log.error(f'Email send error: {e}')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1712,28 +1676,28 @@ def main():
     # Yesterday in Sydney time
     now_sydney = datetime.now(tz=TZ)
     yesterday  = (now_sydney - timedelta(days=1)).date()
-    print(f'Running daily report for {yesterday} (Sydney time)')
+    log.info(f'Running daily report for {yesterday} (Sydney time)')
 
     # Guard against duplicate runs (two cron entries cover AEST and AEDT —
     # on DST transition days both fire within an hour of each other).
     existing = read_csv_history(3)
     if any(r.get('date') == yesterday.isoformat() for r in existing):
-        print(f'Report for {yesterday} already exists in CSV — skipping duplicate run.')
+        log.info(f'Report for {yesterday} already exists in CSV — skipping duplicate run.')
         return
 
     # ── 1. Fetch data ──────────────────────────────────────────────────────
-    print('Fetching Davis v2 historic data...')
+    log.info('Fetching Davis v2 historic data...')
     davis_records = fetch_davis_historic(yesterday)
-    print(f'  {len(davis_records)} records returned')
+    log.info(f'  {len(davis_records)} records returned')
 
-    print('Fetching Open-Meteo archive...')
+    log.info('Fetching Open-Meteo archive...')
     om_data = fetch_openmeteo_archive(yesterday)
 
     # ── 2. Process Davis data ──────────────────────────────────────────────
     if davis_records:
         d = process_davis_records(davis_records)
     else:
-        print('  Warning: No Davis records — using Open-Meteo fallback for basic stats')
+        log.warning('No Davis records — using Open-Meteo fallback for basic stats')
         d = {k: None for k in ['temp_max','temp_min','temp_mean','rh_mean',
                                 'wind_max_kmh','wind_mean_kmh','rain_mm','et_mm',
                                 'pressure_mean','delta_t_mean','wet_hours',
@@ -1799,7 +1763,16 @@ def main():
 
     high_risks   = ['HIGH', 'SEVERE']
     disease_alert = any(r in high_risks for r in [ds_risk, fus_risk, bp_risk, pyt_risk])
-    frost_flag    = (d['temp_min'] is not None and d['temp_min'] < 2)
+    frost_flag    = (d['night_min'] is not None and d['night_min'] < 2)
+
+    # ── 4b. Fetch today's forecast for fog/lightning warnings ──────────────
+    today = (now_sydney).date()
+    log.info('Fetching Open-Meteo forecast for fog/lightning detection...')
+    fog_forecast, lightning_forecast = fetch_openmeteo_forecast(today)
+    if fog_forecast:
+        log.info('Fog forecast detected for this morning.')
+    if lightning_forecast:
+        log.info('Thunderstorm forecast detected for today.')
 
     # ── 5. Build CSV row ───────────────────────────────────────────────────
     row = {
@@ -1831,13 +1804,15 @@ def main():
         'spray_go_hours':    d['spray_go'],
         'spray_caution_hours': d['spray_caution'],
         'spray_nogo_hours':  d['spray_nogo'],
-        'rain_day':          d['rain_day'],
-        'frost_flag':        frost_flag,
-        'disease_alert':     disease_alert,
+        'rain_day':           d['rain_day'],
+        'frost_flag':         frost_flag,
+        'disease_alert':      disease_alert,
+        'fog_forecast':       fog_forecast,
+        'lightning_forecast': lightning_forecast,
     }
 
     # ── 6. Save CSV row ────────────────────────────────────────────────────
-    print('Appending row to daily_log.csv...')
+    log.info('Appending row to daily_log.csv...')
     append_csv_row(row)
 
     # ── 7. Save HTML report to archive ────────────────────────────────────
@@ -1847,16 +1822,16 @@ def main():
     history_for_report = read_csv_history(7)
     daily_html = build_daily_html(row, yesterday, history_for_report)
     report_path.write_text(daily_html, encoding='utf-8')
-    print(f'Report saved: {report_path}')
+    log.info(f'Report saved: {report_path}')
 
     # ── 8. Send daily email to greenkeeper ────────────────────────────────
     subject = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
-    print(f'Sending daily email: {subject}')
+    log.info(f'Sending daily email: {subject}')
     send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
 
     # ── 9. Weekly summary (Monday only) ───────────────────────────────────
     if now_sydney.weekday() == 0:  # Monday
-        print('Monday detected — sending weekly summary...')
+        log.info('Monday detected — sending weekly summary...')
         week_history = read_csv_history(7)
         weekly_html  = build_weekly_html(week_history, yesterday)
         week_subject = f'WWCC Weekly Weather Summary — {yesterday.strftime("%-d %B %Y")}'
@@ -1868,7 +1843,7 @@ def main():
 
     # ── 10. Monthly summary (1st of month only) ───────────────────────────
     if yesterday.day == 1:
-        print('1st of month — sending monthly summary...')
+        log.info('1st of month — sending monthly summary...')
         month_history = read_csv_history(31)
         month_name    = (yesterday - timedelta(days=1)).strftime('%B %Y')
         monthly_html  = build_monthly_html(month_history, month_name)
@@ -1879,7 +1854,7 @@ def main():
 
     # ── 11. Annual summary (1st January only) ─────────────────────────────
     if yesterday.month == 1 and yesterday.day == 1:
-        print('1st January — sending annual summary...')
+        log.info('1st January — sending annual summary...')
         prev_year     = yesterday.year - 1
         year_history  = read_csv_history(366)
         year_label    = f'Full Year {prev_year}'
@@ -1889,7 +1864,7 @@ def main():
         yearly_path   = report_dir / f'{prev_year}-annual.html'
         yearly_path.write_text(yearly_html, encoding='utf-8')
 
-    print('Done.')
+    log.info('Done.')
 
 
 if __name__ == '__main__':

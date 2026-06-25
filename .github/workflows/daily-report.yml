@@ -2,12 +2,14 @@ name: WWCC Daily Weather Report
 
 on:
   schedule:
-    # Two entries so the report always arrives at 6 AM Sydney time regardless of DST.
-    # AEST  (UTC+10) Apr–Oct: 8 PM UTC  = 6 AM next day
-    # AEDT  (UTC+11) Oct–Apr: 7 PM UTC  = 6 AM next day
+    # Two entries so the report always arrives at ~6 AM Sydney time regardless of DST.
+    # GitHub Actions cron jobs can be delayed 30–60 min during peak UTC hours.
+    # Scheduling 50 min early (5:10 AM local) compensates for typical queue delay.
     # The script guards against duplicate runs on DST transition days.
-    - cron: '0 20 * * *'   # 6 AM AEST
-    - cron: '0 19 * * *'   # 6 AM AEDT
+    # AEST (UTC+10) Apr–Oct: 19:10 UTC = 5:10 AM AEST → arrives ~6:00 AM
+    # AEDT (UTC+11) Oct–Apr: 18:10 UTC = 5:10 AM AEDT → arrives ~6:00 AM
+    - cron: '10 19 * * *'   # 5:10 AM AEST (target delivery 6:00 AM)
+    - cron: '10 18 * * *'   # 5:10 AM AEDT (target delivery 6:00 AM)
 
   # Allow manual trigger from GitHub Actions tab for testing
   workflow_dispatch:
