@@ -589,7 +589,7 @@ def fetch_openmeteo_archive(target_date):
         'longitude':  CLUB_LON,
         'start_date': date_str,
         'end_date':   date_str,
-        'daily':      'temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,uv_index_max',
+        'daily':      'temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration',
         'hourly':     'temperature_2m,relative_humidity_2m,windspeed_10m,precipitation',
         'timezone':   'Australia/Sydney',
     }
@@ -605,7 +605,8 @@ def fetch_openmeteo_archive(target_date):
 def fetch_openmeteo_uv(target_date):
     """Lightweight Open-Meteo call for UV index only (used when station has no UV data)."""
     date_str = target_date.strftime('%Y-%m-%d')
-    url = 'https://archive-api.open-meteo.com/v1/archive'
+    # historical-forecast-api has UV data; archive-api (ERA5) does not
+    url = 'https://historical-forecast-api.open-meteo.com/v1/forecast'
     params = {
         'latitude':   CLUB_LAT,
         'longitude':  CLUB_LON,
@@ -2124,7 +2125,7 @@ def backfill_history(from_date, to_date, force=False):
     # Much faster than one call per date — avoids rate-limit timeouts.
     uv_by_date = {}  # date_str -> uv_index_max float or None
     try:
-        url = 'https://archive-api.open-meteo.com/v1/archive'
+        url = 'https://historical-forecast-api.open-meteo.com/v1/forecast'
         params = {
             'latitude':   CLUB_LAT,
             'longitude':  CLUB_LON,
@@ -2364,9 +2365,7 @@ def main():
             d['rain_mm'] = daily['precipitation_sum'][0] or 0.0
         if d['et_mm'] == 0 and daily.get('et0_fao_evapotranspiration'):
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
-        if uv_max is None:
-            uv_max = daily.get('uv_index_max', [None])[0]
-    # UV fallback: if Open-Meteo full fetch failed, try lightweight UV-only call
+    # UV: archive API (ERA5) doesn't have UV — always use historical-forecast API
     if uv_max is None:
         uv_max = fetch_openmeteo_uv(yesterday)
 
