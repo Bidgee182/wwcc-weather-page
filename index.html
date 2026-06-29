@@ -338,6 +338,21 @@
         .btn-export-go:disabled { background:#1d6a39; color:#7f8c8d; cursor:wait; }
         .btn-export-cancel { background:#3d5166; color:#ecf0f1; }
 
+        /* ── Water / Tank Tab ── */
+        .tank-gauge-wrap { display:flex; justify-content:center; margin:6px 0 14px; }
+        .tank-arc-bg   { fill:none; stroke:#1a252f; stroke-width:14; stroke-linecap:round; }
+        .tank-arc-fill { fill:none; stroke:#27ae60; stroke-width:14; stroke-linecap:round; stroke-dasharray:0 204.2; transition:stroke-dasharray 0.7s ease, stroke 0.4s; }
+        .tank-history-range { display:flex; gap:6px; margin-bottom:10px; }
+        .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; transition:background 0.2s,color 0.2s; }
+        .tank-range-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
+        .tank-graph-wrap { width:100%; overflow-x:hidden; }
+        .tank-graph-wrap svg { width:100%; min-width:240px; display:block; }
+        .tank-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+        .lake-placeholder { background:#1a252f; border:1px dashed #3d5166; border-radius:8px; padding:24px; text-align:center; }
+        .lake-placeholder .lp-icon  { font-size:2em; margin-bottom:8px; }
+        .lake-placeholder .lp-title { font-size:0.88em; font-weight:bold; color:#7f8c8d; margin-bottom:6px; }
+        .lake-placeholder .lp-desc  { font-size:0.78em; color:#566573; line-height:1.6; }
+
         /* ── GK Wind Strip ── */
         .wind-strip { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 6px; flex-wrap: nowrap; align-items: flex-start; -webkit-overflow-scrolling: touch; }
         .wind-strip::-webkit-scrollbar { height: 4px; }
@@ -588,6 +603,7 @@
         <button class="gk-tab-btn"        data-gktab="irrigation" onclick="switchGKTab('irrigation')">&#128167; Irrigation</button>
         <button class="gk-tab-btn"        data-gktab="station"    onclick="switchGKTab('station')"   >&#128225; Station</button>
         <button class="gk-tab-btn"        data-gktab="reports"    onclick="switchGKTab('reports')"   >&#128229; Reports</button>
+        <button class="gk-tab-btn"        data-gktab="water"      onclick="switchGKTab('water')"     >&#128167; Water</button>
     </div>
     <!-- ── GK Tab: Spraying ── -->
     <div id="gk-tab-spray" class="gk-tab-panel gk-active">
@@ -862,6 +878,92 @@
     <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
     </div><!-- end gk-tab-reports -->
 
+    <!-- ── GK Tab: Water ── -->
+    <div id="gk-tab-water" class="gk-tab-panel">
+
+        <!-- Live Tank Level -->
+        <div class="card">
+            <h2>&#128167; Water Tank &mdash; Live Level</h2>
+            <div id="tank-error" style="display:none;background:#3d1a1a;border-left:3px solid #e74c3c;padding:8px 10px;border-radius:4px;font-size:0.8em;color:#e74c3c;margin-bottom:10px"></div>
+            <div id="tank-unconfigured" style="display:none;background:#1a252f;border:1px solid #3d5166;border-radius:8px;padding:20px;text-align:center;">
+                <div style="font-size:1.5em;margin-bottom:8px">&#128273;</div>
+                <div style="font-weight:bold;margin-bottom:6px;color:#d4ac0d">FarmBot credentials not configured</div>
+                <div style="font-size:0.8em;color:#7f8c8d;line-height:1.5">Email <strong>service@farmbot.com.au</strong> to get your Client ID and Client Secret, then add them to the FARMBOT constants near the top of index.html.</div>
+            </div>
+            <div id="tank-live-content">
+                <!-- Semi-circle gauge -->
+                <div class="tank-gauge-wrap">
+                    <svg id="tank-gauge-svg" viewBox="0 0 160 90" width="260" height="150">
+                        <path class="tank-arc-bg"   d="M 15,80 A 65,65 0 0,1 145,80"/>
+                        <path class="tank-arc-fill" id="tank-arc-fill" d="M 15,80 A 65,65 0 0,1 145,80"/>
+                        <text id="tank-pct-text" x="80" y="60" text-anchor="middle" dominant-baseline="middle" fill="#ecf0f1" font-size="22" font-weight="bold" font-family="Arial,sans-serif">--</text>
+                        <text x="80" y="76" text-anchor="middle" fill="#7f8c8d" font-size="8" font-family="Arial,sans-serif">% FULL</text>
+                        <text x="12"  y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">0%</text>
+                        <text x="80"  y="12" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">50%</text>
+                        <text x="148" y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">100%</text>
+                    </svg>
+                </div>
+                <div class="irr-metrics">
+                    <div class="irr-metric"><div class="lbl">Volume</div><div class="val" id="tank-volume">--</div></div>
+                    <div class="irr-metric"><div class="lbl">Status</div><div class="val" id="tank-status" style="font-size:0.95em">--</div></div>
+                    <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="tank-battery">--</div></div>
+                </div>
+                <div style="font-size:0.72em;color:#566573;text-align:right;margin-top:4px">Last reading: <span id="tank-last-reading">--</span></div>
+            </div>
+        </div>
+
+        <!-- Tank Level History Graph -->
+        <div class="card">
+            <h2>&#128202; Tank Level History</h2>
+            <div class="tank-history-range">
+                <button class="tank-range-btn active" onclick="setTankRange(24)">24h</button>
+                <button class="tank-range-btn" onclick="setTankRange(168)">7 Days</button>
+                <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
+            </div>
+            <div class="tank-graph-wrap">
+                <svg id="tank-graph-svg" viewBox="0 0 400 130" preserveAspectRatio="none" style="height:130px">
+                    <text x="200" y="70" text-anchor="middle" fill="#566573" font-size="11" font-family="Arial,sans-serif">Awaiting data...</text>
+                </svg>
+            </div>
+            <div class="tank-stat-row">
+                <div class="irr-metric"><div class="lbl">Min (period)</div><div class="val" id="tank-hist-min">--</div></div>
+                <div class="irr-metric"><div class="lbl">Max (period)</div><div class="val" id="tank-hist-max">--</div></div>
+                <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="tank-hist-change">--</div></div>
+            </div>
+        </div>
+
+        <!-- Lake / Dam Level Placeholder -->
+        <div class="card">
+            <h2>&#127754; Lake / Dam Level</h2>
+            <div id="lake-live-content" style="display:none">
+                <div class="tank-gauge-wrap">
+                    <svg id="lake-gauge-svg" viewBox="0 0 160 90" width="260" height="150">
+                        <path class="tank-arc-bg"   d="M 15,80 A 65,65 0 0,1 145,80"/>
+                        <path class="tank-arc-fill" id="lake-arc-fill" d="M 15,80 A 65,65 0 0,1 145,80"/>
+                        <text id="lake-pct-text" x="80" y="60" text-anchor="middle" dominant-baseline="middle" fill="#ecf0f1" font-size="22" font-weight="bold" font-family="Arial,sans-serif">--</text>
+                        <text x="80" y="76" text-anchor="middle" fill="#7f8c8d" font-size="8" font-family="Arial,sans-serif">% FULL</text>
+                        <text x="12"  y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">0%</text>
+                        <text x="80"  y="12" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">50%</text>
+                        <text x="148" y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">100%</text>
+                    </svg>
+                </div>
+                <div class="irr-metrics">
+                    <div class="irr-metric"><div class="lbl">Level</div><div class="val" id="lake-level">--</div></div>
+                    <div class="irr-metric"><div class="lbl">Status</div><div class="val" id="lake-status" style="font-size:0.95em">--</div></div>
+                    <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="lake-battery">--</div></div>
+                </div>
+                <div style="font-size:0.72em;color:#566573;text-align:right;margin-top:4px">Last reading: <span id="lake-last-reading">--</span></div>
+            </div>
+            <div id="lake-placeholder-content" class="lake-placeholder">
+                <div class="lp-icon">&#128679;</div>
+                <div class="lp-title">Sensor not yet installed</div>
+                <div class="lp-desc">A FarmBot Dam sensor will be installed at the course lake.<br>Once installed, add the sensor SID to <code style="background:#0d1117;padding:1px 5px;border-radius:3px">FARMBOT_LAKE_SID</code> in index.html and this card will activate automatically.</div>
+            </div>
+        </div>
+
+        <div class="gk-tab-footer">FarmBot: <span id="tank-upd-farmbot">--</span></div>
+    </div><!-- end gk-tab-water -->
+
 </div><!-- end #view-greenkeeper -->
 
 <!-- Custom Export Modal -->
@@ -1119,6 +1221,14 @@ const CLUB_ELEV_M = 147;
 const BASELINE_STIMP = 9;   // Typical green speed at WWCC in normal conditions (ft) - adjust as needed
 const GITHUB_REPO    = 'Bidgee182/wwcc-weather-page';
 // GitHub PAT is stored in localStorage (wx_github_pat) on the GK device only - never hardcoded here
+
+// ── FarmBot Water / Tank ─────────────────────────────────────────────
+// Fill these in once you receive credentials from service@farmbot.com.au
+// and find your sensor SIDs via the FarmBot Swagger UI.
+const FARMBOT_CLIENT_ID     = '';   // from FarmBot support
+const FARMBOT_CLIENT_SECRET = '';   // from FarmBot support
+const FARMBOT_TANK_SID      = '';   // GET /sensor?sensorTypeIds=1 → sensorSid
+const FARMBOT_LAKE_SID      = null; // fill in once lake sensor is installed (Dam = type 7)
 
 // ── Global state ──────────────────────────────────────────────────
 let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
@@ -5737,6 +5847,191 @@ async function checkForUpdates() {
 // ── Boot ──────────────────────────────────────────────────────────
 initTVMode();
 initSprayProductSelect();
+// ── FarmBot Tank / Water functions ──────────────────────────────────
+
+const _FB_TOKEN_URL  = 'https://fmbt-internal-production-ap-southeast-2.auth.ap-southeast-2.amazoncognito.com/oauth2/token';
+const _FB_API_BASE   = 'https://api.myxbot-production-au.fmbt.io/public-api/v1';
+const _FB_ARC_LEN    = Math.PI * 65; // length of M 15,80 A 65,65 0 0,1 145,80
+let   _fbToken       = null;
+let   _fbTokenExpiry = 0;
+let   _tankRange     = 24;  // hours currently shown in graph
+
+async function _fbGetToken() {
+    if (_fbToken && Date.now() < _fbTokenExpiry) return _fbToken;
+    const creds   = btoa(FARMBOT_CLIENT_ID + ':' + FARMBOT_CLIENT_SECRET);
+    const proxy   = 'https://corsproxy.io/?' + encodeURIComponent(_FB_TOKEN_URL);
+    const resp    = await fetch(proxy, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + creds },
+        body:    'grant_type=client_credentials&scope=public-api%2Fget-sensor-data'
+    });
+    if (!resp.ok) throw new Error('FarmBot auth failed (' + resp.status + ')');
+    const d = await resp.json();
+    _fbToken       = d.access_token;
+    _fbTokenExpiry = Date.now() + (d.expires_in - 60) * 1000;
+    return _fbToken;
+}
+
+async function _fbFetch(path) {
+    const token = await _fbGetToken();
+    const proxy = 'https://corsproxy.io/?' + encodeURIComponent(_FB_API_BASE + path);
+    const resp  = await fetch(proxy, { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
+    if (!resp.ok) throw new Error('FarmBot API error (' + resp.status + ')');
+    return resp.json();
+}
+
+function _renderTankGauge(arcFillId, pctTextId, pct) {
+    const filled = (Math.min(100, Math.max(0, pct)) / 100) * _FB_ARC_LEN;
+    const el = document.getElementById(arcFillId);
+    if (!el) return;
+    el.style.strokeDasharray = filled + ' ' + (_FB_ARC_LEN - filled);
+    const color = pct >= 50 ? '#27ae60' : pct >= 20 ? '#d4ac0d' : '#e74c3c';
+    el.style.stroke = color;
+    const txt = document.getElementById(pctTextId);
+    if (txt) { txt.textContent = Math.round(pct) + '%'; txt.style.fill = color; }
+}
+
+function _renderTankGraph(samples) {
+    const svg = document.getElementById('tank-graph-svg');
+    if (!svg) return;
+    if (!samples || samples.length < 2) {
+        svg.innerHTML = '<text x="200" y="70" text-anchor="middle" fill="#566573" font-size="11" font-family="Arial,sans-serif">Not enough data for this range</text>';
+        ['tank-hist-min','tank-hist-max','tank-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+        return;
+    }
+    const W = 400, H = 130, pL = 30, pR = 10, pT = 10, pB = 22;
+    const times = samples.map(s => new Date(s.recordedAt).getTime());
+    const vals  = samples.map(s => parseFloat(s.level ?? s.percentage ?? s.value ?? 0));
+    const tMin = times[0], tMax = times[times.length - 1];
+    const xOf  = t => pL + ((t - tMin) / ((tMax - tMin) || 1)) * (W - pL - pR);
+    const yOf  = v => pT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - pT - pB);
+    const minV = Math.min(...vals), maxV = Math.max(...vals);
+    const change = vals[vals.length - 1] - vals[0];
+
+    // Stats
+    const minEl = document.getElementById('tank-hist-min'); if (minEl) minEl.textContent = Math.round(minV) + '%';
+    const maxEl = document.getElementById('tank-hist-max'); if (maxEl) maxEl.textContent = Math.round(maxV) + '%';
+    const chEl  = document.getElementById('tank-hist-change');
+    if (chEl) { chEl.textContent = (change >= 0 ? '+' : '') + Math.round(change) + '%'; chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c'; }
+
+    let html = '';
+    // Grid lines + Y labels
+    [0, 20, 50, 80, 100].forEach(pct => {
+        const y = yOf(pct);
+        html += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W - pR}" y2="${y.toFixed(1)}" stroke="${pct === 20 || pct === 50 ? '#3d5166' : '#1e2f3c'}" stroke-width="${pct === 20 || pct === 50 ? '1' : '0.5'}" ${pct === 20 || pct === 50 ? 'stroke-dasharray="4,3"' : ''}/>`;
+        html += `<text x="${pL - 3}" y="${(y + 3).toFixed(1)}" text-anchor="end" fill="#566573" font-size="7" font-family="Arial,sans-serif">${pct}</text>`;
+    });
+    // Red danger zone below 20%
+    html += `<rect x="${pL}" y="${yOf(20).toFixed(1)}" width="${W - pL - pR}" height="${(yOf(0) - yOf(20)).toFixed(1)}" fill="rgba(192,57,43,0.10)"/>`;
+    // Area fill
+    const pts = samples.map((s, i) => `${xOf(times[i]).toFixed(1)},${yOf(vals[i]).toFixed(1)}`).join(' ');
+    html += `<polygon points="${xOf(times[0]).toFixed(1)},${yOf(0).toFixed(1)} ${pts} ${xOf(times[times.length-1]).toFixed(1)},${yOf(0).toFixed(1)}" fill="rgba(41,128,185,0.12)"/>`;
+    // Line
+    html += `<polyline points="${pts}" fill="none" stroke="#2980b9" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    // Latest dot
+    const dotX = xOf(times[times.length-1]), dotY = yOf(vals[vals.length-1]);
+    const dotColor = vals[vals.length-1] >= 50 ? '#27ae60' : vals[vals.length-1] >= 20 ? '#d4ac0d' : '#e74c3c';
+    html += `<circle cx="${dotX.toFixed(1)}" cy="${dotY.toFixed(1)}" r="4" fill="${dotColor}" stroke="#1a252f" stroke-width="1.5"/>`;
+    // X-axis labels (up to 5)
+    const n = samples.length;
+    const steps = [0, Math.floor(n*0.25), Math.floor(n*0.5), Math.floor(n*0.75), n-1].filter((v,i,a) => a.indexOf(v) === i);
+    steps.forEach(i => {
+        const d = new Date(times[i]);
+        const lbl = _tankRange <= 24
+            ? d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false })
+            : d.toLocaleDateString('en-AU',  { day:'numeric', month:'short' });
+        html += `<text x="${xOf(times[i]).toFixed(1)}" y="${H - 5}" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">${lbl}</text>`;
+    });
+    svg.innerHTML = html;
+}
+
+async function fetchTankData() {
+    const uncfg = document.getElementById('tank-unconfigured');
+    const live  = document.getElementById('tank-live-content');
+    const errEl = document.getElementById('tank-error');
+    if (!FARMBOT_CLIENT_ID || !FARMBOT_CLIENT_SECRET || !FARMBOT_TANK_SID) {
+        if (uncfg) uncfg.style.display = 'block';
+        if (live)  live.style.display  = 'none';
+        // Show lake placeholder too
+        const lakeEl = document.getElementById('lake-placeholder-content');
+        const lakeLive = document.getElementById('lake-live-content');
+        if (lakeEl)  lakeEl.style.display  = 'block';
+        if (lakeLive) lakeLive.style.display = 'none';
+        return;
+    }
+    if (uncfg) uncfg.style.display = 'none';
+    if (live)  live.style.display  = 'block';
+    try {
+        // ── Tank: latest sample ──
+        const latestResp = await _fbFetch('/sensor/' + FARMBOT_TANK_SID + '/sample?page=1&pageSize=1&order=DESC');
+        const arr    = latestResp.data ?? latestResp.items ?? (Array.isArray(latestResp) ? latestResp : []);
+        const latest = arr[0];
+        if (latest) {
+            const pct = parseFloat(latest.level ?? latest.percentage ?? latest.value ?? 0);
+            _renderTankGauge('tank-arc-fill', 'tank-pct-text', pct);
+            const volEl = document.getElementById('tank-volume');
+            if (volEl) volEl.textContent = latest.volume != null ? (latest.volume / 1000).toFixed(1) + ' kL' : '--';
+            const stEl = document.getElementById('tank-status');
+            if (stEl) stEl.textContent = pct >= 80 ? '🟢 Full' : pct >= 50 ? '🟢 Good' : pct >= 20 ? '🟡 Low' : '🔴 Critical';
+            const batEl = document.getElementById('tank-battery');
+            if (batEl) batEl.textContent = latest.batteryLevel != null ? latest.batteryLevel + '%' : '--';
+            const lrEl = document.getElementById('tank-last-reading');
+            if (lrEl) lrEl.textContent = new Date(latest.recordedAt).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
+        }
+        // ── Tank: history for graph ──
+        const pageSize = Math.min(50, Math.max(10, Math.ceil(_tankRange * 2)));
+        const histResp = await _fbFetch('/sensor/' + FARMBOT_TANK_SID + '/sample?page=1&pageSize=' + pageSize + '&order=DESC');
+        const raw    = histResp.data ?? histResp.items ?? (Array.isArray(histResp) ? histResp : []);
+        const cutoff = Date.now() - _tankRange * 3600000;
+        const samples = raw.filter(s => new Date(s.recordedAt).getTime() >= cutoff).reverse();
+        _renderTankGraph(samples);
+        // ── Lake sensor (if configured) ──
+        const lakePlaceholder = document.getElementById('lake-placeholder-content');
+        const lakeLive        = document.getElementById('lake-live-content');
+        if (FARMBOT_LAKE_SID) {
+            if (lakePlaceholder) lakePlaceholder.style.display = 'none';
+            if (lakeLive)        lakeLive.style.display        = 'block';
+            try {
+                const lakeResp   = await _fbFetch('/sensor/' + FARMBOT_LAKE_SID + '/sample?page=1&pageSize=1&order=DESC');
+                const lakeArr    = lakeResp.data ?? lakeResp.items ?? (Array.isArray(lakeResp) ? lakeResp : []);
+                const lakeLatest = lakeArr[0];
+                if (lakeLatest) {
+                    const lpct = parseFloat(lakeLatest.level ?? lakeLatest.percentage ?? lakeLatest.value ?? 0);
+                    _renderTankGauge('lake-arc-fill', 'lake-pct-text', lpct);
+                    const llEl  = document.getElementById('lake-level');
+                    if (llEl) llEl.textContent = Math.round(lpct) + '%';
+                    const lstEl = document.getElementById('lake-status');
+                    if (lstEl) lstEl.textContent = lpct >= 80 ? '🟢 Full' : lpct >= 50 ? '🟢 Good' : lpct >= 20 ? '🟡 Low' : '🔴 Critical';
+                    const lbEl  = document.getElementById('lake-battery');
+                    if (lbEl) lbEl.textContent = lakeLatest.batteryLevel != null ? lakeLatest.batteryLevel + '%' : '--';
+                    const llrEl = document.getElementById('lake-last-reading');
+                    if (llrEl) llrEl.textContent = new Date(lakeLatest.recordedAt).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
+                }
+            } catch(le) { console.warn('[FarmBot Lake]', le.message); }
+        } else {
+            if (lakePlaceholder) lakePlaceholder.style.display = 'block';
+            if (lakeLive)        lakeLive.style.display        = 'none';
+        }
+        if (errEl) errEl.style.display = 'none';
+        const updEl = document.getElementById('tank-upd-farmbot');
+        if (updEl) updEl.textContent = new Date().toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+    } catch(e) {
+        if (errEl) { errEl.textContent = '⚠ FarmBot error: ' + e.message; errEl.style.display = 'block'; }
+        console.error('[FarmBot]', e);
+    }
+}
+
+function setTankRange(hours) {
+    _tankRange = hours;
+    document.querySelectorAll('.tank-range-btn').forEach(b => {
+        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
+        b.classList.toggle('active', map[hours] === b.textContent.trim());
+    });
+    fetchTankData();
+}
+
+// ── End FarmBot ──────────────────────────────────────────────────────
+
 loadCSVBalance();
 checkKioskMessage();
 getWeatherData();
@@ -5749,6 +6044,8 @@ setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
 setInterval(checkKioskMessage,     30000);   // refresh custom messages every 30 seconds
+fetchTankData();
+setInterval(fetchTankData,        300000);  // FarmBot tank/lake refresh every 5 minutes
 setInterval(_renderMsgPanel,       60000);   // update countdown timers in panel
 // Check for updated HTML every 5 minutes; also record baseline after 3s
 setTimeout(checkForUpdates, 3000);
