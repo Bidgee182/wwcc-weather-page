@@ -252,8 +252,11 @@
         .weekly-table tr.row-weekend td { background: rgba(255,255,255,0.03); }
 
         /* ── GK Internal Tabs ── */
-        .gk-tab-bar { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
-        .gk-tab-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:9px 12px; font-size:0.85em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; flex:1; min-width:calc(33.33% - 6px); text-align:center; }
+        .gk-tab-bar-wrap { position:relative; overflow:hidden; margin-bottom:14px; }
+        .gk-tab-bar-wrap::after { content:''; position:absolute; top:0; right:0; width:52px; height:100%; background:linear-gradient(to right, transparent, #1a252f); pointer-events:none; z-index:1; }
+        .gk-tab-bar { display:flex; gap:6px; overflow-x:auto; overflow-y:hidden; flex-wrap:nowrap; scrollbar-width:none; -ms-overflow-style:none; padding-bottom:2px; }
+        .gk-tab-bar::-webkit-scrollbar { display:none; }
+        .gk-tab-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:9px 12px; font-size:0.85em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; flex:0 0 auto; white-space:nowrap; text-align:center; }
         .gk-tab-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
         .gk-tab-btn:hover:not(.active) { background:#2c3e50; color:#ecf0f1; }
         .gk-tab-panel { display:none; }
@@ -596,6 +599,7 @@
     </div>
 
     <!-- GK Internal Tab Bar -->
+    <div class="gk-tab-bar-wrap">
     <div class="gk-tab-bar">
         <button class="gk-tab-btn active" data-gktab="spray"      onclick="switchGKTab('spray')"     >&#127807; Spraying</button>
         <button class="gk-tab-btn"        data-gktab="disease"    onclick="switchGKTab('disease')"   >&#129440; Disease</button>
@@ -605,6 +609,7 @@
         <button class="gk-tab-btn"        data-gktab="reports"    onclick="switchGKTab('reports')"   >&#128229; Reports</button>
         <button class="gk-tab-btn"        data-gktab="water"      onclick="switchGKTab('water')"     >&#128167; Water</button>
         <button class="gk-tab-btn"        data-gktab="gdd"        onclick="switchGKTab('gdd')"       >&#127777;&#65039; GDD</button>
+    </div>
     </div>
     <!-- ── GK Tab: Spraying ── -->
     <div id="gk-tab-spray" class="gk-tab-panel gk-active">
