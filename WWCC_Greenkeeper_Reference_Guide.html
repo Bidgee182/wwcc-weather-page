@@ -1096,12 +1096,30 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
         <tbody>
           <tr><td><strong>1. Open panel</strong></td><td>Click the <strong>📢</strong> button near "Last updated" (top right of the GK page)</td></tr>
           <tr><td><strong>2. Type message</strong></td><td>Enter your message text in the text box - keep it short enough to read in the ticker</td></tr>
-          <tr><td><strong>3. Set duration</strong></td><td>Choose how long the message stays active (see duration options below)</td></tr>
-          <tr><td><strong>4. Post</strong></td><td>Click <strong>Post Message</strong> - the message is saved to GitHub and appears within 2 minutes on all screens</td></tr>
-          <tr><td><strong>5. Remove</strong></td><td>Tap the <strong>×</strong> button next to any active message in the panel list to remove it immediately</td></tr>
+          <tr><td><strong>3. Select type</strong></td><td>Choose a message type from the dropdown: 💬 Default, 📢 Alert, or 🚨 Urgent (see Message Types below)</td></tr>
+          <tr><td><strong>4. Set duration</strong></td><td>Choose how long the message stays active (see duration options below)</td></tr>
+          <tr><td><strong>5. Post</strong></td><td>Click <strong>Post Message</strong> - the message is saved to GitHub and appears within 30 seconds on all screens</td></tr>
+          <tr><td><strong>6. Edit</strong></td><td>Tap the <strong>Edit</strong> button next to any active message to load it back into the compose form — make changes then click <strong>✏️ Update Message</strong>. Click Cancel to discard.</td></tr>
+          <tr><td><strong>7. Remove</strong></td><td>Tap the <strong>×</strong> button next to any active message in the panel list to remove it immediately</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3>Message Types</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Badge</th><th>Ticker Behaviour</th><th>When to Use</th></tr></thead>
+        <tbody>
+          <tr><td><strong>💬 Default</strong></td><td>Grey</td><td>Scrolls normally in the ticker</td><td>General information, routine notices</td></tr>
+          <tr><td><strong>📢 Alert</strong></td><td>Green</td><td>Scrolls normally; higher priority than Default</td><td>Course conditions, maintenance notices, temporary changes</td></tr>
+          <tr><td><strong>🚨 Urgent</strong></td><td>Red</td><td><strong>Flashing red background</strong> while scrolling — maximum visual impact</td><td>Immediate safety issues, lightning in area, course closed, spraying in progress</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Messages are displayed in the ticker in priority order: Urgent → Alert → Default. Within each type they are shown oldest-first.</p>
+
+    <h3>Filtering Messages in the Panel</h3>
+    <p>The panel list has a filter bar at the top with four options: <strong>All | 🚨 Urgent | 📢 Alert | 💬 Default</strong>. Use these to quickly view or manage messages of a specific type when several are active at once.</p>
 
     <h3>Duration Options</h3>
     <div class="tbl-wrap">
@@ -1126,8 +1144,8 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
         <thead><tr><th>Page</th><th>Ticker Location</th><th>Refresh Rate</th></tr></thead>
         <tbody>
           <tr><td><strong>GK Dashboard</strong></td><td>Sticky bar at top, below the conditions bar</td><td>Updates immediately on post</td></tr>
-          <tr><td><strong>Golfer Page</strong></td><td>Sticky bar at the very top of the page</td><td>Polls GitHub every 2 minutes</td></tr>
-          <tr><td><strong>TV Kiosk</strong></td><td>Sticky bar above the slide carousel</td><td>Polls GitHub every 2 minutes</td></tr>
+          <tr><td><strong>Golfer Page</strong></td><td>Sticky bar at the very top of the page</td><td>Polls GitHub every 30 seconds</td></tr>
+          <tr><td><strong>TV Kiosk</strong></td><td>Sticky bar above the slide carousel</td><td>Polls GitHub every 30 seconds</td></tr>
         </tbody>
       </table>
     </div>

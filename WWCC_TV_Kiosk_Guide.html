@@ -517,17 +517,31 @@ Playing distance = 150m
     </div>
 
     <h3>Custom Management Messages</h3>
-    <p>The greenkeeper can post custom messages from the GK Dashboard at any time using the <strong>📢 button</strong> near the Last Updated timestamp. These messages are saved to GitHub and appear on the TV kiosk ticker within <strong>2 minutes</strong>. Messages have a configurable duration (30 min to Forever) and can be removed at any time from the GK panel.</p>
+    <p>The greenkeeper can post custom messages from the GK Dashboard at any time using the <strong>📢 button</strong> near the Last Updated timestamp. These messages are saved to GitHub and appear on the TV kiosk ticker within <strong>30 seconds</strong>. Messages have a configurable duration (30 min to Forever), a selectable type (💬 Default, 📢 Alert, or 🚨 Urgent), and can be edited or removed at any time from the GK panel.</p>
 
     <div class="callout callout-green">
       <span class="callout-icon">✅</span>
-      <div>All weather alerts are fully automatic - no staff action is needed to activate or deactivate them. The ticker checks conditions every 15 seconds and checks for new custom messages every 2 minutes. The ticker bar disappears entirely when no alerts or messages are active.</div>
+      <div>All weather alerts are fully automatic - no staff action is needed to activate or deactivate them. The ticker checks conditions every 15 seconds and checks for new custom messages every 30 seconds. The ticker bar disappears entirely when no alerts or messages are active.</div>
     </div>
 
     <div class="callout callout-red">
       <span class="callout-icon">⚡</span>
       <div>The <strong>Thunderstorm Alert</strong> is the highest priority item in the ticker. It appears first in the cycle and uses pulsing amber styling to draw attention from a distance. When it is active, pro shop staff should be notified immediately and the club's lightning suspension procedure should be followed.</div>
     </div>
+
+    <h3>Custom Message Types</h3>
+    <p>When the greenkeeper posts a custom message they assign it a type, which controls how it appears in the ticker:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Ticker Appearance</th></tr></thead>
+        <tbody>
+          <tr><td><strong>💬 Default</strong></td><td>Grey badge — scrolls normally</td></tr>
+          <tr><td><strong>📢 Alert</strong></td><td>Green badge — scrolls normally, higher priority than Default</td></tr>
+          <tr><td><strong>🚨 Urgent</strong></td><td>Red badge — <strong>flashing red background</strong> while scrolling for maximum visibility</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Messages display in order: Urgent first, then Alert, then Default. The ticker bar disappears entirely when no messages or alerts are active.</p>
   </div>
 </div>
 
