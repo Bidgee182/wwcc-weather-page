@@ -815,6 +815,7 @@
                 <div class="gk-pill"><div class="gk-pill-lbl">Avg Solar</div><div class="gk-pill-val" id="gk-st-solar-avg">--</div><div style="font-size:0.7em;color:#7f8c8d">W/m²</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">Peak Solar</div><div class="gk-pill-val" id="gk-st-solar-hi">--</div><div style="font-size:0.7em;color:#7f8c8d">W/m²</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">Solar Energy</div><div class="gk-pill-val" id="gk-st-solar-energy">--</div><div style="font-size:0.7em;color:#7f8c8d">Langleys</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Peak UV Index</div><div class="gk-pill-val" id="gk-st-uv-max">--</div><div style="font-size:0.7em;color:#7f8c8d">daily max</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">UV Dose</div><div class="gk-pill-val" id="gk-st-uv-dose">--</div><div style="font-size:0.7em;color:#7f8c8d">MEDs</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">Avg UV Index</div><div class="gk-pill-val" id="gk-st-uv-avg">--</div><div style="font-size:0.7em;color:#7f8c8d">daily mean</div></div>
             </div>
@@ -1173,6 +1174,11 @@
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Solar Radiation</div>
                 <div style="font-size:1.0em;color:#f39c12;font-weight:bold;margin-top:2px" id="go-st-solar">--</div>
                 <div style="font-size:0.7em;color:#566573" id="go-st-solar-peak">Peak: --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Peak UV Index</div>
+                <div style="font-size:1.0em;color:#e67e22;font-weight:bold;margin-top:2px" id="go-st-uv-max">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-uv-max-cat">--</div>
             </div>
             <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">UV Dose</div>
@@ -1551,6 +1557,7 @@ async function loadCSVBalance() {
         const iHeatIndexC      = col('heat_index_c');
         const iWindChillC      = col('wind_chill_c');
         const iThswIndexC      = col('thsw_index_c');
+        const iUvMax           = col('uv_max');
         const iUvIndexAvg      = col('uv_index_avg');
         const iUvDose          = col('uv_dose');
         const iEmc             = col('emc');
@@ -1590,6 +1597,7 @@ async function loadCSVBalance() {
                 heat_index_c:      _raw(iHeatIndexC),
                 wind_chill_c:      _raw(iWindChillC),
                 thsw_index_c:      _raw(iThswIndexC),
+                uv_max:            _raw(iUvMax),
                 uv_index_avg:      _raw(iUvIndexAvg),
                 uv_dose:           _raw(iUvDose),
                 emc:               _raw(iEmc),
@@ -3608,6 +3616,7 @@ function updateStationYesterdayData() {
     _s('gk-st-solar-avg',    sf(y.solar_rad_avg,   0, ' W/m²'));
     _s('gk-st-solar-hi',     sf(y.solar_rad_hi,    0, ' W/m²'));
     _s('gk-st-solar-energy', sf(y.solar_energy_ly, 1, ' Ly'));
+    _s('gk-st-uv-max',        sf(y.uv_max,          1, ''));
     _s('gk-st-uv-dose',      sf(y.uv_dose,         1, ' MEDs'));
     _s('gk-st-uv-avg',       sf(y.uv_index_avg,    1, ''));
 
@@ -3664,6 +3673,11 @@ function updateGolferStation() {
 
     _s('go-st-solar',      sf(y.solar_rad_avg, 0, ' W/m² avg'));
     _s('go-st-solar-peak', 'Peak: ' + sf(y.solar_rad_hi, 0, ' W/m²'));
+    const uvMaxYest = parseFloat(y.uv_max);
+    _s('go-st-uv-max', !isNaN(uvMaxYest) ? uvMaxYest.toFixed(1) : '--');
+    _s('go-st-uv-max-cat', !isNaN(uvMaxYest)
+        ? (uvMaxYest >= 11 ? 'Extreme' : uvMaxYest >= 8 ? 'Very High' : uvMaxYest >= 6 ? 'High' : uvMaxYest >= 3 ? 'Moderate' : 'Low')
+        : 'Peak yesterday');
     _s('go-st-uvdose',     sf(y.uv_dose, 1, ' MEDs'));
     _s('go-st-thsw-go',    sf(y.thsw_index_c, 1, '°C'));
     _s('go-st-windrun',    sf(y.wind_run_km, 0, ' km'));
