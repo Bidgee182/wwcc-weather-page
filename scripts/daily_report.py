@@ -313,7 +313,7 @@ def process_davis_records(records):
     uv_dose_total = 0.0
     wind_dirs   = []   # wind_dir_of_prevail (degrees) for circular mean
     wind_run_total = 0.0   # miles, will convert to km
-    rain_rate_hi_vals = []  # rain_rate_hi_in (in/hr)
+    rain_rate_hi_vals = []  # rain_rate values in mm/hr
     solar_rad_vals  = []   # solar_rad_avg (W/m²)
     solar_rad_hi_vals = [] # solar_rad_hi (W/m²)
     solar_energy_total = 0.0  # Langleys per interval, summed
@@ -361,10 +361,14 @@ def process_davis_records(records):
         # Rain
         rain_mm = float(rec.get('rainfall_mm') or rec.get('rain_mm') or 0)
 
-        # Peak rain rate (in/hr)
-        rr_in = rec.get('rain_rate_hi_in') or rec.get('rain_rate_hi')
-        if rr_in is not None and float(rr_in) > 0:
-            rain_rate_hi_vals.append(float(rr_in))
+        # Peak rain rate — Davis returns mm/hr directly as rain_rate_hi_mm
+        rr_mm = rec.get('rain_rate_hi_mm')
+        if rr_mm is not None and float(rr_mm) > 0:
+            rain_rate_hi_vals.append(float(rr_mm))
+        else:
+            rr_in = rec.get('rain_rate_hi_in') or rec.get('rain_rate_hi')
+            if rr_in is not None and float(rr_in) > 0:
+                rain_rate_hi_vals.append(float(rr_in) * 25.4)
 
         # ET (inches -> mm)
         et_in = rec.get('et') or 0
@@ -487,7 +491,7 @@ def process_davis_records(records):
         wind_dir_mean = None
 
     wind_run_km_daily   = round(wind_run_total * 1.60934, 1) if wind_run_total > 0 else None
-    rain_rate_max_mmhr  = round(max(rain_rate_hi_vals) * 25.4, 1) if rain_rate_hi_vals else None
+    rain_rate_max_mmhr  = round(max(rain_rate_hi_vals), 1) if rain_rate_hi_vals else None
     solar_rad_avg_daily = round(sum(solar_rad_vals)/len(solar_rad_vals), 1) if solar_rad_vals else None
     solar_rad_hi_daily  = round(max(solar_rad_hi_vals), 0)  if solar_rad_hi_vals  else None
     solar_energy_daily  = round(solar_energy_total, 2)      if solar_energy_total > 0 else None
@@ -595,6 +599,28 @@ def fetch_openmeteo_archive(target_date):
         return resp.json()
     except Exception as e:
         log.warning(f'Open-Meteo archive error: {e}')
+        return None
+
+
+def fetch_openmeteo_uv(target_date):
+    """Lightweight Open-Meteo call for UV index only (used when station has no UV data)."""
+    date_str = target_date.strftime('%Y-%m-%d')
+    url = 'https://archive-api.open-meteo.com/v1/archive'
+    params = {
+        'latitude':   CLUB_LAT,
+        'longitude':  CLUB_LON,
+        'start_date': date_str,
+        'end_date':   date_str,
+        'daily':      'uv_index_max',
+        'timezone':   'Australia/Sydney',
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return (data.get('daily') or {}).get('uv_index_max', [None])[0]
+    except Exception as e:
+        log.warning(f'Open-Meteo UV fetch error: {e}')
         return None
 
 
@@ -2136,6 +2162,9 @@ def backfill_history(from_date, to_date, force=False):
                 d['et_mm'] = daily_om['et0_fao_evapotranspiration'][0] or 0.0
             if uv_max is None:
                 uv_max = daily_om.get('uv_index_max', [None])[0]
+        # UV fallback: always fetch from Open-Meteo when station returns no UV data
+        if uv_max is None:
+            uv_max = fetch_openmeteo_uv(target_date)
 
         # 5. Rolling calculations from in-memory history
         #    Use the 7 dates immediately before target_date that are already stored.
@@ -2314,6 +2343,9 @@ def main():
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
         if uv_max is None:
             uv_max = daily.get('uv_index_max', [None])[0]
+    # UV fallback: if Open-Meteo full fetch failed, try lightweight UV-only call
+    if uv_max is None:
+        uv_max = fetch_openmeteo_uv(yesterday)
 
     # ── 3. Read CSV history for running totals ─────────────────────────────
     history_7 = read_csv_history(7)
