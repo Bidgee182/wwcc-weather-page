@@ -1948,9 +1948,6 @@ def backfill_history(from_date, to_date):
         davis_records = fetch_davis_historic(target_date)
         log.info(f'  Davis records: {len(davis_records)}')
 
-        # 2. Open-Meteo archive (used as fallback / gap-fill)
-        om_data = fetch_openmeteo_archive(target_date)
-
         # 3. Process Davis data
         if davis_records:
             d = process_davis_records(davis_records)
@@ -1967,8 +1964,12 @@ def backfill_history(from_date, to_date):
                       'night_wet_hours': 0, 'consec_rh90': 0,
                       'spray_go': 0, 'spray_caution': 0, 'spray_nogo': 0})
 
-        # 4. Fill gaps with Open-Meteo
+        # 4. Fill gaps with Open-Meteo only when Davis data is missing/incomplete
         uv_max = None
+        needs_gap_fill = (not davis_records or
+                          d.get('temp_max') is None or
+                          d.get('temp_min') is None)
+        om_data = fetch_openmeteo_archive(target_date) if needs_gap_fill else None
         if om_data and om_data.get('daily'):
             daily_om = om_data['daily']
             if d['temp_max'] is None and daily_om.get('temperature_2m_max'):
