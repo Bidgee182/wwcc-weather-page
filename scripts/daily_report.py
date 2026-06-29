@@ -304,6 +304,7 @@ def process_davis_records(records):
     """
     temps_c, night_temps, rh_vals, wind_kmh_vals, rain_total, et_total = [], [], [], [], 0.0, 0.0
     pressures = []
+    uv_vals   = []
     hourly    = {}  # hour_int -> {'wet': bool, 'night': bool, 'rh': float}
 
     for rec in records:
@@ -332,6 +333,11 @@ def process_davis_records(records):
         # ET (inches -> mm)
         et_in = rec.get('et') or 0
         et_mm = float(et_in) * 25.4
+
+        # UV Index (Davis station UV sensor)
+        uv_idx = rec.get('uv_index')
+        if uv_idx is not None:
+            uv_vals.append(float(uv_idx))
 
         # Pressure (inHg -> hPa)
         bar_in  = rec.get('bar_sea_level_in') or rec.get('bar_in')
@@ -364,7 +370,8 @@ def process_davis_records(records):
     rh_mean   = round(sum(rh_vals)/len(rh_vals), 1) if rh_vals  else None
     wind_max  = round(max(wind_kmh_vals), 1)     if wind_kmh_vals else None
     wind_mean = round(sum(wind_kmh_vals)/len(wind_kmh_vals), 1) if wind_kmh_vals else None
-    pres_mean = round(sum(pressures)/len(pressures), 1) if pressures else None
+    pres_mean    = round(sum(pressures)/len(pressures), 1) if pressures else None
+    uv_max_davis = round(max(uv_vals), 1) if uv_vals else None
 
     wet_hours       = sum(1 for h in hourly.values() if h['wet'])
     night_wet_hours = sum(1 for h in hourly.values() if h['wet'] and h['night'])
@@ -414,6 +421,7 @@ def process_davis_records(records):
         'spray_go':        spray_counts['GO'],
         'spray_caution':   spray_counts['CAUTION'],
         'spray_nogo':      spray_counts['NO-GO'],
+        'uv_max':          uv_max_davis,
         'rain_day':        rain_total > 0.2,
     }
 
@@ -1965,7 +1973,7 @@ def backfill_history(from_date, to_date):
                       'spray_go': 0, 'spray_caution': 0, 'spray_nogo': 0})
 
         # 4. Fill gaps with Open-Meteo only when Davis data is missing/incomplete
-        uv_max = None
+        uv_max = d.get('uv_max')  # prefer Davis UV sensor; falls back to Open-Meteo below
         needs_gap_fill = (not davis_records or
                           d.get('temp_max') is None or
                           d.get('temp_min') is None)
@@ -1980,7 +1988,8 @@ def backfill_history(from_date, to_date):
                 d['rain_mm'] = daily_om['precipitation_sum'][0] or 0.0
             if not d['et_mm'] and daily_om.get('et0_fao_evapotranspiration'):
                 d['et_mm'] = daily_om['et0_fao_evapotranspiration'][0] or 0.0
-            uv_max = daily_om.get('uv_index_max', [None])[0]
+            if uv_max is None:
+                uv_max = daily_om.get('uv_index_max', [None])[0]
 
         # 5. Rolling calculations from in-memory history
         #    Use the 7 dates immediately before target_date that are already stored.
@@ -2126,6 +2135,9 @@ def main():
         d['consec_rh90'] = 0
         d['spray_go'] = d['spray_caution'] = d['spray_nogo'] = 0
 
+    # UV: prefer Davis sensor data; Open-Meteo is fallback
+    uv_max = d.get('uv_max')
+
     # Fill gaps with Open-Meteo archive if Davis data incomplete
     if om_data and om_data.get('daily'):
         daily = om_data['daily']
@@ -2137,9 +2149,8 @@ def main():
             d['rain_mm'] = daily['precipitation_sum'][0] or 0.0
         if d['et_mm'] == 0 and daily.get('et0_fao_evapotranspiration'):
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
-        uv_max = daily.get('uv_index_max', [None])[0]
-    else:
-        uv_max = None
+        if uv_max is None:
+            uv_max = daily.get('uv_index_max', [None])[0]
 
     # ── 3. Read CSV history for running totals ─────────────────────────────
     history_7 = read_csv_history(7)

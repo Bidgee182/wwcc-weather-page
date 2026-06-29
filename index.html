@@ -3462,18 +3462,27 @@ function updateGDD() {
     const seasonStart = gddSeasonStart();
     const todayStr    = todayKey();
 
-    // Compute seasonal + 7-day accumulated + 3-day forecast GDD for each grass type
+    // Days into current season (shared — same for all grass types)
+    const daysIntoSeason = Math.floor(
+        (Date.now() + offsetMs - new Date(seasonStart + 'T00:00:00Z').getTime()) / 86400000
+    );
+    // Previous season: same point one year ago (e.g. if current season = 2025-09-01, prev = 2024-09-01)
+    const prevSeasonStart = `${parseInt(seasonStart.slice(0, 4)) - 1}-09-01`;
+    const prevSameDay     = new Date(new Date(prevSeasonStart + 'T00:00:00Z').getTime() + daysIntoSeason * 86400000)
+        .toISOString().slice(0, 10);
+
+    // Compute seasonal + last-season + 7-day accumulated + 3-day forecast GDD for each grass type
     const results = GRASSES.map(g => {
         let seasonGDD = 0, seasonDays = 0;
+        let prevSeasonGDD = 0, prevSeasonDays = 0;
         let histGDD7 = 0, histDays7 = 0;
 
-        // Seasonal accumulation: all days from 1 Sep to yesterday
+        // Single pass: current season + previous season up to same point
         for (const [key, rec] of Object.entries(store)) {
-            if (key < seasonStart || key >= todayStr) continue;
-            if (rec?.tempMax != null && rec?.tempMin != null) {
-                seasonGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
-                seasonDays++;
-            }
+            if (rec?.tempMax == null || rec?.tempMin == null) continue;
+            const gddDay = Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+            if (key >= seasonStart && key < todayStr)       { seasonGDD += gddDay;     seasonDays++;     }
+            if (key >= prevSeasonStart && key < prevSameDay) { prevSeasonGDD += gddDay; prevSeasonDays++; }
         }
 
         // 7-day rolling (for growth rate / application note)
@@ -3492,11 +3501,6 @@ function updateGDD() {
         const totalSeason = seasonGDD + todayGDD;
         const total7Day   = histGDD7 + todayGDD;
 
-        // Days into current season
-        const daysIntoSeason = Math.floor(
-            (Date.now() + offsetMs - new Date(seasonStart + 'T00:00:00Z').getTime()) / 86400000
-        );
-
         let fcGDD = 0, fcRows = [];
         for (let i = 1; i <= 3; i++) {
             const d = fc.forecastDays[i];
@@ -3507,7 +3511,7 @@ function updateGDD() {
                 fcRows.push({ label: dayNames[date.getDay()], gdd });
             }
         }
-        return { ...g, seasonDays, daysIntoSeason, totalSeason, total7Day, histDays7, fcGDD, fcRows, seasonStart };
+        return { ...g, seasonDays, daysIntoSeason, totalSeason, total7Day, histDays7, fcGDD, fcRows, seasonStart, prevSeasonGDD, prevSeasonDays };
     });
 
     // Seasonal context
@@ -3574,7 +3578,25 @@ function updateGDD() {
                     <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">+${g.fcGDD.toFixed(0)}</div>
                     <div style="font-size:0.68em;color:#7f8c8d">Forecast GDD</div>
                 </div>
-            </div>`;
+            </div>
+            ${(() => {
+                if (g.prevSeasonDays >= 30) {
+                    const diff      = g.totalSeason - g.prevSeasonGDD;
+                    const diffColor = diff >= 0 ? '#27ae60' : '#e74c3c';
+                    const arrow     = diff >= 0 ? '▲' : '▼';
+                    const pct       = Math.abs((diff / g.prevSeasonGDD) * 100).toFixed(0);
+                    const pace      = diff >= 0 ? 'ahead of' : 'behind';
+                    return `<div style="background:#1a252f;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:0.76em;display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+                        <span style="color:#7f8c8d">&#128197; This time last season:</span>
+                        <span style="color:#ecf0f1;font-weight:bold">${g.prevSeasonGDD.toFixed(0)} GDD</span>
+                        <span style="color:${diffColor};font-weight:bold">${arrow} ${Math.abs(diff).toFixed(0)} GDD (${pct}%) ${pace} last season&rsquo;s pace</span>
+                    </div>`;
+                } else {
+                    return `<div style="background:#1a252f;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:0.76em;color:#566573">
+                        &#9432; No prior season data &mdash; year-on-year comparison will appear from 1&nbsp;Sep&nbsp;2026
+                    </div>`;
+                }
+            })()}`;
         if (g.fcRows.length) {
             html += '<div style="overflow-x:auto"><table class="weekly-table" style="margin-bottom:4px"><thead><tr><th>Day</th><th class="et-col">GDD</th></tr></thead><tbody>';
             g.fcRows.forEach(r => { html += `<tr><td>${r.label}</td><td class="et-col">${r.gdd.toFixed(1)}</td></tr>`; });
