@@ -1476,6 +1476,7 @@ let _tickerActive   = [];
 let _tickerIdx      = 0;
 let _editingMsgId   = null; // id of message being edited, or null
 let _msgFilter      = 'all'; // 'all' | 'urgent' | 'alert' | 'default'
+let _lastWriteTime  = 0;    // timestamp of last successful GitHub write — suppress polls for 5 min after
 let _tickerTimer    = null;
 if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
     localStorage.removeItem('wx_daily');
@@ -4697,6 +4698,7 @@ async function addKioskMessage() {
             .filter(m => m.expires_at === null || new Date(m.expires_at) > now)
             .map(({ pending, ...m }) => m);
         await _writeKiosk(toWrite);
+        _lastWriteTime = Date.now();
         // Remove pending flag now that it's saved
         _customMessages = _customMessages.map(m => m.id === msgId ? { ...m, pending: false } : m);
         _panelStatus(isEdit ? 'Updated!' : 'Posted!', 'ok');
@@ -4721,6 +4723,7 @@ async function removeKioskMessage(id) {
             .filter(m => m.expires_at === null || new Date(m.expires_at) > now)
             .map(({ pending, ...m }) => m);
         await _writeKiosk(toWrite);
+        _lastWriteTime = Date.now();
         _panelStatus('Message removed.', 'ok');
     } catch(e) {
         _panelStatus('Error: ' + e.message, 'err');
@@ -4728,6 +4731,9 @@ async function removeKioskMessage(id) {
 }
 
 async function checkKioskMessage() {
+    // GitHub Pages CDN can take 5–10 min to reflect a write — suppress poll overwrite
+    // for 5 min after any save/delete to avoid reverting local edits.
+    if (Date.now() - _lastWriteTime < 300000) return;
     try {
         const r = await fetch('data/kiosk_message.json?_cb=' + Date.now(), { cache: 'no-store' });
         if (!r.ok) { _customMessages = []; _refreshTicker(); return; }
