@@ -38,6 +38,14 @@ on:
         description: 'Backfill end date (YYYY-MM-DD). Leave blank to use yesterday.'
         required: false
         default: ''
+      backfill_force:
+        description: 'Force reprocess ALL dates (use after CSV schema changes)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   daily-report:
@@ -78,6 +86,9 @@ jobs:
             fi
             if [ -n "${{ github.event.inputs.backfill_to }}" ]; then
               ARGS="$ARGS --to ${{ github.event.inputs.backfill_to }}"
+            fi
+            if [ "${{ github.event.inputs.backfill_force }}" = "true" ]; then
+              ARGS="$ARGS --force"
             fi
             python scripts/daily_report.py $ARGS
           elif [ "${{ github.event.inputs.resend }}" = "true" ]; then
