@@ -11,7 +11,7 @@ on:
     - cron: '10 19 * * *'   # 5:10 AM AEST (target delivery 6:00 AM)
     - cron: '10 18 * * *'   # 5:10 AM AEDT (target delivery 6:00 AM)
 
-  # Allow manual trigger from GitHub Actions tab for testing
+  # Allow manual trigger from GitHub Actions tab for testing/backfill
   workflow_dispatch:
     inputs:
       resend:
@@ -22,6 +22,22 @@ on:
         options:
           - 'false'
           - 'true'
+      backfill:
+        description: 'Backfill missing historical dates into the CSV (no email sent)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      backfill_from:
+        description: 'Backfill start date (YYYY-MM-DD). Leave blank to use 1 Sep of current season.'
+        required: false
+        default: ''
+      backfill_to:
+        description: 'Backfill end date (YYYY-MM-DD). Leave blank to use yesterday.'
+        required: false
+        default: ''
 
 jobs:
   daily-report:
@@ -55,7 +71,16 @@ jobs:
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
           EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
         run: |
-          if [ "${{ github.event.inputs.resend }}" = "true" ]; then
+          if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
+            ARGS="--backfill"
+            if [ -n "${{ github.event.inputs.backfill_from }}" ]; then
+              ARGS="$ARGS --from ${{ github.event.inputs.backfill_from }}"
+            fi
+            if [ -n "${{ github.event.inputs.backfill_to }}" ]; then
+              ARGS="$ARGS --to ${{ github.event.inputs.backfill_to }}"
+            fi
+            python scripts/daily_report.py $ARGS
+          elif [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend
           else
             python scripts/daily_report.py

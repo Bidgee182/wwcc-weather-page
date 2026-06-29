@@ -1899,6 +1899,191 @@ def send_email(subject, html_body, recipients):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BACKFILL — populate missing historical dates in the CSV
+# ─────────────────────────────────────────────────────────────────────────────
+
+def backfill_history(from_date, to_date):
+    """
+    Backfill missing dates in daily_log.csv between from_date and to_date (inclusive).
+
+    For each missing date:
+      1. Fetch Davis WeatherLink v2 historic data (exact station readings).
+      2. Fill any gaps (temp, ET, rain) from Open-Meteo archive API.
+      3. Calculate GDD, disease models, soil balance, spray hours — identical
+         logic to the nightly main() run.
+      4. Append the row to the in-memory store.
+
+    After all dates are processed the CSV is rewritten in date order with
+    duplicates removed (last/most-complete row per date wins).
+    """
+    # ── Load existing CSV into memory ─────────────────────────────────────
+    existing = {}          # date_str -> row_dict (last row per date wins)
+    if CSV_PATH.exists():
+        with open(CSV_PATH, newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                d_str = row.get('date', '').strip()
+                if d_str:
+                    existing[d_str] = row   # later rows overwrite earlier (deduplication)
+
+    # ── Build list of missing dates ───────────────────────────────────────
+    missing = []
+    cur = from_date
+    while cur <= to_date:
+        if cur.isoformat() not in existing:
+            missing.append(cur)
+        cur += timedelta(days=1)
+
+    if not missing:
+        log.info('Backfill: no missing dates found — CSV is already complete.')
+        return
+
+    log.info(f'Backfill: {len(missing)} dates to process ({missing[0]} → {missing[-1]})')
+
+    # ── Process each missing date in chronological order ──────────────────
+    for i, target_date in enumerate(missing, start=1):
+        log.info(f'[{i}/{len(missing)}] {target_date}')
+
+        # 1. Davis v2 historic fetch
+        davis_records = fetch_davis_historic(target_date)
+        log.info(f'  Davis records: {len(davis_records)}')
+
+        # 2. Open-Meteo archive (used as fallback / gap-fill)
+        om_data = fetch_openmeteo_archive(target_date)
+
+        # 3. Process Davis data
+        if davis_records:
+            d = process_davis_records(davis_records)
+        else:
+            log.warning(f'  No Davis data — using Open-Meteo fallback for {target_date}')
+            d = {k: None for k in [
+                'temp_max', 'temp_min', 'temp_mean', 'rh_mean',
+                'wind_max_kmh', 'wind_mean_kmh', 'rain_mm', 'et_mm',
+                'pressure_mean', 'delta_t_mean', 'wet_hours',
+                'night_wet_hours', 'night_min', 'consec_rh90',
+                'spray_go', 'spray_caution', 'spray_nogo', 'rain_day',
+            ]}
+            d.update({'rain_mm': 0.0, 'et_mm': 0.0, 'wet_hours': 0,
+                      'night_wet_hours': 0, 'consec_rh90': 0,
+                      'spray_go': 0, 'spray_caution': 0, 'spray_nogo': 0})
+
+        # 4. Fill gaps with Open-Meteo
+        uv_max = None
+        if om_data and om_data.get('daily'):
+            daily_om = om_data['daily']
+            if d['temp_max'] is None and daily_om.get('temperature_2m_max'):
+                d['temp_max'] = daily_om['temperature_2m_max'][0]
+            if d['temp_min'] is None and daily_om.get('temperature_2m_min'):
+                d['temp_min'] = daily_om['temperature_2m_min'][0]
+            if not d['rain_mm'] and daily_om.get('precipitation_sum'):
+                d['rain_mm'] = daily_om['precipitation_sum'][0] or 0.0
+            if not d['et_mm'] and daily_om.get('et0_fao_evapotranspiration'):
+                d['et_mm'] = daily_om['et0_fao_evapotranspiration'][0] or 0.0
+            uv_max = daily_om.get('uv_index_max', [None])[0]
+
+        # 5. Rolling calculations from in-memory history
+        #    Use the 7 dates immediately before target_date that are already stored.
+        preceding = sorted(k for k in existing if k < target_date.isoformat())
+        history_7_keys = preceding[-7:]
+        history_5_keys = preceding[-5:]
+        history_7 = [existing[k] for k in history_7_keys]
+        history_5 = [existing[k] for k in history_5_keys]
+
+        et_7   = sum(safe_float(r.get('et_mm'),  0) for r in history_7) + (d['et_mm']  or 0)
+        rain_7 = sum(safe_float(r.get('rain_mm'), 0) for r in history_7) + (d['rain_mm'] or 0)
+        balance_7 = round(et_7 - rain_7, 1)
+
+        gdd_bent_today = round(gdd(d['temp_max'], d['temp_min'], 10), 1)
+        gdd_kik_today  = round(gdd(d['temp_max'], d['temp_min'], 15), 1)
+        gdd_bent_7d = round(
+            sum(safe_float(r.get('gdd_bent'), 0) for r in history_7) + gdd_bent_today, 1)
+        gdd_kik_7d  = round(
+            sum(safe_float(r.get('gdd_kik'),  0) for r in history_7) + gdd_kik_today,  1)
+
+        rain_days_6 = sum(
+            1 for r in history_7[-6:] if r.get('rain_day') in ('True', True, '1'))
+        if d['rain_day']:
+            rain_days_6 += 1
+
+        mean_temps_5 = [safe_float(r.get('temp_mean')) for r in history_5 if r.get('temp_mean')]
+        mean_rh_5    = [safe_float(r.get('rh_mean'))   for r in history_5 if r.get('rh_mean')]
+        if d['temp_mean']: mean_temps_5.append(d['temp_mean'])
+        if d['rh_mean']:   mean_rh_5.append(d['rh_mean'])
+        sk_mean_t  = sum(mean_temps_5) / len(mean_temps_5) if mean_temps_5 else None
+        sk_mean_rh = sum(mean_rh_5)    / len(mean_rh_5)    if mean_rh_5    else None
+
+        # 6. Disease models
+        sk_pct             = smith_kerns(sk_mean_rh, sk_mean_t)
+        ds_risk            = dollar_spot_risk(d['wet_hours'] or 0, d['temp_mean'], sk_pct)
+        fus_score, fus_lvl = fusarium_risk(
+            d['wet_hours'] or 0, d['consec_rh90'] or 0, rain_days_6, d['temp_mean'])
+        bp_risk            = brown_patch_risk(
+            d['night_wet_hours'] or 0, d['night_min'], d['temp_max'])
+        pyt_risk           = pythium_risk(
+            d['night_wet_hours'] or 0, d['night_min'], d['temp_max'])
+
+        disease_alert = any(r in ('HIGH', 'SEVERE')
+                            for r in [ds_risk, fus_lvl, bp_risk, pyt_risk])
+        frost_flag    = (d['night_min'] is not None and d['night_min'] < 2)
+
+        # 7. Build row (no fog/lightning — cannot backfill forecast data)
+        row = {
+            'date':                target_date.isoformat(),
+            'temp_max':            d['temp_max'],
+            'temp_min':            d['temp_min'],
+            'temp_mean':           d['temp_mean'],
+            'rh_mean':             d['rh_mean'],
+            'wind_max_kmh':        d['wind_max_kmh'],
+            'wind_mean_kmh':       d['wind_mean_kmh'],
+            'rain_mm':             d['rain_mm'],
+            'et_mm':               d['et_mm'],
+            'pressure_mean_hpa':   d['pressure_mean'],
+            'delta_t_mean':        d['delta_t_mean'],
+            'uv_max':              uv_max,
+            'gdd_bent':            gdd_bent_today,
+            'gdd_kik':             gdd_kik_today,
+            'gdd_bent_7d':         gdd_bent_7d,
+            'gdd_kik_7d':          gdd_kik_7d,
+            'leaf_wet_hours':      d['wet_hours'] or 0,
+            'dollar_spot_pct':     sk_pct,
+            'dollar_spot_risk':    ds_risk,
+            'fusarium_score':      fus_score,
+            'fusarium_risk':       fus_lvl,
+            'brown_patch_risk':    bp_risk,
+            'pythium_risk':        pyt_risk,
+            'soil_balance_7d':     balance_7,
+            'soil_zone':           soil_zone(balance_7),
+            'spray_go_hours':      d['spray_go']      or 0,
+            'spray_caution_hours': d['spray_caution'] or 0,
+            'spray_nogo_hours':    d['spray_nogo']    or 0,
+            'rain_day':            d['rain_day'],
+            'frost_flag':          frost_flag,
+            'disease_alert':       disease_alert,
+            'fog_forecast':        False,
+            'lightning_forecast':  False,
+        }
+
+        existing[target_date.isoformat()] = row
+        log.info(
+            f'  ✓ max={d["temp_max"]}°C min={d["temp_min"]}°C '
+            f'rain={d["rain_mm"]}mm GDD_bent={gdd_bent_today}')
+
+        # Rate-limit: pause between Davis API calls
+        if i < len(missing):
+            time.sleep(1.5)
+
+    # ── Rewrite CSV: sorted by date, duplicates removed ───────────────────
+    log.info('Rewriting CSV in date order...')
+    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    sorted_rows = [existing[k] for k in sorted(existing.keys())]
+    with open(CSV_PATH, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_HEADERS, extrasaction='ignore')
+        writer.writeheader()
+        writer.writerows(sorted_rows)
+    log.info(f'CSV rewritten: {len(sorted_rows)} rows total.')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2103,7 +2288,46 @@ def main():
 
 if __name__ == '__main__':
     import sys
-    if '--resend' in sys.argv:
+    args = sys.argv[1:]
+
+    if '--backfill' in args:
+        # ── Backfill missing historical dates in the CSV ───────────────────
+        # Usage:
+        #   python daily_report.py --backfill
+        #       → fills from 1 Sep of the current/previous season to yesterday
+        #   python daily_report.py --backfill --from 2025-09-01 --to 2026-06-28
+        #       → fills the specified date range
+        now_sydney = datetime.now(tz=TZ)
+
+        # Parse --from
+        from_str = None
+        if '--from' in args:
+            idx = args.index('--from')
+            if idx + 1 < len(args):
+                from_str = args[idx + 1]
+
+        # Parse --to
+        to_str = None
+        if '--to' in args:
+            idx = args.index('--to')
+            if idx + 1 < len(args):
+                to_str = args[idx + 1]
+
+        # Default from_date: 1 Sep of current season
+        if from_str:
+            from_date = date.fromisoformat(from_str)
+        else:
+            y = now_sydney.year
+            from_date = date(y if now_sydney.month >= 9 else y - 1, 9, 1)
+
+        # Default to_date: yesterday
+        to_date = date.fromisoformat(to_str) if to_str else (now_sydney - timedelta(days=1)).date()
+
+        log.info(f'--backfill: processing {from_date} → {to_date}')
+        backfill_history(from_date, to_date)
+        log.info('Backfill complete.')
+
+    elif '--resend' in args:
         # Re-send the email for the most recent CSV row without re-fetching or re-writing data.
         now_sydney = datetime.now(tz=TZ)
         yesterday  = (now_sydney - timedelta(days=1)).date()
@@ -2119,5 +2343,6 @@ if __name__ == '__main__':
         subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
+
     else:
         main()
