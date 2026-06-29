@@ -4056,16 +4056,26 @@ function updateTileUV() {
 // Tile 5 - Course Conditions (called with weekly totals from renderWeekly)
 function updateTileCourse(totalET, totalRain) {
     const deficit = totalET - totalRain;
+    const rainToday = wx.rainToday || 0;
     let cls, status, explain;
     if      (deficit < -10) { cls = 'gt-blue';   status = 'Waterlogged'; explain = 'Soft underfoot - carts on paths, expect casual water'; }
     else if (deficit < 0)   { cls = 'gt-green';  status = 'Soft';        explain = 'Good grip - ball sits up, approaches hold well'; }
     else if (deficit < 15)  { cls = 'gt-green';  status = 'Normal';      explain = 'Playing true - ideal ball roll on fairways'; }
     else if (deficit < 30)  { cls = 'gt-yellow'; status = 'Firm';        explain = 'Ball running on - allow extra run on approaches'; }
     else                    { cls = 'gt-orange';  status = 'Very Firm';   explain = 'Hard and fast - significant run, greens receptive'; }
+    // Same-day rain modifier: surface softens faster than the 7-day balance captures
+    if (rainToday >= 15 && status !== 'Waterlogged') {
+        cls = 'gt-blue'; status = 'Soft';
+        explain = 'Soft after heavy rain today - approaches holding, expect slower ball roll';
+    } else if (rainToday >= 5 && (status === 'Normal' || status === 'Firm' || status === 'Very Firm')) {
+        cls = 'gt-green'; status = 'Soft';
+        explain = 'Softening after today\'s rain - ball sitting up, approaches holding well';
+    }
     const wb = deficit >= 0
         ? `+${deficit.toFixed(1)} mm deficit (7-day)`
         : `${Math.abs(deficit).toFixed(1)} mm surplus (7-day)`;
-    setTile('tile-course', cls, status, `${explain}<br><small style="opacity:0.7">${wb}</small>`);
+    const rainNote = rainToday >= 1 ? ` · ${rainToday.toFixed(1)} mm today` : '';
+    setTile('tile-course', cls, status, `${explain}<br><small style="opacity:0.7">${wb}${rainNote}</small>`);
 }
 
 // Tile 5b - Dew Point (TV only, replaces Course Roll on slide 1)
@@ -6028,19 +6038,28 @@ function updateTVCourseCard(totalET, totalRain) {
     const el = document.getElementById('tv-course-content');
     if (!el) return;
     const deficit = totalET - totalRain;
+    const rainToday = wx.rainToday || 0;
     let pillClass, status, note;
     if      (deficit < -10) { pillClass = 'pill-blue';   status = 'Waterlogged'; note = 'Soft underfoot - carts on paths, expect casual water'; }
     else if (deficit < 0)   { pillClass = 'pill-blue';   status = 'Soft';        note = 'Good grip - ball sits up, approaches hold well'; }
     else if (deficit < 15)  { pillClass = 'pill-green';  status = 'Normal';      note = 'Playing true - ideal ball roll on fairways'; }
     else if (deficit < 30)  { pillClass = 'pill-yellow'; status = 'Firm';        note = 'Ball running on - allow extra run on approaches'; }
     else                    { pillClass = 'pill-orange'; status = 'Very Firm';   note = 'Hard and fast - significant run, greens receptive'; }
+    if (rainToday >= 15 && status !== 'Waterlogged') {
+        pillClass = 'pill-blue'; status = 'Soft';
+        note = 'Soft after heavy rain today - approaches holding, expect slower ball roll';
+    } else if (rainToday >= 5 && (status === 'Normal' || status === 'Firm' || status === 'Very Firm')) {
+        pillClass = 'pill-blue'; status = 'Soft';
+        note = 'Softening after today\'s rain - ball sitting up, approaches holding well';
+    }
     const wb = deficit >= 0
         ? `+${deficit.toFixed(1)} mm deficit (7-day ET minus rain)`
         : `${Math.abs(deficit).toFixed(1)} mm surplus (7-day ET minus rain)`;
+    const rainNote = rainToday >= 1 ? ` · ${rainToday.toFixed(1)} mm today` : '';
     el.innerHTML = `
         <div class="insight-big">${status}</div>
         <span class="insight-pill ${pillClass}">${status}</span>
-        <div class="insight-sub">${note}<br>${wb}</div>`;
+        <div class="insight-sub">${note}<br>${wb}${rainNote}</div>`;
 }
 
 // ── TV / Kiosk Mode ──────────────────────────────────────────────
