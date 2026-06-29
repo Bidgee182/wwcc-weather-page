@@ -72,11 +72,15 @@ CSV_HEADERS = [
     'date',
     'temp_max', 'temp_min', 'temp_mean',
     'rh_mean',
-    'wind_max_kmh', 'wind_mean_kmh',
-    'rain_mm', 'et_mm',
+    'wind_max_kmh', 'wind_mean_kmh', 'wind_dir_deg', 'wind_run_km',
+    'rain_mm', 'et_mm', 'rain_rate_max_mmhr',
     'pressure_mean_hpa',
+    'solar_rad_avg', 'solar_rad_hi', 'solar_energy_ly',
+    'dew_point_c', 'wet_bulb_c',
+    'heat_index_c', 'wind_chill_c', 'thsw_index_c',
     'delta_t_mean',
-    'uv_max',
+    'uv_max', 'uv_index_avg', 'uv_dose',
+    'emc', 'air_density_kgm3', 'night_cloud_cover', 'iss_reception',
     'gdd_bent', 'gdd_kik',
     'gdd_bent_7d', 'gdd_kik_7d',
     'leaf_wet_hours',
@@ -303,9 +307,26 @@ def process_davis_records(records):
     Returns dict of processed values.
     """
     temps_c, night_temps, rh_vals, wind_kmh_vals, rain_total, et_total = [], [], [], [], 0.0, 0.0
-    pressures = []
-    uv_vals   = []
-    hourly    = {}  # hour_int -> {'wet': bool, 'night': bool, 'rh': float}
+    pressures   = []
+    uv_vals     = []   # uv_index_hi (daily max)
+    uv_avg_vals = []   # uv_index_avg
+    uv_dose_total = 0.0
+    wind_dirs   = []   # wind_dir_of_prevail (degrees) for circular mean
+    wind_run_total = 0.0   # miles, will convert to km
+    rain_rate_hi_vals = []  # rain_rate_hi_in (in/hr)
+    solar_rad_vals  = []   # solar_rad_avg (W/m²)
+    solar_rad_hi_vals = [] # solar_rad_hi (W/m²)
+    solar_energy_total = 0.0  # Langleys per interval, summed
+    dew_point_vals  = []   # dew_point_out (°F → °C)
+    wet_bulb_vals   = []   # wet_bulb (°F → °C)
+    heat_index_vals = []   # heat_index_out (°F → °C)
+    wind_chill_vals = []   # wind_chill (°F → °C)
+    thsw_vals       = []   # thsw_index (°F → °C)
+    emc_vals        = []   # equilibrium moisture content (%)
+    air_density_vals = []  # air_density (lb/ft³ → kg/m³)
+    cloud_cover_vals = []  # night_cloud_cover (0–1)
+    reception_vals   = []  # iss_reception (%)
+    hourly = {}  # hour_int -> {'wet': bool, 'night': bool, 'rh': float}
 
     for rec in records:
         ts = rec.get('ts')
@@ -322,25 +343,106 @@ def process_davis_records(records):
         rh = rec.get('hum') or rec.get('hum_out')
         rh = float(rh) if rh is not None else None
 
-        # Wind (mph -> m/s for leaf-wetness model; mph -> km/h for reporting)
+        # Wind speed (mph -> m/s for leaf-wetness model; mph -> km/h for reporting)
         ws_mph  = rec.get('wind_speed_avg') or rec.get('wind_speed_last')
         ws_ms   = float(ws_mph) * 0.44704 if ws_mph is not None else None
         ws_kmh  = float(ws_mph) * 1.60934 if ws_mph is not None else None
 
+        # Wind direction (degrees)
+        wd = rec.get('wind_dir_of_prevail') or rec.get('wind_dir_of_hi')
+        if wd is not None:
+            wind_dirs.append(float(wd))
+
+        # Wind run (miles per archive interval)
+        wr = rec.get('wind_run')
+        if wr is not None:
+            wind_run_total += float(wr)
+
         # Rain
         rain_mm = float(rec.get('rainfall_mm') or rec.get('rain_mm') or 0)
+
+        # Peak rain rate (in/hr)
+        rr_in = rec.get('rain_rate_hi_in') or rec.get('rain_rate_hi')
+        if rr_in is not None and float(rr_in) > 0:
+            rain_rate_hi_vals.append(float(rr_in))
 
         # ET (inches -> mm)
         et_in = rec.get('et') or 0
         et_mm = float(et_in) * 25.4
 
-        # UV Index (Davis station UV sensor)
-        uv_idx = rec.get('uv_index')
-        if uv_idx is not None:
-            uv_vals.append(float(uv_idx))
+        # Solar radiation (W/m²)
+        sr_avg = rec.get('solar_rad_avg') or rec.get('solar_rad')
+        if sr_avg is not None:
+            solar_rad_vals.append(float(sr_avg))
+        sr_hi = rec.get('solar_rad_hi')
+        if sr_hi is not None:
+            solar_rad_hi_vals.append(float(sr_hi))
+
+        # Solar energy (Langleys per interval, cumulative daily)
+        se = rec.get('solar_energy')
+        if se is not None:
+            solar_energy_total += float(se)
+
+        # Dew point (°F -> °C)
+        dp_f = rec.get('dew_point_out') or rec.get('dew_point')
+        if dp_f is not None:
+            dew_point_vals.append(f_to_c(float(dp_f)))
+
+        # Wet bulb (°F -> °C)
+        wb_f = rec.get('wet_bulb')
+        if wb_f is not None:
+            wet_bulb_vals.append(f_to_c(float(wb_f)))
+
+        # Heat index (°F -> °C)
+        hi_f = rec.get('heat_index_out') or rec.get('heat_index')
+        if hi_f is not None:
+            heat_index_vals.append(f_to_c(float(hi_f)))
+
+        # Wind chill (°F -> °C)
+        wc_f = rec.get('wind_chill') or rec.get('wind_chill_last')
+        if wc_f is not None:
+            wind_chill_vals.append(f_to_c(float(wc_f)))
+
+        # THSW index (°F -> °C)
+        thsw_f = rec.get('thsw_index')
+        if thsw_f is not None:
+            thsw_vals.append(f_to_c(float(thsw_f)))
+
+        # UV Index (historic records use uv_index_hi; current conditions use uv_index)
+        uv_hi = rec.get('uv_index_hi') or rec.get('uv_index')
+        if uv_hi is not None:
+            uv_vals.append(float(uv_hi))
+        uv_avg = rec.get('uv_index_avg')
+        if uv_avg is not None:
+            uv_avg_vals.append(float(uv_avg))
+
+        # UV dose (MEDs per archive interval, cumulative daily)
+        uv_d = rec.get('uv_dose')
+        if uv_d is not None:
+            uv_dose_total += float(uv_d)
+
+        # Equilibrium moisture content (%)
+        emc_v = rec.get('emc')
+        if emc_v is not None:
+            emc_vals.append(float(emc_v))
+
+        # Air density (lb/ft³ -> kg/m³)
+        ad = rec.get('air_density')
+        if ad is not None:
+            air_density_vals.append(float(ad) * 16.0185)
+
+        # Night cloud cover (fraction 0–1)
+        cc = rec.get('night_cloud_cover')
+        if cc is not None:
+            cloud_cover_vals.append(float(cc))
+
+        # ISS reception (%)
+        rx = rec.get('iss_reception')
+        if rx is not None:
+            reception_vals.append(float(rx))
 
         # Pressure (inHg -> hPa)
-        bar_in  = rec.get('bar_sea_level_in') or rec.get('bar_in')
+        bar_in = rec.get('bar_sea_level_in') or rec.get('bar_in') or rec.get('bar')
         if bar_in:
             pressures.append(float(bar_in) * 33.8639)
 
@@ -364,31 +466,58 @@ def process_davis_records(records):
             hourly[hour]['night'] = night
             hourly[hour]['rh']    = max(hourly[hour]['rh'], rh or 0)
 
-    temp_max  = round(max(temps_c), 1)          if temps_c     else None
-    temp_min  = round(min(temps_c), 1)          if temps_c     else None
-    temp_mean = round(sum(temps_c)/len(temps_c), 1) if temps_c else None
-    rh_mean   = round(sum(rh_vals)/len(rh_vals), 1) if rh_vals  else None
-    wind_max  = round(max(wind_kmh_vals), 1)     if wind_kmh_vals else None
+    # ── Daily summaries ────────────────────────────────────────────────────
+    temp_max  = round(max(temps_c), 1)               if temps_c        else None
+    temp_min  = round(min(temps_c), 1)               if temps_c        else None
+    temp_mean = round(sum(temps_c)/len(temps_c), 1)  if temps_c        else None
+    rh_mean   = round(sum(rh_vals)/len(rh_vals), 1)  if rh_vals        else None
+    wind_max  = round(max(wind_kmh_vals), 1)          if wind_kmh_vals  else None
     wind_mean = round(sum(wind_kmh_vals)/len(wind_kmh_vals), 1) if wind_kmh_vals else None
-    pres_mean    = round(sum(pressures)/len(pressures), 1) if pressures else None
-    uv_max_davis = round(max(uv_vals), 1) if uv_vals else None
+    pres_mean = round(sum(pressures)/len(pressures), 1) if pressures   else None
+    uv_max_davis  = round(max(uv_vals), 1)           if uv_vals        else None
+    uv_avg_daily  = round(sum(uv_avg_vals)/len(uv_avg_vals), 2) if uv_avg_vals else None
+    uv_dose_daily = round(uv_dose_total, 2)          if uv_dose_total > 0 else None
+
+    # Wind direction: circular mean to handle 360/0 wrap-around
+    if wind_dirs:
+        sin_sum = sum(math.sin(math.radians(d)) for d in wind_dirs)
+        cos_sum = sum(math.cos(math.radians(d)) for d in wind_dirs)
+        wind_dir_mean = round((math.degrees(math.atan2(sin_sum, cos_sum)) + 360) % 360)
+    else:
+        wind_dir_mean = None
+
+    wind_run_km_daily   = round(wind_run_total * 1.60934, 1) if wind_run_total > 0 else None
+    rain_rate_max_mmhr  = round(max(rain_rate_hi_vals) * 25.4, 1) if rain_rate_hi_vals else None
+    solar_rad_avg_daily = round(sum(solar_rad_vals)/len(solar_rad_vals), 1) if solar_rad_vals else None
+    solar_rad_hi_daily  = round(max(solar_rad_hi_vals), 0)  if solar_rad_hi_vals  else None
+    solar_energy_daily  = round(solar_energy_total, 2)      if solar_energy_total > 0 else None
+    dew_point_mean      = round(sum(dew_point_vals)/len(dew_point_vals), 1) if dew_point_vals else None
+    wet_bulb_mean       = round(sum(wet_bulb_vals)/len(wet_bulb_vals), 1)   if wet_bulb_vals  else None
+    heat_index_mean     = round(sum(heat_index_vals)/len(heat_index_vals), 1) if heat_index_vals else None
+    wind_chill_min      = round(min(wind_chill_vals), 1)    if wind_chill_vals    else None
+    thsw_max            = round(max(thsw_vals), 1)          if thsw_vals          else None
+    emc_mean            = round(sum(emc_vals)/len(emc_vals), 1) if emc_vals       else None
+    air_density_mean    = round(sum(air_density_vals)/len(air_density_vals), 4) if air_density_vals else None
+    cloud_cover_mean    = round(sum(cloud_cover_vals)/len(cloud_cover_vals), 2) if cloud_cover_vals else None
+    reception_mean      = round(sum(reception_vals)/len(reception_vals), 1)     if reception_vals  else None
+
+    # Delta T: use real wet bulb from Davis if available; otherwise Stull (2011) estimate
+    if wet_bulb_mean is not None and temp_mean is not None:
+        dt_mean = round(temp_mean - wet_bulb_mean, 1)
+    else:
+        dt_vals = [delta_t(t, r) for t, r in zip(temps_c, rh_vals) if t and r]
+        dt_mean = round(sum(dt_vals)/len(dt_vals), 1) if dt_vals else None
 
     wet_hours       = sum(1 for h in hourly.values() if h['wet'])
     night_wet_hours = sum(1 for h in hourly.values() if h['wet'] and h['night'])
     # True overnight minimum (8 PM–8 AM only); falls back to daily minimum if no night data
     night_min       = round(min(night_temps), 1) if night_temps else temp_min
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
+    consec_rh90     = rh90_hours  # conservative — full consecutive calc needs ordering
 
-    # Consecutive RH >= 90 (simplified: total hours as proxy)
-    consec_rh90 = rh90_hours  # conservative — full consecutive calc needs ordering
-
-    dt_vals = [delta_t(t, r) for t, r in zip(temps_c, rh_vals) if t and r]
-    dt_mean = round(sum(dt_vals)/len(dt_vals), 1) if dt_vals else None
-
-    # Spray condition hours (using general/default thresholds)
+    # Spray condition hours
     spray_counts = {'GO': 0, 'CAUTION': 0, 'NO-GO': 0}
     for h_idx, hdata in hourly.items():
-        # Get representative values for this hour
         hour_recs = [r for r in records
                      if datetime.fromtimestamp(r.get('ts', 0), tz=TZ).hour == h_idx]
         if not hour_recs:
@@ -404,25 +533,42 @@ def process_davis_records(records):
         spray_counts[status] += 1
 
     return {
-        'temp_max':        temp_max,
-        'temp_min':        temp_min,
-        'temp_mean':       temp_mean,
-        'rh_mean':         rh_mean,
-        'wind_max_kmh':    wind_max,
-        'wind_mean_kmh':   wind_mean,
-        'rain_mm':         round(rain_total, 1),
-        'et_mm':           round(et_total, 2),
-        'pressure_mean':   pres_mean,
-        'delta_t_mean':    dt_mean,
-        'wet_hours':       wet_hours,
-        'night_wet_hours': night_wet_hours,
-        'night_min':       night_min,
-        'consec_rh90':     consec_rh90,
-        'spray_go':        spray_counts['GO'],
-        'spray_caution':   spray_counts['CAUTION'],
-        'spray_nogo':      spray_counts['NO-GO'],
-        'uv_max':          uv_max_davis,
-        'rain_day':        rain_total > 0.2,
+        'temp_max':          temp_max,
+        'temp_min':          temp_min,
+        'temp_mean':         temp_mean,
+        'rh_mean':           rh_mean,
+        'wind_max_kmh':      wind_max,
+        'wind_mean_kmh':     wind_mean,
+        'wind_dir_deg':      wind_dir_mean,
+        'wind_run_km':       wind_run_km_daily,
+        'rain_mm':           round(rain_total, 1),
+        'et_mm':             round(et_total, 2),
+        'rain_rate_max_mmhr': rain_rate_max_mmhr,
+        'pressure_mean':     pres_mean,
+        'solar_rad_avg':     solar_rad_avg_daily,
+        'solar_rad_hi':      solar_rad_hi_daily,
+        'solar_energy_ly':   solar_energy_daily,
+        'dew_point_c':       dew_point_mean,
+        'wet_bulb_c':        wet_bulb_mean,
+        'heat_index_c':      heat_index_mean,
+        'wind_chill_c':      wind_chill_min,
+        'thsw_index_c':      thsw_max,
+        'delta_t_mean':      dt_mean,
+        'uv_max':            uv_max_davis,
+        'uv_index_avg':      uv_avg_daily,
+        'uv_dose':           uv_dose_daily,
+        'emc':               emc_mean,
+        'air_density_kgm3':  air_density_mean,
+        'night_cloud_cover': cloud_cover_mean,
+        'iss_reception':     reception_mean,
+        'wet_hours':         wet_hours,
+        'night_wet_hours':   night_wet_hours,
+        'night_min':         night_min,
+        'consec_rh90':       consec_rh90,
+        'spray_go':          spray_counts['GO'],
+        'spray_caution':     spray_counts['CAUTION'],
+        'spray_nogo':        spray_counts['NO-GO'],
+        'rain_day':          rain_total > 0.2,
     }
 
 
@@ -1910,7 +2056,7 @@ def send_email(subject, html_body, recipients):
 # BACKFILL — populate missing historical dates in the CSV
 # ─────────────────────────────────────────────────────────────────────────────
 
-def backfill_history(from_date, to_date):
+def backfill_history(from_date, to_date, force=False):
     """
     Backfill missing dates in daily_log.csv between from_date and to_date (inclusive).
 
@@ -1935,12 +2081,12 @@ def backfill_history(from_date, to_date):
                     existing[d_str] = row   # later rows overwrite earlier (deduplication)
 
     # ── Build list of missing dates ───────────────────────────────────────
-    missing = []
+    all_dates = []
     cur = from_date
     while cur <= to_date:
-        if cur.isoformat() not in existing:
-            missing.append(cur)
+        all_dates.append(cur)
         cur += timedelta(days=1)
+    missing = sorted(d for d in all_dates if force or d.isoformat() not in existing)
 
     if not missing:
         log.info('Backfill: no missing dates found — CSV is already complete.')
@@ -2045,11 +2191,28 @@ def backfill_history(from_date, to_date):
             'rh_mean':             d['rh_mean'],
             'wind_max_kmh':        d['wind_max_kmh'],
             'wind_mean_kmh':       d['wind_mean_kmh'],
+            'wind_dir_deg':        d.get('wind_dir_deg'),
+            'wind_run_km':         d.get('wind_run_km'),
             'rain_mm':             d['rain_mm'],
             'et_mm':               d['et_mm'],
+            'rain_rate_max_mmhr':  d.get('rain_rate_max_mmhr'),
             'pressure_mean_hpa':   d['pressure_mean'],
+            'solar_rad_avg':       d.get('solar_rad_avg'),
+            'solar_rad_hi':        d.get('solar_rad_hi'),
+            'solar_energy_ly':     d.get('solar_energy_ly'),
+            'dew_point_c':         d.get('dew_point_c'),
+            'wet_bulb_c':          d.get('wet_bulb_c'),
+            'heat_index_c':        d.get('heat_index_c'),
+            'wind_chill_c':        d.get('wind_chill_c'),
+            'thsw_index_c':        d.get('thsw_index_c'),
             'delta_t_mean':        d['delta_t_mean'],
             'uv_max':              uv_max,
+            'uv_index_avg':        d.get('uv_index_avg'),
+            'uv_dose':             d.get('uv_dose'),
+            'emc':                 d.get('emc'),
+            'air_density_kgm3':    d.get('air_density_kgm3'),
+            'night_cloud_cover':   d.get('night_cloud_cover'),
+            'iss_reception':       d.get('iss_reception'),
             'gdd_bent':            gdd_bent_today,
             'gdd_kik':             gdd_kik_today,
             'gdd_bent_7d':         gdd_bent_7d,
@@ -2214,11 +2377,28 @@ def main():
         'rh_mean':           d['rh_mean'],
         'wind_max_kmh':      d['wind_max_kmh'],
         'wind_mean_kmh':     d['wind_mean_kmh'],
+        'wind_dir_deg':      d.get('wind_dir_deg'),
+        'wind_run_km':       d.get('wind_run_km'),
         'rain_mm':           d['rain_mm'],
         'et_mm':             d['et_mm'],
+        'rain_rate_max_mmhr': d.get('rain_rate_max_mmhr'),
         'pressure_mean_hpa': d['pressure_mean'],
+        'solar_rad_avg':     d.get('solar_rad_avg'),
+        'solar_rad_hi':      d.get('solar_rad_hi'),
+        'solar_energy_ly':   d.get('solar_energy_ly'),
+        'dew_point_c':       d.get('dew_point_c'),
+        'wet_bulb_c':        d.get('wet_bulb_c'),
+        'heat_index_c':      d.get('heat_index_c'),
+        'wind_chill_c':      d.get('wind_chill_c'),
+        'thsw_index_c':      d.get('thsw_index_c'),
         'delta_t_mean':      d['delta_t_mean'],
         'uv_max':            uv_max,
+        'uv_index_avg':      d.get('uv_index_avg'),
+        'uv_dose':           d.get('uv_dose'),
+        'emc':               d.get('emc'),
+        'air_density_kgm3':  d.get('air_density_kgm3'),
+        'night_cloud_cover': d.get('night_cloud_cover'),
+        'iss_reception':     d.get('iss_reception'),
         'gdd_bent':          gdd_bent_today,
         'gdd_kik':           gdd_kik_today,
         'gdd_bent_7d':       gdd_bent_7d,
@@ -2335,8 +2515,9 @@ if __name__ == '__main__':
         # Default to_date: yesterday
         to_date = date.fromisoformat(to_str) if to_str else (now_sydney - timedelta(days=1)).date()
 
-        log.info(f'--backfill: processing {from_date} → {to_date}')
-        backfill_history(from_date, to_date)
+        force = '--force' in args
+        log.info(f'--backfill: processing {from_date} → {to_date}' + (' (force)' if force else ''))
+        backfill_history(from_date, to_date, force=force)
         log.info('Backfill complete.')
 
     elif '--resend' in args:
