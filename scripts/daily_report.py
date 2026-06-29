@@ -2120,6 +2120,29 @@ def backfill_history(from_date, to_date, force=False):
 
     log.info(f'Backfill: {len(missing)} dates to process ({missing[0]} → {missing[-1]})')
 
+    # ── Pre-fetch UV for entire date range in one Open-Meteo call ─────────
+    # Much faster than one call per date — avoids rate-limit timeouts.
+    uv_by_date = {}  # date_str -> uv_index_max float or None
+    try:
+        url = 'https://archive-api.open-meteo.com/v1/archive'
+        params = {
+            'latitude':   CLUB_LAT,
+            'longitude':  CLUB_LON,
+            'start_date': missing[0].strftime('%Y-%m-%d'),
+            'end_date':   missing[-1].strftime('%Y-%m-%d'),
+            'daily':      'uv_index_max',
+            'timezone':   'Australia/Sydney',
+        }
+        resp = requests.get(url, params=params, timeout=60)
+        resp.raise_for_status()
+        om_uv = resp.json()
+        dates_list = om_uv.get('daily', {}).get('time', [])
+        uv_list    = om_uv.get('daily', {}).get('uv_index_max', [])
+        uv_by_date = {d: v for d, v in zip(dates_list, uv_list)}
+        log.info(f'  Open-Meteo UV pre-fetch: {len(uv_by_date)} dates loaded')
+    except Exception as e:
+        log.warning(f'  Open-Meteo UV pre-fetch failed: {e} — UV will be None for this run')
+
     # ── Process each missing date in chronological order ──────────────────
     for i, target_date in enumerate(missing, start=1):
         log.info(f'[{i}/{len(missing)}] {target_date}')
@@ -2162,9 +2185,9 @@ def backfill_history(from_date, to_date, force=False):
                 d['et_mm'] = daily_om['et0_fao_evapotranspiration'][0] or 0.0
             if uv_max is None:
                 uv_max = daily_om.get('uv_index_max', [None])[0]
-        # UV fallback: always fetch from Open-Meteo when station returns no UV data
+        # UV fallback: use pre-fetched batch lookup (no extra HTTP call per date)
         if uv_max is None:
-            uv_max = fetch_openmeteo_uv(target_date)
+            uv_max = uv_by_date.get(target_date.isoformat())
 
         # 5. Rolling calculations from in-memory history
         #    Use the 7 dates immediately before target_date that are already stored.
