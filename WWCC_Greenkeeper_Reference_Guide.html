@@ -389,6 +389,7 @@
     <li><span class="toc-num">9</span><a href="#s9">Reports Tab</a><span class="toc-dots"></span><span class="toc-pg">7 report types, email &amp; print</span></li>
     <li><span class="toc-num">10</span><a href="#s10">Quick Reference</a><span class="toc-dots"></span><span class="toc-pg">Key thresholds at a glance</span></li>
     <li><span class="toc-num">11</span><a href="#s11">Ticker Bar &amp; Screen Messages</a><span class="toc-dots"></span><span class="toc-pg">📢 Custom messages + unified alert ticker</span></li>
+    <li><span class="toc-num">12</span><a href="#s12">Water Tab</a><span class="toc-dots"></span><span class="toc-pg">💧 FarmBot tank level, history graph &amp; lake sensor</span></li>
   </ol>
 </div>
 
@@ -430,6 +431,7 @@
       <div class="refresh-row"><span class="refresh-dot dot-mid"></span><span class="refresh-interval">Every 30 min</span><span class="refresh-desc">4-day forecast (Open-Meteo) and today's 24h rolling leaf wetness data (Davis v2)</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 60 min</span><span class="refresh-desc">Historical daily weather data (Davis v2) stored to 7-day local record</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 5 min</span><span class="refresh-desc">Update check - detects if a new version of the dashboard is available</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 5 min</span><span class="refresh-desc">FarmBot tank and lake sensor readings (Water tab)</span></div>
     </div>
 
     <div class="callout callout-red" style="margin-top:18px">
@@ -1162,6 +1164,109 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
     <div class="callout callout-green">
       <span class="callout-icon">✅</span>
       <div>If the PAT is not yet set, the 📢 panel will still open and allow you to compose a message, but the <strong>Post Message</strong> button will show an error. Weather alert items (lightning, frost, fog, carts) continue to work without a PAT - they never write to GitHub.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SECTION 12 - WATER TAB
+══════════════════════════════════════════════════ -->
+<div class="section" id="s12">
+  <div class="section-header">
+    <div class="section-num">12</div>
+    <div>
+      <h2>Water Tab</h2>
+      <p>FarmBot tank level gauge, history graph, and lake/dam sensor</p>
+    </div>
+  </div>
+  <div class="section-body">
+
+    <p>The <strong>💧 Water</strong> tab connects to the <strong>MyFarmBot Public API</strong> to display live water tank level and history. It contains three cards: Live Tank Level, Tank Level History, and Lake / Dam Level.</p>
+
+    <p>Data refreshes automatically every <strong>5 minutes</strong>. FarmBot sensors typically report every 15–30 minutes, so readings may be up to 30 minutes old depending on the sensor's transmission cycle. The last reading time is shown at the bottom of the Live Tank Level card.</p>
+
+    <h3>Card 1 — Live Tank Level</h3>
+    <p>A semi-circle arc gauge displays the current tank fill percentage. The arc colour changes based on level:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Level</th><th>Colour</th><th>Status Label</th></tr></thead>
+        <tbody>
+          <tr><td><strong>&gt; 50%</strong></td><td style="color:#27ae60">Green</td><td>🟢 Full / Good</td></tr>
+          <tr><td><strong>20 – 50%</strong></td><td style="color:#d4ac0d">Amber</td><td>🟡 Low</td></tr>
+          <tr><td><strong>&lt; 20%</strong></td><td style="color:#e74c3c">Red</td><td>🔴 Critical</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Below the gauge, three metric tiles show:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Volume</strong></td><td>Current volume in kilolitres (kL), if the tank capacity is configured in FarmBot</td></tr>
+          <tr><td><strong>Status</strong></td><td>Text status label (Full / Good / Low / Critical) based on the thresholds above</td></tr>
+          <tr><td><strong>Battery</strong></td><td>Sensor unit battery level %. Low battery may affect transmission frequency</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Card 2 — Tank Level History Graph</h3>
+    <p>An SVG line graph plots tank level over time. Use the range buttons to switch between time periods:</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Range</th><th>Typical Use</th></tr></thead>
+        <tbody>
+          <tr><td><strong>24h</strong></td><td>Check today's draw-down from irrigation or overnight refill from rain/supply</td></tr>
+          <tr><td><strong>7 Days</strong></td><td>Weekly usage pattern, identify high-demand days</td></tr>
+          <tr><td><strong>30 Days</strong></td><td>Monthly trend, seasonal demand planning</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A <strong>red shaded zone</strong> below 20% highlights the critical threshold on the graph. Sharp falls indicate irrigation draws; rises indicate supply refills or rainfall capture.</p>
+    <p>Three stats are shown below the graph for the selected period:</p>
+    <ul style="margin:8px 0 0 18px;line-height:2">
+      <li><strong>Min</strong> — lowest level recorded in the period</li>
+      <li><strong>Max</strong> — highest level recorded in the period</li>
+      <li><strong>Change</strong> — net change from start to end of the period (green = gained, red = lost)</li>
+    </ul>
+
+    <h3>Card 3 — Lake / Dam Level</h3>
+    <p>This card is reserved for the course lake sensor, which has not yet been installed. It currently shows a placeholder. Once the sensor is installed and its Sensor SID is added to <code style="background:#f1f5f9;color:#1a252f;padding:1px 5px;border-radius:3px">FARMBOT_LAKE_SID</code> in index.html, the placeholder is replaced with a live gauge and readings — no other code changes are required.</p>
+
+    <h3>Credentials &amp; Setup</h3>
+    <div class="callout callout-yellow">
+      <span class="callout-icon">🔑</span>
+      <div><strong>FarmBot API credentials are required</strong> to activate the Water tab.<br><br>
+      Contact FarmBot at <strong>service@farmbot.com.au</strong> or call <strong>02 9901 4798</strong> to request:<br>
+      &bull; Client ID<br>
+      &bull; Client Secret<br>
+      &bull; Your Sensor SID for the water tank<br><br>
+      Once received, open <code>index.html</code> and fill in the three constants near the top of the script block:
+      <pre style="background:#0d1117;padding:10px;border-radius:4px;margin-top:8px;font-size:0.85em;overflow-x:auto">const FARMBOT_CLIENT_ID     = 'paste-here';
+const FARMBOT_CLIENT_SECRET = 'paste-here';
+const FARMBOT_TANK_SID      = 'paste-here';</pre>
+      The tab will activate immediately — no other changes needed.</div>
+    </div>
+
+    <div class="callout callout-green">
+      <span class="callout-icon">✅</span>
+      <div>If credentials are not yet configured, the Water tab will show a clear "credentials not configured" notice rather than an error. All other tabs continue to work normally — the Water tab is fully independent.</div>
+    </div>
+
+    <h3>Technical Notes</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Detail</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Data source</strong></td><td>MyFarmBot Public API (api.myxbot-production-au.fmbt.io)</td></tr>
+          <tr><td><strong>Auth method</strong></td><td>OAuth2 client credentials — bearer token auto-refreshed, cached until expiry</td></tr>
+          <tr><td><strong>Tank sensor type</strong></td><td>Type 1 — Water Tank</td></tr>
+          <tr><td><strong>Lake sensor type</strong></td><td>Type 7 — Dam</td></tr>
+          <tr><td><strong>Refresh rate</strong></td><td>Every 5 minutes (sensor transmits every 15–30 min)</td></tr>
+          <tr><td><strong>History samples</strong></td><td>Up to 50 samples per request (FarmBot API max 50 per page)</td></tr>
+          <tr><td><strong>CORS handling</strong></td><td>Routed via corsproxy.io, same method as Davis v1 API</td></tr>
+        </tbody>
+      </table>
     </div>
 
   </div>
