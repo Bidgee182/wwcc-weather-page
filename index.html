@@ -1391,6 +1391,8 @@ function saveDailyRecord(et, rain) {
 // ── CSV-backed daily store ────────────────────────────────────────
 // Returns merged object: CSV provides cross-device baseline for past days;
 // localStorage (written by Davis API calls) takes precedence when available.
+// getDailyStore()     → last 7 days only  (disease models, water balance, weekly reports)
+// getFullDailyStore() → full CSV history   (seasonal GDD accumulation)
 function getDailyStore() {
     const local   = JSON.parse(localStorage.getItem('wx_daily') || '{}');
     const merged  = Object.assign({}, _csvDaily, local);  // localStorage wins on conflict
@@ -1400,6 +1402,21 @@ function getDailyStore() {
     const cutoffStr  = cutoffDate.toISOString().slice(0, 10);
     for (const key of Object.keys(merged)) { if (key < cutoffStr) delete merged[key]; }
     return merged;
+}
+function getFullDailyStore() {
+    // Full history — no date cutoff. Used for seasonal GDD accumulation.
+    const local = JSON.parse(localStorage.getItem('wx_daily') || '{}');
+    return Object.assign({}, _csvDaily, local);
+}
+function gddSeasonStart() {
+    // GDD season resets 1 September each year (Southern Hemisphere spring).
+    // If today is before 1 Sep of the current year, use 1 Sep of the previous year.
+    const offsetMs = sydneyOffsetMs();
+    const now  = new Date(Date.now() + offsetMs);
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth(); // 0-indexed; August = 7, September = 8
+    const startYear = month >= 8 ? year : year - 1;
+    return `${startYear}-09-01`;
 }
 
 async function loadCSVBalance() {
@@ -2348,9 +2365,11 @@ function _rptGDD() {
         { label: 'Bentgrass', color: '#2980b9', base: 10, locations: 'Greens - A4, Cobra, Oakley' },
         { label: 'Kikuyu',    color: '#27ae60', base: 15, locations: 'Fairways & rough' },
     ];
-    const store    = getDailyStore();
-    const offsetMs = sydneyOffsetMs();
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const store      = getFullDailyStore();
+    const offsetMs   = sydneyOffsetMs();
+    const dayNames   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const seasonStart = gddSeasonStart();
+    const todayStr   = todayKey();
 
     let html = `<div style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px">${_rptDate()}</div>`;
 
@@ -2369,6 +2388,15 @@ function _rptGDD() {
         const todayGDD = fc.todayMax != null && fc.todayMin != null
             ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
         const total7 = histGDD + todayGDD;
+
+        // Seasonal accumulation
+        let seasonGDD = 0;
+        for (const [key, rec] of Object.entries(store)) {
+            if (key < seasonStart || key >= todayStr) continue;
+            if (rec?.tempMax != null && rec?.tempMin != null)
+                seasonGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+        }
+        const totalSeason = seasonGDD + todayGDD;
 
         let fcGDD = 0, fcRows = [];
         for (let i = 1; i <= 3; i++) {
@@ -2391,7 +2419,8 @@ function _rptGDD() {
             else                    { appNote = 'Low growth / dormant - reduce irrigation and fertiliser on fairways.'; noteCls = 'good'; }
         }
 
-        let t = `<table class="rpt-table"><thead><tr><th>Day</th><th>Date</th><th>GDD</th></tr></thead><tbody>`;
+        let t = `<div class="rpt-row"><span class="rpt-lbl">Season Total (since 1 Sep)</span><span class="rpt-val" style="color:${g.color}">${totalSeason.toFixed(1)} GDD</span></div>`;
+        t += `<table class="rpt-table" style="margin-top:8px"><thead><tr><th>Day</th><th>Date</th><th>GDD</th></tr></thead><tbody>`;
         histRows.forEach(r => { t += `<tr><td>${r.day}</td><td>${r.date}</td><td style="color:${g.color}">${r.gdd !== null ? r.gdd.toFixed(1) : '--'}</td></tr>`; });
         t += `<tfoot><tr><td colspan="2">7-Day Total</td><td style="color:${g.color}">${total7.toFixed(1)}</td></tr></tfoot></table>`;
 
@@ -2967,9 +2996,11 @@ function _emailGDD() {
         { label: 'Bentgrass', color: '#1a6ead', base: 10, locations: 'Greens - A4, Cobra, Oakley' },
         { label: 'Kikuyu',    color: '#1a7a42', base: 15, locations: 'Fairways & rough' },
     ];
-    const store    = getDailyStore();
-    const offsetMs = sydneyOffsetMs();
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const store      = getFullDailyStore();
+    const offsetMs   = sydneyOffsetMs();
+    const dayNames   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const seasonStart = gddSeasonStart();
+    const todayStr   = todayKey();
 
     let content = '';
 
@@ -2985,6 +3016,15 @@ function _emailGDD() {
         const todayGDD = fc.todayMax != null && fc.todayMin != null ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
         const total7 = histGDD + todayGDD;
         const totFooter = [{ v: '7-Day Total' }, { v: '' }, { v: total7.toFixed(1), color: '#7ec897' }];
+
+        // Seasonal accumulation
+        let seasonGDD = 0;
+        for (const [key, rec] of Object.entries(store)) {
+            if (key < seasonStart || key >= todayStr) continue;
+            if (rec?.tempMax != null && rec?.tempMin != null)
+                seasonGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+        }
+        const totalSeason = seasonGDD + todayGDD;
 
         let fcRows = [];
         for (let i = 1; i <= 3; i++) {
@@ -3012,6 +3052,11 @@ function _emailGDD() {
               <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:${g.color};font-weight:bold">${g.label} - Base ${g.base}°C</span>
               <span style="font-size:11px;color:#999;margin-left:8px">${g.locations}</span>
             </div>
+          </td></tr>
+          <tr><td style="padding-bottom:6px">
+            <table width="100%" cellpadding="4" cellspacing="0" style="font-size:11px;background:#f0f4f0;border-radius:4px">
+              <tr><td style="color:#555">Season Total (since 1 Sep)</td><td style="font-weight:bold;color:${g.color};text-align:right">${totalSeason.toFixed(1)} GDD</td></tr>
+            </table>
           </td></tr>
           <tr><td>${_eDataTable(['Day','Date','GDD'], histRows, totFooter)}</td></tr>
           ${fcRows.length ? `<tr><td style="padding-top:8px"><div style="font-size:11px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Forecast - next 3 days</div>${_eDataTable(['Day','Date','Forecast GDD'], fcRows, null)}</td></tr>` : ''}
@@ -3411,25 +3456,46 @@ function updateGDD() {
         { label: 'Kikuyu',     color: '#27ae60', base: 15, locations: 'Fairways & rough' },
     ];
 
-    const store    = getDailyStore();
+    const store    = getFullDailyStore();
     const offsetMs = sydneyOffsetMs();
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const seasonStart = gddSeasonStart();
+    const todayStr    = todayKey();
 
-    // Compute 7-day accumulated + 3-day forecast GDD for each grass type
+    // Compute seasonal + 7-day accumulated + 3-day forecast GDD for each grass type
     const results = GRASSES.map(g => {
-        let histGDD = 0, histDays = 0;
+        let seasonGDD = 0, seasonDays = 0;
+        let histGDD7 = 0, histDays7 = 0;
+
+        // Seasonal accumulation: all days from 1 Sep to yesterday
+        for (const [key, rec] of Object.entries(store)) {
+            if (key < seasonStart || key >= todayStr) continue;
+            if (rec?.tempMax != null && rec?.tempMin != null) {
+                seasonGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+                seasonDays++;
+            }
+        }
+
+        // 7-day rolling (for growth rate / application note)
         for (let d = 1; d <= 7; d++) {
             const dt = new Date(Date.now() + offsetMs);
             dt.setUTCDate(dt.getUTCDate() - d);
             const rec = store[dt.toISOString().slice(0, 10)];
             if (rec?.tempMax != null && rec?.tempMin != null) {
-                histGDD += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
-                histDays++;
+                histGDD7 += Math.max(0, (rec.tempMax + rec.tempMin) / 2 - g.base);
+                histDays7++;
             }
         }
+
         const todayGDD = (fc.todayMax != null && fc.todayMin != null)
             ? Math.max(0, (fc.todayMax + fc.todayMin) / 2 - g.base) : 0;
-        const total7Day = histGDD + todayGDD;
+        const totalSeason = seasonGDD + todayGDD;
+        const total7Day   = histGDD7 + todayGDD;
+
+        // Days into current season
+        const daysIntoSeason = Math.floor(
+            (Date.now() + offsetMs - new Date(seasonStart + 'T00:00:00Z').getTime()) / 86400000
+        );
 
         let fcGDD = 0, fcRows = [];
         for (let i = 1; i <= 3; i++) {
@@ -3441,7 +3507,7 @@ function updateGDD() {
                 fcRows.push({ label: dayNames[date.getDay()], gdd });
             }
         }
-        return { ...g, histDays, total7Day, fcGDD, fcRows };
+        return { ...g, seasonDays, daysIntoSeason, totalSeason, total7Day, histDays7, fcGDD, fcRows, seasonStart };
     });
 
     // Seasonal context
@@ -3492,11 +3558,16 @@ function updateGDD() {
         <div style="border-left:3px solid ${g.color};padding-left:10px;margin-bottom:14px">
             <div style="font-size:0.78em;font-weight:bold;color:${g.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${g.label} - base ${g.base}°C</div>
             <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:8px">${g.locations}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
                 <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
-                    <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">7-Day Accumulated</div>
-                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.histDays > 0 ? g.total7Day.toFixed(0) : '--'}</div>
-                    <div style="font-size:0.68em;color:#7f8c8d">GDD last 7 days</div>
+                    <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Season Total</div>
+                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.seasonDays > 0 ? g.totalSeason.toFixed(0) : '--'}</div>
+                    <div style="font-size:0.68em;color:#7f8c8d">since 1 Sep · ${g.daysIntoSeason}d</div>
+                </div>
+                <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
+                    <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Last 7 Days</div>
+                    <div style="font-size:1.7em;font-weight:bold;color:${g.color};margin-top:4px">${g.histDays7 > 0 ? g.total7Day.toFixed(0) : '--'}</div>
+                    <div style="font-size:0.68em;color:#7f8c8d">GDD this week</div>
                 </div>
                 <div style="background:#1a252f;border-radius:6px;padding:10px;text-align:center">
                     <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Next 3 Days</div>
@@ -3509,9 +3580,9 @@ function updateGDD() {
             g.fcRows.forEach(r => { html += `<tr><td>${r.label}</td><td class="et-col">${r.gdd.toFixed(1)}</td></tr>`; });
             html += '</tbody></table></div>';
         }
-        if (g.histDays < 7) {
-            const missing = 7 - g.histDays;
-            const msg = g.histDays === 0 ? 'No history yet - accumulating' : `${missing} day${missing > 1 ? 's' : ''} missing - may be understated`;
+        if (g.histDays7 < 7) {
+            const missing = 7 - g.histDays7;
+            const msg = g.histDays7 === 0 ? 'No recent history - accumulating' : `${missing} day${missing > 1 ? 's' : ''} missing from 7-day total`;
             html += `<div style="font-size:0.72em;color:#7f8c8d;margin-top:4px">&#9432; ${msg}</div>`;
         }
         html += `<div style="margin-top:6px;font-size:0.8em;color:${noteColor}">${appNote}</div>`;

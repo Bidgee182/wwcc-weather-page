@@ -421,7 +421,7 @@
 
     <div class="callout callout-yellow">
       <span class="callout-icon">💾</span>
-      <div><strong>On-Device Memory (7-Day Store)</strong><br>The browser stores a rolling 7-day record locally on the device. Each day records: ET, rainfall, max/min/mean temperature, mean humidity, and a rain-day flag. This is what powers disease models, GDD calculations, and weekly reports. Data older than 7 days is automatically deleted.</div>
+      <div><strong>On-Device Memory &amp; CSV History</strong><br>Full historical data is permanently stored in the GitHub CSV file (<code>data/daily_log.csv</code>) — it is never deleted and grows by one row per day. The browser additionally keeps a local copy of the most recent 7 days for fast access. Each day records: ET, rainfall, max/min/mean temperature, mean humidity, and a rain-day flag. Disease models and the 7-day water balance use the rolling 7-day window; GDD seasonal accumulation draws on the full CSV history back to 1 September.</div>
     </div>
 
     <h3>Auto-Refresh Schedule</h3>
@@ -429,7 +429,7 @@
       <div class="refresh-row"><span class="refresh-dot dot-fast"></span><span class="refresh-interval">Every 15 sec</span><span class="refresh-desc">All tiles, spray status, mow window, Next Spray Window - all UI panels</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-fast"></span><span class="refresh-interval">Every 60 sec</span><span class="refresh-desc">Live station data - temperature, wind, rain, ET, pressure (Davis v1)</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-mid"></span><span class="refresh-interval">Every 30 min</span><span class="refresh-desc">4-day forecast (Open-Meteo) and today's 24h rolling leaf wetness data (Davis v2)</span></div>
-      <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 60 min</span><span class="refresh-desc">Historical daily weather data (Davis v2) stored to 7-day local record</span></div>
+      <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 60 min</span><span class="refresh-desc">Historical daily weather data (Davis v2) — appended to the permanent GitHub CSV and cached in browser for fast 7-day access</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 5 min</span><span class="refresh-desc">Update check - detects if a new version of the dashboard is available</span></div>
       <div class="refresh-row"><span class="refresh-dot dot-slow"></span><span class="refresh-interval">Every 5 min</span><span class="refresh-desc">FarmBot tank and lake sensor readings (Water tab)</span></div>
     </div>
@@ -617,11 +617,24 @@ Tw = T × arctan(0.151977 × √(RH + 8.313659))
     <p>GDD measures heat accumulation above the minimum temperature a grass needs to grow. It tells you how fast the grass is growing and helps time growth regulator (PGR) applications.</p>
 
     <div class="formula">
-GDD (per day) = max(0,  (Daily Max Temp + Daily Min Temp) ÷ 2  −  Base Temperature)
-7-Day GDD    = Sum of daily GDD values over the past 7 days
+GDD (per day)    = max(0,  (Daily Max Temp + Daily Min Temp) ÷ 2  −  Base Temperature)
+Season Total GDD = Sum of all daily GDD values from 1 September to today
+7-Day GDD        = Sum of daily GDD values over the past 7 days (current growth rate)
     </div>
 
+    <p>The dashboard shows <strong>three GDD metrics</strong> for each grass type:</p>
     <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>What it shows</th><th>Resets</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Season Total</strong></td><td>Accumulated GDD since 1 September — the full seasonal heat load</td><td>1 September each year</td></tr>
+          <tr><td><strong>Last 7 Days</strong></td><td>Current growth rate — used for application notes and threshold alerts</td><td>Rolling daily</td></tr>
+          <tr><td><strong>Next 3 Days</strong></td><td>Forecast GDD from Open-Meteo</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tbl-wrap" style="margin-top:10px">
       <table>
         <thead>
           <tr><th>Grass Type</th><th>Locations</th><th>Base Temp</th><th>High Growth (7-day)</th><th>Moderate</th><th>Low / Dormant</th></tr>
@@ -955,7 +968,7 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
           <tr>
             <td><strong>🌡️ GDD Growth</strong></td>
             <td>PGR timing; mowing frequency decisions</td>
-            <td>7-day accumulated GDD for bentgrass and kikuyu, 3-day forecast GDD, seasonal context, mowing/PGR notes per grass type</td>
+            <td>Season total GDD (from 1 Sep) + 7-day GDD + 3-day forecast GDD for bentgrass and kikuyu, seasonal context, mowing/PGR notes per grass type</td>
           </tr>
           <tr>
             <td><strong>📅 Weekly Summary</strong></td>
@@ -1049,7 +1062,7 @@ Rate (hPa/hr) = (Newest pressure − Oldest pressure) ÷ Hours elapsed
     <h3>GDD Growth Guide</h3>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>GDD 7-Day</th><th>Bentgrass Status</th><th>Kikuyu Status</th><th>PGR Guidance</th></tr></thead>
+        <thead><tr><th>GDD (Last 7 Days)</th><th>Bentgrass Status</th><th>Kikuyu Status</th><th>PGR Guidance</th></tr></thead>
         <tbody>
           <tr><td class="risk-low">&lt; 50 / &lt; 35</td><td>Dormant / Slow</td><td>Dormant / Slow</td><td>No PGR; reduce mowing frequency</td></tr>
           <tr><td class="risk-lowmod">50–99 / 35–79</td><td>Moderate growth</td><td>Moderate growth</td><td>Light PGR application if required</td></tr>
