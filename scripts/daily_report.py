@@ -2520,6 +2520,20 @@ if __name__ == '__main__':
         backfill_history(from_date, to_date, force=force)
         log.info('Backfill complete.')
 
+    elif '--diagnose' in args:
+        # Print all unique field names returned by Davis v2 API for yesterday.
+        # Use: python daily_report.py --diagnose
+        now_sydney = datetime.now(tz=TZ)
+        target = (now_sydney - timedelta(days=1)).date()
+        log.info(f'--diagnose: fetching Davis v2 records for {target}')
+        recs = fetch_davis_historic(target)
+        log.info(f'  Total records returned: {len(recs)}')
+        all_keys = sorted({k for r in recs for k in r.keys()})
+        log.info(f'  All field names across all records ({len(all_keys)} total):')
+        for k in all_keys:
+            sample = next((r[k] for r in recs if r.get(k) is not None), None)
+            log.info(f'    {k}: {sample}')
+
     elif '--resend' in args:
         # Re-send the email for the most recent CSV row without re-fetching or re-writing data.
         now_sydney = datetime.now(tz=TZ)

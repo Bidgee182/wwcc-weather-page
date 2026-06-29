@@ -14,6 +14,14 @@ on:
   # Allow manual trigger from GitHub Actions tab for testing/backfill
   workflow_dispatch:
     inputs:
+      diagnose:
+        description: 'Print all Davis v2 API field names for yesterday (no CSV changes)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
       resend:
         description: 'Resend email for today using existing CSV data (skip re-fetch)'
         required: false
@@ -91,6 +99,8 @@ jobs:
               ARGS="$ARGS --force"
             fi
             python scripts/daily_report.py $ARGS
+          elif [ "${{ github.event.inputs.diagnose }}" = "true" ]; then
+            python scripts/daily_report.py --diagnose
           elif [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend
           else
