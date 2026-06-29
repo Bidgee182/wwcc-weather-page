@@ -795,6 +795,45 @@
             </div>
 
         </div>
+
+        <!-- Yesterday's full sensor data from Davis v2 CSV -->
+        <div class="card">
+            <h2>&#128202; Yesterday's Station Data</h2>
+            <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:10px">Full sensor record from yesterday's Davis v2 archive — richer than real-time readings</div>
+
+            <div class="section-title">&#127777;&#65039; Apparent Temperatures</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Heat Index</div><div class="gk-pill-val" id="gk-st-heat-idx">--</div><div style="font-size:0.7em;color:#7f8c8d">Feels like (heat)</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Wind Chill</div><div class="gk-pill-val" id="gk-st-wind-chill">--</div><div style="font-size:0.7em;color:#7f8c8d">Feels like (cold)</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">THSW Index</div><div class="gk-pill-val" id="gk-st-thsw">--</div><div style="font-size:0.7em;color:#7f8c8d">Heat stress (solar)</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Dew Point</div><div class="gk-pill-val" id="gk-st-dp-yest">--</div><div style="font-size:0.7em;color:#7f8c8d">Sensor value</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Wet Bulb</div><div class="gk-pill-val" id="gk-st-wb-yest">--</div><div style="font-size:0.7em;color:#7f8c8d">Sensor value</div></div>
+            </div>
+
+            <div class="section-title">&#9728;&#65039; Solar Radiation</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Avg Solar</div><div class="gk-pill-val" id="gk-st-solar-avg">--</div><div style="font-size:0.7em;color:#7f8c8d">W/m²</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Peak Solar</div><div class="gk-pill-val" id="gk-st-solar-hi">--</div><div style="font-size:0.7em;color:#7f8c8d">W/m²</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Solar Energy</div><div class="gk-pill-val" id="gk-st-solar-energy">--</div><div style="font-size:0.7em;color:#7f8c8d">Langleys</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">UV Dose</div><div class="gk-pill-val" id="gk-st-uv-dose">--</div><div style="font-size:0.7em;color:#7f8c8d">MEDs</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Avg UV Index</div><div class="gk-pill-val" id="gk-st-uv-avg">--</div><div style="font-size:0.7em;color:#7f8c8d">daily mean</div></div>
+            </div>
+
+            <div class="section-title">&#127788; Wind Detail</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">Prevailing Dir</div><div class="gk-pill-val" id="gk-st-wind-dir-yest">--</div><div style="font-size:0.7em;color:#7f8c8d">degrees / compass</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Wind Run</div><div class="gk-pill-val" id="gk-st-wind-run">--</div><div style="font-size:0.7em;color:#7f8c8d">total km</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Peak Rain Rate</div><div class="gk-pill-val" id="gk-st-rain-rate">--</div><div style="font-size:0.7em;color:#7f8c8d">mm/hr</div></div>
+            </div>
+
+            <div class="section-title">&#128268; Atmospheric &amp; Station</div>
+            <div class="gk-pill-grid">
+                <div class="gk-pill"><div class="gk-pill-lbl">EMC</div><div class="gk-pill-val" id="gk-st-emc">--</div><div style="font-size:0.7em;color:#7f8c8d">Moisture content %</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Air Density</div><div class="gk-pill-val" id="gk-st-air-density">--</div><div style="font-size:0.7em;color:#7f8c8d">kg/m³</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">Night Cloud</div><div class="gk-pill-val" id="gk-st-cloud">--</div><div style="font-size:0.7em;color:#7f8c8d">cover fraction</div></div>
+                <div class="gk-pill"><div class="gk-pill-lbl">ISS Reception</div><div class="gk-pill-val" id="gk-st-reception">--</div><div style="font-size:0.7em;color:#7f8c8d">signal quality</div></div>
+            </div>
+        </div>
     <div class="gk-tab-footer">Station: <span class="gk-upd-station">--</span> &nbsp;·&nbsp; Forecast: <span class="gk-upd-forecast">--</span></div>
     </div><!-- end gk-tab-station -->
 
@@ -1100,6 +1139,70 @@
         <h2>Next 5 Hours</h2>
         <div class="hourly-grid" id="hourly-container">
             <div style="color:#7f8c8d;font-size:0.85em">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Weather Station Details Card -->
+    <div class="card" id="go-station-card">
+        <h2>&#128225; Live Weather Station</h2>
+        <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:12px">Davis WeatherLink v2 &mdash; on-course sensor readings</div>
+
+        <!-- Current conditions row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px" id="go-st-live-grid">
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Temperature</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#e67e22;margin-top:4px" id="go-st-temp">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-feels">Feels like --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Wind</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#3498db;margin-top:4px" id="go-st-wind">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-winddir">Direction --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">UV Index</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#f39c12;margin-top:4px" id="go-st-uv-live">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-uv-cat">--</div>
+            </div>
+        </div>
+
+        <!-- Yesterday's full sensor summary -->
+        <div style="font-size:0.75em;font-weight:bold;color:#95a5a6;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Yesterday's Full Sensor Record</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px">
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Solar Radiation</div>
+                <div style="font-size:1.0em;color:#f39c12;font-weight:bold;margin-top:2px" id="go-st-solar">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-solar-peak">Peak: --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">UV Dose</div>
+                <div style="font-size:1.0em;color:#e67e22;font-weight:bold;margin-top:2px" id="go-st-uvdose">--</div>
+                <div style="font-size:0.7em;color:#566573">Total MEDs for the day</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">THSW Heat Stress</div>
+                <div style="font-size:1.0em;color:#e74c3c;font-weight:bold;margin-top:2px" id="go-st-thsw-go">--</div>
+                <div style="font-size:0.7em;color:#566573">Peak heat stress index</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Wind Run</div>
+                <div style="font-size:1.0em;color:#3498db;font-weight:bold;margin-top:2px" id="go-st-windrun">--</div>
+                <div style="font-size:0.7em;color:#566573">Total distance yesterday</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Dew Point</div>
+                <div style="font-size:1.0em;color:#27ae60;font-weight:bold;margin-top:2px" id="go-st-dew">--</div>
+                <div style="font-size:0.7em;color:#566573">Sensor reading</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Air Density</div>
+                <div style="font-size:1.0em;color:#95a5a6;font-weight:bold;margin-top:2px" id="go-st-airdens">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-airdens-note">ball flight effect</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.72em;color:#566573;text-align:center;padding-top:4px">
+            &#128225; Davis WeatherLink v2 &nbsp;&middot;&nbsp; Station ID 10489 &nbsp;&middot;&nbsp; Wagga Wagga Country Club
         </div>
     </div>
 
@@ -1436,6 +1539,24 @@ async function loadCSVBalance() {
         const iRH      = col('rh_mean');
         const iTMean   = col('temp_mean');
         const iRainDay = col('rain_day');
+        // New Davis v2 sensor columns
+        const iWindDirDeg      = col('wind_dir_deg');
+        const iWindRunKm       = col('wind_run_km');
+        const iRainRateMax     = col('rain_rate_max_mmhr');
+        const iSolarRadAvg     = col('solar_rad_avg');
+        const iSolarRadHi      = col('solar_rad_hi');
+        const iSolarEnergyLy   = col('solar_energy_ly');
+        const iDewPointC       = col('dew_point_c');
+        const iWetBulbC        = col('wet_bulb_c');
+        const iHeatIndexC      = col('heat_index_c');
+        const iWindChillC      = col('wind_chill_c');
+        const iThswIndexC      = col('thsw_index_c');
+        const iUvIndexAvg      = col('uv_index_avg');
+        const iUvDose          = col('uv_dose');
+        const iEmc             = col('emc');
+        const iAirDensity      = col('air_density_kgm3');
+        const iNightCloudCover = col('night_cloud_cover');
+        const iIssReception    = col('iss_reception');
         const parsed = {};
         for (let i = 1; i < lines.length; i++) {
             const cols    = lines[i].split(',');
@@ -1448,6 +1569,7 @@ async function loadCSVBalance() {
             const meanRH  = parseFloat(cols[iRH]);
             const meanTemp = parseFloat(cols[iTMean]);
             const rainDay = cols[iRainDay]?.trim().toLowerCase() === 'true';
+            const _raw = (idx) => idx >= 0 ? cols[idx]?.trim() : undefined;
             parsed[date] = {          // last row per date wins (CSV may have duplicates)
                 et:       isNaN(et)       ? 0    : et,
                 rain:     isNaN(rain)     ? 0    : rain,
@@ -1455,13 +1577,33 @@ async function loadCSVBalance() {
                 tempMin:  isNaN(tempMin)  ? null : tempMin,
                 meanRH:   isNaN(meanRH)   ? null : meanRH,
                 meanTemp: isNaN(meanTemp) ? null : meanTemp,
-                rainDay
+                rainDay,
+                // New Davis v2 sensor fields
+                wind_dir_deg:      _raw(iWindDirDeg),
+                wind_run_km:       _raw(iWindRunKm),
+                rain_rate_max_mmhr:_raw(iRainRateMax),
+                solar_rad_avg:     _raw(iSolarRadAvg),
+                solar_rad_hi:      _raw(iSolarRadHi),
+                solar_energy_ly:   _raw(iSolarEnergyLy),
+                dew_point_c:       _raw(iDewPointC),
+                wet_bulb_c:        _raw(iWetBulbC),
+                heat_index_c:      _raw(iHeatIndexC),
+                wind_chill_c:      _raw(iWindChillC),
+                thsw_index_c:      _raw(iThswIndexC),
+                uv_index_avg:      _raw(iUvIndexAvg),
+                uv_dose:           _raw(iUvDose),
+                emc:               _raw(iEmc),
+                air_density_kgm3:  _raw(iAirDensity),
+                night_cloud_cover: _raw(iNightCloudCover),
+                iss_reception:     _raw(iIssReception)
             };
         }
         _csvDaily = parsed;
         renderWeekly();
         updateInsights();
         checkCartsOnPaths();
+        updateStationYesterdayData();
+        updateGolferStation();
     } catch(e) {
         console.warn('[CSV balance] load failed:', e);
     }
@@ -3446,6 +3588,103 @@ function updateETForecast() {
     el.innerHTML = html + note;
 }
 
+// ── Station Yesterday Data ─────────────────────────────────────────
+function updateStationYesterdayData() {
+    const offsetMs = sydneyOffsetMs();
+    const yest = new Date(Date.now() + offsetMs - 86400000).toISOString().slice(0, 10);
+    const y = _csvDaily[yest] || {};
+    const sf = (v, dec, unit) => (v != null && v !== '' && v !== 'None' && !isNaN(parseFloat(v)))
+        ? parseFloat(v).toFixed(dec) + unit : '--';
+    const _s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    // Apparent temperatures
+    _s('gk-st-heat-idx',    sf(y.heat_index_c, 1, '°C'));
+    _s('gk-st-wind-chill',  sf(y.wind_chill_c, 1, '°C'));
+    _s('gk-st-thsw',        sf(y.thsw_index_c, 1, '°C'));
+    _s('gk-st-dp-yest',     sf(y.dew_point_c,  1, '°C'));
+    _s('gk-st-wb-yest',     sf(y.wet_bulb_c,   1, '°C'));
+
+    // Solar
+    _s('gk-st-solar-avg',    sf(y.solar_rad_avg,   0, ' W/m²'));
+    _s('gk-st-solar-hi',     sf(y.solar_rad_hi,    0, ' W/m²'));
+    _s('gk-st-solar-energy', sf(y.solar_energy_ly, 1, ' Ly'));
+    _s('gk-st-uv-dose',      sf(y.uv_dose,         1, ' MEDs'));
+    _s('gk-st-uv-avg',       sf(y.uv_index_avg,    1, ''));
+
+    // Wind detail
+    const wdDeg = parseFloat(y.wind_dir_deg);
+    _s('gk-st-wind-dir-yest', (!isNaN(wdDeg)) ? `${Math.round(wdDeg)}° ${degreesToCompass(wdDeg)}` : '--');
+    _s('gk-st-wind-run',  sf(y.wind_run_km,        0, ' km'));
+    _s('gk-st-rain-rate', sf(y.rain_rate_max_mmhr,  1, ' mm/hr'));
+
+    // Atmospheric & station
+    _s('gk-st-emc',         sf(y.emc,             1, '%'));
+    _s('gk-st-air-density', sf(y.air_density_kgm3, 4, ' kg/m³'));
+    const cc = parseFloat(y.night_cloud_cover);
+    _s('gk-st-cloud', (!isNaN(cc)) ? `${(cc * 100).toFixed(0)}%` : '--');
+    const rx = parseFloat(y.iss_reception);
+    const rxEl = document.getElementById('gk-st-reception');
+    if (rxEl) {
+        if (!isNaN(rx)) {
+            rxEl.textContent = rx.toFixed(0) + '%';
+            rxEl.style.color = rx < 80 ? '#e74c3c' : rx < 95 ? '#d4ac0d' : '#27ae60';
+        } else { rxEl.textContent = '--'; }
+    }
+}
+
+// ── Golfer Weather Station Card ────────────────────────────────────
+function updateGolferStation() {
+    // Live readings (from wx object)
+    const _s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    if (wx.temp !== null) {
+        _s('go-st-temp', wx.temp.toFixed(1) + '°C');
+        // Feels like: use heat_index tile value if available, otherwise wx.temp
+        const hlEl = document.getElementById('tile-feelslike-val');
+        _s('go-st-feels', 'Feels like ' + (hlEl ? hlEl.textContent : wx.temp.toFixed(1) + '°C'));
+    }
+    if (wx.windKmh !== null) {
+        _s('go-st-wind', wx.windKmh.toFixed(0) + ' km/h');
+        _s('go-st-winddir', 'Direction ' + (wx.windDir || '--'));
+    }
+    // UV from forecast
+    const uvEl = document.getElementById('tile-uv-val');
+    if (uvEl && uvEl.textContent && uvEl.textContent !== '--') {
+        const uvVal = parseFloat(uvEl.textContent);
+        _s('go-st-uv-live', uvEl.textContent);
+        const uvCat = uvVal >= 11 ? 'Extreme' : uvVal >= 8 ? 'Very High' : uvVal >= 6 ? 'High' : uvVal >= 3 ? 'Moderate' : 'Low';
+        _s('go-st-uv-cat', uvCat);
+    }
+
+    // Yesterday's data from CSV
+    const offsetMs = sydneyOffsetMs();
+    const yest = new Date(Date.now() + offsetMs - 86400000).toISOString().slice(0, 10);
+    const y = _csvDaily[yest] || {};
+    const sf = (v, dec, unit) => (v != null && v !== '' && v !== 'None' && !isNaN(parseFloat(v)))
+        ? parseFloat(v).toFixed(dec) + unit : '--';
+
+    _s('go-st-solar',      sf(y.solar_rad_avg, 0, ' W/m² avg'));
+    _s('go-st-solar-peak', 'Peak: ' + sf(y.solar_rad_hi, 0, ' W/m²'));
+    _s('go-st-uvdose',     sf(y.uv_dose, 1, ' MEDs'));
+    _s('go-st-thsw-go',    sf(y.thsw_index_c, 1, '°C'));
+    _s('go-st-windrun',    sf(y.wind_run_km, 0, ' km'));
+    _s('go-st-dew',        sf(y.dew_point_c, 1, '°C'));
+
+    // Air density with ball flight note
+    const ad = parseFloat(y.air_density_kgm3);
+    const adEl = document.getElementById('go-st-airdens');
+    const adNote = document.getElementById('go-st-airdens-note');
+    if (!isNaN(ad) && adEl) {
+        adEl.textContent = ad.toFixed(4) + ' kg/m³';
+        // Standard air density ≈ 1.225 kg/m³; lower = ball flies further
+        if (adNote) {
+            const diff = ad - 1.225;
+            if (Math.abs(diff) < 0.005) adNote.textContent = 'Normal ball flight';
+            else if (diff < 0) adNote.textContent = `↑ ${Math.abs(diff * 100).toFixed(1)}% less dense — ball flies further`;
+            else adNote.textContent = `↓ ${Math.abs(diff * 100).toFixed(1)}% more dense — ball flies shorter`;
+        }
+    } else if (adEl) { adEl.textContent = '--'; }
+}
+
 // ── Growing Degree Days Card ──────────────────────────────────────
 function updateGDD() {
     const el = document.getElementById('gdd-content');
@@ -5098,6 +5337,7 @@ async function getWeatherData() {
         checkCartsOnPaths();
         updateMowWindow();
         updateRainfallSummary();
+        updateGolferStation();
 
         // Last updated
         lastUpdateTime = Date.now();
@@ -5340,6 +5580,8 @@ async function fetchHistoricalWeather() {
         renderWeekly();
         updateRecommendation();
         updateGDD();
+        updateStationYesterdayData();
+        updateGolferStation();
     }
 }
 
