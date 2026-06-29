@@ -835,6 +835,15 @@ RISK_ROW_BG = {
 # Shared inline style fragments
 # Note: linear-gradient is stripped by most email clients — use solid background-color
 # and the bgcolor HTML attribute (Outlook reads the attribute, not the CSS property).
+_EMAIL_MOBILE_STYLE = """<style type="text/css">
+@media only screen and (max-width:620px) {
+  table[width="600"], table[width="640"] { width:100% !important; max-width:100% !important; }
+  td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
+  .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
+  .mob-full  { width:100% !important; }
+}
+</style>"""
+
 _HDR = ('background-color:#1a4a2e;'
         'padding:18px 24px;')
 _CIRCLE = ('display:inline-block;width:32px;height:32px;line-height:32px;'
@@ -866,7 +875,9 @@ def sec_header(num, title, subtitle=''):
     sub_html = (f'<tr><td colspan="2" style="padding:4px 0 0 0;'
                 f'color:#a8d8bc;font-size:12px;">{subtitle}</td></tr>'
                 if subtitle else '')
-    return f"""<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;">
+    return f"""<tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
       <table cellpadding="0" cellspacing="0" width="100%">
         <tr>
           <td width="44" valign="middle" style="width:44px;">
@@ -1022,7 +1033,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
         forecast_html = f"""
   {sec_header('5', '4-Day Forecast', 'Open-Meteo forecast for Wagga Wagga')}
-  <tr><td style="background:white;padding:20px 24px 28px;">
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>{''.join(cols)}</tr>
     </table>
@@ -1033,6 +1044,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
@@ -1068,7 +1080,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {sec_header('1', 'Yesterday at a Glance', f'Key weather measurements for {yesterday_str}')}
 
-  <tr><td style="background:white;padding:20px 24px 8px;">
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
     <!-- Row 1: Temp / Rain / Wind -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
       <tr>
@@ -1144,7 +1156,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth - base temperatures apply')}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:5px;vertical-align:top;">
@@ -1191,7 +1203,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {sec_header('3', 'Disease Risk', 'Yesterday actuals + estimated outlook from forecast')}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <div style="margin-bottom:14px;">
       <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
           padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
@@ -1261,7 +1273,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {sec_header('4', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
 
-  <tr><td style="background:white;padding:20px 24px 28px;">
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="33%" style="padding-right:6px;text-align:center;">
@@ -1368,7 +1380,11 @@ def build_weekly_html(history, week_end_date):
 
     html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
+</head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
@@ -1396,7 +1412,7 @@ def build_weekly_html(history, week_end_date):
 
   {w_sec1}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
       <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
@@ -1435,7 +1451,7 @@ def build_weekly_html(history, week_end_date):
 
   {w_sec2}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="25%" style="padding-right:6px;vertical-align:top;">
@@ -1501,7 +1517,7 @@ def build_weekly_html(history, week_end_date):
 
   {w_sec3}
 
-  <tr><td style="background:white;padding:20px 24px 28px;">
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:6px;vertical-align:top;">
@@ -1603,7 +1619,11 @@ def build_monthly_html(history, month_label):
 
     html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
+</head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
@@ -1631,7 +1651,7 @@ def build_monthly_html(history, month_label):
 
   {m_sec1}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:11px;">
       <tr style="background:#1a4a2e;">
@@ -1668,7 +1688,7 @@ def build_monthly_html(history, month_label):
 
   {m_sec2}
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="20%" style="padding-right:5px;vertical-align:top;">
@@ -1742,7 +1762,7 @@ def build_monthly_html(history, month_label):
 
   {m_sec3}
 
-  <tr><td style="background:white;padding:20px 24px 28px;">
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:6px;vertical-align:top;">
@@ -1913,7 +1933,7 @@ def build_yearly_html(history, year_label):
         margin-left:38px;">Aggregated weather totals for each month of the year</div>
   </td></tr>
 
-  <tr><td style="background:white;padding:20px 24px;">
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
       <tr style="background:#1a4a2e;">
@@ -1961,7 +1981,7 @@ def build_yearly_html(history, year_label):
         margin-left:38px;">Key totals for the full year</div>
   </td></tr>
 
-  <tr><td style="background:white;padding:20px 24px 28px;">
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="25%" style="padding-right:5px;vertical-align:top;">

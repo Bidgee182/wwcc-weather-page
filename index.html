@@ -4660,7 +4660,14 @@ async function _writeKiosk(messages) {
         `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message.json`,
         { method: 'PUT', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
-    if (!r.ok) throw new Error(((await r.json()).message) || r.statusText);
+    if (!r.ok) {
+        const errBody = await r.json().catch(() => ({}));
+        const msg = errBody.message || r.statusText;
+        if (r.status === 401) throw new Error('GitHub token invalid or expired — re-enter your token below.');
+        if (r.status === 403) throw new Error('GitHub token lacks write permission — ensure it has Contents: Write scope.');
+        if (r.status === 409) throw new Error('Save conflict — another device saved simultaneously. Reload and retry.');
+        throw new Error(msg);
+    }
 }
 
 async function addKioskMessage() {
