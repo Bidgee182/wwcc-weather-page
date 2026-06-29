@@ -4226,9 +4226,13 @@ function renderNightBanner() {
         const tomorrowSunriseMs = fc.tomorrowSunriseIso ? parseLocal(fc.tomorrowSunriseIso) : null;
         const nextPreDawn = now < preDawnMs ? preDawnMs : (tomorrowSunriseMs ? tomorrowSunriseMs - 90 * 60000 : null);
         const nextSunrise = now < sunriseMs ? sunriseMs : tomorrowSunriseMs;
-        const warning = frostRisk ? '&#9888; Frost risk - check greens before first mow'
-                      : dewOnGreens ? 'Dew on greens expected overnight'
-                      : 'Overnight recovery in progress';
+        const rainToday = wx.rainToday || 0;
+        const fcRainNote = forecastRain3Day !== null && forecastRain3Day >= 5
+            ? ` · ${forecastRain3Day.toFixed(0)} mm forecast next 3 days` : '';
+        const warning = frostRisk    ? '&#9888; Frost risk - check greens before first mow'
+                      : rainToday >= 1 ? `Course wet - ${rainToday.toFixed(1)} mm rain today · greens soaked${fcRainNote}`
+                      : dewOnGreens    ? `Dew on greens expected overnight${fcRainNote}`
+                      : `Overnight recovery in progress${fcRainNote}`;
 
         const nightStats = [
             tempStr,
@@ -4256,8 +4260,10 @@ function renderNightBanner() {
     // ── PRE-DAWN MODE - 90 to 30 min before sunrise ──
     if (now >= preDawnMs && now < firstLightMs) {
         const minsToSunrise = Math.max(0, Math.round((sunriseMs - now) / 60000));
-        const condition = frostRisk   ? '&#9888; Frost possible - inspect greens now'
-                        : dewOnGreens ? 'Dew on greens - squeegee or wait for burn-off'
+        const rainTodayPD = wx.rainToday || 0;
+        const condition = frostRisk      ? '&#9888; Frost possible - inspect greens now'
+                        : rainTodayPD >= 1 ? `Course wet after ${rainTodayPD.toFixed(1)} mm rain - greens need clearing before play`
+                        : dewOnGreens    ? 'Dew on greens - squeegee or wait for burn-off'
                         : 'Greens should be clear of dew';
 
         const predawnStats = [
