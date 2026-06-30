@@ -6316,6 +6316,12 @@ function _renderTankGraph(samples) {
             ? d.toLocaleTimeString('en-AU',  { hour:'2-digit', minute:'2-digit', hour12:false })
             : d.toLocaleDateString('en-AU',  { day:'numeric', month:'short' });
     });
+    const tooltipLabels = samples.map(s => {
+        const d = new Date(s.date);
+        return _tankRange <= 24
+            ? d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false })
+            : d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+    });
 
     // Gradient fill
     const ctx  = canvas.getContext('2d');
@@ -6381,7 +6387,7 @@ function _renderTankGraph(samples) {
                     bodyColor: '#ecf0f1',
                     padding: 10,
                     callbacks: {
-                        title:  items  => labels[items[0].dataIndex],
+                        title:  items  => tooltipLabels[items[0].dataIndex],
                         label:  item   => {
                             const i = item.dataIndex;
                             return [`${vals[i].toFixed(1)}%`, `${volsKL[i]} kL`];
