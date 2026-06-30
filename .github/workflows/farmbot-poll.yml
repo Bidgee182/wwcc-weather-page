@@ -60,6 +60,6 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add data/farmbot_latest.json data/farmbot_history.json
+          git add data/farmbot_latest.json data/farmbot_history.json 2>/dev/null || git add data/
           git diff --staged --quiet || git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
