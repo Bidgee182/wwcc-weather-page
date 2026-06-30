@@ -7,60 +7,43 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: List FarmBot sensors
+      - name: Test FarmBot credentials and list sensors
         env:
           FARMBOT_CLIENT_ID:     ${{ secrets.FARMBOT_CLIENT_ID }}
           FARMBOT_CLIENT_SECRET: ${{ secrets.FARMBOT_CLIENT_SECRET }}
         run: |
-          B64=$(echo -n "${FARMBOT_CLIENT_ID}:${FARMBOT_CLIENT_SECRET}" | base64 -w 0)
-          echo "--- Attempt 1: with scope ---"
-          R1=$(curl -s -X POST \
+          echo "=== Attempt 1: Basic auth with scope ==="
+          B64=$(printf '%s' "${FARMBOT_CLIENT_ID}:${FARMBOT_CLIENT_SECRET}" | base64 -w 0)
+          RESP=$(curl -s -X POST \
             "https://fmbt-internal-production-ap-southeast-2.auth.ap-southeast-2.amazoncognito.com/oauth2/token" \
             -H "Authorization: Basic ${B64}" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=client_credentials&scope=public-api%2Fget-sensor-data")
-          echo "$R1"
-
-          echo ""
-          echo "--- Attempt 2: without scope ---"
-          R2=$(curl -s -X POST \
-            "https://fmbt-internal-production-ap-southeast-2.auth.ap-southeast-2.amazoncognito.com/oauth2/token" \
-            -H "Authorization: Basic ${B64}" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=client_credentials")
-          echo "$R2"
-
-          echo ""
-          echo "--- Attempt 3: credentials in body ---"
-          R3=$(curl -s -X POST \
-            "https://fmbt-internal-production-ap-southeast-2.auth.ap-southeast-2.amazoncognito.com/oauth2/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "grant_type=client_credentials&client_id=${FARMBOT_CLIENT_ID}&client_secret=${FARMBOT_CLIENT_SECRET}&scope=public-api%2Fget-sensor-data")
-          echo "$R3"
-
-          echo ""
-          echo "--- Extracting token from any successful attempt ---"
-          TOKEN=$(echo "$R1 $R2 $R3" | python3 -c "
-import sys, json
-for part in sys.stdin.read().split('}'):
-    try:
-        d = json.loads(part + '}')
-        if 'access_token' in d:
-            print(d['access_token'])
-            break
-    except: pass
-" 2>/dev/null || echo "")
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "scope=public-api/get-sensor-data")
+          echo "$RESP"
+          TOKEN=$(echo "$RESP" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
           if [ -z "$TOKEN" ]; then
-            echo "All auth attempts failed. Credentials may not be activated yet."
+            echo ""
+            echo "=== Attempt 2: No scope ==="
+            RESP2=$(curl -s -X POST \
+              "https://fmbt-internal-production-ap-southeast-2.auth.ap-southeast-2.amazoncognito.com/oauth2/token" \
+              -H "Authorization: Basic ${B64}" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              --data-urlencode "grant_type=client_credentials")
+            echo "$RESP2"
+            TOKEN=$(echo "$RESP2" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+          fi
+
+          if [ -z "$TOKEN" ]; then
+            echo ""
+            echo "=== All auth attempts failed. Credentials not activated yet. ==="
             exit 1
           fi
 
-          echo "Auth successful!"
           echo ""
-          echo "--- Your sensors ---"
+          echo "=== Auth SUCCESS - listing sensors ==="
           curl -s \
             "https://api.myxbot-production-au.fmbt.io/public-api/v1/sensor" \
             -H "Authorization: Bearer $TOKEN" \
-            -H "Accept: application/json" \
-            | python3 -m json.tool
+            -H "Accept: application/json"
