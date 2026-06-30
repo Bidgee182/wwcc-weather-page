@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tank Graph Options — Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1b2a;
+      color: #ecf0f1;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    .page-note {
+      background: #1a3a5c;
+      border-left: 4px solid #3498db;
+      color: #b3d4f0;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #ecf0f1;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: #0f2030;
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid #1e3a55;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ecf0f1;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .card .desc {
+      font-size: 12px;
+      color: #7f8c9a;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .card .desc strong {
+      color: #a8c0d0;
+    }
+
+    /* Chart.js canvas wrapper */
+    .chart-wrapper {
+      position: relative;
+      height: 220px;
+      width: 100%;
+    }
+
+    /* SVG graph wrapper */
+    .svg-wrapper {
+      position: relative;
+      width: 100%;
+      height: 220px;
+    }
+
+    .svg-wrapper svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Option D — light card */
+    .card-light {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid #dee2e6;
+    }
+
+    .card-light h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+
+    .card-light .desc {
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .card-light .desc strong {
+      color: #495057;
+    }
+
+    /* Shared SVG tooltip */
+    .svg-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: #1a2e42;
+      border: 1px solid #2e5070;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #ecf0f1;
+      display: none;
+      z-index: 10;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .svg-tooltip .tt-date { color: #7fb8d8; font-size: 11px; margin-bottom: 3px; }
+    .svg-tooltip .tt-val  { font-weight: 700; font-size: 13px; }
+    .svg-tooltip .tt-kl   { color: #a8c0d0; font-size: 11px; }
+
+    /* Option D light tooltip */
+    .svg-tooltip-light {
+      position: absolute;
+      pointer-events: none;
+      background: #ffffff;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #212529;
+      display: none;
+      z-index: 10;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+
+    .svg-tooltip-light .tt-date { color: #6c757d; font-size: 11px; margin-bottom: 3px; }
+    .svg-tooltip-light .tt-val  { font-weight: 700; font-size: 13px; color: #1a1a2e; }
+    .svg-tooltip-light .tt-kl   { color: #6c757d; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<div class="page-note">
+  Demo graphs for tank level history — open in browser to preview, tell Andre which you prefer
+</div>
+
+<h1 style="margin-bottom:20px;">Tank Level Graph Options</h1>
+
+<div class="grid">
+
+  <!-- ========== OPTION A — Chart.js ========== -->
+  <div class="card">
+    <h2>Option A — Chart.js (library)</h2>
+    <p class="desc">
+      <strong>Pros:</strong> Polished look, easy tooltips, built-in animation, gradient fill trivial.<br>
+      <strong>Cons:</strong> Requires CDN load (~60 KB), slight dependency risk if offline.
+    </p>
+    <div class="chart-wrapper">
+      <canvas id="chartA"></canvas>
+    </div>
+  </div>
+
+  <!-- ========== OPTION B — SVG adaptive Y-axis ========== -->
+  <div class="card">
+    <h2>Option B — SVG adaptive Y-axis</h2>
+    <p class="desc">
+      <strong>Pros:</strong> Zero deps, data fills full vertical space so changes are very readable.<br>
+      <strong>Cons:</strong> Y-axis is zoomed in, so it may look misleading if someone expects 0–100%.
+    </p>
+    <div class="svg-wrapper" id="wrapperB">
+      <svg id="svgB" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="svg-tooltip" id="ttB">
+        <div class="tt-date" id="ttB-date"></div>
+        <div class="tt-val"  id="ttB-val"></div>
+        <div class="tt-kl"   id="ttB-kl"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== OPTION C — SVG 0-100% zones ========== -->
+  <div class="card">
+    <h2>Option C — SVG full range (0–100%) with colour zones</h2>
+    <p class="desc">
+      <strong>Pros:</strong> Instantly shows tank is "mostly full", coloured zones give context at a glance.<br>
+      <strong>Cons:</strong> Small fluctuations look flat when zoomed to full 0–100% scale.
+    </p>
+    <div class="svg-wrapper" id="wrapperC">
+      <svg id="svgC" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="svg-tooltip" id="ttC">
+        <div class="tt-date" id="ttC-date"></div>
+        <div class="tt-val"  id="ttC-val"></div>
+        <div class="tt-kl"   id="ttC-kl"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== OPTION D — Sparkline / FarmBot style ========== -->
+  <div class="card-light">
+    <h2>Option D — Minimal sparkline (FarmBot style)</h2>
+    <p class="desc">
+      <strong>Pros:</strong> Clean, professional, works in light-themed UI, very readable data line.<br>
+      <strong>Cons:</strong> Light theme contrasts with the rest of the dark dashboard.
+    </p>
+    <div class="svg-wrapper" id="wrapperD">
+      <svg id="svgD" viewBox="0 0 600 220" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="svg-tooltip-light" id="ttD">
+        <div class="tt-date" id="ttD-date"></div>
+        <div class="tt-val"  id="ttD-val"></div>
+        <div class="tt-kl"   id="ttD-kl"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+// ─────────────────────────────────────────────────
+// SHARED DATA
+// Tank capacity: 25,000 L
+// ─────────────────────────────────────────────────
+const TANK_KL = 25;
+
+function buildData() {
+  const now = new Date('2026-06-30T08:00:00');
+  const pts = [];
+  const raw = [
+    85, 84.5, 83.8, 83.1, 82.4, 81.7, 81.0, 80.2, 79.5, 78.9,
+    78.2, 77.5, 76.8, 76.1, 75.4, 75.0,  // slow decline
+    88.5, 88.2, 87.6, 86.9,               // refill jump
+    86.3, 85.8, 85.2, 84.7, 84.3, 84.0, 83.7, 83.4, 83.1, 82.8
+  ];
+  const n = raw.length;
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getTime() - (n - 1 - i) * 5.5 * 3600 * 1000);
+    pts.push({
+      date: d,
+      pct:  raw[i],
+      kl:   (raw[i] / 100 * TANK_KL).toFixed(1)
+    });
+  }
+  return pts;
+}
+
+const DATA = buildData();
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-AU', {weekday:'short', day:'numeric', month:'short'})
+       + ' ' + d.toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'});
+}
+
+// ─────────────────────────────────────────────────
+// OPTION A — Chart.js
+// ─────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('chartA');
+  const ctx = canvas.getContext('2d');
+
+  // Gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0,   'rgba(52,152,219,0.45)');
+  grad.addColorStop(1,   'rgba(52,152,219,0.02)');
+
+  const labels = DATA.map(p => fmtDate(p.date));
+  const values = DATA.map(p => p.pct);
+  const klVals = DATA.map(p => p.kl);
+
+  const minY = Math.min(...values) - 3;
+  const maxY = Math.max(...values) + 3;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Tank Level',
+        data: values,
+        borderColor: '#3498db',
+        borderWidth: 2,
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: '#3498db',
+        pointBorderColor: '#0f2030',
+        pointBorderWidth: 1.5,
+        pointHoverRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2e42',
+          borderColor: '#2e5070',
+          borderWidth: 1,
+          titleColor: '#7fb8d8',
+          bodyColor: '#ecf0f1',
+          padding: 10,
+          callbacks: {
+            title: (items) => labels[items[0].dataIndex],
+            label: (item) => {
+              const i = item.dataIndex;
+              return [`${values[i].toFixed(1)}%`, `${klVals[i]} kL`];
+            }
+          }
+        },
+        annotation: undefined
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#5a7a95',
+            maxTicksLimit: 7,
+            maxRotation: 0,
+            font: { size: 10 },
+            callback: function(val, idx) {
+              const d = DATA[idx].date;
+              return d.toLocaleDateString('en-AU', {day:'numeric', month:'short'});
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          border: { color: 'rgba(255,255,255,0.1)' }
+        },
+        y: {
+          min: Math.floor(minY),
+          max: Math.ceil(maxY),
+          ticks: {
+            color: '#5a7a95',
+            font: { size: 10 },
+            callback: v => v + '%'
+          },
+          grid: { color: 'rgba(255,255,255,0.07)' },
+          border: { color: 'rgba(255,255,255,0.1)' }
+        }
+      }
+    },
+    plugins: [{
+      // Threshold lines drawn as plugin
+      id: 'thresholds',
+      afterDraw(chart) {
+        const {ctx, chartArea: {left, right}, scales: {y}} = chart;
+        const drawLine = (val, color, label) => {
+          const yPx = y.getPixelForValue(val);
+          if (yPx < chart.chartArea.top || yPx > chart.chartArea.bottom) return;
+          ctx.save();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(left, yPx);
+          ctx.lineTo(right, yPx);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = color;
+          ctx.font = '10px Segoe UI, Arial';
+          ctx.fillText(label, left + 4, yPx - 4);
+          ctx.restore();
+        };
+        drawLine(75, '#2ecc71', '75% — refill');
+        drawLine(25, '#e74c3c', '25% — critical');
+      }
+    }]
+  });
+})();
+
+// ─────────────────────────────────────────────────
+// SVG HELPERS
+// ─────────────────────────────────────────────────
+
+function makeSVGPath(pts, tension) {
+  // pts: [{x,y}]
+  if (pts.length < 2) return '';
+  const T = tension || 0.4;
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i > 0 ? i - 1 : 0];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i < pts.length - 2 ? i + 2 : pts.length - 1];
+    const cp1x = p1.x + T * (p2.x - p0.x) / 3;
+    const cp1y = p1.y + T * (p2.y - p0.y) / 3;
+    const cp2x = p2.x - T * (p3.x - p1.x) / 3;
+    const cp2y = p2.y - T * (p3.y - p1.y) / 3;
+    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+function setupSVGTooltip(svgEl, wrapperEl, tooltipEl, dateEl, valEl, klEl, pts, dataArr, yMin, yMax, padL, padR, padT, padB) {
+  // pts: screen coords [{x,y}]
+  const W = 600, H = 220;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Crosshair line
+  const crossV = svgEl.querySelector('.crosshair-v') || (() => {
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.classList.add('crosshair-v');
+    l.setAttribute('stroke', 'rgba(255,255,255,0.25)');
+    l.setAttribute('stroke-width', '1');
+    l.setAttribute('stroke-dasharray', '3,3');
+    l.setAttribute('y1', padT);
+    l.setAttribute('y2', H - padB);
+    l.style.display = 'none';
+    svgEl.appendChild(l);
+    return l;
+  })();
+
+  const crossH = svgEl.querySelector('.crosshair-h') || (() => {
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.classList.add('crosshair-h');
+    l.setAttribute('stroke', 'rgba(255,255,255,0.25)');
+    l.setAttribute('stroke-width', '1');
+    l.setAttribute('stroke-dasharray', '3,3');
+    l.setAttribute('x1', padL);
+    l.setAttribute('x2', W - padR);
+    l.style.display = 'none';
+    svgEl.appendChild(l);
+    return l;
+  })();
+
+  const dot = svgEl.querySelector('.hover-dot') || (() => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.classList.add('hover-dot');
+    c.setAttribute('r', '5');
+    c.setAttribute('fill', '#3498db');
+    c.setAttribute('stroke', '#fff');
+    c.setAttribute('stroke-width', '2');
+    c.style.display = 'none';
+    svgEl.appendChild(c);
+    return c;
+  })();
+
+  // Overlay rect for mouse events
+  const overlay = svgEl.querySelector('.mouse-overlay') || (() => {
+    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.classList.add('mouse-overlay');
+    r.setAttribute('x', padL);
+    r.setAttribute('y', padT);
+    r.setAttribute('width', chartW);
+    r.setAttribute('height', chartH);
+    r.setAttribute('fill', 'transparent');
+    r.style.cursor = 'crosshair';
+    svgEl.appendChild(r);
+    return r;
+  })();
+
+  overlay.addEventListener('mousemove', (e) => {
+    const rect = wrapperEl.getBoundingClientRect();
+    const svgRect = svgEl.getBoundingClientRect();
+    const scaleX = W / svgRect.width;
+    const scaleY = H / svgRect.height;
+    const mx = (e.clientX - svgRect.left) * scaleX;
+
+    // Find nearest point
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].x - mx);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+
+    const p = pts[bestIdx];
+    const dp = dataArr[bestIdx];
+
+    crossV.setAttribute('x1', p.x);
+    crossV.setAttribute('x2', p.x);
+    crossV.style.display = '';
+    crossH.setAttribute('y1', p.y);
+    crossH.setAttribute('y2', p.y);
+    crossH.style.display = '';
+    dot.setAttribute('cx', p.x);
+    dot.setAttribute('cy', p.y);
+    dot.style.display = '';
+
+    dateEl.textContent = fmtDate(dp.date);
+    valEl.textContent  = dp.pct.toFixed(1) + '%';
+    klEl.textContent   = dp.kl + ' kL';
+
+    tooltipEl.style.display = 'block';
+    const tipW = 140, tipH = 60;
+    let tx = e.clientX - rect.left + 12;
+    let ty = e.clientY - rect.top  - 30;
+    if (tx + tipW > rect.width)  tx = e.clientX - rect.left - tipW - 12;
+    if (ty < 0) ty = 4;
+    tooltipEl.style.left = tx + 'px';
+    tooltipEl.style.top  = ty + 'px';
+  });
+
+  overlay.addEventListener('mouseleave', () => {
+    crossV.style.display = 'none';
+    crossH.style.display = 'none';
+    dot.style.display    = 'none';
+    tooltipEl.style.display = 'none';
+  });
+}
+
+// ─────────────────────────────────────────────────
+// OPTION B — SVG adaptive Y-axis
+// ─────────────────────────────────────────────────
+(function() {
+  const svg    = document.getElementById('svgB');
+  const tt     = document.getElementById('ttB');
+  const ttDate = document.getElementById('ttB-date');
+  const ttVal  = document.getElementById('ttB-val');
+  const ttKl   = document.getElementById('ttB-kl');
+  const wrap   = document.getElementById('wrapperB');
+
+  const W = 600, H = 220;
+  const padL = 46, padR = 12, padT = 14, padB = 34;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const rawMin = Math.min(...DATA.map(p => p.pct));
+  const rawMax = Math.max(...DATA.map(p => p.pct));
+  const yMin   = Math.floor(rawMin - 5);
+  const yMax   = Math.ceil(rawMax + 5);
+  const yRange = yMax - yMin;
+
+  function toScreenX(i) { return padL + (i / (DATA.length - 1)) * chartW; }
+  function toScreenY(v) { return padT + (1 - (v - yMin) / yRange) * chartH; }
+
+  // Defs
+  const defs = svgEl('defs', {});
+
+  const grad = svgEl('linearGradient', {id:'gradB', x1:'0', y1: padT, x2:'0', y2: H - padB, gradientUnits:'userSpaceOnUse'});
+  const s1 = svgEl('stop', {offset:'0%',   'stop-color':'#3498db', 'stop-opacity':'0.4'});
+  const s2 = svgEl('stop', {offset:'100%', 'stop-color':'#3498db', 'stop-opacity':'0.02'});
+  grad.appendChild(s1); grad.appendChild(s2);
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  // Background
+  svg.appendChild(svgEl('rect', {x:0,y:0,width:W,height:H,fill:'#0f2030'}));
+
+  // Grid lines
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = yMin + (i / gridSteps) * yRange;
+    const y = toScreenY(v);
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:'rgba(255,255,255,0.06)', 'stroke-width':'1'}));
+    const lbl = svgEl('text', {x:padL-6, y:y+4, fill:'#5a7a95', 'font-size':'9',
+      'text-anchor':'end', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = Math.round(v) + '%';
+    svg.appendChild(lbl);
+  }
+
+  // Threshold lines
+  const thresholds = [{v:75, color:'#2ecc71', label:'75%'}, {v:25, color:'#e74c3c', label:'25%'}];
+  for (const {v, color, label} of thresholds) {
+    if (v < yMin || v > yMax) continue;
+    const y = toScreenY(v);
+    const tl = svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:color, 'stroke-width':'1.2', 'stroke-dasharray':'6,4'});
+    svg.appendChild(tl);
+    const ttt = svgEl('text', {x:padL+4, y:y-4, fill:color, 'font-size':'9',
+      'font-family':'Segoe UI,Arial'});
+    ttt.textContent = label;
+    svg.appendChild(ttt);
+  }
+
+  // Screen pts
+  const pts = DATA.map((p, i) => ({x: toScreenX(i), y: toScreenY(p.pct)}));
+
+  // Area fill path
+  const linePath = makeSVGPath(pts, 0.4);
+  const lastPt = pts[pts.length - 1];
+  const areaPath = linePath + ` L ${lastPt.x} ${H - padB} L ${pts[0].x} ${H - padB} Z`;
+  svg.appendChild(svgEl('path', {d: areaPath, fill:'url(#gradB)', stroke:'none'}));
+
+  // Line
+  svg.appendChild(svgEl('path', {d: linePath, fill:'none', stroke:'#3498db',
+    'stroke-width':'2', 'stroke-linejoin':'round', 'stroke-linecap':'round'}));
+
+  // X-axis date labels
+  const xStep = Math.ceil(DATA.length / 6);
+  DATA.forEach((p, i) => {
+    if (i % xStep !== 0 && i !== DATA.length - 1) return;
+    const x = toScreenX(i);
+    const lbl = svgEl('text', {x, y: H - padB + 14, fill:'#5a7a95', 'font-size':'9',
+      'text-anchor':'middle', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = p.date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
+    svg.appendChild(lbl);
+  });
+
+  setupSVGTooltip(svg, wrap, tt, ttDate, ttVal, ttKl, pts, DATA, yMin, yMax, padL, padR, padT, padB);
+})();
+
+// ─────────────────────────────────────────────────
+// OPTION C — SVG 0-100% zones
+// ─────────────────────────────────────────────────
+(function() {
+  const svg    = document.getElementById('svgC');
+  const tt     = document.getElementById('ttC');
+  const ttDate = document.getElementById('ttC-date');
+  const ttVal  = document.getElementById('ttC-val');
+  const ttKl   = document.getElementById('ttC-kl');
+  const wrap   = document.getElementById('wrapperC');
+
+  const W = 600, H = 220;
+  const padL = 46, padR = 12, padT = 14, padB = 34;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const yMin = 0, yMax = 100, yRange = 100;
+
+  function toScreenX(i) { return padL + (i / (DATA.length - 1)) * chartW; }
+  function toScreenY(v) { return padT + (1 - (v - yMin) / yRange) * chartH; }
+
+  // Defs
+  const defs = svgEl('defs', {});
+
+  const gradC = svgEl('linearGradient', {id:'gradC', x1:'0', y1:'0', x2:'0', y2:'1'});
+  gradC.appendChild(svgEl('stop', {offset:'0%',   'stop-color':'#ecf0f1', 'stop-opacity':'0.35'}));
+  gradC.appendChild(svgEl('stop', {offset:'100%', 'stop-color':'#ecf0f1', 'stop-opacity':'0.02'}));
+  defs.appendChild(gradC);
+  svg.appendChild(defs);
+
+  // Background
+  svg.appendChild(svgEl('rect', {x:0,y:0,width:W,height:H,fill:'#0f2030'}));
+
+  // Colour zones (chart area only)
+  const zones = [
+    {lo:75, hi:100, color:'rgba(46,204,113,0.08)'},
+    {lo:50,  hi:75, color:'rgba(243,156,18,0.07)'},
+    {lo:25,  hi:50, color:'rgba(230,126,34,0.07)'},
+    {lo:0,   hi:25, color:'rgba(231,76,60,0.09)'}
+  ];
+  for (const {lo, hi, color} of zones) {
+    const y1 = toScreenY(hi);
+    const y2 = toScreenY(lo);
+    svg.appendChild(svgEl('rect', {x:padL, y:y1, width:chartW, height:y2-y1, fill:color}));
+  }
+
+  // Grid lines + Y labels
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = i * 25;
+    const y = toScreenY(v);
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:'rgba(255,255,255,0.07)', 'stroke-width':'1'}));
+    const lbl = svgEl('text', {x:padL-6, y:y+4, fill:'#5a7a95', 'font-size':'9',
+      'text-anchor':'end', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = v + '%';
+    svg.appendChild(lbl);
+  }
+
+  // Threshold dashed lines
+  const threshC = [{v:75, color:'rgba(46,204,113,0.7)', label:'75%'},
+                   {v:25, color:'rgba(231,76,60,0.7)',  label:'25%'}];
+  for (const {v, color, label} of threshC) {
+    const y = toScreenY(v);
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:color, 'stroke-width':'1.2', 'stroke-dasharray':'6,4'}));
+    const ttt = svgEl('text', {x:padL+4, y:y-4, fill:color, 'font-size':'9',
+      'font-family':'Segoe UI,Arial'});
+    ttt.textContent = label;
+    svg.appendChild(ttt);
+  }
+
+  // Screen pts
+  const pts = DATA.map((p, i) => ({x: toScreenX(i), y: toScreenY(p.pct)}));
+
+  const linePath = makeSVGPath(pts, 0.4);
+  const lastPt = pts[pts.length - 1];
+  const areaPath = linePath + ` L ${lastPt.x} ${H - padB} L ${pts[0].x} ${H - padB} Z`;
+  svg.appendChild(svgEl('path', {d: areaPath, fill:'url(#gradC)', stroke:'none'}));
+  svg.appendChild(svgEl('path', {d: linePath, fill:'none', stroke:'#ecf0f1',
+    'stroke-width':'2.2', 'stroke-linejoin':'round', 'stroke-linecap':'round'}));
+
+  // X labels
+  const xStep = Math.ceil(DATA.length / 6);
+  DATA.forEach((p, i) => {
+    if (i % xStep !== 0 && i !== DATA.length - 1) return;
+    const x = toScreenX(i);
+    const lbl = svgEl('text', {x, y: H - padB + 14, fill:'#5a7a95', 'font-size':'9',
+      'text-anchor':'middle', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = p.date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
+    svg.appendChild(lbl);
+  });
+
+  setupSVGTooltip(svg, wrap, tt, ttDate, ttVal, ttKl, pts, DATA, yMin, yMax, padL, padR, padT, padB);
+})();
+
+// ─────────────────────────────────────────────────
+// OPTION D — Minimal sparkline (light theme)
+// ─────────────────────────────────────────────────
+(function() {
+  const svg    = document.getElementById('svgD');
+  const tt     = document.getElementById('ttD');
+  const ttDate = document.getElementById('ttD-date');
+  const ttVal  = document.getElementById('ttD-val');
+  const ttKl   = document.getElementById('ttD-kl');
+  const wrap   = document.getElementById('wrapperD');
+
+  const W = 600, H = 220;
+  const padL = 46, padR = 16, padT = 14, padB = 34;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const rawMin = Math.min(...DATA.map(p => p.pct));
+  const rawMax = Math.max(...DATA.map(p => p.pct));
+  const yMin   = Math.floor(rawMin - 3);
+  const yMax   = Math.ceil(rawMax + 3);
+  const yRange = yMax - yMin;
+
+  function toScreenX(i) { return padL + (i / (DATA.length - 1)) * chartW; }
+  function toScreenY(v) { return padT + (1 - (v - yMin) / yRange) * chartH; }
+
+  // Background — white/light
+  svg.appendChild(svgEl('rect', {x:0,y:0,width:W,height:H,fill:'#ffffff'}));
+  // Chart area subtle bg
+  svg.appendChild(svgEl('rect', {x:padL,y:padT,width:chartW,height:chartH,fill:'#f8f9fa'}));
+
+  // Grid lines
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = yMin + (i / gridSteps) * yRange;
+    const y = toScreenY(v);
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:'#e9ecef', 'stroke-width':'1'}));
+    const lbl = svgEl('text', {x:padL-6, y:y+4, fill:'#adb5bd', 'font-size':'9',
+      'text-anchor':'end', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = Math.round(v) + '%';
+    svg.appendChild(lbl);
+  }
+
+  // Threshold dashed lines
+  const threshD = [
+    {v:75, color:'#f39c12', label:'75% refill', dash:'5,4'},
+    {v:25, color:'#e74c3c', label:'25% critical', dash:'5,4'}
+  ];
+  for (const {v, color, label, dash} of threshD) {
+    if (v < yMin || v > yMax) continue;
+    const y = toScreenY(v);
+    svg.appendChild(svgEl('line', {x1:padL, y1:y, x2:W-padR, y2:y,
+      stroke:color, 'stroke-width':'1.2', 'stroke-dasharray':dash}));
+    const ttt = svgEl('text', {x:padL+4, y:y-4, fill:color, 'font-size':'9',
+      'font-family':'Segoe UI,Arial'});
+    ttt.textContent = label;
+    svg.appendChild(ttt);
+  }
+
+  // Screen pts
+  const pts = DATA.map((p, i) => ({x: toScreenX(i), y: toScreenY(p.pct)}));
+
+  // Thin line, NO fill
+  const linePath = makeSVGPath(pts, 0.4);
+  svg.appendChild(svgEl('path', {d: linePath, fill:'none', stroke:'#2980b9',
+    'stroke-width':'1.5', 'stroke-linejoin':'round', 'stroke-linecap':'round'}));
+
+  // Dots on data points
+  for (const p of pts) {
+    svg.appendChild(svgEl('circle', {cx:p.x, cy:p.y, r:'3',
+      fill:'#2980b9', stroke:'#fff', 'stroke-width':'1.2'}));
+  }
+
+  // X axis line
+  svg.appendChild(svgEl('line', {x1:padL, y1:H-padB, x2:W-padR, y2:H-padB,
+    stroke:'#ced4da', 'stroke-width':'1'}));
+  // Y axis line
+  svg.appendChild(svgEl('line', {x1:padL, y1:padT, x2:padL, y2:H-padB,
+    stroke:'#ced4da', 'stroke-width':'1'}));
+
+  // X labels
+  const xStep = Math.ceil(DATA.length / 6);
+  DATA.forEach((p, i) => {
+    if (i % xStep !== 0 && i !== DATA.length - 1) return;
+    const x = toScreenX(i);
+    const lbl = svgEl('text', {x, y: H - padB + 14, fill:'#adb5bd', 'font-size':'9',
+      'text-anchor':'middle', 'font-family':'Segoe UI,Arial'});
+    lbl.textContent = p.date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
+    svg.appendChild(lbl);
+  });
+
+  // Custom tooltip for light theme
+  const crossV2 = svgEl('line', {
+    'stroke':'rgba(41,128,185,0.35)', 'stroke-width':'1', 'stroke-dasharray':'3,3',
+    y1: padT, y2: H - padB
+  });
+  crossV2.style.display = 'none';
+  svg.appendChild(crossV2);
+
+  const dot2 = svgEl('circle', {r:'5', fill:'#2980b9', stroke:'#fff', 'stroke-width':'2'});
+  dot2.style.display = 'none';
+  svg.appendChild(dot2);
+
+  const overlay = svgEl('rect', {
+    x: padL, y: padT, width: chartW, height: chartH, fill: 'transparent'
+  });
+  overlay.style.cursor = 'crosshair';
+  svg.appendChild(overlay);
+
+  overlay.addEventListener('mousemove', (e) => {
+    const rect  = wrap.getBoundingClientRect();
+    const svgRect = svg.getBoundingClientRect();
+    const scaleX = W / svgRect.width;
+    const mx = (e.clientX - svgRect.left) * scaleX;
+
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].x - mx);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+
+    const p  = pts[bestIdx];
+    const dp = DATA[bestIdx];
+
+    crossV2.setAttribute('x1', p.x); crossV2.setAttribute('x2', p.x);
+    crossV2.style.display = '';
+    dot2.setAttribute('cx', p.x); dot2.setAttribute('cy', p.y);
+    dot2.style.display = '';
+
+    ttDate.textContent = fmtDate(dp.date);
+    ttVal.textContent  = dp.pct.toFixed(1) + '%';
+    ttKl.textContent   = dp.kl + ' kL';
+
+    tt.style.display = 'block';
+    const tipW = 148;
+    let tx = e.clientX - rect.left + 12;
+    let ty = e.clientY - rect.top  - 30;
+    if (tx + tipW > rect.width) tx = e.clientX - rect.left - tipW - 12;
+    if (ty < 0) ty = 4;
+    tt.style.left = tx + 'px';
+    tt.style.top  = ty + 'px';
+  });
+
+  overlay.addEventListener('mouseleave', () => {
+    crossV2.style.display = 'none';
+    dot2.style.display    = 'none';
+    tt.style.display      = 'none';
+  });
+})();
+</script>
+</body>
+</html>
