@@ -19,6 +19,10 @@ on:
         required: false
         default: '2025-01-01'
 
+concurrency:
+  group: farmbot-poll
+  cancel-in-progress: false   # let the current run finish; skip the queued one
+
 jobs:
   poll:
     runs-on: ubuntu-latest
