@@ -652,7 +652,8 @@
                 <div class="spray-param sp-idle" id="sp-wind">
                     <div class="sp-val" id="spray-wind-val">--</div>
                     <div class="sp-unit" id="spray-wind-dir-badge">km/h</div>
-                    <div class="sp-lbl">Wind Speed</div>
+                    <div class="sp-lbl">Wind Speed / Dir</div>
+                    <div class="sp-range" id="sp-wind-gust-badge" style="display:none;color:#e67e22;font-size:0.8em"></div>
                     <div class="sp-range" id="sp-wind-range">Ideal &lt; 15 km/h</div>
                 </div>
             </div>
@@ -1209,7 +1210,7 @@
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Wind</div>
                 <div style="font-size:1.5em;font-weight:bold;color:#3498db;margin-top:4px" id="go-st-wind">--</div>
                 <div style="font-size:0.72em;color:#7f8c8d" id="go-st-winddir">Direction --</div>
-                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-gust" style="display:none"></div>
+                <div style="font-size:0.72em;color:#7f8c8d;display:none" id="go-st-gust"></div>
             </div>
             <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">UV Index</div>
@@ -4085,7 +4086,7 @@ function updateTileWind() {
     else if (kmh < 40)  { cls = 'gt-orange'; explain = `Strong wind from ${wx.windDir} - significant ball drift`; }
     else                { cls = 'gt-red';    explain = `Very strong wind - challenging conditions`; }
     const dir      = wx.windDir !== '--' ? ` ${wx.windDir}` : '';
-    const gustNote = wx.gustKmh && wx.gustKmh > kmh + 5 ? ` · gusts ${wx.gustKmh.toFixed(0)} km/h` : '';
+    const gustNote = wx.gustKmh && wx.gustKmh > kmh + 3 ? ` · gusts ${wx.gustKmh.toFixed(0)} km/h` : '';
     setTile('tile-wind', cls, kmh.toFixed(0) + ' km/h' + dir, explain + gustNote);
 }
 
@@ -4511,7 +4512,7 @@ function updateDetailStrip(at) {
 function renderTVCurrentCard(at, dp, nowUV) {
     if (wx.temp === null) return;
     const windStr = wx.windKmh.toFixed(0) + ' km/h' + (wx.windDir !== '--' ? ' ' + wx.windDir : '');
-    const gustStr = wx.gustKmh && wx.gustKmh > wx.windKmh + 5 ? ` (gusts ${wx.gustKmh.toFixed(0)})` : '';
+    const gustStr = wx.gustKmh && wx.gustKmh > wx.windKmh + 3 ? ` (gusts ${wx.gustKmh.toFixed(0)})` : '';
     document.getElementById('cc-temp').textContent  = wx.temp.toFixed(1) + '°C';
     document.getElementById('cc-feels').textContent = at.toFixed(1) + '°C';
     document.getElementById('cc-wind').textContent  = windStr + gustStr;
@@ -5287,6 +5288,8 @@ function renderHourlyForecast() {
         const rmm = hourlyFc.precipitation ? (hourlyFc.precipitation[i] ?? 0) : 0;
         const uv  = hourlyFc.uv_index[i] ?? 0;
         const ws  = hourlyFc.windspeed_10m[i] ?? 0;
+        const wdDeg = hourlyFc.winddirection_10m ? (hourlyFc.winddirection_10m[i] ?? null) : null;
+        const wdStr = wdDeg !== null ? degreesToCompass(wdDeg) : null;
 
         const isNow  = tHourStr === nowHourStr;
         const h      = parseInt(tStr.split('T')[1], 10);
@@ -5295,6 +5298,8 @@ function renderHourlyForecast() {
         const tCol   = t === null ? '#ecf0f1' : t > 30 ? '#e74c3c' : t < 10 ? '#74b9ff' : '#ecf0f1';
         const mmStr  = rmm >= 0.1 ? `${rmm.toFixed(1)} mm` : '0 mm';
         const mmCol  = rmm >= 0.1 ? '#74b9ff' : '#7f8c8d';
+        const windArrow = wdStr ? compassToArrow(wdStr) : '';
+        const windLine = `${Math.round(ws)} km/h${wdStr ? ' ' + wdStr + (windArrow ? ' ' + windArrow : '') : ''}`;
 
         html += `<div class="hc${isNow ? ' hc-now' : ''}">
             <div class="hc-time">${label}</div>
@@ -5303,7 +5308,7 @@ function renderHourlyForecast() {
             <div class="hc-rain"><span style="opacity:0.6;font-size:0.85em">chance </span>${rp}%</div>
             <div class="hc-rain" style="color:${mmCol}"><span style="opacity:0.6;font-size:0.85em">fcst </span>${mmStr}</div>
             <div class="hc-uv">UV ${Math.round(uv)}</div>
-            <div class="hc-wind">${Math.round(ws)} km/h</div>
+            <div class="hc-wind">${windLine}</div>
         </div>`;
         count++;
     }
@@ -5405,6 +5410,15 @@ async function getWeatherData() {
         document.getElementById('spray-temp-val').innerText      = temp.toFixed(1);
         document.getElementById('spray-wind-val').innerText      = windKmh.toFixed(0);
         document.getElementById('spray-wind-dir-badge').innerText = windDir !== '--' ? windDir : 'km/h';
+        const spGustEl = document.getElementById('sp-wind-gust-badge');
+        if (spGustEl) {
+            if (gustKmh && gustKmh > windKmh + 3) {
+                spGustEl.textContent = `Gusts ${gustKmh.toFixed(0)} km/h`;
+                spGustEl.style.display = '';
+            } else {
+                spGustEl.style.display = 'none';
+            }
+        }
         wx.temp = temp; wx.rh = rh; wx.windKmh = windKmh; wx.deltaT = deltaT;
         refreshSprayStatus();
 
