@@ -343,8 +343,9 @@
 
         /* ── Water / Tank Tab ── */
         .tank-gauge-wrap { display:flex; justify-content:center; margin:6px 0 14px; }
-        .tank-arc-bg   { fill:none; stroke:#1a252f; stroke-width:16; stroke-linecap:round; }
-        .tank-arc-fill { fill:none; stroke:#27ae60; stroke-width:16; stroke-linecap:round; stroke-dasharray:0 251.3; transition:stroke-dasharray 0.7s ease, stroke 0.4s; }
+        .tank-arc-bg   { fill:none; stroke:#1a252f; stroke-width:14; stroke-linecap:round; }
+        .tank-arc-fill { fill:none; stroke:#27ae60; stroke-width:14; stroke-linecap:round; stroke-dasharray:0 204.2; transition:stroke-dasharray 0.7s ease, stroke 0.4s; }
+        #tank-fill-rect { transition:height 0.7s ease, fill 0.4s; }
         .tank-history-range { display:flex; gap:6px; margin-bottom:10px; }
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; transition:background 0.2s,color 0.2s; }
         .tank-range-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
@@ -935,22 +936,35 @@
             <div id="tank-error" style="display:none;background:#3d1a1a;border-left:3px solid #e74c3c;padding:8px 10px;border-radius:4px;font-size:0.8em;color:#e74c3c;margin-bottom:10px"></div>
             <div id="tank-unconfigured" style="display:none"></div>
             <div id="tank-live-content">
-                <!-- Semi-circle gauge -->
+                <!-- Vertical tank fill gauge -->
                 <div class="tank-gauge-wrap">
-                    <svg id="tank-gauge-svg" viewBox="0 0 200 120" width="260" height="156">
-                        <path class="tank-arc-bg"   d="M 20,100 A 80,80 0 0,1 180,100"/>
-                        <path class="tank-arc-fill" id="tank-arc-fill" d="M 20,100 A 80,80 0 0,1 180,100"/>
-                        <text id="tank-pct-text" x="100" y="80" text-anchor="middle" dominant-baseline="middle" fill="#ecf0f1" font-size="30" font-weight="bold" font-family="Arial,sans-serif">--</text>
-                        <text id="tank-vol-text" x="100" y="96" text-anchor="middle" fill="#7f8c8d" font-size="9" font-family="Arial,sans-serif">-- kL</text>
-                        <text x="17"  y="114" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">0%</text>
-                        <text x="100" y="18"  text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">50%</text>
-                        <text x="183" y="114" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">100%</text>
+                    <svg id="tank-gauge-svg" viewBox="0 0 160 195" width="140" height="171" style="display:block;margin:0 auto">
+                        <defs>
+                            <clipPath id="tank-clip">
+                                <rect x="13" y="13" width="84" height="159" rx="10"/>
+                            </clipPath>
+                        </defs>
+                        <!-- Tank body -->
+                        <rect x="10" y="10" width="90" height="165" rx="12" fill="#0d1b2a" stroke="#3d5166" stroke-width="2.5"/>
+                        <!-- Water fill (clipped to tank shape) -->
+                        <rect id="tank-fill-rect" x="13" y="172" width="84" height="0" fill="#2980b9" clip-path="url(#tank-clip)"/>
+                        <!-- Threshold lines -->
+                        <line x1="13" y1="132" x2="97" y2="132" stroke="#e74c3c" stroke-width="1.2" stroke-dasharray="4,2" opacity="0.8"/>
+                        <line x1="13" y1="77"  x2="97" y2="77"  stroke="#d4ac0d" stroke-width="1.2" stroke-dasharray="4,2" opacity="0.8"/>
+                        <!-- Labels on right -->
+                        <text x="103" y="17"  fill="#566573" font-size="7.5" font-family="Arial,sans-serif">100%</text>
+                        <text x="103" y="80"  fill="#d4ac0d" font-size="7.5" font-family="Arial,sans-serif">60%</text>
+                        <text x="103" y="135" fill="#e74c3c" font-size="7.5" font-family="Arial,sans-serif">25%</text>
+                        <text x="103" y="172" fill="#566573" font-size="7.5" font-family="Arial,sans-serif">0%</text>
+                        <!-- Centre text -->
+                        <text id="tank-pct-text" x="55" y="87"  text-anchor="middle" dominant-baseline="middle" fill="#ecf0f1" font-size="26" font-weight="bold" font-family="Arial,sans-serif">--</text>
+                        <text id="tank-vol-text" x="55" y="106" text-anchor="middle" fill="#7f8c8d" font-size="9" font-family="Arial,sans-serif">-- kL</text>
                     </svg>
                 </div>
                 <div class="irr-metrics">
                     <div class="irr-metric"><div class="lbl">Status</div><div class="val" id="tank-status" style="font-size:0.9em">--</div></div>
                     <div class="irr-metric"><div class="lbl">Last Reading</div><div class="val" id="tank-last-reading" style="font-size:0.75em;line-height:1.2">--</div></div>
-                    <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="tank-battery">--</div></div>
+                    <div class="irr-metric"><div class="lbl">Updated</div><div class="val" id="tank-upd-inline" style="font-size:0.75em">--</div></div>
                 </div>
             </div>
         </div>
@@ -964,8 +978,8 @@
                 <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
             </div>
             <div class="tank-graph-wrap">
-                <svg id="tank-graph-svg" viewBox="0 0 400 140" preserveAspectRatio="none" style="height:140px;display:block;width:100%">
-                    <text x="200" y="75" text-anchor="middle" fill="#566573" font-size="11" font-family="Arial,sans-serif">Awaiting data...</text>
+                <svg id="tank-graph-svg" viewBox="0 0 500 130" preserveAspectRatio="none" style="height:130px;display:block;width:100%">
+                    <text x="250" y="70" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Awaiting data...</text>
                 </svg>
             </div>
             <div class="tank-stat-row">
@@ -6244,43 +6258,45 @@ initTVMode();
 initSprayProductSelect();
 // ── FarmBot Tank / Water functions ──────────────────────────────────
 
-const _FB_ARC_LEN = Math.PI * 80; // arc length of M 20,100 A 80,80 0 0,1 180,100
-let   _tankRange  = 24;            // hours currently shown in graph (24 / 168 / 720)
-let   _tankLatest  = null;         // cached farmbot_latest.json
-let   _tankHistory = null;         // cached farmbot_history.json
+let   _tankRange  = 24;   // hours currently shown in graph (24 / 168 / 720)
+let   _tankLatest  = null;
+let   _tankHistory = null;
 
-function _renderTankGauge(arcFillId, pctTextId, pct) {
-    const filled = (Math.min(100, Math.max(0, pct)) / 100) * _FB_ARC_LEN;
-    const el = document.getElementById(arcFillId);
-    if (!el) return;
-    el.style.strokeDasharray = filled + ' ' + (_FB_ARC_LEN - filled);
-    const color = pct >= 50 ? '#27ae60' : pct >= 20 ? '#d4ac0d' : '#e74c3c';
-    el.style.stroke = color;
-    const txt = document.getElementById(pctTextId);
-    if (txt) { txt.textContent = Math.round(pct) + '%'; txt.style.fill = color; }
+function _renderTankGauge(pct) {
+    const innerTop = 13, innerH = 159;  // clip rect dimensions
+    const clamped  = Math.min(100, Math.max(0, pct));
+    const fillH    = (clamped / 100) * innerH;
+    const fillY    = innerTop + innerH - fillH;
+    const color    = pct >= 60 ? '#2980b9' : pct >= 25 ? '#d4ac0d' : '#e74c3c';
+
+    const fillEl = document.getElementById('tank-fill-rect');
+    if (fillEl) {
+        fillEl.setAttribute('y',      fillY.toFixed(1));
+        fillEl.setAttribute('height', fillH.toFixed(1));
+        fillEl.setAttribute('fill',   color);
+    }
+    const txtEl = document.getElementById('tank-pct-text');
+    if (txtEl) txtEl.textContent = Math.round(pct) + '%';
 }
 
 function _renderTankGraph(samples) {
-    // samples: array of {date, pct, [used_l]}
     const svg = document.getElementById('tank-graph-svg');
     if (!svg) return;
     if (!samples || samples.length < 2) {
-        svg.innerHTML = '<text x="200" y="75" text-anchor="middle" fill="#566573" font-size="11" font-family="Arial,sans-serif">Not enough data for this range</text>';
+        svg.innerHTML = '<text x="250" y="70" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Not enough data for this range</text>';
         ['tank-hist-min','tank-hist-max','tank-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
         return;
     }
-    const W = 400, H = 140, pL = 32, pR = 10, pT = 12, pB = 24;
-    const times = samples.map(s => new Date(s.date).getTime());
+    const W = 500, H = 130, pL = 36, pR = 12, pT = 10, pB = 22;
+    const n     = samples.length;
     const vals  = samples.map(s => parseFloat(s.pct ?? 0));
-    // For multi-day views, space evenly by index instead of time to avoid clustering
-    const useEvenSpacing = (_tankRange > 24 && samples.length > 3);
-    const tMin = 0, tMax = samples.length - 1;
-    const xOf  = useEvenSpacing
-        ? (_, i) => pL + (i / (tMax || 1)) * (W - pL - pR)
-        : (t)    => pL + ((t - times[0]) / ((times[times.length-1] - times[0]) || 1)) * (W - pL - pR);
-    const yOf  = v => pT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - pT - pB);
-    const minV = Math.min(...vals), maxV = Math.max(...vals);
-    const change = vals[vals.length - 1] - vals[0];
+    const times = samples.map(s => new Date(s.date).getTime());
+    const minV  = Math.min(...vals), maxV = Math.max(...vals);
+    const change = vals[n-1] - vals[0];
+
+    // Always space x evenly by index — avoids time-clustering and oval stretching
+    const xOf = i => pL + (i / (n - 1 || 1)) * (W - pL - pR);
+    const yOf = v => pT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - pT - pB);
 
     const minEl = document.getElementById('tank-hist-min'); if (minEl) minEl.textContent = Math.round(minV) + '%';
     const maxEl = document.getElementById('tank-hist-max'); if (maxEl) maxEl.textContent = Math.round(maxV) + '%';
@@ -6288,47 +6304,43 @@ function _renderTankGraph(samples) {
     if (chEl) { chEl.textContent = (change >= 0 ? '+' : '') + Math.round(change) + '%'; chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c'; }
 
     let html = '';
-    // Grid lines
-    [0, 25, 50, 75, 100].forEach(pct => {
+    // Horizontal grid lines
+    [0, 25, 60, 100].forEach(pct => {
         const y = yOf(pct);
-        const emph = (pct === 25 || pct === 50 || pct === 75);
-        html += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}" stroke="${emph ? '#3d5166' : '#1e2f3c'}" stroke-width="${emph ? '0.8' : '0.4'}" ${emph ? 'stroke-dasharray="4,3"' : ''}/>`;
-        html += `<text x="${pL-3}" y="${(y+2.5).toFixed(1)}" text-anchor="end" fill="#566573" font-size="7" font-family="Arial,sans-serif">${pct}</text>`;
+        const isDashed = (pct === 25 || pct === 60);
+        html += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}"
+            stroke="${isDashed ? '#3d5166' : '#1e2f3c'}" stroke-width="${isDashed ? '0.8' : '0.5'}"
+            ${isDashed ? 'stroke-dasharray="5,3"' : ''}/>`;
+        html += `<text x="${pL-4}" y="${(y+3).toFixed(1)}" text-anchor="end" fill="#566573"
+            font-size="9" font-family="Arial,sans-serif">${pct}</text>`;
     });
-    // Critical zone
-    html += `<rect x="${pL}" y="${yOf(25).toFixed(1)}" width="${W-pL-pR}" height="${(yOf(0)-yOf(25)).toFixed(1)}" fill="rgba(192,57,43,0.08)"/>`;
-    // Area fill
-    const xs = samples.map((s,i) => useEvenSpacing ? xOf(null,i) : xOf(times[i]));
+    // Shaded critical zone (below 25%)
+    html += `<rect x="${pL}" y="${yOf(25).toFixed(1)}" width="${W-pL-pR}"
+        height="${(yOf(0)-yOf(25)).toFixed(1)}" fill="rgba(192,57,43,0.08)"/>`;
+
+    // Build point arrays
+    const xs = samples.map((_,i) => xOf(i));
     const ys = vals.map(v => yOf(v));
     const pts = xs.map((x,i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
-    html += `<polygon points="${xs[0].toFixed(1)},${yOf(0).toFixed(1)} ${pts} ${xs[xs.length-1].toFixed(1)},${yOf(0).toFixed(1)}" fill="rgba(41,128,185,0.15)"/>`;
-    // Line
-    html += `<polyline points="${pts}" fill="none" stroke="#2980b9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    // Data points (only show for sparse data)
-    if (samples.length <= 20) {
-        xs.forEach((x, i) => {
-            const c = vals[i] >= 60 ? '#27ae60' : vals[i] >= 25 ? '#d4ac0d' : '#e74c3c';
-            html += `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="3" fill="${c}" stroke="#1a252f" stroke-width="1.2"/>`;
-        });
-    }
-    // Latest dot (always shown)
-    const lx = xs[xs.length-1], ly = ys[ys.length-1];
-    const lc = vals[vals.length-1] >= 60 ? '#27ae60' : vals[vals.length-1] >= 25 ? '#d4ac0d' : '#e74c3c';
-    html += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" fill="${lc}" stroke="#1a252f" stroke-width="1.5"/>`;
-    // X labels — pick evenly spaced labels (max 6)
-    const n = samples.length;
-    const maxLabels = Math.min(6, n);
-    const labelIdxs = Array.from({length: maxLabels}, (_,i) => Math.round(i * (n-1) / (maxLabels-1)));
-    const seen = new Set();
-    labelIdxs.forEach(i => {
+
+    // Area fill under the line
+    html += `<polygon points="${xs[0].toFixed(1)},${yOf(0).toFixed(1)} ${pts} ${xs[n-1].toFixed(1)},${yOf(0).toFixed(1)}"
+        fill="rgba(41,128,185,0.14)"/>`;
+    // The line itself — clean, no dots
+    html += `<polyline points="${pts}" fill="none" stroke="#2980b9" stroke-width="2.2"
+        stroke-linejoin="round" stroke-linecap="round"/>`;
+
+    // X-axis date/time labels — up to 6, evenly spaced
+    const maxLbls = Math.min(6, n);
+    const lblIdxs = Array.from({length: maxLbls}, (_,i) => Math.round(i * (n-1) / (maxLbls-1)));
+    lblIdxs.forEach(i => {
         const d = new Date(times[i]);
         const lbl = _tankRange <= 24
             ? d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false })
             : d.toLocaleDateString('en-AU',  { day:'numeric', month:'short' });
-        if (seen.has(lbl)) return; seen.add(lbl);
-        const x = useEvenSpacing ? xOf(null,i) : xOf(times[i]);
         const anchor = i === 0 ? 'start' : i === n-1 ? 'end' : 'middle';
-        html += `<text x="${x.toFixed(1)}" y="${H-6}" text-anchor="${anchor}" fill="#566573" font-size="7.5" font-family="Arial,sans-serif">${lbl}</text>`;
+        html += `<text x="${xs[i].toFixed(1)}" y="${H-4}" text-anchor="${anchor}"
+            fill="#566573" font-size="9" font-family="Arial,sans-serif">${lbl}</text>`;
     });
     svg.innerHTML = html;
 }
@@ -6343,19 +6355,18 @@ async function fetchTankData() {
 
         const pct  = parseFloat(_tankLatest.tank_pct ?? 0);
         const volL = _tankLatest.tank_volume_l;
-        const bat  = _tankLatest.tank_battery;
         const td   = _tankLatest.tank_date;
 
-        _renderTankGauge('tank-arc-fill', 'tank-pct-text', pct);
+        _renderTankGauge(pct);
 
         const volTextEl = document.getElementById('tank-vol-text');
         if (volTextEl) volTextEl.textContent = volL != null ? (volL / 1000).toFixed(1) + ' kL' : '-- kL';
         const stEl = document.getElementById('tank-status');
         if (stEl) stEl.textContent = pct >= 90 ? '\uD83D\uDFE2 Full' : pct >= 60 ? '\uD83D\uDFE2 Good' : pct >= 25 ? '\uD83D\uDFE1 Low' : '\uD83D\uDD34 Critical';
-        const batEl = document.getElementById('tank-battery');
-        if (batEl) batEl.textContent = bat != null ? bat + '%' : 'N/A';
         const lrEl = document.getElementById('tank-last-reading');
         if (lrEl && td) lrEl.textContent = new Date(td).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
+        const updEl2 = document.getElementById('tank-upd-inline');
+        if (updEl2) updEl2.textContent = new Date(_tankLatest.updated_at || Date.now()).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
 
         // ── Graph: 24h uses tank_graph from latest.json; 7d/30d uses farmbot_history.json ──
         let samples;
@@ -6381,8 +6392,6 @@ async function fetchTankData() {
         if (lakeLive)        lakeLive.style.display        = 'none';
 
         if (errEl) errEl.style.display = 'none';
-        const updEl = document.getElementById('tank-upd-farmbot');
-        if (updEl) updEl.textContent = new Date(_tankLatest.updated_at || Date.now()).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
     } catch(e) {
         if (errEl) { errEl.textContent = '\u26A0 Tank data unavailable: ' + e.message; errEl.style.display = 'block'; }
         console.error('[FarmBot]', e);
