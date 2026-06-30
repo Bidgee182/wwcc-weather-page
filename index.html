@@ -346,9 +346,15 @@
         .tank-arc-bg   { fill:none; stroke:#1a252f; stroke-width:14; stroke-linecap:round; }
         .tank-arc-fill { fill:none; stroke:#27ae60; stroke-width:14; stroke-linecap:round; stroke-dasharray:0 204.2; transition:stroke-dasharray 0.7s ease, stroke 0.4s; }
         #tank-fill-rect { transition:height 0.7s ease, fill 0.4s; }
-        .tank-history-range { display:flex; gap:6px; margin-bottom:10px; }
+        .tank-history-range { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; transition:background 0.2s,color 0.2s; }
         .tank-range-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
+        .tank-custom-row { display:none; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+        .tank-custom-row.visible { display:flex; }
+        .tank-custom-row input[type="date"] { background:#1a252f; border:1px solid #3d5166; color:#ecf0f1; border-radius:6px; padding:5px 10px; font-size:0.78em; cursor:pointer; }
+        .tank-custom-row input[type="date"]::-webkit-calendar-picker-indicator { filter:invert(0.6) brightness(1.4); cursor:pointer; }
+        .tank-custom-row label { color:#566573; font-size:0.78em; }
+        .tank-apply-btn { background:#2980b9; border:1px solid #2980b9; color:white; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; font-weight:bold; }
         .tank-graph-wrap { width:100%; }
         .tank-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
         .lake-placeholder { background:#1a252f; border:1px dashed #3d5166; border-radius:8px; padding:24px; text-align:center; }
@@ -981,6 +987,12 @@
                 <button class="tank-range-btn active" onclick="setTankRange(24)">24h</button>
                 <button class="tank-range-btn" onclick="setTankRange(168)">7 Days</button>
                 <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
+                <button class="tank-range-btn" id="tank-custom-btn" onclick="showTankCustomRange()">Custom</button>
+            </div>
+            <div class="tank-custom-row" id="tank-custom-row">
+                <label>From <input type="date" id="tank-date-from"></label>
+                <label>To <input type="date" id="tank-date-to"></label>
+                <button class="tank-apply-btn" onclick="applyTankCustomRange()">Apply</button>
             </div>
             <div class="tank-graph-wrap">
                 <div style="position:relative;height:220px;width:100%">
@@ -6263,10 +6275,12 @@ initTVMode();
 initSprayProductSelect();
 // ── FarmBot Tank / Water functions ──────────────────────────────────
 
-let   _tankRange   = 24;   // hours currently shown in graph (24 / 168 / 720)
-let   _tankLatest  = null;
-let   _tankHistory = null;
-let   _tankChart   = null;
+let   _tankRange      = 24;   // hours shown (24/168/720), or null for custom
+let   _tankLatest     = null;
+let   _tankHistory    = null;
+let   _tankChart      = null;
+let   _tankCustomFrom = null;
+let   _tankCustomTo   = null;
 
 function _renderTankGauge(pct) {
     const clamped = Math.min(100, Math.max(0, pct));
@@ -6445,19 +6459,20 @@ async function fetchTankData() {
         const updEl2 = document.getElementById('tank-upd-inline');
         if (updEl2) updEl2.textContent = new Date(_tankLatest.updated_at || Date.now()).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
 
-        // ── Graph: 24h uses tank_graph from latest.json; 7d/30d uses farmbot_history.json ──
+        // ── Graph samples ──
         let samples;
-        if (_tankRange <= 24) {
+        if (_tankRange !== null && _tankRange <= 24) {
             samples = (_tankLatest.tank_graph || []).slice();
         } else {
-            // Fetch history if not yet loaded
             if (!_tankHistory) {
                 const hResp = await fetch('data/farmbot_history.json?_=' + Date.now());
                 if (hResp.ok) _tankHistory = await hResp.json();
             }
-            const cutoffDate = new Date(Date.now() - _tankRange * 3600000).toISOString().slice(0, 10);
+            const today    = new Date().toISOString().slice(0, 10);
+            const fromDate = _tankRange === null ? _tankCustomFrom : new Date(Date.now() - _tankRange * 3600000).toISOString().slice(0, 10);
+            const toDate   = _tankRange === null ? _tankCustomTo   : today;
             samples = (_tankHistory || [])
-                .filter(d => d.date >= cutoffDate)
+                .filter(d => d.date >= fromDate && d.date <= toDate)
                 .map(d => ({ date: d.date + 'T12:00:00Z', pct: d.evening_pct ?? d.morning_pct ?? 0 }));
         }
         _renderTankGraph(samples);
@@ -6476,12 +6491,43 @@ async function fetchTankData() {
 }
 
 function setTankRange(hours) {
-    _tankRange = hours;
-    _tankHistory = null; // force re-fetch of history on range change
+    _tankRange      = hours;
+    _tankCustomFrom = null;
+    _tankCustomTo   = null;
+    _tankHistory    = null;
+    const row = document.getElementById('tank-custom-row');
+    if (row) row.classList.remove('visible');
     document.querySelectorAll('.tank-range-btn').forEach(b => {
         const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
         b.classList.toggle('active', map[hours] === b.textContent.trim());
     });
+    fetchTankData();
+}
+
+function showTankCustomRange() {
+    const row = document.getElementById('tank-custom-row');
+    if (!row) return;
+    row.classList.add('visible');
+    // Default: last 30 days
+    const fromEl = document.getElementById('tank-date-from');
+    const toEl   = document.getElementById('tank-date-to');
+    const today  = new Date().toISOString().slice(0, 10);
+    const ago30  = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    if (fromEl && !fromEl.value) fromEl.value = ago30;
+    if (toEl   && !toEl.value)   toEl.value   = today;
+    document.querySelectorAll('.tank-range-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tank-custom-btn').classList.add('active');
+}
+
+function applyTankCustomRange() {
+    const fromEl = document.getElementById('tank-date-from');
+    const toEl   = document.getElementById('tank-date-to');
+    if (!fromEl?.value || !toEl?.value) return;
+    if (fromEl.value > toEl.value) { alert('From date must be before To date'); return; }
+    _tankCustomFrom = fromEl.value;
+    _tankCustomTo   = toEl.value;
+    _tankRange      = null;
+    _tankHistory    = null;
     fetchTankData();
 }
 
