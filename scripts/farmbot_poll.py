@@ -83,9 +83,9 @@ def calc_volume(pct):
 
 def status_label(pct):
     if pct is None: return 'Unknown'
-    if pct >= 80:   return 'Full'
-    if pct >= 50:   return 'Good'
-    if pct >= 20:   return 'Low'
+    if pct >= 90:   return 'Full'
+    if pct >= 60:   return 'Good'
+    if pct >= 25:   return 'Low'
     return 'Critical'
 
 def alert_state_for(pct):
