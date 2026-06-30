@@ -4,6 +4,14 @@ on:
   schedule:
     - cron: '*/15 * * * *'   # Every 15 minutes
 
+  # Also run on code pushes (but not when the bot pushes data) — backup for when
+  # GitHub's scheduler is paused after repeated failures
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'      # don't re-trigger when the bot commits sensor data
+      - '**.md'
+
   workflow_dispatch:
     inputs:
       backfill:
