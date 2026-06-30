@@ -5305,8 +5305,7 @@ function renderHourlyForecast() {
             <div class="hc-time">${label}</div>
             <div class="hc-icon">${icon}</div>
             <div class="hc-temp" style="color:${tCol}">${t !== null ? Math.round(t) + '°' : '--'}</div>
-            <div class="hc-rain"><span style="opacity:0.6;font-size:0.85em">chance </span>${rp}%</div>
-            <div class="hc-rain" style="color:${mmCol}"><span style="opacity:0.6;font-size:0.85em">fcst </span>${mmStr}</div>
+            <div class="hc-rain">&#127783;&#65039; ${rp}% &middot; ${mmStr}</div>
             <div class="hc-uv">UV ${Math.round(uv)}</div>
             <div class="hc-wind">${windLine}</div>
         </div>`;
@@ -5573,8 +5572,7 @@ async function getForecast() {
                 <div class="fc-icon">${icon}</div>
                 <div class="fc-desc">${desc}</div>
                 <div><span class="fc-hi">${hi}°</span> / <span class="fc-lo">${lo}°</span></div>
-                <div class="fc-rain">&#128167; ${precip} mm</div>
-                <div class="fc-prob">${prob}% chance</div>
+                <div class="fc-rain">&#127783;&#65039; ${prob !== '--' ? prob + '% · ' : ''}${precip}mm</div>
                 <div class="fc-uv">&#9728; UV ${uv}</div>
             </div>`;
         }
