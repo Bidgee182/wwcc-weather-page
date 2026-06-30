@@ -243,14 +243,13 @@ def backfill(from_date='2025-01-01'):
     total_height = sensor.get('config', {}).get('totalHeight') or 170
 
     start_str = f'{from_date}T00:00:00Z'
-    end_str   = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 
     all_samples = []
     page = 1
     while True:
         resp = fb_get(token, f'sensor/{FARMBOT_TANK_SID}/sample', {
-            'pageSize': 49, 'order': 'ASC', 'page': page,
-            'startDate': start_str, 'endDate': end_str,
+            'pageSize': 48, 'order': 'ASC', 'page': page,
+            'startDate': start_str,
         })
         data = resp.get('data', [])
         all_samples.extend(data)
