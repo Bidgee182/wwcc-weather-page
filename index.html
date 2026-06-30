@@ -6377,9 +6377,10 @@ function _renderTankGraph(samples) {
                 c.fillText(lbl, left + 6, yPx - 4);
                 c.restore();
             };
-            drawLine(75, '#27ae60', '75%');
-            drawLine(50, '#e67e22', '50%');
-            drawLine(25, '#e74c3c', '25%');
+            drawLine(100, '#ecf0f1', '100%');
+            drawLine(75,  '#27ae60', '75%');
+            drawLine(50,  '#e67e22', '50%');
+            drawLine(25,  '#e74c3c', '25%');
         }
     };
 
@@ -6416,7 +6417,7 @@ function _renderTankGraph(samples) {
                 },
                 y: {
                     min: 0,
-                    max: Math.ceil(maxV  + 3),
+                    max: Math.ceil(Math.max(maxV, 100) + 3),
                     ticks: { color:'#4a6070', font:{size:10}, callback: v => v + '%' },
                     grid:  { color:'rgba(255,255,255,0.07)' },
                     border:{ color:'rgba(255,255,255,0.08)' }
