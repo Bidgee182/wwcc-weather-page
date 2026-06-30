@@ -157,20 +157,31 @@ def send_alert(pct, volume_l, state):
 
 # ── Fetch graph samples ────────────────────────────────────────────────────────
 def fetch_graph_samples(token, total_height, hours=24):
-    """Fetch up to 3 pages of samples covering the last N hours for the trend graph."""
-    start = (datetime.utcnow() - timedelta(hours=hours)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    """Fetch the most recent pages of samples and filter to the last N hours."""
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
     graph = []
-    for page in range(1, 5):
+    # Fetch DESC (newest first) so we can stop early once we pass the cutoff
+    for page in range(1, 20):
         resp = fb_get(token, f'sensor/{FARMBOT_TANK_SID}/sample', {
-            'pageSize': 10, 'order': 'ASC', 'page': page, 'startDate': start,
+            'pageSize': 10, 'order': 'DESC', 'page': page,
         })
-        for s in resp.get('data', []):
+        data = resp.get('data', [])
+        if not data:
+            break
+        for s in data:
+            try:
+                ts = datetime.fromisoformat(s['date'].replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                continue
+            if ts < cutoff:
+                # All older records from here — stop
+                return sorted(graph, key=lambda x: x['date'])
             p = calc_pct(s.get('rwValue'), total_height)
             if p is not None:
                 graph.append({'date': s['date'], 'pct': p, 'volume_l': calc_volume(p)})
         if page >= resp.get('totalPages', 1):
             break
-    return graph
+    return sorted(graph, key=lambda x: x['date'])
 
 # ── Regular poll ──────────────────────────────────────────────────────────────
 def poll():
@@ -242,14 +253,13 @@ def backfill(from_date='2025-01-01'):
     sensor       = fb_get(token, f'sensor/{FARMBOT_TANK_SID}')
     total_height = sensor.get('config', {}).get('totalHeight') or 170
 
-    start_str = f'{from_date}T00:00:00Z'
+    cutoff_date = from_date  # e.g. '2025-01-01'
 
     all_samples = []
     page = 1
     while True:
         resp = fb_get(token, f'sensor/{FARMBOT_TANK_SID}/sample', {
             'pageSize': 10, 'order': 'ASC', 'page': page,
-            'startDate': start_str,
         })
         data = resp.get('data', [])
         all_samples.extend(data)
@@ -267,6 +277,8 @@ def backfill(from_date='2025-01-01'):
         dt_utc = datetime.fromisoformat(s['date'].replace('Z', '+00:00'))
         dt_syd = dt_utc.astimezone(SYDNEY_TZ)
         d      = dt_syd.date().isoformat()
+        if d < cutoff_date:
+            continue
         by_date.setdefault(d, []).append(s)
 
     history = []
