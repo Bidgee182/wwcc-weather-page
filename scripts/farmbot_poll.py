@@ -162,7 +162,7 @@ def fetch_graph_samples(token, total_height, hours=24):
     graph = []
     for page in range(1, 5):
         resp = fb_get(token, f'sensor/{FARMBOT_TANK_SID}/sample', {
-            'pageSize': 49, 'order': 'ASC', 'page': page, 'startDate': start,
+            'pageSize': 10, 'order': 'ASC', 'page': page, 'startDate': start,
         })
         for s in resp.get('data', []):
             p = calc_pct(s.get('rwValue'), total_height)
@@ -248,7 +248,7 @@ def backfill(from_date='2025-01-01'):
     page = 1
     while True:
         resp = fb_get(token, f'sensor/{FARMBOT_TANK_SID}/sample', {
-            'pageSize': 48, 'order': 'ASC', 'page': page,
+            'pageSize': 10, 'order': 'ASC', 'page': page,
             'startDate': start_str,
         })
         data = resp.get('data', [])
