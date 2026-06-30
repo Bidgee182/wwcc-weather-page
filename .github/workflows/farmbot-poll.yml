@@ -2,7 +2,7 @@ name: FarmBot Tank Poll
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # Every 10 minutes
+    - cron: '*/15 * * * *'   # Every 15 minutes
 
   workflow_dispatch:
     inputs:
@@ -65,6 +65,10 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
           git add data/
-          git diff --staged --quiet || git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git pull --rebase origin main
-          git push
+          if git diff --staged --quiet; then
+            echo "No data changes — skipping commit and push"
+          else
+            git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase origin main
+            git push
+          fi
