@@ -978,7 +978,7 @@
                 <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
             </div>
             <div class="tank-graph-wrap">
-                <svg id="tank-graph-svg" viewBox="0 0 500 130" preserveAspectRatio="none" style="height:130px;display:block;width:100%">
+                <svg id="tank-graph-svg" viewBox="0 0 500 200" preserveAspectRatio="none" style="height:200px;display:block;width:100%">
                     <text x="250" y="70" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Awaiting data...</text>
                 </svg>
             </div>
@@ -6283,11 +6283,11 @@ function _renderTankGraph(samples) {
     const svg = document.getElementById('tank-graph-svg');
     if (!svg) return;
     if (!samples || samples.length < 2) {
-        svg.innerHTML = '<text x="250" y="70" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Not enough data for this range</text>';
+        svg.innerHTML = '<text x="250" y="100" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Not enough data for this range</text>';
         ['tank-hist-min','tank-hist-max','tank-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
         return;
     }
-    const W = 500, H = 130, pL = 36, pR = 12, pT = 10, pB = 22;
+    const W = 500, H = 200, pL = 36, pR = 12, pT = 12, pB = 26;
     const n     = samples.length;
     const vals  = samples.map(s => parseFloat(s.pct ?? 0));
     const times = samples.map(s => new Date(s.date).getTime());
