@@ -6464,16 +6464,17 @@ async function fetchTankData() {
         if (_tankRange !== null && _tankRange <= 24) {
             samples = (_tankLatest.tank_graph || []).slice();
         } else {
+            // Use farmbot_readings.json — all individual readings
             if (!_tankHistory) {
-                const hResp = await fetch('data/farmbot_history.json?_=' + Date.now());
+                const hResp = await fetch('data/farmbot_readings.json?_=' + Date.now());
                 if (hResp.ok) _tankHistory = await hResp.json();
             }
             const today    = new Date().toISOString().slice(0, 10);
             const fromDate = _tankRange === null ? _tankCustomFrom : new Date(Date.now() - _tankRange * 3600000).toISOString().slice(0, 10);
             const toDate   = _tankRange === null ? _tankCustomTo   : today;
+            // farmbot_readings.json entries: {date (UTC ISO), pct, volume_l}
             samples = (_tankHistory || [])
-                .filter(d => d.date >= fromDate && d.date <= toDate)
-                .map(d => ({ date: d.date + 'T12:00:00Z', pct: d.evening_pct ?? d.morning_pct ?? 0 }));
+                .filter(d => d.date.slice(0, 10) >= fromDate && d.date.slice(0, 10) <= toDate);
         }
         _renderTankGraph(samples);
 

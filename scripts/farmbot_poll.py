@@ -36,9 +36,10 @@ FB_AUTH_URL = 'https://auth.fmbt.io/oauth2/token'
 FB_API_BASE = 'https://api.myxbot-production-au.fmbt.io/public-api/v1'
 SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
 
-DATA_DIR     = Path('data')
-LATEST_JSON  = DATA_DIR / 'farmbot_latest.json'
-HISTORY_JSON = DATA_DIR / 'farmbot_history.json'
+DATA_DIR      = Path('data')
+LATEST_JSON   = DATA_DIR / 'farmbot_latest.json'
+HISTORY_JSON  = DATA_DIR / 'farmbot_history.json'
+READINGS_JSON = DATA_DIR / 'farmbot_readings.json'
 
 # Alert thresholds — email fires when tank DROPS INTO each band
 ALERT_LEVELS = [
@@ -225,6 +226,22 @@ def poll():
             send_alert(pct, vol, current_state)
         except Exception as e:
             log.error(f'Alert email failed: {e}')
+
+    # Append new readings to farmbot_readings.json
+    if graph:
+        existing = []
+        if READINGS_JSON.exists():
+            try:
+                existing = json.loads(READINGS_JSON.read_text())
+            except Exception:
+                pass
+        existing_dates = {r['date'] for r in existing}
+        new_entries = [s for s in graph if s['date'] not in existing_dates]
+        if new_entries:
+            existing.extend(new_entries)
+            existing.sort(key=lambda x: x['date'])
+            READINGS_JSON.write_text(json.dumps(existing, indent=2))
+            log.info(f'Appended {len(new_entries)} new readings to {READINGS_JSON} (total: {len(existing)})')
 
     # Write output
     DATA_DIR.mkdir(exist_ok=True)

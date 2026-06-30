@@ -13,15 +13,16 @@ CSV columns (dates in Australia/Sydney local time):
 """
 
 import csv, json, sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 TOTAL_HEIGHT   = 170      # cm — from FarmBot sensor config
 TANK_CAPACITY  = 250000   # litres
 
-CSV_PATH     = Path('0-4295727 Water Tank - 20260101-20260630.csv')
-HISTORY_JSON = Path('data/farmbot_history.json')
+CSV_PATH      = Path('0-4295727 Water Tank - 20260101-20260630.csv')
+HISTORY_JSON  = Path('data/farmbot_history.json')
+READINGS_JSON = Path('data/farmbot_readings.json')
 
 SYDNEY_TZ = ZoneInfo('Australia/Sydney')
 
@@ -84,3 +85,23 @@ for d in sorted(by_date.keys()):
 HISTORY_JSON.parent.mkdir(parents=True, exist_ok=True)
 HISTORY_JSON.write_text(json.dumps(history, indent=2))
 print(f'Wrote {len(history)} daily records to {HISTORY_JSON}')
+
+# ── All individual readings → farmbot_readings.json ──────────────────
+readings = []
+for d in sorted(by_date.keys()):
+    for dt_local, level_cm in sorted(by_date[d], key=lambda x: x[0]):
+        pct = calc_pct(level_cm)
+        vol = calc_volume(pct)
+        if pct is None:
+            continue
+        # Convert Sydney local time → UTC
+        dt_aware = dt_local.replace(tzinfo=SYDNEY_TZ)
+        dt_utc   = dt_aware.astimezone(timezone.utc)
+        readings.append({
+            'date':     dt_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'pct':      pct,
+            'volume_l': vol,
+        })
+
+READINGS_JSON.write_text(json.dumps(readings, indent=2))
+print(f'Wrote {len(readings)} individual readings to {READINGS_JSON}')
