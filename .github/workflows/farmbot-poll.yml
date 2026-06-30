@@ -1,0 +1,65 @@
+name: FarmBot Tank Poll
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # Every 30 minutes
+
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Backfill historical data from start date'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      backfill_from:
+        description: 'Backfill start date (YYYY-MM-DD). Default: 2025-01-01'
+        required: false
+        default: '2025-01-01'
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit data/ back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests sendgrid
+
+      - name: Run FarmBot poll / backfill
+        env:
+          FARMBOT_CLIENT_ID:      ${{ secrets.FARMBOT_CLIENT_ID }}
+          FARMBOT_CLIENT_SECRET:  ${{ secrets.FARMBOT_CLIENT_SECRET }}
+          FARMBOT_TANK_SID:       ${{ secrets.FARMBOT_TANK_SID }}
+          FARMBOT_TANK_CAPACITY_L: '250000'
+          SENDGRID_API_KEY:       ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM:             ${{ secrets.EMAIL_FROM }}
+          EMAIL_GK_RECIPIENTS:    ${{ secrets.EMAIL_GK_RECIPIENTS }}
+        run: |
+          if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
+            FROM="${{ github.event.inputs.backfill_from }}"
+            FROM="${FROM:-2025-01-01}"
+            python scripts/farmbot_poll.py --backfill --from "$FROM"
+          else
+            python scripts/farmbot_poll.py
+          fi
+
+      - name: Commit updated data to repository
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/farmbot_latest.json data/farmbot_history.json
+          git diff --staged --quiet || git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push

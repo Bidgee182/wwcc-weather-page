@@ -96,6 +96,10 @@ CSV_HEADERS = [
     'disease_alert',
     'fog_forecast',
     'lightning_forecast',
+    'tank_pct',
+    'tank_volume_l',
+    'tank_used_l',
+    'tank_refill',
 ]
 
 
@@ -807,6 +811,35 @@ def safe_float(val, default=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# FARMBOT TANK HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+FARMBOT_LATEST_JSON  = Path('data/farmbot_latest.json')
+FARMBOT_HISTORY_JSON = Path('data/farmbot_history.json')
+
+def load_farmbot_snapshot():
+    """Return the latest farmbot_latest.json dict, or {} if unavailable."""
+    try:
+        if FARMBOT_LATEST_JSON.exists():
+            return json.loads(FARMBOT_LATEST_JSON.read_text())
+    except Exception as e:
+        log.warning(f'Could not load farmbot_latest.json: {e}')
+    return {}
+
+def load_farmbot_history_day(target_date_iso):
+    """Return the farmbot_history.json entry for the given date string, or {}."""
+    try:
+        if FARMBOT_HISTORY_JSON.exists():
+            history = json.loads(FARMBOT_HISTORY_JSON.read_text())
+            for entry in history:
+                if entry.get('date') == target_date_iso:
+                    return entry
+    except Exception as e:
+        log.warning(f'Could not load farmbot_history.json: {e}')
+    return {}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HTML REPORT GENERATION
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1036,6 +1069,55 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>{''.join(cols)}</tr>
+    </table>
+  </td></tr>"""
+
+    # Section 6: Water Tank (from FarmBot, if data available for yesterday)
+    fb_snapshot = load_farmbot_snapshot()
+    tank_pct    = safe_float(row.get('tank_pct'))
+    tank_vol_l  = safe_float(row.get('tank_volume_l'))
+    tank_used_l = safe_float(row.get('tank_used_l'))
+    tank_refill = row.get('tank_refill') in (True, 'True')
+    current_pct = safe_float(fb_snapshot.get('tank_pct'))  # live reading for context
+    tank_section_html = ''
+    if tank_pct is not None:
+        tank_vol_kl  = (tank_vol_l or 0) / 1000
+        tank_used_kl = (tank_used_l or 0) / 1000
+        bar_pct      = min(100, max(0, tank_pct))
+        bar_color    = '#dc2626' if tank_pct < 20 else ('#d97706' if tank_pct < 40 else '#1a4a2e')
+        status_label = 'Critical' if tank_pct < 20 else ('Low' if tank_pct < 40 else ('Good' if tank_pct < 80 else 'Full'))
+        refill_note  = '<span style="color:#15803d;font-weight:700;">&#x2713; Refill detected</span>' if tank_refill else ''
+        live_note    = f' (live: {current_pct:.0f}%)' if current_pct is not None else ''
+        tank_section_html = f"""
+  {sec_header('6', 'Water Tank', f'End-of-day level for yesterday{live_note}')}
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="40%" style="padding-right:12px;vertical-align:middle;text-align:center;">
+          <div style="font-size:56px;font-weight:700;color:{bar_color};line-height:1;">{tank_pct:.0f}%</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">{tank_vol_kl:.1f} kL of 250 kL</div>
+          <div style="margin-top:10px;background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;">
+            <div style="width:{bar_pct:.0f}%;height:100%;background:{bar_color};border-radius:6px;"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:{bar_color};margin-top:6px;">{status_label}</div>
+        </td>
+        <td width="60%" style="vertical-align:middle;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Used Yesterday</span>
+                <div style="font-size:18px;font-weight:700;color:#111827;">{tank_used_kl:.1f} kL</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;">
+                <span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Status</span>
+                <div style="font-size:14px;font-weight:600;color:{bar_color};margin-top:2px;">{status_label} {refill_note}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
     </table>
   </td></tr>"""
 
@@ -1321,6 +1403,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {forecast_html}
 
+  {tank_section_html}
+
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
@@ -1344,7 +1428,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 def build_weekly_html(history, week_end_date):
     """Generate styled HTML for the weekly summary email."""
     date_str    = week_end_date.strftime('Week ending %A, %-d %B %Y')
-    totals      = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0}
+    totals      = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0, 'tank_used_l': 0.0}
     alert_days  = 0
     frost_days  = 0
     rows_html   = ''
@@ -1355,12 +1439,15 @@ def build_weekly_html(history, week_end_date):
         fus = row.get('fusarium_risk', '')
         if row.get('disease_alert') in ('True', True): alert_days += 1
         if row.get('frost_flag')    in ('True', True): frost_days += 1
-        totals['rain']     += safe_float(row.get('rain_mm'), 0)
-        totals['et']       += safe_float(row.get('et_mm'), 0)
-        totals['gdd_bent'] += safe_float(row.get('gdd_bent'), 0)
-        totals['gdd_kik']  += safe_float(row.get('gdd_kik'), 0)
+        totals['rain']         += safe_float(row.get('rain_mm'), 0)
+        totals['et']           += safe_float(row.get('et_mm'), 0)
+        totals['gdd_bent']     += safe_float(row.get('gdd_bent'), 0)
+        totals['gdd_kik']      += safe_float(row.get('gdd_kik'), 0)
+        totals['tank_used_l']  += safe_float(row.get('tank_used_l'), 0)
         ds_cell  = risk_badge(ds)  if ds  else '--'
         fus_cell = risk_badge(fus) if fus else '--'
+        tank_pct = safe_float(row.get('tank_pct'))
+        tank_cell = f'{tank_pct:.0f}%' if tank_pct is not None else '--'
         rows_html += f"""
       <tr style="background:{bg};">
         <td style="padding:9px 12px;font-size:12px;color:#374151;border-bottom:1px solid #f1f5f9;white-space:nowrap;">{row.get('date','')}</td>
@@ -1371,6 +1458,7 @@ def build_weekly_html(history, week_end_date):
         <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{ds_cell}</td>
         <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{fus_cell}</td>
         <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{row.get('spray_go_hours','--')} hrs</td>
+        <td style="padding:9px 12px;font-size:12px;text-align:center;border-bottom:1px solid #f1f5f9;">{tank_cell}</td>
       </tr>"""
 
     water_bal = totals['rain'] - totals['et']
@@ -1432,6 +1520,8 @@ def build_weekly_html(history, week_end_date):
             font-weight:700;letter-spacing:0.5px;">Fusarium</th>
         <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
             font-weight:700;letter-spacing:0.5px;">Spray GO</th>
+        <th style="padding:10px 12px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Tank</th>
       </tr>
       {rows_html}
       <tr style="background:#e8f5ee;">
@@ -1445,6 +1535,8 @@ def build_weekly_html(history, week_end_date):
         <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;
             text-align:center;">{totals['gdd_bent']:.1f}</td>
         <td></td><td></td><td></td>
+        <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1a4a2e;
+            text-align:center;">{totals['tank_used_l']/1000:.1f} kL used</td>
       </tr>
     </table>
   </td></tr>
@@ -1508,6 +1600,20 @@ def build_weekly_html(history, week_end_date):
               <div style="font-size:24px;font-weight:700;color:#713f12;
                   line-height:1;">{totals['gdd_bent']:.1f}</div>
               <div style="font-size:11px;color:#92400e;margin-top:4px;">this week</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="4" style="padding-top:8px;">
+          <table width="100%" cellpadding="14" cellspacing="0"
+              style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#1e40af;margin-bottom:6px;">Tank Water Used</div>
+              <div style="font-size:24px;font-weight:700;color:#1d4ed8;
+                  line-height:1;">{totals['tank_used_l']/1000:.1f}</div>
+              <div style="font-size:11px;color:#3b82f6;margin-top:4px;">kL this week</div>
             </td></tr>
           </table>
         </td>
@@ -1584,7 +1690,7 @@ def build_weekly_html(history, week_end_date):
 
 def build_monthly_html(history, month_label):
     """Generate styled HTML for the monthly summary email."""
-    totals     = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0}
+    totals     = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0, 'tank_used_l': 0.0}
     alert_days = 0
     frost_days = 0
     rows_html  = ''
@@ -1595,10 +1701,11 @@ def build_monthly_html(history, month_label):
         fus = row.get('fusarium_risk', '')
         if row.get('disease_alert') in ('True', True): alert_days += 1
         if row.get('frost_flag')    in ('True', True): frost_days += 1
-        totals['rain']     += safe_float(row.get('rain_mm'), 0)
-        totals['et']       += safe_float(row.get('et_mm'), 0)
-        totals['gdd_bent'] += safe_float(row.get('gdd_bent'), 0)
-        totals['gdd_kik']  += safe_float(row.get('gdd_kik'), 0)
+        totals['rain']         += safe_float(row.get('rain_mm'), 0)
+        totals['et']           += safe_float(row.get('et_mm'), 0)
+        totals['gdd_bent']     += safe_float(row.get('gdd_bent'), 0)
+        totals['gdd_kik']      += safe_float(row.get('gdd_kik'), 0)
+        totals['tank_used_l']  += safe_float(row.get('tank_used_l'), 0)
         ds_cell  = risk_badge(ds)  if ds  else '--'
         fus_cell = risk_badge(fus) if fus else '--'
         rows_html += f"""
@@ -1616,6 +1723,7 @@ def build_monthly_html(history, month_label):
     m_sec1 = sec_header('1', 'Daily Records',          'Complete daily log for the month')
     m_sec2 = sec_header('2', 'Monthly Totals',         'Cumulative water, evapotranspiration and heat for the month')
     m_sec3 = sec_header('3', 'Disease &amp; Frost Summary', 'Alert days recorded during the month')
+    m_sec4 = sec_header('4', 'Water Tank',             'FarmBot tank usage for the month')
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1800,6 +1908,39 @@ def build_monthly_html(history, month_label):
               <div style="font-size:12px;
                   color:{'#1e40af' if frost_days > 0 else '#166534'};margin-top:6px;">
                   {'nights below 2°C' if frost_days > 0 else 'No frost this month'}</div>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  {m_sec4}
+
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="50%" style="padding-right:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#1e40af;margin-bottom:8px;">Total Used</div>
+              <div style="font-size:44px;font-weight:700;color:#1d4ed8;line-height:1;">
+                  {totals['tank_used_l']/1000:.0f}</div>
+              <div style="font-size:12px;color:#3b82f6;margin-top:6px;">kL this month</div>
+            </td></tr>
+          </table>
+        </td>
+        <td width="50%" style="padding-left:6px;vertical-align:top;">
+          <table width="100%" cellpadding="16" cellspacing="0"
+              style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#065f46;margin-bottom:8px;">Daily Average</div>
+              <div style="font-size:44px;font-weight:700;color:#15803d;line-height:1;">
+                  {(totals['tank_used_l']/1000/max(len(history),1)):.1f}</div>
+              <div style="font-size:12px;color:#166534;margin-top:6px;">kL per day</div>
             </td></tr>
           </table>
         </td>
@@ -2309,6 +2450,13 @@ def backfill_history(from_date, to_date, force=False):
             'lightning_forecast':  False,
         }
 
+        # Add FarmBot tank data from history file if available
+        fb_day = load_farmbot_history_day(target_date.isoformat())
+        row['tank_pct']      = fb_day.get('evening_pct')
+        row['tank_volume_l'] = round((fb_day.get('evening_pct') or 0) / 100 * 250000) if fb_day.get('evening_pct') is not None else None
+        row['tank_used_l']   = fb_day.get('used_l')
+        row['tank_refill']   = fb_day.get('refill', False)
+
         existing[target_date.isoformat()] = row
         log.info(
             f'  ✓ max={d["temp_max"]}°C min={d["temp_min"]}°C '
@@ -2495,6 +2643,13 @@ def main():
         'fog_forecast':       fog_forecast,
         'lightning_forecast': lightning_forecast,
     }
+
+    # ── 5b. Add FarmBot tank data for yesterday ────────────────────────────
+    fb_day = load_farmbot_history_day(yesterday.isoformat())
+    row['tank_pct']      = fb_day.get('evening_pct')   # end-of-day level
+    row['tank_volume_l'] = round((fb_day.get('evening_pct') or 0) / 100 * 250000) if fb_day.get('evening_pct') is not None else None
+    row['tank_used_l']   = fb_day.get('used_l')
+    row['tank_refill']   = fb_day.get('refill', False)
 
     # ── 6. Save CSV row ────────────────────────────────────────────────────
     log.info('Appending row to daily_log.csv...')
