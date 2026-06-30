@@ -621,7 +621,8 @@
         <button class="gk-tab-btn"        data-gktab="irrigation" onclick="switchGKTab('irrigation')">&#128167; Irrigation</button>
         <button class="gk-tab-btn"        data-gktab="station"    onclick="switchGKTab('station')"   >&#128225; Station</button>
         <button class="gk-tab-btn"        data-gktab="reports"    onclick="switchGKTab('reports')"   >&#128229; Reports</button>
-        <button class="gk-tab-btn"        data-gktab="water"      onclick="switchGKTab('water')"     >&#128167; Water</button>
+        <button class="gk-tab-btn"        data-gktab="water"      onclick="switchGKTab('water')"     >&#128167; Water Tank</button>
+        <button class="gk-tab-btn"        data-gktab="lake"       onclick="switchGKTab('lake')"      >&#127754; Lake Level</button>
         <button class="gk-tab-btn"        data-gktab="gdd"        onclick="switchGKTab('gdd')"       >&#127777;&#65039; GDD</button>
     </div>
     </div>
@@ -1006,9 +1007,14 @@
             </div>
         </div>
 
-        <!-- Lake / Dam Level Placeholder -->
+        <div class="gk-tab-footer">FarmBot: <span id="tank-upd-farmbot">--</span></div>
+    </div><!-- end gk-tab-water -->
+
+    <!-- ── GK Tab: Lake Level ── -->
+    <div id="gk-tab-lake" class="gk-tab-panel">
+
         <div class="card">
-            <h2>&#127754; Lake / Dam Level</h2>
+            <h2>&#127754; Lake Albert Water Level</h2>
             <div id="lake-live-content" style="display:none">
                 <div class="tank-gauge-wrap">
                     <svg id="lake-gauge-svg" viewBox="0 0 160 90" width="260" height="150">
@@ -1031,12 +1037,12 @@
             <div id="lake-placeholder-content" class="lake-placeholder">
                 <div class="lp-icon">&#128679;</div>
                 <div class="lp-title">Sensor not yet installed</div>
-                <div class="lp-desc">A FarmBot Dam sensor will be installed at the course lake.<br>Once installed, add the sensor SID as <code style="background:#0d1117;padding:1px 5px;border-radius:3px">FARMBOT_LAKE_SID</code> in the GitHub Actions workflow and this card will activate automatically.</div>
+                <div class="lp-desc">A FarmBot sensor will be installed at Lake Albert.<br>Once installed, add the sensor SID as <code style="background:#0d1117;padding:1px 5px;border-radius:3px">FARMBOT_LAKE_SID</code> in the GitHub Actions workflow and this card will activate automatically.</div>
             </div>
         </div>
 
-        <div class="gk-tab-footer">FarmBot: <span id="tank-upd-farmbot">--</span></div>
-    </div><!-- end gk-tab-water -->
+        <div class="gk-tab-footer">FarmBot: <span id="lake-upd-farmbot">--</span></div>
+    </div><!-- end gk-tab-lake -->
 
     <!-- ── GK Tab: GDD ── -->
     <div id="gk-tab-gdd" class="gk-tab-panel">
@@ -1903,7 +1909,7 @@ function toggleWeeklyBreakdown() {
 }
 
 function switchGKTab(tab) {
-    ['spray', 'disease', 'mow', 'irrigation', 'station', 'reports', 'water', 'gdd'].forEach(t => {
+    ['spray', 'disease', 'mow', 'irrigation', 'station', 'reports', 'water', 'lake', 'gdd'].forEach(t => {
         const panel = document.getElementById('gk-tab-' + t);
         const btn   = document.querySelector(`.gk-tab-btn[data-gktab="${t}"]`);
         if (panel) panel.classList.toggle('gk-active', t === tab);
