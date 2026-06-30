@@ -4610,7 +4610,7 @@ function _buildTickerItems() {
     if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c', type: 'urgent', urgent: true });
     if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff', type: 'alert' });
     if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6', type: 'alert' });
-    if (_wx_alerts.carts)     items.push({ text: 'Course wet - carts on paths only', icon: '🛺', color: '#2980b9', type: 'urgent', urgent: true, flash: 'blue' });
+    if (_wx_alerts.carts)     items.push({ text: 'COURSE IS WET • Please keep all golf carts on the cart paths at all times. Thank you for helping protect the course.', icon: '🌧️', color: '#2980b9', type: 'urgent', urgent: true, flash: 'blue' });
     const now = new Date();
     for (const m of _customMessages) {
         if (!m.text) continue;
