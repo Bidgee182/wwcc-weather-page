@@ -139,6 +139,7 @@
         .cb-good        { background: linear-gradient(135deg, #6e5200, #d4ac0d); }
         .cb-fair        { background: linear-gradient(135deg, #6e3a00, #e67e22); }
         .cb-tough       { background: linear-gradient(135deg, #6e1a15, #c0392b); }
+        .cb-very-tough  { background: linear-gradient(135deg, #3d0a00, #7d1a00); border: 2px solid #e74c3c; animation: lightning-pulse 2s ease-in-out infinite; }
         .cb-danger      { background: linear-gradient(135deg, #1a0000, #5c0000); border: 2px solid #ff1a1a; }
         .cb-night   { background: linear-gradient(135deg, #060c18, #0f1e3a); border: 1px solid #1e3255; }
         .cb-predawn { background: linear-gradient(135deg, #120820, #2a1545, #3d2010); }
@@ -4500,8 +4501,9 @@ function updatePlayabilityBanner(at) {
     else if (score <= 1)  { rating = 'Excellent';   bannerCls = 'cb-excellent';   }
     else if (score <= 3)  { rating = 'Good';        bannerCls = 'cb-good';        }
     else if (score <= 5)  { rating = 'Fair';        bannerCls = 'cb-fair';        }
-    else if (score <= 7)  { rating = 'Tough';       bannerCls = 'cb-tough';       }
-    else                  { rating = 'Not Playable'; bannerCls = 'cb-danger';     }
+    else if (score <= 7)  { rating = 'Tough';        bannerCls = 'cb-tough';      }
+    else if (score <= 10) { rating = 'Very Tough';   bannerCls = 'cb-very-tough'; }
+    else                  { rating = 'Not Playable';  bannerCls = 'cb-danger';     }
 
     const detail = [`Feels ${at.toFixed(1)}°C`].concat(factors);
     document.getElementById('comfort-banner').className = 'comfort-banner ' + bannerCls;
