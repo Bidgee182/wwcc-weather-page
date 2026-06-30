@@ -6332,9 +6332,7 @@ function _renderTankGraph(samples) {
     });
     const tooltipLabels = samples.map(s => {
         const d = new Date(s.date);
-        return _tankRange <= 24
-            ? d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false })
-            : d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+        return d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
     });
 
     // Gradient fill
