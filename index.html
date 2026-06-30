@@ -610,6 +610,7 @@
         <div class="cond-item"><div class="label">Dew Point</div><div class="value" id="ds-dewpoint">--°C</div></div>
         <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
         <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
+        <div class="cond-item" id="cond-gust-item" style="display:none"><div class="label">Gusts</div><div class="value" id="wind-gust">-- km/h</div></div>
     </div>
 
     <!-- GK Internal Tab Bar -->
@@ -1208,6 +1209,7 @@
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Wind</div>
                 <div style="font-size:1.5em;font-weight:bold;color:#3498db;margin-top:4px" id="go-st-wind">--</div>
                 <div style="font-size:0.72em;color:#7f8c8d" id="go-st-winddir">Direction --</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-gust" style="display:none"></div>
             </div>
             <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">UV Index</div>
@@ -3700,6 +3702,15 @@ function updateGolferStation() {
     if (wx.windKmh !== null) {
         _s('go-st-wind', wx.windKmh.toFixed(0) + ' km/h');
         _s('go-st-winddir', 'Direction ' + (wx.windDir || '--'));
+        const goGust = document.getElementById('go-st-gust');
+        if (goGust) {
+            if (wx.gustKmh && wx.gustKmh > wx.windKmh + 3) {
+                goGust.textContent = 'Gusts ' + wx.gustKmh.toFixed(0) + ' km/h';
+                goGust.style.display = '';
+            } else {
+                goGust.style.display = 'none';
+            }
+        }
     }
     // UV from forecast
     const uvEl = document.getElementById('tile-uv-val');
@@ -4486,7 +4497,8 @@ function updateDetailStrip(at) {
     const nowUV = getCurrentHourUV();
     document.getElementById('ds-uv').textContent    = nowUV !== null ? `UV ${nowUV.toFixed(0)}` : '--';
     document.getElementById('ds-rain').textContent  = wx.rainToday.toFixed(1) + ' mm';
-    document.getElementById('ds-wind').textContent  = wx.windKmh.toFixed(0) + ' km/h ' + wx.windDir;
+    const _gustSuffix = wx.gustKmh && wx.gustKmh > wx.windKmh + 3 ? ` (gusts ${wx.gustKmh.toFixed(0)})` : '';
+    document.getElementById('ds-wind').textContent  = wx.windKmh.toFixed(0) + ' km/h ' + wx.windDir + _gustSuffix;
     document.getElementById('ds-sun').textContent   = fc.sunrise + ' / ' + fc.sunset;
     const _stUV  = document.getElementById('gk-st-uv');  if (_stUV)  _stUV.textContent  = nowUV !== null ? nowUV.toFixed(0) : '--';
     const _stSun = document.getElementById('gk-st-sun'); if (_stSun) _stSun.textContent = fc.sunrise + ' / ' + fc.sunset;
@@ -5351,7 +5363,9 @@ async function getWeatherData() {
         }
 
         let gustKmh = null;
-        const rawGust = data.wind_gust_mph ?? data.davis_current_observation?.wind_day_hi_mph;
+        const rawGust = data.davis_current_observation?.wind_gust_10_min_mph
+                     ?? data.wind_gust_mph
+                     ?? data.davis_current_observation?.wind_day_hi_mph;
         if (rawGust) { const g = parseFloat(rawGust) * 1.60934; if (!isNaN(g) && g > windKmh + 3) gustKmh = g; }
 
         // Barometric pressure in hPa/mb
@@ -5378,6 +5392,13 @@ async function getWeatherData() {
         document.getElementById('wind-speed').innerText = windKmh.toFixed(0) + ' km/h';
         const windArrow = compassToArrow(windDir);
         document.getElementById('wind-dir').innerHTML = windArrow ? `${windDir} <span style="font-size:1.1em">${windArrow}</span>` : windDir;
+        const gustItem = document.getElementById('cond-gust-item');
+        if (gustKmh && gustKmh > windKmh + 3) {
+            document.getElementById('wind-gust').innerText = gustKmh.toFixed(0) + ' km/h';
+            if (gustItem) gustItem.style.display = '';
+        } else {
+            if (gustItem) gustItem.style.display = 'none';
+        }
 
         // Spray card
         document.getElementById('spray-deltat-val').innerText    = deltaT.toFixed(1);
