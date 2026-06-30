@@ -349,14 +349,8 @@
         .tank-history-range { display:flex; gap:6px; margin-bottom:10px; }
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; transition:background 0.2s,color 0.2s; }
         .tank-range-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
-        .tank-graph-wrap { width:100%; max-width:680px; overflow-x:hidden; }
-        .tank-graph-wrap svg { width:100%; min-width:240px; display:block; }
+        .tank-graph-wrap { width:100%; max-width:680px; }
         .tank-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-        #tank-tooltip { position:fixed; background:rgba(10,22,34,0.96); border:1px solid #2d4a5e; border-radius:7px;
-            padding:7px 12px; font-size:11px; color:#ecf0f1; pointer-events:none; z-index:9999;
-            white-space:nowrap; display:none; box-shadow:0 4px 14px rgba(0,0,0,0.5); }
-        #tank-tooltip .tt-date { color:#7f8c8d; font-size:10px; margin-bottom:3px; }
-        #tank-tooltip .tt-val  { font-weight:700; font-size:12px; }
         .lake-placeholder { background:#1a252f; border:1px dashed #3d5166; border-radius:8px; padding:24px; text-align:center; }
         .lake-placeholder .lp-icon  { font-size:2em; margin-bottom:8px; }
         .lake-placeholder .lp-title { font-size:0.88em; font-weight:bold; color:#7f8c8d; margin-bottom:6px; }
@@ -571,6 +565,7 @@
             50%       { background: #7d1a00; }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -987,17 +982,10 @@
                 <button class="tank-range-btn" onclick="setTankRange(168)">7 Days</button>
                 <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
             </div>
-            <div id="tank-tooltip"><div class="tt-date"></div><div class="tt-val"></div></div>
             <div class="tank-graph-wrap">
-                <svg id="tank-graph-svg" viewBox="0 0 500 230" preserveAspectRatio="none" style="height:230px;display:block;width:100%">
-                    <defs>
-                        <linearGradient id="tank-area-grad" x1="0" y1="14" x2="0" y2="198" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#2980b9" stop-opacity="0.45"/>
-                            <stop offset="100%" stop-color="#2980b9" stop-opacity="0.03"/>
-                        </linearGradient>
-                    </defs>
-                    <text x="250" y="100" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Awaiting data...</text>
-                </svg>
+                <div style="position:relative;height:220px;width:100%">
+                    <canvas id="tank-graph-canvas"></canvas>
+                </div>
             </div>
             <div class="tank-stat-row">
                 <div class="irr-metric"><div class="lbl">Min (period)</div><div class="val" id="tank-hist-min">--</div></div>
@@ -6275,11 +6263,10 @@ initTVMode();
 initSprayProductSelect();
 // ── FarmBot Tank / Water functions ──────────────────────────────────
 
-let   _tankRange        = 24;   // hours currently shown in graph (24 / 168 / 720)
-let   _tankLatest       = null;
-let   _tankHistory      = null;
-let   _tankGraphSamples = null;
-let   _tankGraphParams  = null;
+let   _tankRange   = 24;   // hours currently shown in graph (24 / 168 / 720)
+let   _tankLatest  = null;
+let   _tankHistory = null;
+let   _tankChart   = null;
 
 function _renderTankGauge(pct) {
     const clamped = Math.min(100, Math.max(0, pct));
@@ -6303,105 +6290,129 @@ function _renderTankGauge(pct) {
 }
 
 function _renderTankGraph(samples) {
-    const svg = document.getElementById('tank-graph-svg');
-    if (!svg) return;
-
-    // Preserve the gradient defs across re-renders
-    const gradDef = `<defs>
-        <linearGradient id="tank-area-grad" x1="0" y1="14" x2="0" y2="198" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#2980b9" stop-opacity="0.45"/>
-            <stop offset="100%" stop-color="#2980b9" stop-opacity="0.03"/>
-        </linearGradient>
-    </defs>`;
+    const canvas = document.getElementById('tank-graph-canvas');
+    if (!canvas) return;
 
     if (!samples || samples.length < 2) {
-        svg.innerHTML = gradDef + '<text x="250" y="115" text-anchor="middle" fill="#566573" font-size="13" font-family="Arial,sans-serif">Not enough data for this range</text>';
+        if (_tankChart) { _tankChart.destroy(); _tankChart = null; }
         ['tank-hist-min','tank-hist-max','tank-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
         return;
     }
 
-    const W = 500, H = 230, pL = 38, pR = 14, pT = 14, pB = 30;
-    _tankGraphSamples = samples;
-    _tankGraphParams  = { W, H, pL, pR, pT, pB, n: samples.length };
-    const n     = samples.length;
-    const vals  = samples.map(s => parseFloat(s.pct ?? 0));
-    const times = samples.map(s => new Date(s.date).getTime());
-    const minV  = Math.min(...vals), maxV = Math.max(...vals);
-    const change = vals[n-1] - vals[0];
-
-    const xOf = i => pL + (i / (n - 1 || 1)) * (W - pL - pR);
-    const yOf = v => pT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - pT - pB);
-    const baseY = yOf(0);
+    const vals    = samples.map(s => parseFloat(s.pct ?? 0));
+    const volsKL  = samples.map(s => s.volume_l != null ? (s.volume_l / 1000).toFixed(1) : (parseFloat(s.pct ?? 0) / 100 * 250).toFixed(1));
+    const minV    = Math.min(...vals), maxV = Math.max(...vals);
+    const change  = vals[vals.length - 1] - vals[0];
+    const n       = samples.length;
 
     const minEl = document.getElementById('tank-hist-min'); if (minEl) minEl.textContent = Math.round(minV) + '%';
     const maxEl = document.getElementById('tank-hist-max'); if (maxEl) maxEl.textContent = Math.round(maxV) + '%';
     const chEl  = document.getElementById('tank-hist-change');
     if (chEl) { chEl.textContent = (change >= 0 ? '+' : '') + Math.round(change) + '%'; chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c'; }
 
-    let html = gradDef;
-
-    // Plot area background
-    html += `<rect x="${pL}" y="${pT}" width="${W-pL-pR}" height="${H-pT-pB}" fill="#0b1a27" rx="3"/>`;
-
-    // Horizontal grid lines with labels
-    [0, 25, 60, 100].forEach(pct => {
-        const y = yOf(pct);
-        const isThreshold = (pct === 25 || pct === 60);
-        html += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}"
-            stroke="${isThreshold ? '#2d4a5e' : '#162230'}" stroke-width="${isThreshold ? '1' : '0.6'}"
-            ${isThreshold ? 'stroke-dasharray="6,4"' : ''}/>`;
-        const labelColor = pct === 25 ? '#c0392b' : pct === 60 ? '#27ae60' : '#4a6070';
-        html += `<text x="${pL-5}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="${labelColor}"
-            font-size="10" font-weight="${isThreshold?'600':'400'}" font-family="Arial,sans-serif">${pct}</text>`;
-    });
-
-    // Shaded critical zone below 25%
-    html += `<rect x="${pL}" y="${yOf(25).toFixed(1)}" width="${W-pL-pR}"
-        height="${(baseY - yOf(25)).toFixed(1)}" fill="rgba(192,57,43,0.07)"/>`;
-
-    // Build coordinate arrays
-    const xs = samples.map((_,i) => xOf(i));
-    const ys = vals.map(v => yOf(v));
-    const pts = xs.map((x,i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
-
-    // Gradient area fill
-    html += `<polygon points="${xs[0].toFixed(1)},${baseY.toFixed(1)} ${pts} ${xs[n-1].toFixed(1)},${baseY.toFixed(1)}"
-        fill="url(#tank-area-grad)"/>`;
-
-    // Main line — clean, no dots, slightly thicker
-    html += `<polyline points="${pts}" fill="none" stroke="#3498db" stroke-width="2.5"
-        stroke-linejoin="round" stroke-linecap="round"/>`;
-
-    // Bright highlight line on top (thin, lighter blue — creates depth)
-    html += `<polyline points="${pts}" fill="none" stroke="#7ec8e3" stroke-width="0.8"
-        stroke-linejoin="round" stroke-linecap="round" opacity="0.6"/>`;
-
-    // X-axis baseline
-    html += `<line x1="${pL}" y1="${baseY.toFixed(1)}" x2="${W-pR}" y2="${baseY.toFixed(1)}"
-        stroke="#1e3040" stroke-width="0.8"/>`;
-
-    // X-axis date/time labels — up to 6 evenly spaced
-    const maxLbls = Math.min(6, n);
-    const lblIdxs = n <= 6
-        ? Array.from({length: n}, (_, i) => i)
-        : Array.from({length: maxLbls}, (_,i) => Math.round(i * (n-1) / (maxLbls-1)));
-    lblIdxs.forEach(i => {
-        const d   = new Date(times[i]);
-        const lbl = _tankRange <= 24
-            ? d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false })
+    const labels = samples.map(s => {
+        const d = new Date(s.date);
+        return _tankRange <= 24
+            ? d.toLocaleTimeString('en-AU',  { hour:'2-digit', minute:'2-digit', hour12:false })
             : d.toLocaleDateString('en-AU',  { day:'numeric', month:'short' });
-        const anchor = i === 0 ? 'start' : i === n-1 ? 'end' : 'middle';
-        html += `<text x="${xs[i].toFixed(1)}" y="${H-6}" text-anchor="${anchor}"
-            fill="#4a6070" font-size="10" font-family="Arial,sans-serif">${lbl}</text>`;
     });
 
-    // Crosshair and hover dot — hidden until mousemove
-    html += `<line id="tank-crosshair" x1="0" y1="${pT}" x2="0" y2="${baseY.toFixed(1)}"
-        stroke="#4a6070" stroke-width="1" stroke-dasharray="4,3" style="display:none" pointer-events="none"/>`;
-    html += `<circle id="tank-hover-dot" cx="0" cy="0" r="4.5" fill="#3498db" stroke="white"
-        stroke-width="1.5" style="display:none" pointer-events="none"/>`;
+    // Gradient fill
+    const ctx  = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 220);
+    grad.addColorStop(0,   'rgba(52,152,219,0.45)');
+    grad.addColorStop(1,   'rgba(52,152,219,0.02)');
 
-    svg.innerHTML = html;
+    const chartData = {
+        labels,
+        datasets: [{
+            data: vals,
+            borderColor: '#3498db',
+            borderWidth: 2.2,
+            backgroundColor: grad,
+            fill: true,
+            tension: 0.35,
+            pointRadius: n <= 24 ? 3 : 0,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#3498db',
+            pointBorderColor: '#0f2030',
+            pointBorderWidth: 1.5,
+        }]
+    };
+
+    const thresholdPlugin = {
+        id: 'thresholds',
+        afterDraw(chart) {
+            const { ctx: c, chartArea: { left, right }, scales: { y } } = chart;
+            const drawLine = (val, color, lbl) => {
+                const yPx = y.getPixelForValue(val);
+                if (yPx < chart.chartArea.top || yPx > chart.chartArea.bottom) return;
+                c.save();
+                c.setLineDash([6, 4]);
+                c.strokeStyle = color;
+                c.lineWidth   = 1.2;
+                c.beginPath(); c.moveTo(left, yPx); c.lineTo(right, yPx); c.stroke();
+                c.setLineDash([]);
+                c.fillStyle = color;
+                c.font = '10px Arial,sans-serif';
+                c.fillText(lbl, left + 6, yPx - 4);
+                c.restore();
+            };
+            drawLine(75, '#27ae60', '75%');
+            drawLine(25, '#e74c3c', '25%');
+        }
+    };
+
+    const chartConfig = {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 400 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(10,22,34,0.96)',
+                    borderColor: '#2d4a5e',
+                    borderWidth: 1,
+                    titleColor: '#7f8c8d',
+                    bodyColor: '#ecf0f1',
+                    padding: 10,
+                    callbacks: {
+                        title:  items  => labels[items[0].dataIndex],
+                        label:  item   => {
+                            const i = item.dataIndex;
+                            return [`${vals[i].toFixed(1)}%`, `${volsKL[i]} kL`];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color:'#4a6070', maxTicksLimit:7, maxRotation:0, font:{size:10} },
+                    grid:  { color:'rgba(255,255,255,0.05)' },
+                    border:{ color:'rgba(255,255,255,0.08)' }
+                },
+                y: {
+                    min: Math.floor(minV - 3),
+                    max: Math.ceil(maxV  + 3),
+                    ticks: { color:'#4a6070', font:{size:10}, callback: v => v + '%' },
+                    grid:  { color:'rgba(255,255,255,0.07)' },
+                    border:{ color:'rgba(255,255,255,0.08)' }
+                }
+            }
+        },
+        plugins: [thresholdPlugin]
+    };
+
+    if (_tankChart) {
+        _tankChart.data    = chartData;
+        _tankChart.options = chartConfig.options;
+        _tankChart.update();
+    } else {
+        _tankChart = new Chart(ctx, chartConfig);
+    }
 }
 
 async function fetchTankData() {
@@ -6467,66 +6478,6 @@ function setTankRange(hours) {
     fetchTankData();
 }
 
-// ── Tank graph hover tooltip ─────────────────────────────────────────
-(function() {
-    function _attachTankGraphHover() {
-        const svg = document.getElementById('tank-graph-svg');
-        if (!svg) return;
-        svg.addEventListener('mousemove', function(e) {
-            if (!_tankGraphSamples || !_tankGraphParams) return;
-            const { W, H, pL, pR, pT, pB, n } = _tankGraphParams;
-            const rect  = svg.getBoundingClientRect();
-            const svgX  = ((e.clientX - rect.left) / rect.width) * W;
-            const frac  = (svgX - pL) / (W - pL - pR);
-            const i     = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
-            const s     = _tankGraphSamples[i];
-            if (!s) return;
-
-            const xOf = idx => pL + (idx / (n - 1 || 1)) * (W - pL - pR);
-            const yOf = v   => pT + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - pT - pB);
-            const cx  = xOf(i), cy = yOf(parseFloat(s.pct ?? 0));
-
-            const ch = document.getElementById('tank-crosshair');
-            if (ch) { ch.setAttribute('x1', cx.toFixed(1)); ch.setAttribute('x2', cx.toFixed(1)); ch.style.display = ''; }
-            const dot = document.getElementById('tank-hover-dot');
-            if (dot) { dot.setAttribute('cx', cx.toFixed(1)); dot.setAttribute('cy', cy.toFixed(1)); dot.style.display = ''; }
-
-            const tt = document.getElementById('tank-tooltip');
-            if (!tt) return;
-            const d   = new Date(s.date);
-            const pct = parseFloat(s.pct ?? 0);
-            const kl  = s.volume_l != null
-                ? (s.volume_l / 1000).toFixed(1) + ' kL'
-                : (pct / 100 * 250).toFixed(1) + ' kL';
-            const lbl = _tankRange <= 24
-                ? d.toLocaleString('en-AU',     { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short', hour12:false })
-                : d.toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
-            tt.querySelector('.tt-date').textContent = lbl;
-            tt.querySelector('.tt-val').textContent  = Math.round(pct) + '% \u00b7 ' + kl;
-            // Keep tooltip on screen
-            const ttW = 160, ttH = 52;
-            let tx = e.clientX + 14, ty = e.clientY - ttH - 8;
-            if (tx + ttW > window.innerWidth)  tx = e.clientX - ttW - 14;
-            if (ty < 4) ty = e.clientY + 14;
-            tt.style.left    = tx + 'px';
-            tt.style.top     = ty + 'px';
-            tt.style.display = 'block';
-        });
-        svg.addEventListener('mouseleave', function() {
-            const tt  = document.getElementById('tank-tooltip');
-            const ch  = document.getElementById('tank-crosshair');
-            const dot = document.getElementById('tank-hover-dot');
-            if (tt)  tt.style.display  = 'none';
-            if (ch)  ch.style.display  = 'none';
-            if (dot) dot.style.display = 'none';
-        });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', _attachTankGraphHover);
-    } else {
-        _attachTankGraphHover();
-    }
-})();
 // ── End FarmBot ──────────────────────────────────────────────────────
 
 loadCSVBalance();
