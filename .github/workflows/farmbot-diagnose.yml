@@ -42,6 +42,6 @@ jobs:
 
           echo ""
           echo "=== Latest tank sample ==="
-          curl -s "https://api.myxbot-production-au.fmbt.io/public-api/v1/sensor/${FARMBOT_TANK_SID}/sample?pageSize=1&order=DESC" \
+          curl -s "https://api.myxbot-production-au.fmbt.io/public-api/v1/sensor/${FARMBOT_TANK_SID}/sample?pageSize=10&order=DESC" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/json"

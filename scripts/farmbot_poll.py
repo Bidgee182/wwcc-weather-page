@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-FarmBot Tank Poll
-=================
-Runs every 30 minutes via GitHub Actions.
-- Fetches latest tank level from FarmBot API
-- Writes data/farmbot_latest.json (served by GitHub Pages)
+FarmBot Tank & Lake Poll
+========================
+Runs every 15 minutes via GitHub Actions.
+- Fetches latest tank level from FarmBot API → data/farmbot_latest.json
+- Fetches latest lake level from FarmBot API → data/farmbot_lake_latest.json
+- Converts lake sensor reading to AHD (Australian Height Datum)
 - Sends SendGrid alert emails when tank crosses threshold levels
 - Backfill mode: fetches all history from a start date into data/farmbot_history.json
 """
@@ -26,7 +27,13 @@ log = logging.getLogger(__name__)
 FARMBOT_CLIENT_ID     = os.environ.get('FARMBOT_CLIENT_ID',    '')
 FARMBOT_CLIENT_SECRET = os.environ.get('FARMBOT_CLIENT_SECRET','')
 FARMBOT_TANK_SID      = os.environ.get('FARMBOT_TANK_SID',     '')
+FARMBOT_LAKE_SID      = os.environ.get('FARMBOT_LAKE_SID',     '')
 TANK_CAPACITY_L       = int(os.environ.get('FARMBOT_TANK_CAPACITY_L', '250000'))
+
+# Lake AHD conversion: AHD (m) = sensor_reading_cm / 100 + LAKE_AHD_OFFSET
+# Calibration: 65.84 cm sensor reading = 190.00 m AHD
+# Therefore offset = 190.00 - (65.84 / 100) = 189.3416
+LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3416'))
 
 SENDGRID_API_KEY    = os.environ.get('SENDGRID_API_KEY',    '')
 EMAIL_FROM          = os.environ.get('EMAIL_FROM',          '')
@@ -36,10 +43,12 @@ FB_AUTH_URL = 'https://auth.fmbt.io/oauth2/token'
 FB_API_BASE = 'https://api.myxbot-production-au.fmbt.io/public-api/v1'
 SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
 
-DATA_DIR      = Path('data')
-LATEST_JSON   = DATA_DIR / 'farmbot_latest.json'
-HISTORY_JSON  = DATA_DIR / 'farmbot_history.json'
-READINGS_JSON = DATA_DIR / 'farmbot_readings.json'
+DATA_DIR           = Path('data')
+LATEST_JSON        = DATA_DIR / 'farmbot_latest.json'
+HISTORY_JSON       = DATA_DIR / 'farmbot_history.json'
+READINGS_JSON      = DATA_DIR / 'farmbot_readings.json'
+LAKE_LATEST_JSON   = DATA_DIR / 'farmbot_lake_latest.json'
+LAKE_READINGS_JSON = DATA_DIR / 'farmbot_lake_readings.json'
 
 # Alert thresholds — email fires when tank DROPS INTO each band
 ALERT_LEVELS = [
@@ -260,6 +269,93 @@ def poll():
     }
     LATEST_JSON.write_text(json.dumps(out, indent=2))
     log.info(f'Wrote {LATEST_JSON}')
+
+    # Poll lake sensor if configured
+    if FARMBOT_LAKE_SID:
+        try:
+            poll_lake(token)
+        except Exception as e:
+            log.error(f'Lake poll failed: {e}')
+
+# ── Lake level poll ───────────────────────────────────────────────────────────
+def poll_lake(token):
+    """Fetch latest lake level, convert to AHD, save to farmbot_lake_latest.json
+    and append to farmbot_lake_readings.json."""
+    log.info('FarmBot lake poll starting')
+
+    # Latest reading (pageSize must be >= 10 per API)
+    resp   = fb_get(token, f'sensor/{FARMBOT_LAKE_SID}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
+    latest = (resp.get('data') or [None])[0]
+
+    ahd = cm = sample_date = battery = None
+    if latest:
+        rw_value  = latest.get('rwValue')
+        cm        = rw_value
+        ahd       = round(rw_value / 100 + LAKE_AHD_OFFSET, 3) if rw_value is not None else None
+        sample_date = latest.get('date')
+        battery     = latest.get('extraValues', {}).get('batteryLevel')
+        log.info(f'Lake: rwValue={cm}cm | AHD={ahd}m | {sample_date}')
+
+    # Fetch 24h graph samples
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    graph  = []
+    for page in range(1, 20):
+        r    = fb_get(token, f'sensor/{FARMBOT_LAKE_SID}/sample', {'pageSize': 10, 'order': 'DESC', 'page': page})
+        data = r.get('data', [])
+        if not data:
+            break
+        for s in data:
+            try:
+                ts = datetime.fromisoformat(s['date'].replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                continue
+            if ts < cutoff:
+                graph.sort(key=lambda x: x['date'])
+                break
+            rw = s.get('rwValue')
+            if rw is not None:
+                graph.append({
+                    'date':   s['date'],
+                    'cm':     rw,
+                    'ahd':    round(rw / 100 + LAKE_AHD_OFFSET, 3),
+                })
+        else:
+            if page >= r.get('totalPages', 1):
+                break
+            continue
+        break
+    graph.sort(key=lambda x: x['date'])
+    log.info(f'Lake graph: {len(graph)} points')
+
+    # Append to lake readings file (all-time individual readings)
+    if graph:
+        existing = []
+        if LAKE_READINGS_JSON.exists():
+            try:
+                existing = json.loads(LAKE_READINGS_JSON.read_text())
+            except Exception:
+                pass
+        existing_dates = {r['date'] for r in existing}
+        new_entries    = [s for s in graph if s['date'] not in existing_dates]
+        if new_entries:
+            existing.extend(new_entries)
+            existing.sort(key=lambda x: x['date'])
+            LAKE_READINGS_JSON.write_text(json.dumps(existing, indent=2))
+            log.info(f'Appended {len(new_entries)} new lake readings (total: {len(existing)})')
+
+    # Write lake latest snapshot
+    DATA_DIR.mkdir(exist_ok=True)
+    out = {
+        'lake_cm':          cm,
+        'lake_ahd':         ahd,
+        'lake_date':        sample_date,
+        'lake_battery':     battery,
+        'lake_graph':       graph,
+        'lake_ahd_offset':  LAKE_AHD_OFFSET,
+        'updated_at':       datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    }
+    LAKE_LATEST_JSON.write_text(json.dumps(out, indent=2))
+    log.info(f'Wrote {LAKE_LATEST_JSON}')
 
 # ── Historical backfill ────────────────────────────────────────────────────────
 def backfill(from_date='2025-01-01'):
