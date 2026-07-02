@@ -1050,31 +1050,52 @@
     <!-- ── GK Tab: Lake Level ── -->
     <div id="gk-tab-lake" class="gk-tab-panel">
 
+        <div id="lake-error" style="display:none;background:#3d1a1a;border-left:3px solid #e74c3c;padding:8px 10px;border-radius:4px;font-size:0.8em;color:#e74c3c;margin-bottom:10px"></div>
+
+        <!-- Live AHD Reading -->
         <div class="card">
-            <h2>&#127754; Lake Albert Water Level</h2>
-            <div id="lake-live-content" style="display:none">
-                <div class="tank-gauge-wrap">
-                    <svg id="lake-gauge-svg" viewBox="0 0 160 90" width="260" height="150">
-                        <path class="tank-arc-bg"   d="M 15,80 A 65,65 0 0,1 145,80"/>
-                        <path class="tank-arc-fill" id="lake-arc-fill" d="M 15,80 A 65,65 0 0,1 145,80"/>
-                        <text id="lake-pct-text" x="80" y="60" text-anchor="middle" dominant-baseline="middle" fill="#ecf0f1" font-size="22" font-weight="bold" font-family="Arial,sans-serif">--</text>
-                        <text x="80" y="76" text-anchor="middle" fill="#7f8c8d" font-size="8" font-family="Arial,sans-serif">% FULL</text>
-                        <text x="12"  y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">0%</text>
-                        <text x="80"  y="12" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">50%</text>
-                        <text x="148" y="90" text-anchor="middle" fill="#566573" font-size="7" font-family="Arial,sans-serif">100%</text>
-                    </svg>
-                </div>
-                <div class="irr-metrics">
-                    <div class="irr-metric"><div class="lbl">Level</div><div class="val" id="lake-level">--</div></div>
-                    <div class="irr-metric"><div class="lbl">Status</div><div class="val" id="lake-status" style="font-size:0.95em">--</div></div>
-                    <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="lake-battery">--</div></div>
-                </div>
-                <div style="font-size:0.72em;color:#566573;text-align:right;margin-top:4px">Last reading: <span id="lake-last-reading">--</span></div>
+            <h2>&#127754; Lake Albert &mdash; Live Water Level</h2>
+            <!-- Big AHD hero number -->
+            <div style="text-align:center;padding:18px 0 10px">
+                <div id="lake-ahd-display" style="font-size:2.8em;font-weight:700;color:#ecf0f1;letter-spacing:-1px;line-height:1">-- m</div>
+                <div style="font-size:0.78em;color:#7f8c8d;margin-top:4px">AHD (Australian Height Datum)</div>
             </div>
-            <div id="lake-placeholder-content" class="lake-placeholder">
-                <div class="lp-icon">&#128679;</div>
-                <div class="lp-title">Sensor not yet installed</div>
-                <div class="lp-desc">A FarmBot sensor will be installed at Lake Albert.<br>Once installed, add the sensor SID as <code style="background:#0d1117;padding:1px 5px;border-radius:3px">FARMBOT_LAKE_SID</code> in the GitHub Actions workflow and this card will activate automatically.</div>
+            <!-- Extraction rate banner -->
+            <div id="lake-extraction-banner" style="border-radius:8px;padding:12px 16px;margin:0 0 14px;text-align:center;background:#1a2d3d">
+                <div id="lake-extraction-rate" style="font-size:1.25em;font-weight:700;color:#7f8c8d">-- ML/day</div>
+                <div id="lake-op-level" style="font-size:0.78em;margin-top:4px;color:#566573">Loading&hellip;</div>
+            </div>
+            <!-- Detail metrics -->
+            <div class="irr-metrics">
+                <div class="irr-metric"><div class="lbl">Sensor (cm)</div><div class="val" id="lake-cm">--</div></div>
+                <div class="irr-metric"><div class="lbl">Last Reading</div><div class="val" id="lake-last-reading" style="font-size:0.75em;line-height:1.2">--</div></div>
+                <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="lake-battery">--</div></div>
+            </div>
+        </div>
+
+        <!-- Lake Level History Graph -->
+        <div class="card">
+            <h2>&#128202; Lake Level History</h2>
+            <div class="tank-history-range" id="lake-range-controls">
+                <button class="tank-range-btn active" onclick="setLakeRange(24)">24h</button>
+                <button class="tank-range-btn" onclick="setLakeRange(168)">7 Days</button>
+                <button class="tank-range-btn" onclick="setLakeRange(720)">30 Days</button>
+                <button class="tank-range-btn" id="lake-custom-btn" onclick="showLakeCustomRange()">Custom</button>
+            </div>
+            <div class="tank-custom-row" id="lake-custom-row">
+                <label>From <input type="date" id="lake-date-from"></label>
+                <label>To <input type="date" id="lake-date-to"></label>
+                <button class="tank-apply-btn" onclick="applyLakeCustomRange()">Apply</button>
+            </div>
+            <div class="tank-graph-wrap">
+                <div style="position:relative;height:220px;width:100%">
+                    <canvas id="lake-graph-canvas"></canvas>
+                </div>
+            </div>
+            <div class="tank-stat-row">
+                <div class="irr-metric"><div class="lbl">Min AHD (period)</div><div class="val" id="lake-hist-min">--</div></div>
+                <div class="irr-metric"><div class="lbl">Max AHD (period)</div><div class="val" id="lake-hist-max">--</div></div>
+                <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="lake-hist-change">--</div></div>
             </div>
         </div>
 
@@ -6356,6 +6377,12 @@ let   _tankHistory      = null;   // farmbot_readings.json (individual readings 
 let   _tankDailyHistory = null;   // farmbot_history.json (daily summaries for stats)
 let   _tankChart        = null;
 let   _tankMonthlyChart = null;
+let   _lakeRange       = 24;
+let   _lakeLatest      = null;
+let   _lakeHistory     = null;
+let   _lakeChart       = null;
+let   _lakeCustomFrom  = null;
+let   _lakeCustomTo    = null;
 let   _tankCustomFrom   = null;
 let   _tankCustomTo     = null;
 
@@ -6642,6 +6669,252 @@ function renderTankMonthlyChart(history) {
     }
 }
 
+function lakeExtractionInfo(ahd) {
+    if (ahd === null || ahd === undefined) return { rate: '--', label: '--', color: '#566573', bg: '#1a252f' };
+    if (ahd > 190.25) return { rate: '1.50 ML/day', label: 'Level 1 \u2014 Normal Operations',      color: '#27ae60', bg: '#152b1e' };
+    if (ahd > 190.05) return { rate: '1.00 ML/day', label: 'Level 2 \u2014 Increased Monitoring',   color: '#d4ac0d', bg: '#2d280f' };
+    if (ahd > 189.85) return { rate: '0.75 ML/day', label: 'Level 3 \u2014 Water Conservation',     color: '#e67e22', bg: '#2d1f0a' };
+    if (ahd > 189.65) return { rate: '0.50 ML/day', label: 'Level 4 \u2014 Critical Warning',       color: '#e74c3c', bg: '#2d0f0f' };
+    return              { rate: 'No Extraction Permitted', label: 'Level 5 \u2014 Shutdown Required', color: '#c0392b', bg: '#3d0000' };
+}
+
+function _renderLakeGraph(samples) {
+    const canvas = document.getElementById('lake-graph-canvas');
+    if (!canvas) return;
+
+    if (!samples || samples.length < 2) {
+        if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
+        ['lake-hist-min','lake-hist-max','lake-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+        return;
+    }
+
+    const vals   = samples.map(s => parseFloat(s.ahd ?? 0));
+    const minV   = Math.min(...vals), maxV = Math.max(...vals);
+    const change = vals[vals.length - 1] - vals[0];
+    const n      = samples.length;
+
+    // Y-axis bounds: always show all 4 threshold lines + padding
+    const yMin = Math.min(minV, 189.55) - 0.05;
+    const yMax = Math.max(maxV, 190.35) + 0.05;
+
+    const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = minV.toFixed(3) + ' m';
+    const maxEl = document.getElementById('lake-hist-max'); if (maxEl) maxEl.textContent = maxV.toFixed(3) + ' m';
+    const chEl  = document.getElementById('lake-hist-change');
+    if (chEl) {
+        chEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(3) + ' m';
+        chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c';
+    }
+
+    const labels = samples.map(s => {
+        const d = new Date(s.date);
+        return _lakeRange <= 24
+            ? d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false })
+            : d.toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+    });
+    const tooltipLabels = samples.map(s => {
+        const d = new Date(s.date);
+        return d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
+    });
+
+    const ctx  = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 220);
+    grad.addColorStop(0, 'rgba(26,188,156,0.45)');
+    grad.addColorStop(1, 'rgba(26,188,156,0.02)');
+
+    const chartData = {
+        labels,
+        datasets: [{
+            data: vals,
+            borderColor: '#1abc9c',
+            borderWidth: 2.2,
+            backgroundColor: grad,
+            fill: true,
+            tension: 0.35,
+            pointRadius: n > 60 ? 0 : n > 24 ? 2.5 : 3,
+            pointHoverRadius: 6,
+            pointHitRadius: 12,
+            pointBackgroundColor: '#1abc9c',
+            pointBorderColor: '#0f2030',
+            pointBorderWidth: 1.5,
+        }]
+    };
+
+    const lakeThresholdPlugin = {
+        id: 'lakeThresholds',
+        afterDraw(chart) {
+            const { ctx: c, chartArea: { left, right }, scales: { y } } = chart;
+            const drawLine = (val, color, lbl) => {
+                const yPx = y.getPixelForValue(val);
+                if (yPx < chart.chartArea.top || yPx > chart.chartArea.bottom) return;
+                c.save();
+                c.setLineDash([6, 4]);
+                c.strokeStyle = color;
+                c.lineWidth   = 1.2;
+                c.beginPath(); c.moveTo(left, yPx); c.lineTo(right, yPx); c.stroke();
+                c.setLineDash([]);
+                c.fillStyle = color;
+                c.font = '10px Arial,sans-serif';
+                c.fillText(lbl, left + 6, yPx - 4);
+                c.restore();
+            };
+            drawLine(190.25, '#27ae60', '190.25 — 1.50 ML/day');
+            drawLine(190.05, '#d4ac0d', '190.05 — 1.00 ML/day');
+            drawLine(189.85, '#e67e22', '189.85 — 0.75 ML/day');
+            drawLine(189.65, '#e74c3c', '189.65 — 0.50 ML/day / Shutdown');
+        }
+    };
+
+    const chartConfig = {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 400 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(10,22,34,0.96)',
+                    borderColor: '#2d4a5e',
+                    borderWidth: 1,
+                    titleColor: '#7f8c8d',
+                    bodyColor: '#ecf0f1',
+                    padding: 10,
+                    callbacks: {
+                        title: items  => tooltipLabels[items[0].dataIndex],
+                        label: item   => vals[item.dataIndex].toFixed(3) + ' m AHD'
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color:'#4a6070', maxTicksLimit:7, maxRotation:0, font:{size:10} },
+                    grid:  { color:'rgba(255,255,255,0.05)' },
+                    border:{ color:'rgba(255,255,255,0.08)' }
+                },
+                y: {
+                    min: yMin,
+                    max: yMax,
+                    ticks: { color:'#4a6070', font:{size:10}, callback: v => v.toFixed(2) + ' m' },
+                    grid:  { color:'rgba(255,255,255,0.07)' },
+                    border:{ color:'rgba(255,255,255,0.08)' }
+                }
+            }
+        },
+        plugins: [lakeThresholdPlugin]
+    };
+
+    if (_lakeChart) {
+        _lakeChart.data    = chartData;
+        _lakeChart.options = chartConfig.options;
+        _lakeChart.update();
+    } else {
+        _lakeChart = new Chart(ctx, chartConfig);
+    }
+}
+
+async function fetchLakeData() {
+    const errEl = document.getElementById('lake-error');
+    try {
+        const lResp = await fetch('data/farmbot_lake_latest.json?_=' + Date.now());
+        if (!lResp.ok) throw new Error('farmbot_lake_latest.json not found (' + lResp.status + ')');
+        _lakeLatest = await lResp.json();
+
+        const ahd  = _lakeLatest.lake_ahd;
+        const cm   = _lakeLatest.lake_cm;
+        const date = _lakeLatest.lake_date;
+        const bat  = _lakeLatest.lake_battery;
+
+        // AHD hero
+        const ahdEl = document.getElementById('lake-ahd-display');
+        if (ahdEl) ahdEl.textContent = ahd != null ? ahd.toFixed(3) + ' m' : '-- m';
+
+        // Extraction banner
+        const info = lakeExtractionInfo(ahd);
+        const banner = document.getElementById('lake-extraction-banner');
+        if (banner) banner.style.background = info.bg;
+        const rateEl = document.getElementById('lake-extraction-rate');
+        if (rateEl) { rateEl.textContent = 'Max extraction: ' + info.rate; rateEl.style.color = info.color; }
+        const opEl = document.getElementById('lake-op-level');
+        if (opEl) { opEl.textContent = info.label; opEl.style.color = info.color; }
+
+        // Detail metrics
+        const cmEl = document.getElementById('lake-cm');
+        if (cmEl) cmEl.textContent = cm != null ? cm.toFixed(1) + ' cm' : '--';
+        const lrEl = document.getElementById('lake-last-reading');
+        if (lrEl && date) lrEl.textContent = new Date(date).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
+        const batEl = document.getElementById('lake-battery');
+        if (batEl) batEl.textContent = bat != null ? bat + '%' : '--';
+
+        // Updated footer
+        const updEl = document.getElementById('lake-upd-farmbot');
+        if (updEl) updEl.textContent = new Date(_lakeLatest.updated_at || Date.now()).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+
+        // Graph samples
+        let samples;
+        if (_lakeRange !== null && _lakeRange <= 24) {
+            samples = (_lakeLatest.lake_graph || []).slice();
+        } else {
+            if (!_lakeHistory) {
+                const hResp = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
+                if (hResp.ok) _lakeHistory = await hResp.json();
+            }
+            const today    = new Date().toISOString().slice(0, 10);
+            const fromDate = _lakeRange === null ? _lakeCustomFrom : new Date(Date.now() - _lakeRange * 3600000).toISOString().slice(0, 10);
+            const toDate   = _lakeRange === null ? _lakeCustomTo   : today;
+            samples = (_lakeHistory || [])
+                .filter(d => d.date.slice(0, 10) >= fromDate && d.date.slice(0, 10) <= toDate);
+        }
+        _renderLakeGraph(samples);
+
+        if (errEl) errEl.style.display = 'none';
+    } catch(e) {
+        if (errEl) { errEl.textContent = '\u26A0 Lake data unavailable: ' + e.message; errEl.style.display = 'block'; }
+        console.error('[FarmBot Lake]', e);
+    }
+}
+
+function setLakeRange(hours) {
+    _lakeRange      = hours;
+    _lakeCustomFrom = null;
+    _lakeCustomTo   = null;
+    _lakeHistory    = null;
+    const row = document.getElementById('lake-custom-row');
+    if (row) row.classList.remove('visible');
+    document.querySelectorAll('#lake-range-controls .tank-range-btn').forEach(b => {
+        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
+        b.classList.toggle('active', map[hours] === b.textContent.trim());
+    });
+    fetchLakeData();
+}
+
+function showLakeCustomRange() {
+    const row = document.getElementById('lake-custom-row');
+    if (!row) return;
+    row.classList.add('visible');
+    const fromEl = document.getElementById('lake-date-from');
+    const toEl   = document.getElementById('lake-date-to');
+    const today  = new Date().toISOString().slice(0, 10);
+    const ago30  = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    if (fromEl && !fromEl.value) fromEl.value = ago30;
+    if (toEl   && !toEl.value)   toEl.value   = today;
+    document.querySelectorAll('#lake-range-controls .tank-range-btn').forEach(b => b.classList.remove('active'));
+    const cb = document.getElementById('lake-custom-btn');
+    if (cb) cb.classList.add('active');
+}
+
+function applyLakeCustomRange() {
+    const fromEl = document.getElementById('lake-date-from');
+    const toEl   = document.getElementById('lake-date-to');
+    if (!fromEl?.value || !toEl?.value) return;
+    if (fromEl.value > toEl.value) { alert('From date must be before To date'); return; }
+    _lakeCustomFrom = fromEl.value;
+    _lakeCustomTo   = toEl.value;
+    _lakeRange      = null;
+    _lakeHistory    = null;
+    fetchLakeData();
+}
+
 async function fetchTankData() {
     const errEl = document.getElementById('tank-error');
     try {
@@ -6694,12 +6967,6 @@ async function fetchTankData() {
             renderTankRefillHistory(_tankDailyHistory);
             renderTankMonthlyChart(_tankDailyHistory);
         }
-
-        // Lake placeholder (no lake sensor yet)
-        const lakePlaceholder = document.getElementById('lake-placeholder-content');
-        const lakeLive        = document.getElementById('lake-live-content');
-        if (lakePlaceholder) lakePlaceholder.style.display = 'block';
-        if (lakeLive)        lakeLive.style.display        = 'none';
 
         if (errEl) errEl.style.display = 'none';
     } catch(e) {
@@ -6764,7 +7031,9 @@ setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
 setInterval(checkKioskMessage,     30000);   // refresh custom messages every 30 seconds
 fetchTankData();
-setInterval(fetchTankData,        300000);  // FarmBot tank/lake refresh every 5 minutes
+fetchLakeData();
+setInterval(fetchTankData,        300000);  // FarmBot tank refresh every 5 minutes
+setInterval(fetchLakeData,        300000);  // FarmBot lake refresh every 5 minutes
 setInterval(_renderMsgPanel,       60000);   // update countdown timers in panel
 // Check for updated HTML every 5 minutes; also record baseline after 3s
 setTimeout(checkForUpdates, 3000);
