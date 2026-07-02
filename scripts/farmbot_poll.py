@@ -421,11 +421,52 @@ def backfill(from_date='2025-01-01'):
     HISTORY_JSON.write_text(json.dumps(history, indent=2))
     log.info(f'Wrote {len(history)} daily records to {HISTORY_JSON}')
 
+# ── Lake historical backfill ──────────────────────────────────────────────────
+def backfill_lake(from_date='2025-01-01'):
+    log.info(f'FarmBot lake backfill from {from_date}')
+    token = get_token()
+    log.info('Authenticated OK')
+
+    all_samples = []
+    page = 1
+    while True:
+        resp = fb_get(token, f'sensor/{FARMBOT_LAKE_SID}/sample', {
+            'pageSize': 10, 'order': 'ASC', 'page': page,
+        })
+        data = resp.get('data', [])
+        all_samples.extend(data)
+        total_pages = resp.get('totalPages', 1)
+        log.info(f'  Page {page}/{total_pages} — {len(all_samples)} samples so far')
+        if page >= total_pages:
+            break
+        page += 1
+
+    log.info(f'Fetched {len(all_samples)} lake samples total')
+
+    readings = []
+    for s in all_samples:
+        if s['date'] < from_date:
+            continue
+        rw = s.get('rwValue')
+        if rw is None:
+            continue
+        readings.append({
+            'date': s['date'],
+            'cm':   rw,
+            'ahd':  round(rw / 100 + LAKE_AHD_OFFSET, 3),
+        })
+
+    readings.sort(key=lambda x: x['date'])
+    DATA_DIR.mkdir(exist_ok=True)
+    LAKE_READINGS_JSON.write_text(json.dumps(readings, indent=2))
+    log.info(f'Wrote {len(readings)} lake readings to {LAKE_READINGS_JSON}')
+
 # ── Entry ─────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='FarmBot tank data poller')
-    parser.add_argument('--backfill',  action='store_true', help='Run historical backfill')
-    parser.add_argument('--from',      dest='from_date', default='2025-01-01',
+    parser.add_argument('--backfill',      action='store_true', help='Run historical tank backfill')
+    parser.add_argument('--backfill-lake', action='store_true', help='Run historical lake backfill')
+    parser.add_argument('--from',          dest='from_date', default='2025-01-01',
                         help='Backfill start date YYYY-MM-DD (default: 2025-01-01)')
     args = parser.parse_args()
 
@@ -435,5 +476,10 @@ if __name__ == '__main__':
 
     if args.backfill:
         backfill(args.from_date)
+    elif args.backfill_lake:
+        if not FARMBOT_LAKE_SID:
+            log.error('Missing FARMBOT_LAKE_SID')
+            sys.exit(1)
+        backfill_lake(args.from_date)
     else:
         poll()

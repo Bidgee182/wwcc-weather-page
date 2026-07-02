@@ -15,7 +15,15 @@ on:
   workflow_dispatch:
     inputs:
       backfill:
-        description: 'Backfill historical data from start date'
+        description: 'Backfill tank historical data from start date'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      backfill_lake:
+        description: 'Backfill lake historical data from start date'
         required: false
         default: 'false'
         type: choice
@@ -62,10 +70,12 @@ jobs:
           EMAIL_FROM:             ${{ secrets.EMAIL_FROM }}
           EMAIL_GK_RECIPIENTS:    ${{ secrets.EMAIL_GK_RECIPIENTS }}
         run: |
+          FROM="${{ github.event.inputs.backfill_from }}"
+          FROM="${FROM:-2025-01-01}"
           if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
-            FROM="${{ github.event.inputs.backfill_from }}"
-            FROM="${FROM:-2025-01-01}"
             python scripts/farmbot_poll.py --backfill --from "$FROM"
+          elif [ "${{ github.event.inputs.backfill_lake }}" = "true" ]; then
+            python scripts/farmbot_poll.py --backfill-lake --from "$FROM"
           else
             python scripts/farmbot_poll.py
           fi
