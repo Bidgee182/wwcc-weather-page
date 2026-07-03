@@ -30,6 +30,10 @@ FARMBOT_TANK_SID      = os.environ.get('FARMBOT_TANK_SID',     '')
 FARMBOT_LAKE_SID      = os.environ.get('FARMBOT_LAKE_SID',     '')
 TANK_CAPACITY_L       = int(os.environ.get('FARMBOT_TANK_CAPACITY_L', '250000'))
 
+# Internal battery/voltage sensors (fixed SIDs — not user-configurable)
+TANK_BATTERY_SID = '17e2aaaf-dc10-4aa6-9f02-41b969f7b437'   # port 14, tank monitor (~3.6V Li)
+LAKE_BATTERY_SID = '783eabbf-eda5-4d5d-bc36-bd0e8a6b7547'   # port 124, lake/weather monitor (~7.2V)
+
 # Lake AHD conversion: AHD (m) = sensor_reading_cm / 100 + LAKE_AHD_OFFSET
 # Calibration: 65.84 cm sensor reading = 190.00 m AHD
 # Therefore offset = 190.00 - (65.84 / 100) = 189.3416
@@ -79,6 +83,18 @@ def fb_get(token, path, params=None):
     )
     r.raise_for_status()
     return r.json()
+
+# ── Battery voltage fetch ─────────────────────────────────────────────────────
+def fetch_battery_v(token, sid):
+    """Return latest voltage reading (float) for an internal voltage sensor, or None."""
+    try:
+        resp = fb_get(token, f'sensor/{sid}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
+        latest = (resp.get('data') or [None])[0]
+        if latest:
+            return latest.get('rwValue')
+    except Exception as e:
+        log.warning(f'Battery fetch failed for {sid}: {e}')
+    return None
 
 # ── Calculations ──────────────────────────────────────────────────────────────
 def calc_pct(rw_value, total_height):
@@ -252,6 +268,10 @@ def poll():
             READINGS_JSON.write_text(json.dumps(existing, indent=2))
             log.info(f'Appended {len(new_entries)} new readings to {READINGS_JSON} (total: {len(existing)})')
 
+    # Battery voltage (separate internal sensor)
+    tank_battery_v = fetch_battery_v(token, TANK_BATTERY_SID)
+    log.info(f'Tank battery: {tank_battery_v}V')
+
     # Write output
     DATA_DIR.mkdir(exist_ok=True)
     out = {
@@ -264,6 +284,7 @@ def poll():
         'tank_status':       status_label(pct),
         'tank_alert_state':  current_state,
         'tank_battery':      battery,
+        'tank_battery_v':    tank_battery_v,
         'tank_graph':        graph,
         'updated_at':        datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
     }
@@ -343,13 +364,17 @@ def poll_lake(token):
             LAKE_READINGS_JSON.write_text(json.dumps(existing, indent=2))
             log.info(f'Appended {len(new_entries)} new lake readings (total: {len(existing)})')
 
+    # Battery voltage (separate internal sensor)
+    lake_battery_v = fetch_battery_v(token, LAKE_BATTERY_SID)
+    log.info(f'Lake battery: {lake_battery_v}V')
+
     # Write lake latest snapshot
     DATA_DIR.mkdir(exist_ok=True)
     out = {
         'lake_cm':          cm,
         'lake_ahd':         ahd,
         'lake_date':        sample_date,
-        'lake_battery':     battery,
+        'lake_battery_v':   lake_battery_v,
         'lake_graph':       graph,
         'lake_ahd_offset':  LAKE_AHD_OFFSET,
         'updated_at':       datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),

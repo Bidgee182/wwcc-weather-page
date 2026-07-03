@@ -985,6 +985,9 @@
                     <div class="irr-metric"><div class="lbl">Last Reading</div><div class="val" id="tank-last-reading" style="font-size:0.75em;line-height:1.2">--</div></div>
                     <div class="irr-metric"><div class="lbl">Updated</div><div class="val" id="tank-upd-inline" style="font-size:0.75em">--</div></div>
                 </div>
+                <div class="irr-metrics" style="margin-top:8px">
+                    <div class="irr-metric"><div class="lbl">Monitor Battery</div><div class="val" id="tank-battery-display" style="font-size:0.85em">--</div></div>
+                </div>
             </div>
         </div>
 
@@ -6669,6 +6672,21 @@ function renderTankMonthlyChart(history) {
     }
 }
 
+// Tank battery: ~3.6V lithium primary cell
+function tankBatteryLabel(v) {
+    if (v == null) return '--';
+    if (v >= 3.5)  return `<span style="color:#27ae60">${v.toFixed(2)}V &mdash; Good</span>`;
+    if (v >= 3.3)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V &mdash; OK</span>`;
+    return              `<span style="color:#e74c3c">${v.toFixed(2)}V &mdash; Low &mdash; Replace soon</span>`;
+}
+// Lake/weather monitor battery: ~7.2V solar/NiMH pack
+function lakeBatteryLabel(v) {
+    if (v == null) return '--';
+    if (v >= 6.8)  return `<span style="color:#27ae60">${v.toFixed(2)}V &mdash; Good</span>`;
+    if (v >= 6.0)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V &mdash; OK</span>`;
+    return              `<span style="color:#e74c3c">${v.toFixed(2)}V &mdash; Low &mdash; Check solar</span>`;
+}
+
 function lakeExtractionInfo(ahd) {
     if (ahd === null || ahd === undefined) return { rate: '--', label: '--', color: '#566573', bg: '#1a252f' };
     if (ahd > 190.25) return { rate: '1.50 ML/day', label: 'Level 1 \u2014 Normal Operations',      color: '#27ae60', bg: '#152b1e' };
@@ -6823,7 +6841,7 @@ async function fetchLakeData() {
         const ahd  = _lakeLatest.lake_ahd;
         const cm   = _lakeLatest.lake_cm;
         const date = _lakeLatest.lake_date;
-        const bat  = _lakeLatest.lake_battery;
+        const bat  = _lakeLatest.lake_battery_v ?? null;
 
         // AHD hero
         const ahdEl = document.getElementById('lake-ahd-display');
@@ -6844,7 +6862,7 @@ async function fetchLakeData() {
         const lrEl = document.getElementById('lake-last-reading');
         if (lrEl && date) lrEl.textContent = new Date(date).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
         const batEl = document.getElementById('lake-battery');
-        if (batEl) batEl.textContent = bat != null ? bat + '%' : '--';
+        if (batEl) batEl.innerHTML = lakeBatteryLabel(bat);
 
         // Updated footer
         const updEl = document.getElementById('lake-upd-farmbot');
@@ -6937,6 +6955,8 @@ async function fetchTankData() {
         if (lrEl && td) lrEl.textContent = new Date(td).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
         const updEl2 = document.getElementById('tank-upd-inline');
         if (updEl2) updEl2.textContent = new Date(_tankLatest.updated_at || Date.now()).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+        const tbatEl = document.getElementById('tank-battery-display');
+        if (tbatEl) tbatEl.innerHTML = tankBatteryLabel(_tankLatest.tank_battery_v ?? null);
 
         // ── Graph samples ──
         let samples;
