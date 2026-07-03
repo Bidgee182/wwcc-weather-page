@@ -88,8 +88,8 @@
         .lake-pill { flex: 1; min-width: 130px; background: #0f2030; border: 1px solid #1e3a50; border-radius: 20px; padding: 14px 18px; text-align: center; transition: border-color 0.4s; }
         .lake-pill-lbl { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 7px; }
         .lake-pill-val { font-size: 1.05em; font-weight: 700; color: #ecf0f1; }
-        @keyframes pillGlowGreen { 0%,100% { box-shadow: 0 0 0px rgba(39,174,96,0); border-color: #27ae60; } 50% { box-shadow: 0 0 12px rgba(39,174,96,0.7); border-color: #2ecc71; } }
-        @keyframes pillGlowRed   { 0%,100% { box-shadow: 0 0 0px rgba(231,76,60,0);  border-color: #e74c3c; } 50% { box-shadow: 0 0 12px rgba(231,76,60,0.7);  border-color: #ff6b6b; } }
+        @keyframes pillGlowGreen { 0%,100% { box-shadow: 0 0 4px rgba(39,174,96,0.3); border-color: #27ae60; } 50% { box-shadow: 0 0 22px 6px rgba(39,174,96,0.9), 0 0 8px rgba(39,174,96,0.6) inset; border-color: #2ecc71; } }
+        @keyframes pillGlowRed   { 0%,100% { box-shadow: 0 0 4px rgba(231,76,60,0.3);  border-color: #e74c3c; } 50% { box-shadow: 0 0 22px 6px rgba(231,76,60,0.9),  0 0 8px rgba(231,76,60,0.6) inset;  border-color: #ff6b6b; } }
         .lake-pill-glow-green { animation: pillGlowGreen 2s ease-in-out infinite; }
         .lake-pill-glow-red   { animation: pillGlowRed   1.5s ease-in-out infinite; }
 
