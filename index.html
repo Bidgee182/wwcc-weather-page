@@ -6752,8 +6752,7 @@ function _renderLakeGraph(samples) {
             toMs   = Date.now();
             fromMs = toMs - _lakeRange * 3600000;
         }
-        const spanDays = (toMs - fromMs) / 86400000;
-        const slotMs   = spanDays <= 8 ? 3600000 : 86400000; // hourly ≤8 days, daily >8 days
+        const slotMs   = 3600000; // always hourly — show every reading
 
         // Map each reading to the slot it falls in (last reading wins per slot)
         const slotMap = new Map();
