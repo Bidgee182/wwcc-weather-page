@@ -85,9 +85,13 @@
         /* ── Irrigation ── */
         .irr-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
         .lake-pill-row { display: flex; gap: 8px; margin: 10px 0 2px; flex-wrap: wrap; }
-        .lake-pill { flex: 1; min-width: 110px; background: #0f2030; border: 1px solid #1e3a50; border-radius: 20px; padding: 9px 14px; text-align: center; }
+        .lake-pill { flex: 1; min-width: 110px; background: #0f2030; border: 1px solid #1e3a50; border-radius: 20px; padding: 9px 14px; text-align: center; transition: border-color 0.4s; }
         .lake-pill-lbl { font-size: 0.65em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
         .lake-pill-val { font-size: 0.82em; font-weight: 700; color: #ecf0f1; }
+        @keyframes pillGlowGreen { 0%,100% { box-shadow: 0 0 0px rgba(39,174,96,0); border-color: #27ae60; } 50% { box-shadow: 0 0 12px rgba(39,174,96,0.7); border-color: #2ecc71; } }
+        @keyframes pillGlowRed   { 0%,100% { box-shadow: 0 0 0px rgba(231,76,60,0);  border-color: #e74c3c; } 50% { box-shadow: 0 0 12px rgba(231,76,60,0.7);  border-color: #ff6b6b; } }
+        .lake-pill-glow-green { animation: pillGlowGreen 2s ease-in-out infinite; }
+        .lake-pill-glow-red   { animation: pillGlowRed   1.5s ease-in-out infinite; }
 
         .irr-metric { background: #1a252f; border-radius: 6px; padding: 8px; text-align: center; min-height: 70px; display: flex; flex-direction: column; justify-content: center; }
         .irr-metric .lbl { font-size: 0.7em; color: #7f8c8d; text-transform: uppercase; }
@@ -1072,23 +1076,17 @@
                 <div id="lake-extraction-rate" style="font-size:1.25em;font-weight:700;color:#7f8c8d">-- ML/day</div>
                 <div id="lake-op-level" style="font-size:0.78em;margin-top:4px;color:#566573">Loading&hellip;</div>
             </div>
-            <!-- Detail metrics -->
-            <div class="irr-metrics">
-                <div class="irr-metric"><div class="lbl">Sensor Raw (cm)</div><div class="val" id="lake-cm">--</div></div>
-                <div class="irr-metric"><div class="lbl">Last Reading</div><div class="val" id="lake-last-reading" style="font-size:0.75em;line-height:1.2">--</div></div>
-                <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="lake-battery">--</div></div>
-            </div>
             <!-- Licence threshold pills -->
             <div class="lake-pill-row">
-                <div class="lake-pill">
+                <div class="lake-pill" id="lake-pill-rise-wrap">
                     <div class="lake-pill-lbl">Rise to next level</div>
                     <div class="lake-pill-val" id="lake-pill-rise">--</div>
                 </div>
-                <div class="lake-pill">
+                <div class="lake-pill" id="lake-pill-buffer-wrap">
                     <div class="lake-pill-lbl">Buffer to lower level</div>
                     <div class="lake-pill-val" id="lake-pill-buffer">--</div>
                 </div>
-                <div class="lake-pill">
+                <div class="lake-pill" id="lake-pill-rate-wrap">
                     <div class="lake-pill-lbl">7-day trend</div>
                     <div class="lake-pill-val" id="lake-pill-rate">--</div>
                 </div>
@@ -1118,6 +1116,15 @@
                 <div class="irr-metric"><div class="lbl">Min AHD (period)</div><div class="val" id="lake-hist-min">--</div></div>
                 <div class="irr-metric"><div class="lbl">Max AHD (period)</div><div class="val" id="lake-hist-max">--</div></div>
                 <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="lake-hist-change">--</div></div>
+            </div>
+        </div>
+
+        <!-- Sensor detail metrics -->
+        <div class="card">
+            <div class="irr-metrics">
+                <div class="irr-metric"><div class="lbl">Sensor Raw (cm)</div><div class="val" id="lake-cm">--</div></div>
+                <div class="irr-metric"><div class="lbl">Last Reading</div><div class="val" id="lake-last-reading" style="font-size:0.75em;line-height:1.2">--</div></div>
+                <div class="irr-metric"><div class="lbl">Battery</div><div class="val" id="lake-battery">--</div></div>
             </div>
         </div>
 
@@ -6919,54 +6926,77 @@ function _renderLakeGraph(samples) {
 }
 
 function _updateLakePills(ahd, readings) {
-    // Pill 1: cm to rise to the next threshold above
+    // Calculate 7-day trend rate first — used to drive urgency on all pills
+    const ago7d  = Date.now() - 7 * 86400000;
+    const recent = (readings || []).filter(r => new Date(r.date).getTime() >= ago7d)
+                                   .sort((a,b) => new Date(a.date) - new Date(b.date));
+    let rate = null; // cm/day, positive = rising, negative = falling
+    if (recent.length >= 2) {
+        const days = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / 86400000;
+        if (days > 0) rate = ((parseFloat(recent[recent.length-1].ahd) - parseFloat(recent[0].ahd)) * 100) / days;
+    }
+    const rising  = rate !== null && rate > 0.2;
+    const falling = rate !== null && rate < -0.2;
+
+    const setGlow = (id, cls) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('lake-pill-glow-green', 'lake-pill-glow-red');
+        if (cls) el.classList.add(cls);
+    };
+
+    // Pill 1: rise to next threshold above
     const riseEl = document.getElementById('lake-pill-rise');
     if (riseEl && ahd != null) {
         const above = LAKE_THRESHOLDS.filter(t => t.ahd > ahd).sort((a,b) => a.ahd - b.ahd);
         if (above.length === 0) {
-            riseEl.textContent = 'Above all levels';
+            riseEl.innerHTML   = '&#8679; Above all levels';
             riseEl.style.color = '#27ae60';
+            setGlow('lake-pill-rise-wrap', null);
         } else {
-            const diff = (above[0].ahd - ahd) * 100;
-            riseEl.innerHTML = `+${diff.toFixed(1)} cm &rarr; ${above[0].rate}`;
+            const diff  = (above[0].ahd - ahd) * 100;
+            const arrow = rising ? ' &#8593;&#8593;' : rising === false && !falling ? '' : '';
+            riseEl.innerHTML = `+${diff.toFixed(1)} cm &rarr; ${above[0].rate}${rising ? ' &#8593;' : ''}`;
             riseEl.style.color = diff <= 5 ? '#27ae60' : diff <= 15 ? '#d4ac0d' : '#7f8c8d';
+            // Glow green when rising AND close to the next level
+            setGlow('lake-pill-rise-wrap', (rising && diff <= 5) ? 'lake-pill-glow-green' : null);
         }
     }
 
-    // Pill 2: cm of buffer before dropping to the next threshold below
+    // Pill 2: buffer before dropping to threshold below
     const bufEl = document.getElementById('lake-pill-buffer');
     if (bufEl && ahd != null) {
         const below = LAKE_THRESHOLDS.filter(t => t.ahd < ahd).sort((a,b) => b.ahd - a.ahd);
         if (below.length === 0) {
-            bufEl.textContent = 'Below all levels';
-            bufEl.style.color = '#e74c3c';
+            bufEl.innerHTML    = '&#8681; Below all levels';
+            bufEl.style.color  = '#e74c3c';
+            setGlow('lake-pill-buffer-wrap', 'lake-pill-glow-red');
         } else {
             const diff = (ahd - below[0].ahd) * 100;
-            bufEl.innerHTML = `${diff.toFixed(1)} cm above ${below[0].rate}`;
+            bufEl.innerHTML = `${diff.toFixed(1)} cm above ${below[0].rate}${falling ? ' &#8595;' : ''}`;
             bufEl.style.color = diff >= 15 ? '#27ae60' : diff >= 5 ? '#d4ac0d' : '#e74c3c';
+            // Glow red when falling AND buffer is getting small
+            setGlow('lake-pill-buffer-wrap', (falling && diff <= 10) ? 'lake-pill-glow-red' : null);
         }
     }
 
-    // Pill 3: 7-day net rate of change
+    // Pill 3: 7-day trend
     const rateEl = document.getElementById('lake-pill-rate');
     if (rateEl) {
-        const ago7d  = Date.now() - 7 * 86400000;
-        const recent = (readings || []).filter(r => new Date(r.date).getTime() >= ago7d)
-                                       .sort((a,b) => new Date(a.date) - new Date(b.date));
-        if (recent.length < 2) {
+        if (rate === null) {
             rateEl.textContent = 'Insufficient data';
             rateEl.style.color = '#7f8c8d';
+            setGlow('lake-pill-rate-wrap', null);
         } else {
-            const days     = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / 86400000;
-            const changeCm = (parseFloat(recent[recent.length-1].ahd) - parseFloat(recent[0].ahd)) * 100;
-            const rate     = changeCm / days;
-            const abs      = Math.abs(rate);
+            const abs = Math.abs(rate);
             if (rate >= 0) {
-                rateEl.innerHTML   = `Net gain: +${abs.toFixed(1)} cm/day`;
+                rateEl.innerHTML   = `&#8593; Rising ${abs.toFixed(1)} cm/day`;
                 rateEl.style.color = '#27ae60';
+                setGlow('lake-pill-rate-wrap', null);
             } else {
-                rateEl.innerHTML   = `Net loss: ${rate.toFixed(1)} cm/day`;
+                rateEl.innerHTML   = `&#8595; Falling ${abs.toFixed(1)} cm/day`;
                 rateEl.style.color = abs < 1 ? '#27ae60' : abs < 3 ? '#d4ac0d' : '#e74c3c';
+                setGlow('lake-pill-rate-wrap', abs >= 3 ? 'lake-pill-glow-red' : null);
             }
         }
     }
