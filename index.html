@@ -6975,8 +6975,11 @@ function _updateLakePills(ahd, readings) {
             bufEl.style.color = '#EB1E23';
             setGlow('lake-pill-buffer-wrap', 'lake-pill-glow-red');
         } else {
-            const diff = (ahd - below[0].ahd) * 100;
-            bufEl.innerHTML   = `${diff.toFixed(1)} cm above ${below[0].rate}${falling ? ' &#8595;' : ''}`;
+            const diff     = (ahd - below[0].ahd) * 100;
+            // Rate that kicks in if we drop below this threshold
+            const nextIdx  = LAKE_THRESHOLDS.indexOf(below[0]);
+            const dropRate = nextIdx + 1 < LAKE_THRESHOLDS.length ? LAKE_THRESHOLDS[nextIdx + 1].rate : '0 ML/day';
+            bufEl.innerHTML   = `${diff.toFixed(1)} cm &rarr; drops to ${dropRate}${falling ? ' &#8595;' : ''}`;
             bufEl.style.color = diff >= 15 ? '#00762A' : diff >= 5 ? '#F58E1E' : '#EB1E23';
             setGlow('lake-pill-buffer-wrap', (falling && diff <= 10) ? 'lake-pill-glow-red' : null);
         }
