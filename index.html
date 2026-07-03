@@ -6710,39 +6710,86 @@ function _renderLakeGraph(samples) {
     const canvas = document.getElementById('lake-graph-canvas');
     if (!canvas) return;
 
-    if (!samples || samples.length < 2) {
-        if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
-        ['lake-hist-min','lake-hist-max','lake-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
-        return;
+    const is24h = _lakeRange !== null && _lakeRange <= 24;
+
+    let plotLabels, plotVals, plotTooltips;
+
+    if (!is24h) {
+        // Generate a fixed time grid spanning the full requested window,
+        // mapping real readings onto slots and leaving nulls where there's no data.
+        let fromMs, toMs;
+        if (_lakeRange === null) {
+            fromMs = new Date(_lakeCustomFrom).getTime();
+            toMs   = new Date(_lakeCustomTo + 'T23:59:59').getTime();
+        } else {
+            toMs   = Date.now();
+            fromMs = toMs - _lakeRange * 3600000;
+        }
+        const spanDays = (toMs - fromMs) / 86400000;
+        const slotMs   = spanDays <= 8 ? 3600000 : 86400000; // hourly ≤8 days, daily >8 days
+
+        // Map each reading to the slot it falls in (last reading wins per slot)
+        const slotMap = new Map();
+        for (const s of (samples || [])) {
+            const t   = new Date(s.date).getTime();
+            const key = Math.floor((t - fromMs) / slotMs);
+            if (key >= 0) slotMap.set(key, { ahd: parseFloat(s.ahd ?? 0), date: s.date });
+        }
+
+        plotLabels = []; plotVals = []; plotTooltips = [];
+        const totalSlots = Math.ceil((toMs - fromMs) / slotMs);
+        for (let i = 0; i <= totalSlots; i++) {
+            const t = new Date(fromMs + i * slotMs);
+            plotLabels.push(t.toLocaleDateString('en-AU', { day:'numeric', month:'short' }));
+            const entry = slotMap.get(i);
+            plotVals.push(entry ? entry.ahd : null);
+            plotTooltips.push(entry
+                ? new Date(entry.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false })
+                : t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' — no data');
+        }
+    } else {
+        // 24h: use samples directly
+        if (!samples || samples.length < 2) {
+            if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
+            ['lake-hist-min','lake-hist-max','lake-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+            return;
+        }
+        plotVals     = samples.map(s => parseFloat(s.ahd ?? 0));
+        plotLabels   = samples.map(s => new Date(s.date).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false }));
+        plotTooltips = samples.map(s => new Date(s.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }));
     }
 
-    const vals   = samples.map(s => parseFloat(s.ahd ?? 0));
-    const minV   = Math.min(...vals), maxV = Math.max(...vals);
-    const change = vals[vals.length - 1] - vals[0];
-    const n      = samples.length;
+    // Stats from non-null values only
+    const realVals = plotVals.filter(v => v !== null);
+    if (realVals.length === 0) {
+        if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
+        ['lake-hist-min','lake-hist-max','lake-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+        // Still render the empty grid so threshold lines and axis are visible
+    }
+
+    const minV   = realVals.length ? Math.min(...realVals) : 190.0;
+    const maxV   = realVals.length ? Math.max(...realVals) : 190.0;
+    const firstV = plotVals.find(v => v !== null);
+    const lastV  = [...plotVals].reverse().find(v => v !== null);
+    const change = (firstV != null && lastV != null) ? lastV - firstV : null;
+    const n      = plotVals.length;
 
     // Y-axis bounds: always show all 4 threshold lines + padding
     const yMin = Math.min(minV, 189.55) - 0.05;
     const yMax = Math.max(maxV, 190.35) + 0.05;
 
-    const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = minV.toFixed(3) + ' m';
-    const maxEl = document.getElementById('lake-hist-max'); if (maxEl) maxEl.textContent = maxV.toFixed(3) + ' m';
+    const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3) + ' m' : '--';
+    const maxEl = document.getElementById('lake-hist-max'); if (maxEl) maxEl.textContent = realVals.length ? maxV.toFixed(3) + ' m' : '--';
     const chEl  = document.getElementById('lake-hist-change');
     if (chEl) {
-        chEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(3) + ' m';
-        chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c';
+        if (change !== null) {
+            chEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(3) + ' m';
+            chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c';
+        } else {
+            chEl.textContent = '--';
+            chEl.style.color = '';
+        }
     }
-
-    const labels = samples.map(s => {
-        const d = new Date(s.date);
-        return _lakeRange <= 24
-            ? d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false })
-            : d.toLocaleDateString('en-AU', { day:'numeric', month:'short' });
-    });
-    const tooltipLabels = samples.map(s => {
-        const d = new Date(s.date);
-        return d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
-    });
 
     const ctx  = canvas.getContext('2d');
     const grad = ctx.createLinearGradient(0, 0, 0, 220);
@@ -6750,14 +6797,15 @@ function _renderLakeGraph(samples) {
     grad.addColorStop(1, 'rgba(26,188,156,0.02)');
 
     const chartData = {
-        labels,
+        labels: plotLabels,
         datasets: [{
-            data: vals,
+            data: plotVals,
             borderColor: '#1abc9c',
             borderWidth: 2.2,
             backgroundColor: grad,
             fill: true,
             tension: 0.35,
+            spanGaps: false,
             pointRadius: n > 60 ? 0 : n > 24 ? 2.5 : 3,
             pointHoverRadius: 6,
             pointHitRadius: 12,
@@ -6809,8 +6857,11 @@ function _renderLakeGraph(samples) {
                     bodyColor: '#ecf0f1',
                     padding: 10,
                     callbacks: {
-                        title: items  => tooltipLabels[items[0].dataIndex],
-                        label: item   => vals[item.dataIndex].toFixed(3) + ' m AHD'
+                        title: items  => plotTooltips[items[0].dataIndex],
+                        label: item   => {
+                            const v = plotVals[item.dataIndex];
+                            return v !== null ? v.toFixed(3) + ' m AHD' : 'No data';
+                        }
                     }
                 }
             },
