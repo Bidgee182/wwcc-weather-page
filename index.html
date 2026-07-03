@@ -1072,9 +1072,12 @@
                 <div style="font-size:0.78em;color:#7f8c8d;margin-top:4px">AHD (Australian Height Datum)</div>
             </div>
             <!-- Extraction rate banner -->
-            <div id="lake-extraction-banner" style="border-radius:8px;padding:12px 16px;margin:0 0 14px;text-align:center;background:#1a2d3d">
+            <div id="lake-extraction-banner" style="border-radius:8px;padding:12px 16px;margin:0 0 8px;text-align:center;background:#1a2d3d">
                 <div id="lake-extraction-rate" style="font-size:1.25em;font-weight:700;color:#7f8c8d">-- ML/day</div>
                 <div id="lake-op-level" style="font-size:0.78em;margin-top:4px;color:#566573">Loading&hellip;</div>
+            </div>
+            <div style="text-align:center;margin-bottom:12px">
+                <a href="assets/Lake_Albert_Management_Framework_Sign_A3.pdf" target="_blank" style="font-size:0.72em;color:#4a90b8;text-decoration:none;opacity:0.8">&#128196; View Water Level Management Framework</a>
             </div>
             <!-- Licence threshold pills -->
             <div class="lake-pill-row">
@@ -6425,10 +6428,11 @@ let   _lakeCustomFrom     = null;
 let   _lakeCustomTo       = null;
 
 const LAKE_THRESHOLDS = [
-    { ahd: 190.25, rate: '1.50 ML/day' },
-    { ahd: 190.05, rate: '1.00 ML/day' },
-    { ahd: 189.85, rate: '0.75 ML/day' },
-    { ahd: 189.65, rate: '0.50 ML/day' },
+    { ahd: 190.25, rate: '1.50 ML/day', level: 1, name: 'Normal Operations',          bg: '#00762A', color: '#FFFFFF' },
+    { ahd: 190.05, rate: '1.00 ML/day', level: 2, name: 'Increased Monitoring',        bg: '#8AC63F', color: '#111111' },
+    { ahd: 189.85, rate: '0.75 ML/day', level: 3, name: 'Water Conservation Planning', bg: '#FFDD00', color: '#111111' },
+    { ahd: 189.65, rate: '0.50 ML/day', level: 4, name: 'Critical Warning',            bg: '#F58E1E', color: '#111111' },
+    // below 189.65 = Level 5 Shutdown (0 ML/day)
 ];
 let   _tankCustomFrom   = null;
 let   _tankCustomTo     = null;
@@ -6732,12 +6736,12 @@ function lakeBatteryLabel(v) {
 }
 
 function lakeExtractionInfo(ahd) {
-    if (ahd === null || ahd === undefined) return { rate: '--', label: '--', color: '#566573', bg: '#1a252f' };
-    if (ahd > 190.25) return { rate: '1.50 ML/day', label: 'Level 1 \u2014 Normal Operations',      color: '#27ae60', bg: '#152b1e' };
-    if (ahd > 190.05) return { rate: '1.00 ML/day', label: 'Level 2 \u2014 Increased Monitoring',   color: '#d4ac0d', bg: '#2d280f' };
-    if (ahd > 189.85) return { rate: '0.75 ML/day', label: 'Level 3 \u2014 Water Conservation',     color: '#e67e22', bg: '#2d1f0a' };
-    if (ahd > 189.65) return { rate: '0.50 ML/day', label: 'Level 4 \u2014 Critical Warning',       color: '#e74c3c', bg: '#2d0f0f' };
-    return              { rate: 'No Extraction Permitted', label: 'Level 5 \u2014 Shutdown Required', color: '#c0392b', bg: '#3d0000' };
+    if (ahd === null || ahd === undefined) return { rate: '--', label: '--', color: '#ecf0f1', bg: '#1a252f' };
+    if (ahd >= 190.25) return { rate: '1.50 ML/day', label: 'Level 1 \u2014 Normal Operations',           color: '#FFFFFF', bg: '#00762A' };
+    if (ahd >= 190.05) return { rate: '1.00 ML/day', label: 'Level 2 \u2014 Increased Monitoring',         color: '#111111', bg: '#8AC63F' };
+    if (ahd >= 189.85) return { rate: '0.75 ML/day', label: 'Level 3 \u2014 Water Conservation Planning',  color: '#111111', bg: '#FFDD00' };
+    if (ahd >= 189.65) return { rate: '0.50 ML/day', label: ahd < 189.75 ? 'Level 4 \u2014 Critical Warning \u26a0' : 'Level 4 \u2014 Critical Warning', color: '#111111', bg: '#F58E1E' };
+    return                    { rate: '0 ML/day \u2014 No Extraction', label: 'Level 5 \u2014 Shutdown Verification', color: '#FFFFFF', bg: '#EB1E23' };
 }
 
 function _renderLakeGraph(samples) {
@@ -6808,7 +6812,7 @@ function _renderLakeGraph(samples) {
     const n      = plotVals.length;
 
     // Y-axis bounds: always show all 4 threshold lines + padding
-    const yMin = Math.min(minV, 189.55) - 0.05;
+    const yMin = Math.min(minV, 189.60) - 0.05;
     const yMax = Math.max(maxV, 190.35) + 0.05;
 
     const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3) + ' m' : '--';
@@ -6866,10 +6870,11 @@ function _renderLakeGraph(samples) {
                 c.fillText(lbl, left + 6, yPx - 4);
                 c.restore();
             };
-            drawLine(190.25, '#27ae60', '190.25 — 1.50 ML/day');
-            drawLine(190.05, '#d4ac0d', '190.05 — 1.00 ML/day');
-            drawLine(189.85, '#e67e22', '189.85 — 0.75 ML/day');
-            drawLine(189.65, '#e74c3c', '189.65 — 0.50 ML/day / Shutdown');
+            drawLine(190.25, '#00762A', 'L1 190.25 — 1.50 ML/day');
+            drawLine(190.05, '#8AC63F', 'L2 190.05 — 1.00 ML/day');
+            drawLine(189.85, '#FFDD00', 'L3 189.85 — 0.75 ML/day');
+            drawLine(189.75, '#F58E1E', 'L4 189.75 — Critical Warning');
+            drawLine(189.65, '#EB1E23', 'L5 189.65 — Shutdown');
         }
     };
 
@@ -6951,14 +6956,12 @@ function _updateLakePills(ahd, readings) {
         const above = LAKE_THRESHOLDS.filter(t => t.ahd > ahd).sort((a,b) => a.ahd - b.ahd);
         if (above.length === 0) {
             riseEl.innerHTML   = '&#8679; Above all levels';
-            riseEl.style.color = '#27ae60';
+            riseEl.style.color = '#00762A';
             setGlow('lake-pill-rise-wrap', null);
         } else {
-            const diff  = (above[0].ahd - ahd) * 100;
-            const arrow = rising ? ' &#8593;&#8593;' : rising === false && !falling ? '' : '';
-            riseEl.innerHTML = `+${diff.toFixed(1)} cm &rarr; ${above[0].rate}${rising ? ' &#8593;' : ''}`;
-            riseEl.style.color = diff <= 5 ? '#27ae60' : diff <= 15 ? '#d4ac0d' : '#7f8c8d';
-            // Glow green when rising AND close to the next level
+            const diff = (above[0].ahd - ahd) * 100;
+            riseEl.innerHTML   = `+${diff.toFixed(1)} cm &rarr; ${above[0].rate}${rising ? ' &#8593;' : ''}`;
+            riseEl.style.color = diff <= 5 ? '#00762A' : diff <= 15 ? '#F58E1E' : '#7f8c8d';
             setGlow('lake-pill-rise-wrap', (rising && diff <= 5) ? 'lake-pill-glow-green' : null);
         }
     }
@@ -6968,14 +6971,13 @@ function _updateLakePills(ahd, readings) {
     if (bufEl && ahd != null) {
         const below = LAKE_THRESHOLDS.filter(t => t.ahd < ahd).sort((a,b) => b.ahd - a.ahd);
         if (below.length === 0) {
-            bufEl.innerHTML    = '&#8681; Below all levels';
-            bufEl.style.color  = '#e74c3c';
+            bufEl.innerHTML   = '&#8681; No Extraction Zone';
+            bufEl.style.color = '#EB1E23';
             setGlow('lake-pill-buffer-wrap', 'lake-pill-glow-red');
         } else {
             const diff = (ahd - below[0].ahd) * 100;
-            bufEl.innerHTML = `${diff.toFixed(1)} cm above ${below[0].rate}${falling ? ' &#8595;' : ''}`;
-            bufEl.style.color = diff >= 15 ? '#27ae60' : diff >= 5 ? '#d4ac0d' : '#e74c3c';
-            // Glow red when falling AND buffer is getting small
+            bufEl.innerHTML   = `${diff.toFixed(1)} cm above ${below[0].rate}${falling ? ' &#8595;' : ''}`;
+            bufEl.style.color = diff >= 15 ? '#00762A' : diff >= 5 ? '#F58E1E' : '#EB1E23';
             setGlow('lake-pill-buffer-wrap', (falling && diff <= 10) ? 'lake-pill-glow-red' : null);
         }
     }
@@ -7021,7 +7023,7 @@ async function fetchLakeData() {
         // Extraction banner
         const info = lakeExtractionInfo(ahd);
         const banner = document.getElementById('lake-extraction-banner');
-        if (banner) banner.style.background = info.bg;
+        if (banner) { banner.style.background = info.bg; banner.style.borderColor = info.bg; }
         const rateEl = document.getElementById('lake-extraction-rate');
         if (rateEl) { rateEl.textContent = 'Max extraction: ' + info.rate; rateEl.style.color = info.color; }
         const opEl = document.getElementById('lake-op-level');
