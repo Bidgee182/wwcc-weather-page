@@ -5558,7 +5558,7 @@ function wmoIcon(code) {
 async function getForecast() {
     try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
-            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
+            + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
             + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
         let response, lastFcErr;
@@ -5623,8 +5623,8 @@ async function getForecast() {
             const hi     = Math.round(data.daily.temperature_2m_max[i]);
             const lo     = Math.round(data.daily.temperature_2m_min[i]);
             const precip = (data.daily.precipitation_sum[i] ?? 0).toFixed(1);
-            const desc   = wmoDescription(data.daily.weathercode[i]);
-            const icon   = wmoIcon(data.daily.weathercode[i]);
+            const desc   = wmoDescription(data.daily.weather_code[i]);
+            const icon   = wmoIcon(data.daily.weather_code[i]);
             const prob   = data.daily.precipitation_probability_max[i] ?? '--';
             const uv     = data.daily.uv_index_max?.[i] != null ? Math.round(data.daily.uv_index_max[i]) : '--';
             html += `<div class="forecast-cell">
