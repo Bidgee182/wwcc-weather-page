@@ -5561,7 +5561,7 @@ async function getForecast() {
         const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
             + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m`
-            + `&timezone=Australia%2FSydney&forecast_days=4`;
+            + `&timezone=Australia%2FSydney&forecast_days=4&models=gfs_seamless`;
         const fcUrls = [
             omUrl,
             `https://corsproxy.io/?${encodeURIComponent(omUrl)}`,
