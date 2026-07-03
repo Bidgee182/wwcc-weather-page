@@ -5420,7 +5420,8 @@ async function getWeatherData() {
         const deltaT = temp - tw;
 
         let windKmh = 0, windDeg = null, windDir = '--';
-        if (data.wind_mph) windKmh = parseFloat(data.wind_mph) * 1.60934;
+        const rawWind = data.davis_current_observation?.wind_ten_min_avg_mph ?? data.wind_mph;
+        if (rawWind) windKmh = parseFloat(rawWind) * 1.60934;
         if (data.wind_degrees !== undefined && data.wind_degrees !== null) {
             windDeg = parseFloat(data.wind_degrees);
             windDir = degreesToCompass(windDeg);
