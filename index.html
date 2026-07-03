@@ -5567,10 +5567,14 @@ async function getForecast() {
             `https://corsproxy.io/?${encodeURIComponent(omUrl)}`,
             `https://api.allorigins.win/raw?url=${encodeURIComponent(omUrl)}`,
         ];
-        let response, lastFcErr;
+        let response, lastFcErr, lastFcUrl;
         for (const url of fcUrls) {
-            try { response = await fetch(url); if (response.ok) break; }
-            catch (e) { lastFcErr = e; }
+            lastFcUrl = url.length > 60 ? url.slice(0, 60) + '...' : url;
+            try {
+                response = await fetch(url);
+                if (response.ok) break;
+                lastFcErr = new Error(`HTTP ${response.status} from ${lastFcUrl}`);
+            } catch (e) { lastFcErr = new Error(`${e.message} [${lastFcUrl}]`); }
         }
         if (!response || !response.ok) throw lastFcErr || new Error('Open-Meteo unavailable');
         const data     = await response.json();
