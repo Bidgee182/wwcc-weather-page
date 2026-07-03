@@ -1072,12 +1072,12 @@
                 <div style="font-size:0.78em;color:#7f8c8d;margin-top:4px">AHD (Australian Height Datum)</div>
             </div>
             <!-- Extraction rate banner -->
-            <div id="lake-extraction-banner" style="border-radius:8px;padding:12px 16px;margin:0 0 8px;text-align:center;background:#1a2d3d">
+            <div id="lake-extraction-banner" style="border-radius:8px;padding:12px 16px;margin:0 0 8px;text-align:center;background:rgba(0,0,0,0.25);border-left:5px solid #566573">
                 <div id="lake-extraction-rate" style="font-size:1.25em;font-weight:700;color:#7f8c8d">-- ML/day</div>
                 <div id="lake-op-level" style="font-size:0.78em;margin-top:4px;color:#566573">Loading&hellip;</div>
             </div>
             <div style="text-align:center;margin-bottom:12px">
-                <a href="assets/Lake_Albert_Management_Framework_Sign_A3.pdf" target="_blank" style="font-size:0.72em;color:#4a90b8;text-decoration:none;opacity:0.8">&#128196; View Water Level Management Framework</a>
+                <a href="assets/Lake_Albert_Management_Framework_Sign_A3.pdf" target="_blank" style="font-size:0.85em;color:#4a90b8;text-decoration:none;opacity:0.9">&#128196; View Water Level Management Framework</a>
             </div>
             <!-- Licence threshold pills -->
             <div class="lake-pill-row">
@@ -7023,11 +7023,11 @@ async function fetchLakeData() {
         // Extraction banner
         const info = lakeExtractionInfo(ahd);
         const banner = document.getElementById('lake-extraction-banner');
-        if (banner) { banner.style.background = info.bg; banner.style.borderColor = info.bg; }
+        if (banner) { banner.style.background = 'rgba(0,0,0,0.25)'; banner.style.borderLeftColor = info.bg; }
         const rateEl = document.getElementById('lake-extraction-rate');
-        if (rateEl) { rateEl.textContent = 'Max extraction: ' + info.rate; rateEl.style.color = info.color; }
+        if (rateEl) { rateEl.textContent = 'Max extraction: ' + info.rate; rateEl.style.color = info.bg; }
         const opEl = document.getElementById('lake-op-level');
-        if (opEl) { opEl.textContent = info.label; opEl.style.color = info.color; }
+        if (opEl) { opEl.textContent = info.label; opEl.style.color = info.bg; }
 
         // Detail metrics
         const cmEl = document.getElementById('lake-cm');
