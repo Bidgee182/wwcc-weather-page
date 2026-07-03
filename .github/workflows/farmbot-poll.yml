@@ -84,11 +84,11 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
+          git pull --rebase origin main
           git add data/
           if git diff --staged --quiet; then
             echo "No data changes — skipping commit and push"
           else
             git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git pull --rebase origin main
             git push
           fi
