@@ -5558,14 +5558,19 @@ function wmoIcon(code) {
 
 async function getForecast() {
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
+        const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
             + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m`
             + `&timezone=Australia%2FSydney&forecast_days=4`;
+        const fcUrls = [
+            omUrl,
+            `https://corsproxy.io/?${encodeURIComponent(omUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(omUrl)}`,
+        ];
         let response, lastFcErr;
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (const url of fcUrls) {
             try { response = await fetch(url); if (response.ok) break; }
-            catch (e) { lastFcErr = e; if (attempt < 3) await new Promise(r => setTimeout(r, 3000)); }
+            catch (e) { lastFcErr = e; }
         }
         if (!response || !response.ok) throw lastFcErr || new Error('Open-Meteo unavailable');
         const data     = await response.json();
