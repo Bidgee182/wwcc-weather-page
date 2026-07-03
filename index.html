@@ -5640,7 +5640,7 @@ async function getForecast() {
 
     } catch (e) {
         console.error('[Forecast]', e);
-        document.getElementById('forecast-container').innerHTML = '<div style="color:#7f8c8d">Forecast unavailable</div>';
+        document.getElementById('forecast-container').innerHTML = `<div style="color:#e74c3c;font-size:0.8em">Forecast error: ${e.message}</div>`;
     }
 }
 
