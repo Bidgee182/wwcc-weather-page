@@ -166,6 +166,8 @@
         .lk-hourly-grid::-webkit-scrollbar-track { background:#1a252f; }
         .lk-hourly-grid::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
         .lk-hc { background:#1a252f; border-radius:10px; padding:10px 8px; text-align:center; border:1px solid #2c3e50; min-width:68px; flex-shrink:0; }
+        .lk-hc-now { border-color:#4a90b8; background:#0d1f2d; }
+        .lk-hc-now .lk-hc-time { color:#4a90b8; font-weight:bold; }
         .lk-hc-time { font-size:0.7em; color:#7f8c8d; }
         .lk-hc-icon { font-size:1.5em; margin:4px 0; line-height:1; }
         .lk-hc-temp { font-size:1em; font-weight:bold; }
@@ -2140,11 +2142,32 @@ function _renderLakeHourly(hourly) {
     const container = document.getElementById('lk-hourly-grid');
     const card = document.getElementById('lk-hourly-card');
     if (!container || !hourly) return;
-    const offsetMs = sydneyOffsetMs();
-    const nowStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
-    let html = '', count = 0;
+    // Use sv locale for reliable "YYYY-MM-DD HH:MM:SS" format in Sydney time
+    const sydStr = new Date().toLocaleString('sv', {timeZone: 'Australia/Sydney'});
+    const nowStr = sydStr.slice(0, 13).replace(' ', 'T'); // "2026-07-04T17"
+    let html = '', count = 0, nowInserted = false;
     for (let i = 0; i < hourly.time.length && count < 12; i++) {
-        if (hourly.time[i].slice(0, 13) < nowStr) continue;
+        const entryHour = hourly.time[i].slice(0, 13);
+        if (entryHour < nowStr) continue;
+        // Insert "Now" pill once, using the first upcoming hour's data
+        if (!nowInserted) {
+            const icon  = wmoIcon(hourly.weather_code[i]);
+            const temp  = hourly.temperature_2m[i];
+            const wind  = hourly.windspeed_10m[i];
+            const dir   = hourly.winddirection_10m[i];
+            const rain  = hourly.precipitation_probability[i];
+            html += '<div class="lk-hc lk-hc-now">'
+                +'<div class="lk-hc-time">Now</div>'
+                +'<div class="lk-hc-icon">'+icon+'</div>'
+                +'<div class="lk-hc-temp">'+(temp!=null?Math.round(temp)+'\u00b0':'--')+'</div>'
+                +'<div class="lk-hc-desc">'+wmoDescription(hourly.weather_code[i])+'</div>'
+                +'<div class="lk-hc-wind">'+(wind!=null?wind.toFixed(0)+' km/h':'')+' '+(dir!=null?degToCompass(dir):'')+'</div>'
+                +'<div class="lk-hc-rain">'+(rain!=null?rain+'%':'\u00a0')+'</div>'
+                +'</div>';
+            nowInserted = true;
+            count++;
+            if (count >= 12) break;
+        }
         const h = parseInt(hourly.time[i].slice(11, 13), 10);
         const label = h === 0 ? '12am' : h < 12 ? h+'am' : h === 12 ? '12pm' : (h-12)+'pm';
         const icon  = wmoIcon(hourly.weather_code[i]);
