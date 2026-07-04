@@ -438,8 +438,13 @@
             <div class="wx-unit">mm</div>
         </div>
         <div class="wx-card">
-            <div class="wx-lbl">Month Rainfall</div>
+            <div class="wx-lbl" id="wx-rain-month-lbl">This Month</div>
             <div class="wx-val" id="wx-rain-month">--</div>
+            <div class="wx-unit">mm</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl" id="wx-rain-lastmonth-lbl">Last Month</div>
+            <div class="wx-val" id="wx-rain-lastmonth">--</div>
             <div class="wx-unit">mm</div>
         </div>
         <div class="wx-card">
@@ -1708,6 +1713,21 @@ async function fetchWeather() {
         setEl('wx-rain',      _rainDayMm,  1);
         setEl('wx-rain-month',_rainMonthMm,1);
         setEl('wx-rain-year', _rainYearMm, 0);
+
+        // Dynamic month labels + last month total from history store
+        const _mNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const _now=new Date(Date.now()+sydneyOffsetMs());
+        const _curMonth=_now.getUTCMonth(), _curYear=_now.getUTCFullYear();
+        const _lastMonth=_curMonth===0?11:_curMonth-1;
+        const _lastYear =_curMonth===0?_curYear-1:_curYear;
+        const _lastPrefix=_lastYear+'-'+String(_lastMonth+1).padStart(2,'0');
+        const _lbl1=document.getElementById('wx-rain-month-lbl');
+        const _lbl2=document.getElementById('wx-rain-lastmonth-lbl');
+        if(_lbl1) _lbl1.textContent=_mNames[_curMonth]+' Rainfall';
+        if(_lbl2) _lbl2.textContent=_mNames[_lastMonth]+' Rainfall';
+        const _lastMonthRain=Object.entries(_wxhStore||{}).filter(([d])=>d.startsWith(_lastPrefix)).reduce((s,[,v])=>s+(v.rain||0),0);
+        const _lmEl=document.getElementById('wx-rain-lastmonth');
+        if(_lmEl) _lmEl.textContent=_lastMonthRain>0?_lastMonthRain.toFixed(1):'--';
 
         const hiloEl=document.getElementById('wx-temp-hilo');
         if(hiloEl) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0  -  Low '+lowC.toFixed(1)+'\u00b0';
