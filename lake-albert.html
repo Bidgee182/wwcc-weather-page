@@ -264,6 +264,7 @@
             <button class="tank-range-btn active" onclick="setRange(24)">24h</button>
             <button class="tank-range-btn" onclick="setRange(168)">7 Days</button>
             <button class="tank-range-btn" onclick="setRange(720)">30 Days</button>
+            <button class="tank-range-btn" onclick="setRange(2160)">90 Days</button>
             <button class="tank-range-btn" id="custom-btn" onclick="showCustom()">Custom</button>
         </div>
         <div class="tank-custom-row" id="custom-row">
@@ -979,7 +980,7 @@ function setRange(hours) {
     _range=hours; _customFrom=null; _customTo=null; _lakeHistory=null;
     document.getElementById('custom-row').classList.remove('visible');
     document.querySelectorAll('#level-range-row .tank-range-btn').forEach(b=>{
-        const map={24:'24h',168:'7 Days',720:'30 Days'};
+        const map={24:'24h',168:'7 Days',720:'30 Days',2160:'90 Days'};
         b.classList.toggle('active',map[hours]===b.textContent.trim());
     });
     fetchLevel();
@@ -1148,11 +1149,32 @@ function renderLevelChart(samples) {
     grad.addColorStop(0,'rgba(74,144,184,0.45)');
     grad.addColorStop(1,'rgba(74,144,184,0.02)');
 
+    // Mark manual-entry points with larger distinct dots
+    const pointRadii = samples.map(s => s.manual ? 6 : (plotVals.length > 60 ? 0 : 3));
+    const pointColors = samples.map(s => s.manual ? '#f39c12' : '#4a90b8');
+    // Rebuild per-slot arrays aligned to plotVals
+    const slotSamples = [];
+    if (!is24h) {
+        let fromMs2,toMs2;
+        if(_range===null){fromMs2=new Date(_customFrom).getTime();toMs2=new Date(_customTo+'T23:59:59').getTime();}
+        else             {toMs2=Date.now();fromMs2=toMs2-_range*3600000;}
+        const slotMs2=3600000, slotMap2=new Map();
+        for(const s of(samples||[])){
+            const key=Math.floor((new Date(s.date).getTime()-fromMs2)/slotMs2);
+            if(key>=0) slotMap2.set(key,s);
+        }
+        const total2=Math.ceil((toMs2-fromMs2)/slotMs2);
+        for(let i=0;i<=total2;i++) slotSamples.push(slotMap2.get(i)||null);
+    }
+    const useSlot = !is24h && slotSamples.length === plotVals.length;
+    const ptRadii  = plotVals.map((_,i) => { const s=useSlot?slotSamples[i]:null; return s?.manual?6:(plotVals.length>60?0:3); });
+    const ptColors = plotVals.map((_,i) => { const s=useSlot?slotSamples[i]:null; return s?.manual?'#f39c12':'#4a90b8'; });
+
     const chartData={labels:plotLabels,datasets:[{
         data:plotVals,borderColor:'#4a90b8',borderWidth:2.2,backgroundColor:grad,
         fill:true,tension:0.35,spanGaps:true,
-        pointRadius:plotVals.length>60?0:3,pointHoverRadius:6,pointHitRadius:12,
-        pointBackgroundColor:'#4a90b8',pointBorderColor:'#1a252f',pointBorderWidth:1.5
+        pointRadius:ptRadii,pointHoverRadius:6,pointHitRadius:12,
+        pointBackgroundColor:ptColors,pointBorderColor:'#1a252f',pointBorderWidth:1.5
     }]};
 
     const cfg={type:'line',data:chartData,options:{
