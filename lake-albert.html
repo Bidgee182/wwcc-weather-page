@@ -2276,10 +2276,9 @@ function updateNavLights() {
     const ssLocal = new Date(ss.sunset.getTime()  + offsetMs);
     const nowLocal = new Date(now.getTime() + offsetMs);
 
-    const pad = n => String(n).padStart(2,'0');
-    const fmt = d => pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
-    const srStr = fmt(srLocal);
-    const ssStr = fmt(ssLocal);
+    const fmt = d => d.toLocaleString('sv', {timeZone:'Australia/Sydney'}).slice(11, 16);
+    const srStr = fmt(ss.sunrise);
+    const ssStr = fmt(ss.sunset);
 
     const srEl  = document.getElementById('pb-sunrise');
     const ssEl  = document.getElementById('pb-sunset');
