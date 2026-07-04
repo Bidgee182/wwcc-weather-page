@@ -624,7 +624,6 @@
         <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
         <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
         <div class="cond-item" id="cond-gust-item" style="display:none"><div class="label">Gusts</div><div class="value" id="wind-gust">-- km/h</div></div>
-        <div class="cond-item" id="cond-lake-wind-item" style="display:none"><div class="label">Lake Wind</div><div class="value" id="lake-wind-cond">--</div></div>
     </div>
 
     <!-- GK Internal Tab Bar -->
@@ -798,7 +797,6 @@
                 <div class="gk-pill"><div class="gk-pill-lbl">Speed</div><div class="gk-pill-val" id="gk-st-wind">--</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">Direction</div><div class="gk-pill-val" id="gk-st-winddir">--</div></div>
                 <div class="gk-pill"><div class="gk-pill-lbl">Gust</div><div class="gk-pill-val" id="gk-st-gust">--</div></div>
-                <div class="gk-pill" id="gk-st-lake-wind-pill" style="display:none"><div class="gk-pill-lbl">Lake Wind</div><div class="gk-pill-val" id="gk-st-lake-wind">--</div><div style="font-size:0.7em;color:#7f8c8d" id="gk-st-lake-wind-age"></div></div>
             </div>
 
             <div class="section-title">&#127783;&#65039; Pressure</div>
@@ -1399,7 +1397,6 @@
         <div class="ds-item"><div class="ds-lbl">UV Now</div><div class="ds-val" id="ds-uv">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Rain Today</div><div class="ds-val" id="ds-rain">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Wind</div><div class="ds-val" id="ds-wind">--</div></div>
-        <div class="ds-item" id="ds-lake-wind-item" style="display:none"><div class="ds-lbl">Lake Wind</div><div class="ds-val" id="ds-lake-wind">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Sunrise / Sunset</div><div class="ds-val" id="ds-sun">-- / --</div></div>
         <div class="ds-item"><div class="ds-lbl">Pressure</div><div class="ds-val" id="ds-pressure">-- hPa</div></div>
     </div>
@@ -5489,6 +5486,7 @@ async function getWeatherData() {
         document.getElementById('wind-speed').innerText = windKmh.toFixed(0) + ' km/h';
         const windArrow = compassToArrow(windDir);
         document.getElementById('wind-dir').innerHTML = windArrow ? `${windDir} <span style="font-size:1.1em">${windArrow}</span>` : windDir;
+        applyLakeWind(); // override with FarmBot lake wind if available
         const gustItem = document.getElementById('cond-gust-item');
         if (gustKmh && gustKmh > windKmh + 3) {
             document.getElementById('wind-gust').innerText = gustKmh.toFixed(0) + ' km/h';
@@ -7223,46 +7221,53 @@ function applyTankCustomRange() {
     fetchTankData();
 }
 
-// ── FarmBot Lake Weather (wind for golfer/TV/GK pages) ───────────────
+// ── FarmBot Lake Weather — wind replaces Davis wind on all views ──────
+let _lakeWind = { kph: null, deg: null, dir: null }; // last good reading
+
 async function fetchLakeWeather() {
     try {
         const r = await fetch('data/farmbot_lake_weather.json?_=' + Date.now());
         if (!r.ok) return;
         const d = await r.json();
-        const kph = d.wind_kph != null ? d.wind_kph : null;
-        const deg = d.wind_deg != null ? d.wind_deg : null;
-        if (kph == null) return;
-
-        const compass = typeof degreesToCompass === 'function' ? degreesToCompass(deg) : (typeof degToCompass === 'function' ? degToCompass(deg) : '');
-        const valStr = kph.toFixed(0) + ' km/h' + (compass ? ' ' + compass : '');
-
-        // Staleness check
-        const ageMin = d.wind_date ? Math.round((Date.now() - new Date(d.wind_date).getTime()) / 60000) : null;
-        const stale  = ageMin != null && ageMin > 120;
-        const ageStr = ageMin != null ? (ageMin < 60 ? ageMin + ' min ago' : Math.floor(ageMin/60) + 'h ago') : '';
-        const col    = stale ? '#566573' : '#ecf0f1';
-
-        // Conditions bar
-        const condEl   = document.getElementById('lake-wind-cond');
-        const condWrap = document.getElementById('cond-lake-wind-item');
-        if (condEl)   { condEl.textContent = valStr; condEl.style.color = col; }
-        if (condWrap) condWrap.style.display = '';
-
-        // TV detail strip
-        const dsEl   = document.getElementById('ds-lake-wind');
-        const dsWrap = document.getElementById('ds-lake-wind-item');
-        if (dsEl)   { dsEl.textContent = valStr; dsEl.style.color = col; }
-        if (dsWrap) dsWrap.style.display = '';
-
-        // GK Station tab
-        const gkEl   = document.getElementById('gk-st-lake-wind');
-        const gkAge  = document.getElementById('gk-st-lake-wind-age');
-        const gkWrap = document.getElementById('gk-st-lake-wind-pill');
-        if (gkEl)   { gkEl.textContent = valStr; gkEl.style.color = col; }
-        if (gkAge)  gkAge.textContent = ageStr;
-        if (gkWrap) gkWrap.style.display = '';
-
+        if (d.wind_kph == null) return;
+        _lakeWind.kph = d.wind_kph;
+        _lakeWind.deg = d.wind_deg;
+        _lakeWind.dir = d.wind_deg != null ? degreesToCompass(d.wind_deg) : '--';
+        applyLakeWind();
     } catch(e) { /* lake weather unavailable — silently skip */ }
+}
+
+function applyLakeWind() {
+    if (_lakeWind.kph == null) return;
+    const kph = _lakeWind.kph, dir = _lakeWind.dir;
+    const arrow = compassToArrow(dir);
+
+    // Conditions bar (replaces Davis wind)
+    const wsEl = document.getElementById('wind-speed');
+    const wdEl = document.getElementById('wind-dir');
+    if (wsEl) wsEl.innerText = kph.toFixed(0) + ' km/h';
+    if (wdEl) wdEl.innerHTML = arrow ? `${dir} <span style="font-size:1.1em">${arrow}</span>` : dir;
+
+    // Spray card
+    const svEl = document.getElementById('spray-wind-val');
+    const sdEl = document.getElementById('spray-wind-dir-badge');
+    if (svEl) svEl.innerText = kph.toFixed(0);
+    if (sdEl) sdEl.innerText = dir !== '--' ? dir : 'km/h';
+
+    // GK station tab
+    const _s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    _s('gk-st-wind',    kph.toFixed(0) + ' km/h');
+    _s('gk-st-winddir', dir);
+
+    // TV detail strip
+    const dsEl = document.getElementById('ds-wind');
+    if (dsEl) dsEl.textContent = kph.toFixed(0) + ' km/h ' + dir;
+
+    // Keep wx object in sync so spray logic, reports etc. use FarmBot wind
+    wx.windKmh = kph;
+    wx.windDeg = _lakeWind.deg;
+    wx.windDir = dir;
+    if (typeof refreshSprayStatus === 'function') refreshSprayStatus();
 }
 
 // ── End FarmBot ──────────────────────────────────────────────────────
