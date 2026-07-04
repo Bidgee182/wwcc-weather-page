@@ -534,14 +534,20 @@ async function renderBalanceTab() {
             chEl.textContent = (dML>=0?'+':'')+dML.toFixed(0)+' ML'; chEl.style.color = dML>=0?'#27ae60':'#e74c3c';
         }
 
-        // Evaporation / net loss estimate from lake level change
+        // Load pumping data silently — used only to improve evaporation accuracy
+        let pumpData = [];
+        try { const pr = await fetch('data/pumping_usage.json?_='+Date.now()); if (pr.ok) pumpData = await pr.json(); } catch(e) {}
+        const ago7dDate  = new Date(ago7d).toISOString().slice(0,10);
+        const pumpTotal7 = pumpData.filter(p=>p.date>=ago7dDate).reduce((s,p)=>s+(p.ml||0),0);
+
+        // Evaporation = lake level drop + pumping volume (pumping not shown, only evap result displayed)
         const evapEl = document.getElementById('b-evap');
         if (recent7.length >= 2) {
             const dML    = (parseFloat(recent7[recent7.length-1].ahd)-parseFloat(recent7[0].ahd))*LAKE_SURFACE_M2/1000;
-            const lossML = -dML;  // positive = lake dropped (evaporation + seepage)
+            const evapML = -dML + pumpTotal7;  // true evaporation: what was lost minus what was pumped
             const days   = (new Date(recent7[recent7.length-1].date)-new Date(recent7[0].date))/86400000;
-            evapEl.textContent = lossML>0 ? lossML.toFixed(0)+' ML ('+(days>0?(lossML/days).toFixed(1):0)+' ML/day loss)' : 'Lake gaining water';
-            evapEl.style.color = lossML>0?'#d4ac0d':'#27ae60';
+            evapEl.textContent = evapML>0 ? evapML.toFixed(0)+' ML ('+(days>0?(evapML/days).toFixed(1):0)+' ML/day)' : 'Lake gaining water';
+            evapEl.style.color = evapML>0?'#d4ac0d':'#27ae60';
         } else { evapEl.textContent='Insufficient data'; evapEl.style.color='#7f8c8d'; }
 
         // Rain readings
