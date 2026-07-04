@@ -397,7 +397,6 @@
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="wx-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
         <div style="text-align:center;margin-top:6px">
@@ -639,7 +638,6 @@
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="sail-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
         <div style="text-align:center;margin-top:6px">
@@ -1412,6 +1410,14 @@ async function fetchDavisHistory() {
     const offsetMs  =sydneyOffsetMs();
     const offsetSecs=Math.round(offsetMs/1000);
 
+    // Ensure lake readings are loaded (needed for Lake Level/Change on weather chart)
+    if(!_lakeHistory) {
+        try {
+            const hr=await fetch('data/farmbot_lake_readings.json?_='+Date.now());
+            if(hr.ok) _lakeHistory=await hr.json();
+        } catch(e) {}
+    }
+
     // Load the pre-built history file (updated daily by farmbot_poll.py)
     const store = await loadDavisStore();
 
@@ -1541,6 +1547,8 @@ function renderWeatherHistory(days) {
     });
     const lakeLevels =dates.map(d=>lakeDayMap[d]!=null?Math.max(0,lakeDayMap[d]-LAKE_BOTTOM_AHD):null);
     const lakeChanges=dates.map(d=>lakeChgMap[d]!=null?parseFloat(((lakeChgMap[d].last-lakeChgMap[d].first)*100).toFixed(1)):null);
+    const _lakeVals=lakeLevels.filter(v=>v!=null);
+    const lakeLevelMin=_lakeVals.length?Math.max(0,parseFloat((Math.min(..._lakeVals)-0.3).toFixed(2))):0;
 
     const totalRain =rains.reduce((s,r)=>s+r,0);
     const periodMax =tMaxes.filter(v=>v!=null).length?Math.max(...tMaxes.filter(v=>v!=null)):null;
@@ -1581,7 +1589,7 @@ function renderWeatherHistory(days) {
                 yTemp:    {display:showTemp,    position:'right', ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Temp \u00b0C',color:'#e74c3c',font:{size:9}}},
                 yHum:     {display:showHum,     position:'right', ticks:{color:'#1abc9c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Humidity %',color:'#1abc9c',font:{size:9}},min:0,max:100},
                 yWind:    {display:showWind,    position:'right', ticks:{color:'#d4ac0d',font:{size:9}},grid:{display:false},               title:{display:true,text:'Wind km/h',color:'#d4ac0d',font:{size:9}},min:0},
-                yLake:    {display:showLake,    position:'left',  ticks:{color:'#27ae60',font:{size:9}},grid:{display:false},               title:{display:true,text:'Depth m',  color:'#27ae60',font:{size:9}},min:0},
+                yLake:    {display:showLake,    position:'left',  ticks:{color:'#27ae60',font:{size:9}},grid:{display:false},               title:{display:true,text:'Depth m',  color:'#27ae60',font:{size:9}},min:lakeLevelMin},
                 yLakeChg: {display:showLakeChg, position:'right', ticks:{color:'#9b59b6',font:{size:9}},grid:{display:false},               title:{display:true,text:'Chg cm',   color:'#9b59b6',font:{size:9}}}
             }}
     });
