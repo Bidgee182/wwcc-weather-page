@@ -156,6 +156,15 @@
                 <div class="lake-pill-val" id="pill-trend">--</div>
             </div>
         </div>
+        <div class="lake-pill-row">
+            <a href="https://wagga.nsw.gov.au/parks-and-recreation/parks-beaches-lakes/lake-albert/lake-albert-water-quality-readings" target="_blank" rel="noopener" style="text-decoration:none;flex:1;min-width:130px">
+            <div class="lake-pill" id="pill-wq-wrap" style="cursor:pointer">
+                <div class="lake-pill-lbl">&#128167; Water Quality Alert</div>
+                <div class="lake-pill-val" id="pill-wq-status">--</div>
+                <div style="font-size:0.68em;color:#566573;margin-top:5px" id="pill-wq-tested"></div>
+            </div>
+            </a>
+        </div>
 
         <div style="font-size:0.72em;color:#566573;text-align:center;margin-top:8px" id="l-updated"></div>
     </div>
@@ -399,8 +408,13 @@
                 <div class="lake-pill-val" id="pb-surface">--</div>
             </div>
             <div class="lake-pill" id="pb-ski-wrap">
-                <div class="lake-pill-lbl">&#127940; Water Skiing</div>
+                <div class="lake-pill-lbl">&#127940; Recreational Skiing</div>
                 <div class="lake-pill-val" id="pb-ski">--</div>
+            </div>
+            <div class="lake-pill" id="pb-race-wrap">
+                <div class="lake-pill-lbl">&#127942; Race / Competition Skiing</div>
+                <div class="lake-pill-val" id="pb-race">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px">Min. 2.0 m required</div>
             </div>
         </div>
     </div>
@@ -1387,13 +1401,33 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
         else{surfEl.textContent='Rough \u2014 not recommended';surfEl.style.color='#e74c3c';}
     }
 
-    // Skiing
+    // Recreational skiing
     const skiEl=document.getElementById('pb-ski');
     if(skiEl&&kph!=null){
         if(depth!=null&&depth<SAFE_DEPTH_M){skiEl.textContent='\u2717 Lake too shallow';skiEl.style.color='#e74c3c';}
         else if(kph>25){skiEl.textContent='\u2717 Too windy \u2014 rough water';skiEl.style.color='#e74c3c';}
         else if(kph>15){skiEl.textContent='\u26a0 Some chop \u2014 take care';skiEl.style.color='#d4ac0d';}
         else{skiEl.textContent='\u2713 Ideal \u2014 calm water';skiEl.style.color='#27ae60';}
+    }
+
+    // Race / competition skiing (Barry Carne etc — 2.0m minimum)
+    const RACE_DEPTH = 2.0;
+    const raceEl  = document.getElementById('pb-race');
+    const raceWrap= document.getElementById('pb-race-wrap');
+    if(raceEl&&depth!=null){
+        raceWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if(depth<RACE_DEPTH){
+            raceEl.textContent='\u2717 Unsafe \u2014 '+depth.toFixed(2)+' m (need 2.0 m)';
+            raceEl.style.color='#e74c3c';
+            raceWrap.classList.add('lake-pill-glow-red');
+        } else if(kph!=null&&kph>25){
+            raceEl.textContent='\u26a0 Wind too strong for racing';
+            raceEl.style.color='#d4ac0d';
+        } else {
+            raceEl.textContent='\u2713 Depth OK \u2014 '+depth.toFixed(2)+' m';
+            raceEl.style.color='#27ae60';
+            raceWrap.classList.add('lake-pill-glow-green');
+        }
     }
 
     // Comfort grid
@@ -1506,9 +1540,50 @@ function updateSailingTab() {
     if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
 }
 
+// ── Water quality pill ────────────────────────────────────────────────────
+async function fetchWaterQuality() {
+    try {
+        const r = await fetch('data/water_quality.json?_='+Date.now());
+        if (!r.ok) return;
+        const wq = await r.json();
+
+        const wrap   = document.getElementById('pill-wq-wrap');
+        const statEl = document.getElementById('pill-wq-status');
+        const tstEl  = document.getElementById('pill-wq-tested');
+        if (!statEl) return;
+
+        const level = (wq.alert_level || 'unknown').toLowerCase();
+        const label = wq.alert_label || wq.alert_level || 'Unknown';
+
+        wrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if (level === 'green') {
+            statEl.textContent  = '\u2713 ' + label;
+            statEl.style.color  = '#27ae60';
+            wrap.classList.add('lake-pill-glow-green');
+        } else if (level === 'amber' || level === 'yellow') {
+            statEl.textContent  = '\u26a0 ' + label;
+            statEl.style.color  = '#d4ac0d';
+        } else if (level === 'red') {
+            statEl.textContent  = '\u2717 ' + label;
+            statEl.style.color  = '#e74c3c';
+            wrap.classList.add('lake-pill-glow-red');
+        } else {
+            statEl.textContent  = label;
+            statEl.style.color  = '#7f8c8d';
+        }
+
+        if (wq.last_tested && tstEl) {
+            const d = new Date(wq.last_tested);
+            tstEl.textContent = 'Tested: ' + d.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'});
+        }
+    } catch(e) { /* silently ignore */ }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 fetchLevel();
+fetchWaterQuality();
 setInterval(fetchLevel,5*60*1000);
+setInterval(fetchWaterQuality,30*60*1000);
 </script>
 </body>
 </html>
