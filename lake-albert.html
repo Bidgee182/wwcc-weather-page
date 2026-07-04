@@ -332,6 +332,12 @@
         <h2>&#127788; Wind at the Lake</h2>
         <div style="display:flex;justify-content:center">
         <svg viewBox="0 0 220 220" id="wind-svg" style="width:min(220px,100%);height:auto">
+            <defs>
+                <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+            </defs>
             <!-- Outer ring -->
             <circle cx="110" cy="110" r="104" fill="#1a252f" stroke="#3d5166" stroke-width="1.5"/>
             <!-- Degree ticks (built by JS) -->
@@ -350,8 +356,8 @@
             <g id="wind-rose" opacity="0.18"></g>
             <g id="wind-arrow" transform="rotate(0,110,110)">
                 <line x1="110" y1="110" x2="110" y2="32" stroke="#2980b9" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-                <line x1="110" y1="110" x2="110" y2="168" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
-                <polygon points="110,175 104,162 116,162" fill="#2980b9"/>
+                <line x1="110" y1="110" x2="110" y2="182" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="110,192 103,175 117,175" fill="#2980b9" filter="url(#arrowGlow)"/>
             </g>
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="wx-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
@@ -547,6 +553,12 @@
         <h2>&#127788; Wind Conditions</h2>
         <div style="display:flex;justify-content:center">
         <svg viewBox="0 0 220 220" id="sail-wind-svg" style="width:min(220px,100%);height:auto">
+            <defs>
+                <filter id="sailArrowGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+            </defs>
             <circle cx="110" cy="110" r="104" fill="#1a252f" stroke="#3d5166" stroke-width="1.5"/>
             <g id="sail-wind-ticks"></g>
             <text x="110" y="18"  text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">N</text>
@@ -560,8 +572,8 @@
             <g id="sail-wind-rose" opacity="0.18"></g>
             <g id="sail-wind-arrow" transform="rotate(0,110,110)">
                 <line x1="110" y1="110" x2="110" y2="32" stroke="#2980b9" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-                <line x1="110" y1="110" x2="110" y2="168" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
-                <polygon points="110,175 104,162 116,162" fill="#2980b9"/>
+                <line x1="110" y1="110" x2="110" y2="182" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="110,192 103,175 117,175" fill="#2980b9" filter="url(#sailArrowGlow)"/>
             </g>
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="sail-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
