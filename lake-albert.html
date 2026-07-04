@@ -146,7 +146,7 @@
         .lk-fc-lo   { color:#74b9ff; font-size:0.82em; }
         .lk-fc-rain { font-size:0.7em; color:#74b9ff; margin-top:3px; }
         .lk-fc-wind { font-size:0.7em; color:#bdc3c7; margin-top:2px; }
-        .lk-fc-desc { font-size:0.65em; color:#7f8c8d; margin-top:2px; min-height:14px; }
+        .lk-fc-desc { font-size:0.65em; color:#7f8c8d; margin-top:2px; min-height:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* ── Lake Hourly strip ── */
         .lk-hourly-grid { display:flex; overflow-x:auto; gap:8px; padding-bottom:6px; }
         .lk-hourly-grid::-webkit-scrollbar { height:4px; }
@@ -448,7 +448,7 @@
             <div class="wx-unit">mm</div>
         </div>
         <div class="wx-card">
-            <div class="wx-lbl">Year to Date</div>
+            <div class="wx-lbl" id="wx-rain-year-lbl">Year to Date</div>
             <div class="wx-val" id="wx-rain-year">--</div>
             <div class="wx-unit">mm</div>
         </div>
@@ -469,10 +469,9 @@
     <div class="card">
         <h2>&#128197; Weather History - Davis Station</h2>
         <div class="tank-history-range" id="wxh-range-row">
-            <button class="tank-range-btn"        data-days="1"   onclick="setWxRange(1)">24h</button>
-            <button class="tank-range-btn"        data-days="2"   onclick="setWxRange(2)">48h</button>
             <button class="tank-range-btn active" data-days="30"  onclick="setWxRange(30)">30 Days</button>
             <button class="tank-range-btn"        data-days="90"  onclick="setWxRange(90)">90 Days</button>
+            <button class="tank-range-btn"        data-days="180" onclick="setWxRange(180)">6 Months</button>
             <button class="tank-range-btn"        data-days="365" onclick="setWxRange(365)">1 Year</button>
         </div>
         <div class="wxd-toggles">
@@ -484,6 +483,7 @@
             <button class="wxd-btn active" id="wxd-btn-lakeLevel"  data-ds="lakeLevel"  onclick="toggleWxDataset('lakeLevel')">&#127754; Lake Level</button>
             <button class="wxd-btn active" id="wxd-btn-lakeChange" data-ds="lakeChange" onclick="toggleWxDataset('lakeChange')">&#128200; Lake Change</button>
         </div>
+        <div style="font-size:0.65em;color:#566573;margin-bottom:6px">&#9432; Weather data: Davis station (daily). Lake level: FarmBot sensor — gaps appear during outages.</div>
         <div id="wxh-loading" style="text-align:center;color:#566573;font-size:0.8em;padding:20px 0">Loading Davis history…</div>
         <div style="position:relative;height:220px;width:100%;display:none" id="wxh-chart-wrap">
             <canvas id="wx-history-chart"></canvas>
@@ -653,7 +653,7 @@
         </div>
         <div class="lake-pill-row" style="margin-top:14px">
             <div class="lake-pill">
-                <div class="lake-pill-lbl">Avg Wind (10 min)</div>
+                <div class="lake-pill-lbl">Wind Speed</div>
                 <div class="lake-pill-val" id="sail-avg-wind">--</div>
             </div>
         </div>
@@ -714,6 +714,7 @@
 
     <div class="card">
         <h2>&#127777; Conditions Overview</h2>
+        <div style="font-size:0.65em;color:#566573;margin-bottom:8px">&#9432; Feeding times are approximations based on time of day, moon phase, and weather — not a precise solunar calculation.</div>
         <div class="lake-pill-row">
             <div class="lake-pill" id="fish-time-wrap">
                 <div class="lake-pill-lbl">&#128336; Best Feeding Time</div>
@@ -1380,7 +1381,7 @@ function renderBalanceChart() {
             {type:'line',label:'Lake Level (m)',   data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:ptR,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'}
         ]},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
-            plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
+            plugins:{legend:{display:false},
                 tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8,
                     callbacks:{label:ctx=>ctx.dataset.yAxisID==='yLake'&&ctx.raw!=null?'Lake: '+ctx.raw.toFixed(3)+' m deep':ctx.raw>0?'Rain: '+ctx.raw+' mm':null}}},
             scales:{
@@ -1452,6 +1453,19 @@ async function fetchDavisHistory() {
     if(loadEl)loadEl.style.display='none';
     if(wrapEl)wrapEl.style.display='block';
     renderWeatherHistory(_wxRange);
+
+    // A8: Recalculate last month rainfall now that store is populated
+    const _mNamesH=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const _nowH=new Date(Date.now()+offsetMs);
+    const _curMonthH=_nowH.getUTCMonth(), _curYearH=_nowH.getUTCFullYear();
+    const _lastMonthH=_curMonthH===0?11:_curMonthH-1;
+    const _lastYearH =_curMonthH===0?_curYearH-1:_curYearH;
+    const _lastPrefixH=_lastYearH+'-'+String(_lastMonthH+1).padStart(2,'0');
+    const _lbl2H=document.getElementById('wx-rain-lastmonth-lbl');
+    if(_lbl2H) _lbl2H.textContent=_mNamesH[_lastMonthH]+' Rainfall';
+    const _lmRain=Object.entries(store).filter(([d])=>d.startsWith(_lastPrefixH)).reduce((s,[,v])=>s+(v.rain||0),0);
+    const _lmElH=document.getElementById('wx-rain-lastmonth');
+    if(_lmElH) _lmElH.textContent=_lmRain>0?_lmRain.toFixed(1):'--';
 }
 
 // ── Balance chart range controls ─────────────────────────────────────────
@@ -1713,6 +1727,8 @@ async function fetchWeather() {
         setEl('wx-rain',      _rainDayMm,  1);
         setEl('wx-rain-month',_rainMonthMm,1);
         setEl('wx-rain-year', _rainYearMm, 0);
+        const _yrLbl=document.getElementById('wx-rain-year-lbl');
+        if(_yrLbl) _yrLbl.textContent=new Date(Date.now()+sydneyOffsetMs()).getUTCFullYear()+' Rainfall';
 
         // Dynamic month labels + last month total from history store
         const _mNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1733,7 +1749,7 @@ async function fetchWeather() {
         if(hiloEl) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0  -  Low '+lowC.toFixed(1)+'\u00b0';
 
         const upd=document.getElementById('wx-updated');
-        if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+        if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short',timeZone:'Australia/Sydney'});
         if(err) err.style.display='none';
 
         // ── Shared updates ───────────────────────────────────────────────
@@ -1814,7 +1830,10 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
     const kwEl=document.getElementById('pb-wind-kph');
     if(kwEl&&kph!=null){kwEl.textContent=kph.toFixed(0)+' km/h';kwEl.style.color=kph<25?'#27ae60':kph<38?'#d4ac0d':'#e74c3c';}
     const gwEl=document.getElementById('pb-wind-gust');
-    if(gwEl&&gust!=null){gwEl.textContent=gust.toFixed(0)+' km/h';gwEl.style.color=gust<30?'#27ae60':gust<50?'#d4ac0d':'#e74c3c';}
+    if(gwEl){
+        if(gust!=null){gwEl.textContent=gust.toFixed(0)+' km/h';gwEl.style.color=gust<30?'#27ae60':gust<50?'#d4ac0d':'#e74c3c';}
+        else{gwEl.textContent='No data';gwEl.style.color='#566573';}
+    }
 
     // Water surface
     const surfEl=document.getElementById('pb-surface');
@@ -1925,7 +1944,11 @@ function updateSailingTab() {
     const arrow=document.getElementById('sail-wind-arrow');
     if(arrow&&deg!=null) arrow.setAttribute('transform','rotate('+deg.toFixed(1)+',110,110)');
     const bfInl=document.getElementById('sail-beaufort-inline');
-    if(bfInl) bfInl.textContent=bf.scale+'  -  '+bf.name;
+    if(bfInl){
+        bfInl.textContent=bf.scale+'  -  '+bf.name;
+        const bfN=parseInt(bf.scale)||0;
+        bfInl.style.color=bfN===0?'#7f8c8d':bfN<=3?'#27ae60':bfN<=5?'#d4ac0d':'#e74c3c';
+    }
     const scSpd=document.getElementById('sail-compass-spd');
     if(scSpd) scSpd.textContent=kph!=null?kph.toFixed(1)+' km/h':'--';
     const scGust=document.getElementById('sail-compass-gust');
@@ -1980,15 +2003,17 @@ function updateSailingTab() {
 
 // ── WMO weather code helpers ──────────────────────────────────────────────
 function wmoDescription(code) {
+    if (code == null) return '';
     if (code === 0)  return 'Clear';
     if (code <= 2)   return 'Partly Cloudy';
     if (code === 3)  return 'Overcast';
-    if (code <= 48)  return 'Foggy';
-    if (code <= 55)  return 'Drizzle';
-    if (code <= 65)  return 'Rain';
+    if (code <= 48)  return 'Fog';
+    if (code <= 57)  return 'Drizzle';
+    if (code <= 67)  return 'Rain';
     if (code <= 77)  return 'Snow';
     if (code <= 82)  return 'Showers';
     if (code <= 86)  return 'Snow Showers';
+    if (code <= 94)  return 'Hail';
     if (code >= 95)  return 'Thunderstorm';
     return 'Cloudy';
 }
@@ -2080,7 +2105,7 @@ function _renderLakeForecast(daily) {
             +'<div class="lk-fc-desc">'+wmoDescription(daily.weather_code[i])+'</div>'
             +'<div class="lk-fc-hi">'+(hi!=null?Math.round(hi)+'\u00b0':'--')+'</div>'
             +'<div class="lk-fc-lo">'+(lo!=null?Math.round(lo)+'\u00b0':'--')+'</div>'
-            +'<div class="lk-fc-rain">'+(prob!=null?prob+'%':'')+' '+(rain>0?rain.toFixed(1)+'mm':'')+'</div>'
+            +'<div class="lk-fc-rain">'+(prob!=null?prob+'%':'')+(prob!=null&&rain>0?' · ':'')+(rain>0?rain.toFixed(1)+'mm':'')+'</div>'
             +'<div class="lk-fc-wind">'+(wind!=null?wind.toFixed(0)+' km/h':'')+' '+(wdir!=null?degToCompass(wdir):'')+'</div>'
             +'</div>';
     }
@@ -2382,6 +2407,15 @@ async function fetchWaterQuality() {
             if (wq.last_tested) {
                 const d = new Date(wq.last_tested);
                 parts.push('Last tested: ' + d.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'}));
+                // Staleness warning: amber if > 14 days old
+                const ageDays = (Date.now() - d.getTime()) / 86400000;
+                if (ageDays > 14) {
+                    parts.push('⚠ ' + Math.floor(ageDays) + ' days ago');
+                    tstEl.style.color = '#d4ac0d';
+                    if (wrap && !wrap.classList.contains('lake-pill-glow-red')) {
+                        wrap.style.borderColor = '#d4ac0d';
+                    }
+                }
             }
             tstEl.textContent = parts.join(' · ');
         }

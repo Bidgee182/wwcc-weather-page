@@ -37,7 +37,7 @@ LAKE_BATTERY_SID = '783eabbf-eda5-4d5d-bc36-bd0e8a6b7547'   # port 124, lake/wea
 # Lake AHD conversion: AHD (m) = sensor_reading_cm / 100 + LAKE_AHD_OFFSET
 # Calibration: 65.84 cm sensor reading = 190.00 m AHD
 # Base offset = 190.00 - (65.84 / 100) = 189.3416; +0.003 correction applied 2026-07-04
-LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3446'))
+LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3616'))
 
 SENDGRID_API_KEY    = os.environ.get('SENDGRID_API_KEY',    '')
 EMAIL_FROM          = os.environ.get('EMAIL_FROM',          '')
@@ -393,6 +393,8 @@ def poll():
     # Sensor config
     sensor       = fb_get(token, f'sensor/{FARMBOT_TANK_SID}')
     total_height = sensor.get('config', {}).get('totalHeight') or 170
+    if not sensor.get('config', {}).get('totalHeight'):
+        log.warning(f'totalHeight missing from sensor config — defaulting to 170cm (check FarmBot sensor settings)')
     log.info(f'Sensor: {sensor.get("name")} | totalHeight={total_height}cm')
 
     # Latest reading
@@ -615,36 +617,39 @@ def poll_lake_weather(token):
         resp     = fb_get(token, f'sensor/{LAKE_WEATHER_SIDS["rain"]}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
         latest   = (resp.get('data') or [None])[0]
         if latest:
-            raw_now   = latest.get('rwValue') or 0
+            raw_value = latest.get('rwValue')
             rain_date = latest.get('date')
+            if raw_value is None:
+                log.warning('Rain sensor rwValue is None — sensor may be offline; skipping rain update')
+            else:
+                raw_now = float(raw_value)
+                rain_readings = []
+                if LAKE_RAIN_READINGS_JSON.exists():
+                    try:
+                        rain_readings = json.loads(LAKE_RAIN_READINGS_JSON.read_text())
+                    except Exception:
+                        pass
 
-            rain_readings = []
-            if LAKE_RAIN_READINGS_JSON.exists():
-                try:
-                    rain_readings = json.loads(LAKE_RAIN_READINGS_JSON.read_text())
-                except Exception:
-                    pass
+                prev_raw  = rain_readings[-1].get('raw_mm', 0) if rain_readings else 0
+                last_date = rain_readings[-1].get('date')       if rain_readings else None
 
-            prev_raw  = rain_readings[-1].get('raw_mm', 0) if rain_readings else 0
-            last_date = rain_readings[-1].get('date')       if rain_readings else None
+                # Delta — if counter reset (raw_now < prev_raw), treat current as delta
+                delta = round(max(0, raw_now - prev_raw) if raw_now >= prev_raw else raw_now, 2)
 
-            # Delta — if counter reset (raw_now < prev_raw), treat current as delta
-            delta = round(max(0, raw_now - prev_raw) if raw_now >= prev_raw else raw_now, 2)
+                out['rain_mm_raw']   = raw_now
+                out['rain_mm_delta'] = delta
+                out['rain_date']     = rain_date
 
-            out['rain_mm_raw']   = raw_now
-            out['rain_mm_delta'] = delta
-            out['rain_date']     = rain_date
-
-            # Append new entry only when date changes (avoid duplicates)
-            if rain_date != last_date:
-                rain_readings.append({
-                    'date':    rain_date,
-                    'raw_mm':  raw_now,
-                    'rain_mm': delta,
-                })
-                DATA_DIR.mkdir(exist_ok=True)
-                LAKE_RAIN_READINGS_JSON.write_text(json.dumps(rain_readings, indent=2))
-                log.info(f'Rain: +{delta}mm (raw={raw_now}mm)')
+                # Append new entry only when date changes (avoid duplicates)
+                if rain_date != last_date:
+                    rain_readings.append({
+                        'date':    rain_date,
+                        'raw_mm':  raw_now,
+                        'rain_mm': delta,
+                    })
+                    DATA_DIR.mkdir(exist_ok=True)
+                    LAKE_RAIN_READINGS_JSON.write_text(json.dumps(rain_readings, indent=2))
+                    log.info(f'Rain: +{delta}mm (raw={raw_now}mm)')
     except Exception as e:
         log.warning(f'Rain gauge fetch failed: {e}')
 
@@ -660,6 +665,8 @@ def backfill(from_date='2025-01-01'):
 
     sensor       = fb_get(token, f'sensor/{FARMBOT_TANK_SID}')
     total_height = sensor.get('config', {}).get('totalHeight') or 170
+    if not sensor.get('config', {}).get('totalHeight'):
+        log.warning(f'totalHeight missing from sensor config — defaulting to 170cm (check FarmBot sensor settings)')
 
     cutoff_date = from_date  # e.g. '2025-01-01'
 

@@ -7124,16 +7124,17 @@ async function fetchTankData() {
         if (!lResp.ok) throw new Error('farmbot_latest.json not found (' + lResp.status + ')');
         _tankLatest = await lResp.json();
 
-        const pct  = parseFloat(_tankLatest.tank_pct ?? 0);
+        const rawPct = _tankLatest.tank_pct;
+        const pct  = rawPct != null ? parseFloat(rawPct) : null;
         const volL = _tankLatest.tank_volume_l;
         const td   = _tankLatest.tank_date;
 
-        _renderTankGauge(pct);
+        if (pct != null) _renderTankGauge(pct);
 
         const volTextEl = document.getElementById('tank-vol-text');
         if (volTextEl) volTextEl.textContent = volL != null ? (volL / 1000).toFixed(1) + ' kL' : '-- kL';
         const stEl = document.getElementById('tank-status');
-        if (stEl) stEl.textContent = pct >= 90 ? '\uD83D\uDFE2 Full' : pct >= 60 ? '\uD83D\uDFE2 Good' : pct >= 25 ? '\uD83D\uDFE1 Low' : '\uD83D\uDD34 Critical';
+        if (stEl) stEl.textContent = pct == null ? '\u2014 No Data' : pct >= 90 ? '\uD83D\uDFE2 Full' : pct >= 60 ? '\uD83D\uDFE2 Good' : pct >= 25 ? '\uD83D\uDFE1 Low' : '\uD83D\uDD34 Critical';
         const lrEl = document.getElementById('tank-last-reading');
         if (lrEl && td) lrEl.textContent = new Date(td).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
         const updEl2 = document.getElementById('tank-upd-inline');
