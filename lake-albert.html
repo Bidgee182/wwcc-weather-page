@@ -165,7 +165,8 @@
         .wxd-btn[data-ds="tMax"].active    { border-color:#e74c3c; background:rgba(231,76,60,0.15); }
         .wxd-btn[data-ds="tMin"].active    { border-color:#5dade2; background:rgba(93,173,226,0.15); }
         .wxd-btn[data-ds="humidity"].active{ border-color:#1abc9c; background:rgba(26,188,156,0.15); }
-        .wxd-btn[data-ds="windMax"].active { border-color:#d4ac0d; background:rgba(212,172,13,0.15); }
+        .wxd-btn[data-ds="windMax"].active  { border-color:#d4ac0d; background:rgba(212,172,13,0.15); }
+        .wxd-btn[data-ds="lakeLevel"].active{ border-color:#27ae60; background:rgba(39,174,96,0.15); }
     </style>
 </head>
 <body>
@@ -470,6 +471,7 @@
             <button class="wxd-btn"        id="wxd-btn-tMin"     data-ds="tMin"     onclick="toggleWxDataset('tMin')">&#129398; Min Temp</button>
             <button class="wxd-btn"        id="wxd-btn-humidity" data-ds="humidity" onclick="toggleWxDataset('humidity')">&#128167; Humidity</button>
             <button class="wxd-btn"        id="wxd-btn-windMax"  data-ds="windMax"  onclick="toggleWxDataset('windMax')">&#128168; Wind Max</button>
+            <button class="wxd-btn active" id="wxd-btn-lakeLevel" data-ds="lakeLevel" onclick="toggleWxDataset('lakeLevel')">&#127754; Lake Level</button>
         </div>
         <div id="wxh-loading" style="text-align:center;color:#566573;font-size:0.8em;padding:20px 0">Loading Davis history…</div>
         <div style="position:relative;height:220px;width:100%;display:none" id="wxh-chart-wrap">
@@ -798,7 +800,7 @@ let _balWxhStore     = null;
 let _wxhStore        = null;   // Davis daily history - loaded from file, no localStorage
 let _wxRange      = 30;
 let _wxHistChart  = null;
-let _wxActiveDatasets = { rain: true, tMax: true, tMin: false, humidity: false, windMax: false };
+let _wxActiveDatasets = { rain: true, tMax: true, tMin: false, humidity: false, windMax: false, lakeLevel: true };
 let _windKph      = null;   // shared across weather/powerboat/sailing tabs
 let _windGustKph  = null;
 let _windDeg      = null;
@@ -1502,6 +1504,14 @@ function renderWeatherHistory(days) {
     const hums    = dates.map(d=>store[d]?.humidity??null);
     const winds   = dates.map(d=>store[d]?.windMax??null);
 
+    // Build daily lake-level lookup (last reading per day → depth in metres)
+    const lakeDayMap={};
+    (_lakeHistory||[]).forEach(r=>{
+        const day=r.date.slice(0,10);
+        if(r.ahd!=null) lakeDayMap[day]=Math.max(0,parseFloat(r.ahd)-LAKE_BOTTOM_AHD);
+    });
+    const lakeLevels=dates.map(d=>lakeDayMap[d]??null);
+
     const totalRain =rains.reduce((s,r)=>s+r,0);
     const periodMax =tMaxes.filter(v=>v!=null).length?Math.max(...tMaxes.filter(v=>v!=null)):null;
     const periodMin =tMinsAll.filter(v=>v!=null).length?Math.min(...tMinsAll.filter(v=>v!=null)):null;
@@ -1514,29 +1524,32 @@ function renderWeatherHistory(days) {
     const pr = days<=30?2:0;
 
     const datasets=[];
-    if(ad.rain)    datasets.push({type:'bar', label:'Rainfall (mm)',  data:rains,   backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'});
-    if(ad.tMax)    datasets.push({type:'line',label:'Max Temp (\u00b0C)', data:tMaxes,  borderColor:'#e74c3c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#e74c3c',yAxisID:'yTemp'});
-    if(ad.tMin)    datasets.push({type:'line',label:'Min Temp (\u00b0C)', data:tMinsAll,borderColor:'#5dade2',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#5dade2',yAxisID:'yTemp'});
-    if(ad.humidity)datasets.push({type:'line',label:'Humidity (%)',   data:hums,    borderColor:'#1abc9c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#1abc9c',yAxisID:'yHum'});
-    if(ad.windMax) datasets.push({type:'line',label:'Wind Max (km/h)',data:winds,   borderColor:'#d4ac0d',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#d4ac0d',yAxisID:'yWind'});
+    if(ad.rain)      datasets.push({type:'bar', label:'Rainfall (mm)',  data:rains,      backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'});
+    if(ad.tMax)      datasets.push({type:'line',label:'Max Temp (\u00b0C)', data:tMaxes, borderColor:'#e74c3c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#e74c3c',yAxisID:'yTemp'});
+    if(ad.tMin)      datasets.push({type:'line',label:'Min Temp (\u00b0C)', data:tMinsAll,borderColor:'#5dade2',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#5dade2',yAxisID:'yTemp'});
+    if(ad.humidity)  datasets.push({type:'line',label:'Humidity (%)',   data:hums,       borderColor:'#1abc9c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#1abc9c',yAxisID:'yHum'});
+    if(ad.windMax)   datasets.push({type:'line',label:'Wind Max (km/h)',data:winds,      borderColor:'#d4ac0d',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#d4ac0d',yAxisID:'yWind'});
+    if(ad.lakeLevel) datasets.push({type:'line',label:'Lake Depth (m)', data:lakeLevels, borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'});
 
-    const showRain=(ad.rain);
-    const showTemp=(ad.tMax||ad.tMin);
-    const showHum =(ad.humidity);
-    const showWind=(ad.windMax);
+    const showRain =(ad.rain);
+    const showTemp =(ad.tMax||ad.tMin);
+    const showHum  =(ad.humidity);
+    const showWind =(ad.windMax);
+    const showLake =(ad.lakeLevel);
 
     if(_wxHistChart){_wxHistChart.destroy();_wxHistChart=null;}
     _wxHistChart=new Chart(canvas.getContext('2d'),{
         data:{labels,datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
             plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
-                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}},
+                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8,callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y?.toFixed(2)}}},
             scales:{
-                x:{ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
+                x:     {ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
                 yRain: {display:showRain, position:'left',  ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rain mm',  color:'#4a90b8',font:{size:9}}},
                 yTemp: {display:showTemp, position:'right', ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Temp \u00b0C',color:'#e74c3c',font:{size:9}}},
                 yHum:  {display:showHum,  position:'right', ticks:{color:'#1abc9c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Humidity %',color:'#1abc9c',font:{size:9}},min:0,max:100},
-                yWind: {display:showWind, position:'right', ticks:{color:'#d4ac0d',font:{size:9}},grid:{display:false},               title:{display:true,text:'Wind km/h',color:'#d4ac0d',font:{size:9}},min:0}
+                yWind: {display:showWind, position:'right', ticks:{color:'#d4ac0d',font:{size:9}},grid:{display:false},               title:{display:true,text:'Wind km/h',color:'#d4ac0d',font:{size:9}},min:0},
+                yLake: {display:showLake, position:'left',  ticks:{color:'#27ae60',font:{size:9}},grid:{display:false},               title:{display:true,text:'Depth m',  color:'#27ae60',font:{size:9}},min:0}
             }}
     });
 }
@@ -1615,12 +1628,22 @@ async function fetchWeather() {
 
         const dco=wx.davis_current_observation||{};
 
-        // Wind (mph → km/h)
-        const windMph=parseFloat(dco.wind_ten_min_avg_mph??wx.wind_mph??0)||0;
-        _windKph=windMph*1.60934;
+        // Wind speed & direction — FarmBot lake sensor (at the lake, no CORS proxy)
+        try {
+            const fw=await fetch('data/farmbot_lake_weather.json?_='+Date.now());
+            if(!fw.ok) throw new Error('unavailable');
+            const fd=await fw.json();
+            _windKph=fd.wind_kph!=null?parseFloat(fd.wind_kph):0;
+            _windDeg=fd.wind_deg!=null?parseFloat(fd.wind_deg):0;
+        } catch(e) {
+            // Fall back to Davis v1 wind
+            const windMph=parseFloat(dco.wind_ten_min_avg_mph??wx.wind_mph??0)||0;
+            _windKph=windMph*1.60934;
+            _windDeg=parseFloat(wx.wind_degrees!==undefined&&wx.wind_degrees!==null?wx.wind_degrees:0)||0;
+        }
+        // Gust — Davis v1 only (FarmBot lake sensor doesn't record gusts)
         const gustMph=parseFloat(dco.wind_gust_10_min_mph??0)||0;
-        _windGustKph=gustMph*1.60934;
-        _windDeg=parseFloat(wx.wind_degrees??0)||0;
+        _windGustKph=gustMph>0?gustMph*1.60934:null;
 
         // Temperature (°F → °C if needed)
         const tempF=parseFloat(wx.temp_f??32);
