@@ -72,8 +72,6 @@
         .wx-lbl { font-size:0.68em; color:#7f8c8d; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
         .wx-val { font-size:1.6em; font-weight:bold; line-height:1.1; }
         .wx-unit { font-size:0.75em; color:#7f8c8d; margin-top:3px; }
-        .wind-display { display:flex; align-items:center; justify-content:center; gap:24px; padding:6px 0; }
-        .wind-arrow-wrap svg { width:64px; height:64px; }
         .wind-speed-big { font-size:2.2em; font-weight:bold; }
 
         .tab-panel { display:none; }
@@ -109,7 +107,6 @@
             .lake-pill-lbl { font-size:0.65em; }
             .lake-pill-val { font-size:0.9em; }
 
-            .wind-display { gap:14px; }
             .wind-speed-big { font-size:1.8em; }
         }
 
@@ -133,9 +130,7 @@
             .irr-metric .val { font-size:1.1em; }
             .tank-stat-row { grid-template-columns:1fr; }
 
-            .wind-display { flex-direction:column; gap:10px; }
             .wind-speed-big { font-size:1.6em; }
-            .wind-arrow-wrap svg { width:56px; height:56px; }
 
             .wx-card { padding:10px; }
             .wx-val { font-size:1.3em; }
@@ -284,14 +279,26 @@
     </div>
 
     <div class="card">
-        <h2>&#127783; Rainfall vs Lake Rise — Daily</h2>
-        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px">Daily rainfall (blue bars, left axis) and lake depth in metres (green line, right axis). When it rains but the lake doesn't rise, the difference is lost to evaporation.</div>
+        <h2>&#127783; Rainfall vs Lake Level</h2>
+        <div class="tank-history-range" id="bal-range-row">
+            <button class="tank-range-btn"        data-balrange="1"  onclick="setBalRange(1)">24h</button>
+            <button class="tank-range-btn"        data-balrange="2"  onclick="setBalRange(2)">48h</button>
+            <button class="tank-range-btn"        data-balrange="7"  onclick="setBalRange(7)">7 Days</button>
+            <button class="tank-range-btn active" data-balrange="30" onclick="setBalRange(30)">30 Days</button>
+            <button class="tank-range-btn"        id="bal-custom-btn" onclick="showBalCustom()">Custom</button>
+        </div>
+        <div class="tank-custom-row" id="bal-custom-row">
+            <label>From <input type="date" id="bal-from-date"></label>
+            <label>To <input type="date" id="bal-to-date"></label>
+            <button class="tank-apply-btn" onclick="applyBalCustom()">Apply</button>
+        </div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px" id="bal-chart-desc">Daily rainfall (blue bars, left axis) and lake depth in metres (green line, right axis). When it rains but the lake doesn't rise, the difference is lost to evaporation.</div>
         <div style="position:relative;height:200px;width:100%">
             <canvas id="balance-chart"></canvas>
         </div>
         <div class="tank-stat-row" style="grid-template-columns:1fr 1fr;margin-top:12px">
-            <div class="irr-metric"><div class="lbl">30-Day Rainfall</div><div class="val" id="b-rain-total">--</div></div>
-            <div class="irr-metric"><div class="lbl">30-Day Lake Change</div><div class="val" id="b-lake-change">--</div></div>
+            <div class="irr-metric"><div class="lbl" id="b-rain-lbl">Rainfall</div><div class="val" id="b-rain-total">--</div></div>
+            <div class="irr-metric"><div class="lbl" id="b-lake-lbl">Lake Change</div><div class="val" id="b-lake-change">--</div></div>
         </div>
     </div>
 </div>
@@ -322,24 +329,48 @@
 
     <div class="card">
         <h2>&#127788; Wind at the Lake</h2>
-        <div class="wind-display">
-            <div class="wind-arrow-wrap">
-                <svg viewBox="0 0 64 64" id="wind-svg">
-                    <circle cx="32" cy="32" r="30" fill="none" stroke="#3d5166" stroke-width="1.5"/>
-                    <text x="32" y="9"  text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">N</text>
-                    <text x="32" y="60" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">S</text>
-                    <text x="7"  y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">W</text>
-                    <text x="57" y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">E</text>
-                    <line id="wind-needle" x1="32" y1="32" x2="32" y2="6" stroke="#27ae60" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="32" cy="32" r="3" fill="#27ae60"/>
-                </svg>
-            </div>
-            <div style="text-align:center">
-                <div class="wind-speed-big" id="wx-wind-kph">--</div>
-                <div style="font-size:0.75em;color:#7f8c8d">km/h</div>
-                <div style="font-size:0.95em;color:#ecf0f1;margin-top:4px;font-weight:bold" id="wx-wind-dir">--</div>
-                <div style="font-size:0.8em;color:#7f8c8d;margin-top:3px" id="wx-beaufort-inline">--</div>
-            </div>
+        <div style="display:flex;justify-content:center">
+        <svg viewBox="0 0 220 220" id="wind-svg" style="width:min(220px,100%);height:auto">
+            <!-- Outer ring -->
+            <circle cx="110" cy="110" r="104" fill="#1a252f" stroke="#3d5166" stroke-width="1.5"/>
+            <!-- Degree ticks (built by JS) -->
+            <g id="wind-ticks"></g>
+            <!-- Cardinal labels -->
+            <text x="110" y="18"  text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">N</text>
+            <text x="110" y="210" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">S</text>
+            <text x="16"  y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">W</text>
+            <text x="204" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">E</text>
+            <!-- Intercardinal -->
+            <text x="163" y="48"  text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">NE</text>
+            <text x="163" y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SE</text>
+            <text x="57"  y="48"  text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">NW</text>
+            <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
+            <!-- Rose petals (built by JS) -->
+            <g id="wind-rose" opacity="0.18"></g>
+            <!-- Inner circle -->
+            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
+            <!-- Speed + direction inside -->
+            <text id="wx-wind-kph" x="110" y="103" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
+            <text x="110" y="117" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
+            <text id="wx-wind-dir" x="110" y="133" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a90b8" font-family="Arial">--</text>
+            <!-- Wind arrow (rotated by JS) -->
+            <g id="wind-arrow" transform="rotate(0,110,110)">
+                <!-- Tail feathers -->
+                <line x1="110" y1="64" x2="104" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="64" x2="116" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="70" x2="105" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="70" x2="115" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <!-- Shaft -->
+                <line x1="110" y1="64" x2="110" y2="156" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- Arrowhead -->
+                <polygon points="110,156 105,142 115,142" fill="#e74c3c"/>
+            </g>
+            <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
+        </svg>
+        </div>
+        <div style="text-align:center;margin-top:6px">
+            <div style="font-size:0.8em;color:#7f8c8d" id="wx-beaufort-inline">--</div>
+            <div style="font-size:0.72em;color:#566573;margin-top:3px">Arrow points wind direction &rarr; · Tail shows wind FROM</div>
         </div>
     </div>
 
@@ -504,24 +535,37 @@
 
     <div class="card">
         <h2>&#127788; Wind Conditions</h2>
-        <div class="wind-display">
-            <div class="wind-arrow-wrap">
-                <svg viewBox="0 0 64 64" id="sail-wind-svg">
-                    <circle cx="32" cy="32" r="30" fill="none" stroke="#3d5166" stroke-width="1.5"/>
-                    <text x="32" y="9"  text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">N</text>
-                    <text x="32" y="60" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">S</text>
-                    <text x="7"  y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">W</text>
-                    <text x="57" y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">E</text>
-                    <line id="sail-wind-needle" x1="32" y1="32" x2="32" y2="6" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="32" cy="32" r="3" fill="#2980b9"/>
-                </svg>
-            </div>
-            <div style="text-align:center">
-                <div class="wind-speed-big" id="sail-wind-kph">--</div>
-                <div style="font-size:0.75em;color:#7f8c8d">km/h</div>
-                <div style="font-size:0.95em;color:#ecf0f1;margin-top:4px;font-weight:bold" id="sail-wind-dir">--</div>
-                <div style="font-size:0.8em;color:#7f8c8d;margin-top:3px" id="sail-beaufort-inline">--</div>
-            </div>
+        <div style="display:flex;justify-content:center">
+        <svg viewBox="0 0 220 220" id="sail-wind-svg" style="width:min(220px,100%);height:auto">
+            <circle cx="110" cy="110" r="104" fill="#1a252f" stroke="#3d5166" stroke-width="1.5"/>
+            <g id="sail-wind-ticks"></g>
+            <text x="110" y="18"  text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">N</text>
+            <text x="110" y="210" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">S</text>
+            <text x="16"  y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">W</text>
+            <text x="204" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#ecf0f1" font-family="Arial">E</text>
+            <text x="163" y="48"  text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">NE</text>
+            <text x="163" y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SE</text>
+            <text x="57"  y="48"  text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">NW</text>
+            <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
+            <g id="sail-wind-rose" opacity="0.18"></g>
+            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
+            <text id="sail-wind-kph" x="110" y="103" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
+            <text x="110" y="117" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
+            <text id="sail-wind-dir" x="110" y="133" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a90b8" font-family="Arial">--</text>
+            <g id="sail-wind-arrow" transform="rotate(0,110,110)">
+                <line x1="110" y1="64" x2="104" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="64" x2="116" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="70" x2="105" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="70" x2="115" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="64" x2="110" y2="156" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <polygon points="110,156 105,142 115,142" fill="#e74c3c"/>
+            </g>
+            <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
+        </svg>
+        </div>
+        <div style="text-align:center;margin-top:6px">
+            <div style="font-size:0.8em;color:#7f8c8d" id="sail-beaufort-inline">--</div>
+            <div style="font-size:0.72em;color:#566573;margin-top:3px">Arrow points wind direction &rarr; · Tail shows wind FROM</div>
         </div>
         <div class="lake-pill-row" style="margin-top:14px">
             <div class="lake-pill">
@@ -604,6 +648,13 @@ let _lakeLatest   = null;
 let _lakeHistory  = null;
 let _levelChart   = null;
 let _balChart     = null;
+let _balRange     = 30;   // days; null = custom
+let _balCustomFrom = null;
+let _balCustomTo   = null;
+let _balLakeReadings = null;
+let _balRainReadings = null;
+let _balWxhStore     = null;
+let _wxhStore        = null;   // Davis daily history — loaded from file, no localStorage
 let _wxRange      = 30;
 let _wxHistChart  = null;
 let _windKph      = null;   // shared across weather/powerboat/sailing tabs
@@ -973,24 +1024,11 @@ async function renderBalanceTab() {
         let rainReadings=[];
         try{const rr=await fetch('data/farmbot_lake_rain_readings.json?_='+Date.now());if(rr.ok)rainReadings=await rr.json();}catch(e){}
 
-        renderBalanceChart(_lakeHistory||[],rainReadings,wxhStore);
-
-        // 30-day stats
-        const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
-        const today=new Date().toISOString().slice(0,10);
-        let rain30=rainReadings.filter(r=>r.date>=ago30).reduce((s,r)=>s+(r.rain_mm||0),0);
-        if(rain30===0){
-            // fall back to Davis
-            for(let d=new Date(ago30);d.toISOString().slice(0,10)<=today;d.setUTCDate(d.getUTCDate()+1)){
-                const dk=d.toISOString().slice(0,10);
-                rain30+=(wxhStore[dk]?.rain||0);
-            }
-        }
-        const rdgs30=(_lakeHistory||[]).filter(r=>r.date>=ago30).sort((a,b)=>new Date(a.date)-new Date(b.date));
-        const lakeChg30=rdgs30.length>=2?(parseFloat(rdgs30[rdgs30.length-1].ahd)-parseFloat(rdgs30[0].ahd))*100:null;
-        document.getElementById('b-rain-total').textContent=rain30.toFixed(1)+' mm';
-        const lc=document.getElementById('b-lake-change');
-        if(lc&&lakeChg30!=null){lc.textContent=(lakeChg30>=0?'+':'')+lakeChg30.toFixed(1)+' cm';lc.style.color=lakeChg30>=0?'#27ae60':'#e74c3c';}
+        // Store for range re-renders
+        _balLakeReadings = _lakeHistory||[];
+        _balRainReadings = rainReadings;
+        _balWxhStore     = wxhStore;
+        renderBalanceChart();
 
         if(err) err.style.display='none';
     } catch(e){if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}}
@@ -1055,70 +1093,141 @@ function updateMonthComparison(wxhStore) {
 }
 
 // ── Davis store loader ────────────────────────────────────────────────────
-// Loads davis_weather_history.json directly (file-based, always available)
-// then merges with localStorage for any extra API-fetched days.
+// Reads davis_weather_history.json directly — no localStorage.
 async function loadDavisStore() {
-    const store = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
+    if(_wxhStore) return _wxhStore;   // already loaded this session
+    const store = {};
     try {
         const fr = await fetch('data/davis_weather_history.json?_='+Date.now());
         if (fr.ok) {
             const records = await fr.json();
-            for (const rec of records) {
-                store[rec.date] = rec;   // file data wins over stale localStorage
-            }
+            for (const rec of records) store[rec.date] = rec;
         }
-    } catch(e) { /* file missing — fall back to localStorage only */ }
+    } catch(e) { /* file missing */ }
+    _wxhStore = store;
     return store;
 }
 
-function renderBalanceChart(lakeReadings,rainReadings,wxhStore) {
+function renderBalanceChart() {
     const canvas=document.getElementById('balance-chart');if(!canvas)return;
-    const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
-    const today=new Date().toISOString().slice(0,10);
-    const dayLake={},dayRain={};
+    const lakeReadings=_balLakeReadings||[];
+    const rainReadings=_balRainReadings||[];
+    const wxhStore    =_balWxhStore||{};
 
-    // Lake level: first + last AHD reading per day
-    for(const r of lakeReadings){
-        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
-        if(!dayLake[day])dayLake[day]={first:parseFloat(r.ahd),last:parseFloat(r.ahd)};
-        dayLake[day].last=parseFloat(r.ahd);
-    }
+    const today  =new Date().toISOString().slice(0,10);
+    const isHourly=(_balRange!==null&&_balRange<=2);
 
-    // Rainfall: Davis history as primary source (always available)
-    if(wxhStore){
-        for(const[date,val] of Object.entries(wxhStore)){
-            if(date.startsWith('_'))continue;
-            if(date<ago30||date>today)continue;
-            if((val.rain||0)>=0)dayRain[date]=val.rain||0;
+    // Determine date window
+    let fromDate,toDate;
+    if(_balRange===null){fromDate=_balCustomFrom;toDate=_balCustomTo;}
+    else{toDate=today;fromDate=new Date(Date.now()-_balRange*86400000).toISOString().slice(0,10);}
+
+    let labels,rainVals,lakeVals,hasFarmBot=false;
+    const rainLabel=()=>hasFarmBot?'Rainfall — Lake Station (mm)':'Rainfall — Davis Station (mm)';
+
+    if(isHourly){
+        // ── Hourly mode (24h / 48h) ──
+        const cutoffMs=Date.now()-_balRange*86400000;
+        // Bucket lake readings by hour
+        const hourLake=new Map();
+        for(const r of lakeReadings){
+            const ts=new Date(r.date).getTime();if(ts<cutoffMs)continue;
+            const hKey=new Date(ts).toISOString().slice(0,13); // "2026-07-04T14"
+            hourLake.set(hKey,parseFloat(r.ahd));
         }
-    }
-    // FarmBot lake rain gauge overrides Davis for days it has non-zero data
-    for(const r of rainReadings){
-        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
-        const mm=r.rain_mm||0;
-        if(mm>0)dayRain[day]=(dayRain[day]||0)+mm;
-    }
-    const hasFarmBot=rainReadings.some(r=>r.date.slice(0,10)>=ago30&&(r.rain_mm||0)>0);
+        // Build hourly slots
+        const slots=[];
+        const now=Date.now();
+        for(let t=cutoffMs;t<=now;t+=3600000){slots.push(new Date(t).toISOString().slice(0,13));}
+        labels  =slots.map(h=>{const d=new Date(h+':00:00Z');return d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',timeZone:'Australia/Sydney'});});
+        lakeVals=slots.map(h=>{const v=hourLake.get(h);return v!=null?parseFloat((v-LAKE_BOTTOM_AHD).toFixed(3)):null;});
 
-    const days=[];
-    for(let d=new Date(ago30);d<=new Date(today);d.setDate(d.getDate()+1))days.push(d.toISOString().slice(0,10));
-    const labels  =days.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-    const rainVals=days.map(d=>parseFloat((dayRain[d]||0).toFixed(2)));
-    const lakeVals=days.map(d=>dayLake[d]!=null?parseFloat((dayLake[d].last-LAKE_BOTTOM_AHD).toFixed(3)):null);
+        // Rain: just today + yesterday daily totals as bars aligned to midday
+        const dayRain={};
+        if(wxhStore){for(const[date,val] of Object.entries(wxhStore)){if(!date.startsWith('_')&&date>=fromDate)dayRain[date]=val.rain||0;}}
+        for(const r of rainReadings){const day=r.date.slice(0,10);const mm=r.rain_mm||0;if(mm>0&&day>=fromDate){dayRain[day]=(dayRain[day]||0)+mm;hasFarmBot=true;}}
+        rainVals=slots.map(h=>{
+            const day=h.slice(0,10);
+            // Show rain bar at noon only
+            const hh=parseInt(h.slice(11,13));
+            return hh===12?(dayRain[day]||0):0;
+        });
+
+        // Update stat labels
+        const el1=document.getElementById('b-rain-lbl'),el2=document.getElementById('b-lake-lbl');
+        if(el1)el1.textContent=_balRange===1?'Today\'s Rainfall':'2-Day Rainfall';
+        if(el2)el2.textContent=_balRange===1?'24h Lake Change':'48h Lake Change';
+        let rainSum=0;
+        for(const[date,mm] of Object.entries(dayRain))if(date>=fromDate)rainSum+=mm;
+        document.getElementById('b-rain-total').textContent=rainSum.toFixed(1)+' mm';
+        const lakeRdgsSorted=lakeReadings.filter(r=>new Date(r.date).getTime()>=cutoffMs).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lc=document.getElementById('b-lake-change');
+        if(lc&&lakeRdgsSorted.length>=2){
+            const chg=(parseFloat(lakeRdgsSorted[lakeRdgsSorted.length-1].ahd)-parseFloat(lakeRdgsSorted[0].ahd))*100;
+            lc.textContent=(chg>=0?'+':'')+chg.toFixed(1)+' cm';lc.style.color=chg>=0?'#27ae60':'#e74c3c';
+        } else if(lc){lc.textContent='--';lc.style.color='#7f8c8d';}
+
+    } else {
+        // ── Daily mode (7d / 30d / custom) ──
+        const dayLake={},dayRain={};
+        for(const r of lakeReadings){
+            const day=r.date.slice(0,10);if(day<fromDate||day>toDate)continue;
+            if(!dayLake[day])dayLake[day]={first:parseFloat(r.ahd),last:parseFloat(r.ahd)};
+            dayLake[day].last=parseFloat(r.ahd);
+        }
+        if(wxhStore){
+            for(const[date,val] of Object.entries(wxhStore)){
+                if(date.startsWith('_'))continue;
+                if(date<fromDate||date>toDate)continue;
+                if((val.rain||0)>=0)dayRain[date]=val.rain||0;
+            }
+        }
+        for(const r of rainReadings){
+            const day=r.date.slice(0,10);if(day<fromDate||day>toDate)continue;
+            const mm=r.rain_mm||0;
+            if(mm>0){dayRain[day]=(dayRain[day]||0)+mm;hasFarmBot=true;}
+        }
+
+        const days=[];
+        for(let d=new Date(fromDate);d.toISOString().slice(0,10)<=toDate;d.setDate(d.getDate()+1))days.push(d.toISOString().slice(0,10));
+        const spanDays=days.length;
+        const tickLimit=spanDays<=14?spanDays:spanDays<=60?10:8;
+        labels  =days.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+        rainVals=days.map(d=>parseFloat((dayRain[d]||0).toFixed(2)));
+        lakeVals=days.map(d=>dayLake[d]!=null?parseFloat((dayLake[d].last-LAKE_BOTTOM_AHD).toFixed(3)):null);
+
+        // Update stat labels
+        const spanLabel=_balRange===null?'Period':_balRange===7?'7-Day':_balRange===30?'30-Day':_balRange+'-Day';
+        const el1=document.getElementById('b-rain-lbl'),el2=document.getElementById('b-lake-lbl');
+        if(el1)el1.textContent=spanLabel+' Rainfall';
+        if(el2)el2.textContent=spanLabel+' Lake Change';
+        let rainSum=0;for(const mm of Object.values(dayRain))rainSum+=mm;
+        document.getElementById('b-rain-total').textContent=rainSum.toFixed(1)+' mm';
+        const rdgsSorted=lakeReadings.filter(r=>r.date.slice(0,10)>=fromDate&&r.date.slice(0,10)<=toDate).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lc=document.getElementById('b-lake-change');
+        if(lc&&rdgsSorted.length>=2){
+            const chg=(parseFloat(rdgsSorted[rdgsSorted.length-1].ahd)-parseFloat(rdgsSorted[0].ahd))*100;
+            lc.textContent=(chg>=0?'+':'')+chg.toFixed(1)+' cm';lc.style.color=chg>=0?'#27ae60':'#e74c3c';
+        } else if(lc){lc.textContent='--';lc.style.color='#7f8c8d';}
+
+        // store tickLimit for chart options below
+        canvas._tickLimit=tickLimit;
+    }
 
     if(_balChart){_balChart.destroy();_balChart=null;}
-    const rainLabel=hasFarmBot?'Rainfall — Lake Station (mm)':'Rainfall — Davis Station (mm)';
+    const tl=isHourly?12:(canvas._tickLimit||10);
+    const ptR=isHourly?0:2;
     _balChart=new Chart(canvas.getContext('2d'),{
         data:{labels,datasets:[
-            {type:'bar', label:rainLabel,         data:rainVals,backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'},
-            {type:'line',label:'Lake Level (m)',  data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:2,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'}
+            {type:'bar', label:rainLabel(),        data:rainVals,backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'},
+            {type:'line',label:'Lake Level (m)',   data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:ptR,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'}
         ]},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
             plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
                 tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8,
-                    callbacks:{label:ctx=>ctx.dataset.yAxisID==='yLake'&&ctx.raw!=null?'Lake: '+ctx.raw.toFixed(3)+' m deep':'Rain: '+ctx.raw+' mm'}}},
+                    callbacks:{label:ctx=>ctx.dataset.yAxisID==='yLake'&&ctx.raw!=null?'Lake: '+ctx.raw.toFixed(3)+' m deep':ctx.raw>0?'Rain: '+ctx.raw+' mm':null}}},
             scales:{
-                x:{ticks:{color:'#7f8c8d',maxTicksLimit:10,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
+                x:{ticks:{color:'#7f8c8d',maxTicksLimit:tl,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
                 yRain:{position:'left', ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}}},
                 yLake:{position:'right',ticks:{color:'#27ae60',font:{size:9},callback:v=>v.toFixed(2)+' m'},grid:{display:false},title:{display:true,text:'Lake Depth m',color:'#27ae60',font:{size:9}}}
             }}
@@ -1144,74 +1253,76 @@ async function v2Fetch(endpoint,params) {
 async function fetchDavisHistory() {
     const offsetMs  =sydneyOffsetMs();
     const offsetSecs=Math.round(offsetMs/1000);
-    const store     =JSON.parse(localStorage.getItem('wxh_daily')||'{}');
 
-    // Load pre-built history file first (populated by backfill script + daily poll)
-    try {
-        const fr=await fetch('data/davis_weather_history.json?_='+Date.now());
-        if(fr.ok){
-            const fileRecords=await fr.json();
-            let added=0;
-            for(const rec of fileRecords){
-                if(!store[rec.date]){ store[rec.date]=rec; added++; }
-            }
-            if(added>0) localStorage.setItem('wxh_daily',JSON.stringify(store));
-        }
-    } catch(e){ /* file not yet created — will fall through to API */ }
+    // Load the pre-built history file (updated daily by farmbot_poll.py)
+    const store = await loadDavisStore();
 
+    // Fetch only the current month from the API to fill in today + recent days
     const now=new Date(Date.now()+offsetMs);
-    const months=[];
-    for(let m=0;m<12;m++){
-        const start=new Date(now);
-        start.setUTCMonth(start.getUTCMonth()-m);start.setUTCDate(1);start.setUTCHours(0,0,0,0);
-        const end=new Date(start);end.setUTCMonth(end.getUTCMonth()+1);end.setUTCDate(0);end.setUTCHours(23,59,59,0);
-        const key=start.toISOString().slice(0,7);
-        months.push({key,startTs:Math.floor(start.getTime()/1000)-offsetSecs,endTs:Math.floor(end.getTime()/1000)-offsetSecs});
-    }
+    const monthStart=new Date(now);
+    monthStart.setUTCDate(1);monthStart.setUTCHours(0,0,0,0);
+    const startTs=Math.floor(monthStart.getTime()/1000)-offsetSecs;
+    const endTs  =Math.floor(now.getTime()/1000)-offsetSecs;
 
-    const currentMonth=months[0].key;
-    const toFetch=months.filter(m=>m.key===currentMonth||!store[`_m_${m.key}`]);
-
-    const results=await Promise.all(toFetch.map(({key,startTs,endTs})=>
-        v2Fetch(`historic/${v2StationId}`,{'start-timestamp':startTs,'end-timestamp':endTs})
-            .then(data=>({key,data})).catch(err=>({key,err}))
-    ));
-
-    for(const{key,data,err} of results){
-        if(err){console.warn('[wxh]',key,err.message);continue;}
-        if(!data?.sensors) continue;
-        const dayData={};
-        for(const sensor of data.sensors){
-            for(const r of(sensor.data||[])){
-                const ts=((r.ts??r.timestamp)||0)*1000;if(!ts)continue;
-                const date=new Date(ts+offsetMs).toISOString().slice(0,10);
-                if(!dayData[date])dayData[date]={tMax:-Infinity,tMin:Infinity,rain:0,hasTemp:false};
-                const tF=r.temp??r.temp_out;
-                if(tF!=null){
-                    const tC=(parseFloat(tF)-32)/1.8;
-                    if(tC>dayData[date].tMax)dayData[date].tMax=tC;
-                    if(tC<dayData[date].tMin)dayData[date].tMin=tC;
-                    dayData[date].hasTemp=true;
+    try {
+        const data=await v2Fetch(`historic/${v2StationId}`,{'start-timestamp':startTs,'end-timestamp':endTs});
+        if(data?.sensors){
+            const dayData={};
+            for(const sensor of data.sensors){
+                for(const r of(sensor.data||[])){
+                    const ts=((r.ts??r.timestamp)||0)*1000;if(!ts)continue;
+                    const date=new Date(ts+offsetMs).toISOString().slice(0,10);
+                    if(!dayData[date])dayData[date]={tMax:-Infinity,tMin:Infinity,rain:0,hasTemp:false};
+                    const tF=r.temp??r.temp_out;
+                    if(tF!=null){
+                        const tC=(parseFloat(tF)-32)/1.8;
+                        if(tC>dayData[date].tMax)dayData[date].tMax=tC;
+                        if(tC<dayData[date].tMin)dayData[date].tMin=tC;
+                        dayData[date].hasTemp=true;
+                    }
+                    const rain=parseFloat(r.rainfall_mm??0);
+                    if(!isNaN(rain))dayData[date].rain+=rain;
                 }
-                const rain=parseFloat(r.rainfall_mm??0);
-                if(!isNaN(rain))dayData[date].rain+=rain;
+            }
+            for(const[date,d] of Object.entries(dayData)){
+                store[date]={tMax:d.hasTemp?+d.tMax.toFixed(1):null,tMin:d.hasTemp?+d.tMin.toFixed(1):null,rain:+d.rain.toFixed(1)};
             }
         }
-        for(const[date,d] of Object.entries(dayData)){
-            store[date]={tMax:d.hasTemp?+d.tMax.toFixed(1):null,tMin:d.hasTemp?+d.tMin.toFixed(1):null,rain:+d.rain.toFixed(1)};
-        }
-        if(key!==currentMonth)store[`_m_${key}`]=true;
-    }
-
-    const cutoffStr=new Date(Date.now()+offsetMs-395*86400000).toISOString().slice(0,10);
-    for(const k of Object.keys(store)){if(!k.startsWith('_')&&k<cutoffStr)delete store[k];}
-    localStorage.setItem('wxh_daily',JSON.stringify(store));
+    } catch(e){ console.warn('[wxh] API fetch failed, using file data only:',e.message); }
 
     const loadEl=document.getElementById('wxh-loading');
     const wrapEl=document.getElementById('wxh-chart-wrap');
     if(loadEl)loadEl.style.display='none';
     if(wrapEl)wrapEl.style.display='block';
     renderWeatherHistory(_wxRange);
+}
+
+// ── Balance chart range controls ─────────────────────────────────────────
+function setBalRange(days) {
+    _balRange=days; _balCustomFrom=null; _balCustomTo=null;
+    document.getElementById('bal-custom-row').classList.remove('visible');
+    document.querySelectorAll('#bal-range-row .tank-range-btn').forEach(b=>{
+        b.classList.toggle('active',parseInt(b.dataset.balrange)===days);
+    });
+    if(_balLakeReadings!==null) renderBalanceChart();
+}
+
+function showBalCustom() {
+    document.getElementById('bal-custom-row').classList.add('visible');
+    const today=new Date().toISOString().slice(0,10);
+    const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const f=document.getElementById('bal-from-date'),t=document.getElementById('bal-to-date');
+    if(!f.value) f.value=ago30;
+    if(!t.value) t.value=today;
+    document.querySelectorAll('#bal-range-row .tank-range-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('bal-custom-btn').classList.add('active');
+}
+
+function applyBalCustom() {
+    const f=document.getElementById('bal-from-date').value,t=document.getElementById('bal-to-date').value;
+    if(!f||!t) return;
+    _balRange=null; _balCustomFrom=f; _balCustomTo=t;
+    if(_balLakeReadings!==null) renderBalanceChart();
 }
 
 function setWxRange(days) {
@@ -1224,7 +1335,7 @@ function setWxRange(days) {
 
 function renderWeatherHistory(days) {
     const canvas=document.getElementById('wx-history-chart');if(!canvas)return;
-    const store   =JSON.parse(localStorage.getItem('wxh_daily')||'{}');
+    const store   =_wxhStore||{};
     const offsetMs=sydneyOffsetMs();
     const today   =new Date(Date.now()+offsetMs).toISOString().slice(0,10);
     const fromDate=new Date(Date.now()+offsetMs-days*86400000).toISOString().slice(0,10);
@@ -1368,9 +1479,9 @@ async function fetchWeather() {
         const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
 
         document.getElementById('wx-wind-kph').textContent=_windKph.toFixed(1);
-        document.getElementById('wx-wind-dir').textContent=degToCompass(_windDeg)+' ('+_windDeg.toFixed(0)+'\u00b0)';
-        const needle=document.getElementById('wind-needle');
-        if(needle){const rad=_windDeg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
+        document.getElementById('wx-wind-dir').textContent=degToCompass(_windDeg)+' '+_windDeg.toFixed(0)+'\u00b0';
+        const arrow=document.getElementById('wind-arrow');
+        if(arrow) arrow.setAttribute('transform','rotate('+_windDeg.toFixed(1)+',110,110)');
 
         const bf=beaufort(_windKph);
         const bfi=document.getElementById('wx-beaufort-inline');
@@ -1559,9 +1670,9 @@ function updateSailingTab() {
     const kphEl=document.getElementById('sail-wind-kph');
     if(kphEl) kphEl.textContent=kph!=null?kph.toFixed(1):'--';
     const dirEl=document.getElementById('sail-wind-dir');
-    if(dirEl) dirEl.textContent=degToCompass(deg)+' ('+deg.toFixed(0)+'\u00b0)';
-    const needle=document.getElementById('sail-wind-needle');
-    if(needle){const rad=deg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
+    if(dirEl) dirEl.textContent=degToCompass(deg)+' '+deg.toFixed(0)+'\u00b0';
+    const arrow=document.getElementById('sail-wind-arrow');
+    if(arrow&&deg!=null) arrow.setAttribute('transform','rotate('+deg.toFixed(1)+',110,110)');
     const bfInl=document.getElementById('sail-beaufort-inline');
     if(bfInl) bfInl.textContent=bf.scale+' \u2014 '+bf.name;
     const avgEl=document.getElementById('sail-avg-wind');
@@ -1653,7 +1764,46 @@ async function fetchWaterQuality() {
     } catch(e) { /* silently ignore */ }
 }
 
+// ── Build Nautical Rose compasses ────────────────────────────────────────
+(function buildCompasses(){
+    const NS='http://www.w3.org/2000/svg';
+    function buildRose(tickId,roseId){
+        const tg=document.getElementById(tickId);
+        const rg=document.getElementById(roseId);
+        if(!tg||!rg) return;
+        // Degree ticks
+        for(let i=0;i<360;i+=5){
+            const rad=i*Math.PI/180;
+            const isMajor=i%45===0, isMid=i%15===0&&!isMajor;
+            const r1=104, r2=isMajor?88:isMid?92:96;
+            const l=document.createElementNS(NS,'line');
+            l.setAttribute('x1',(110+r1*Math.sin(rad)).toFixed(1));
+            l.setAttribute('y1',(110-r1*Math.cos(rad)).toFixed(1));
+            l.setAttribute('x2',(110+r2*Math.sin(rad)).toFixed(1));
+            l.setAttribute('y2',(110-r2*Math.cos(rad)).toFixed(1));
+            l.setAttribute('stroke',isMajor?'#566573':'#3d5166');
+            l.setAttribute('stroke-width',isMajor?'1.5':'0.8');
+            tg.appendChild(l);
+        }
+        // Rose petals
+        for(let i=0;i<8;i++){
+            const ang=i*45*Math.PI/180;
+            const tip=88, base=12;
+            const tx=(110+tip*Math.sin(ang)).toFixed(1), ty=(110-tip*Math.cos(ang)).toFixed(1);
+            const lx=(110+base*Math.sin(ang-Math.PI/2)).toFixed(1), ly=(110-base*Math.cos(ang-Math.PI/2)).toFixed(1);
+            const rx=(110+base*Math.sin(ang+Math.PI/2)).toFixed(1), ry=(110-base*Math.cos(ang+Math.PI/2)).toFixed(1);
+            const p=document.createElementNS(NS,'polygon');
+            p.setAttribute('points',`${tx},${ty} ${lx},${ly} 110,110 ${rx},${ry}`);
+            p.setAttribute('fill',i%2===0?'#ecf0f1':'#566573');
+            rg.appendChild(p);
+        }
+    }
+    buildRose('wind-ticks','wind-rose');
+    buildRose('sail-wind-ticks','sail-wind-rose');
+})();
+
 // ── Init ──────────────────────────────────────────────────────────────────
+localStorage.removeItem('wxh_daily');   // clear old cached data — now file-based only
 fetchLevel();
 fetchWaterQuality();
 setInterval(fetchLevel,5*60*1000);
