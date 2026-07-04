@@ -246,6 +246,7 @@ def _process_davis_day(records):
     """Aggregate a list of 15-min sensor records into a single day summary."""
     t_max = -999.0; t_min = 999.0; rain = 0.0
     hum_sum = 0.0;  hum_count = 0; wind_max = 0.0; has_temp = False
+    bar_sum = 0.0;  bar_count = 0
     for sensor in records:
         for r in (sensor.get('data') or []):
             t_f = r.get('temp') or r.get('temp_out')
@@ -263,12 +264,20 @@ def _process_davis_day(records):
             if wm is not None:
                 kph = float(wm) * 1.60934
                 if kph > wind_max: wind_max = kph
+            # Pressure: bar_sea_level_in (inHg) → hPa, or bar_sea_level (mb) directly
+            bp = r.get('bar_sea_level_in') or r.get('bar_sea_level') or r.get('bar_hi_in') or r.get('bar')
+            if bp is not None:
+                bp_f = float(bp)
+                # inHg values are typically 28–32; mb/hPa values are 950–1050
+                hpa = bp_f * 33.8639 if bp_f < 200 else bp_f
+                bar_sum += hpa; bar_count += 1
     return {
         'tMax':     round(t_max, 1) if has_temp else None,
         'tMin':     round(t_min, 1) if has_temp else None,
         'rain':     round(rain,  1),
         'humidity': round(hum_sum / hum_count, 0) if hum_count > 0 else None,
         'windMax':  round(wind_max, 1) if wind_max > 0 else None,
+        'pressAvg': round(bar_sum / bar_count, 1) if bar_count > 0 else None,
     }
 
 

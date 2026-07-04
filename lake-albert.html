@@ -185,6 +185,7 @@
         .wxd-btn[data-ds="windMax"].active  { border-color:#d4ac0d; background:rgba(212,172,13,0.15); }
         .wxd-btn[data-ds="lakeLevel"].active { border-color:#27ae60; background:rgba(39,174,96,0.15); }
         .wxd-btn[data-ds="lakeChange"].active{ border-color:#9b59b6; background:rgba(155,89,182,0.15); }
+        .wxd-btn[data-ds="pressAvg"].active  { border-color:#e67e22; background:rgba(230,126,34,0.15); }
     </style>
 </head>
 <body>
@@ -520,6 +521,7 @@
             <button class="wxd-btn"        id="wxd-btn-tMin"     data-ds="tMin"     onclick="toggleWxDataset('tMin')">&#129398; Min Temp</button>
             <button class="wxd-btn"        id="wxd-btn-humidity" data-ds="humidity" onclick="toggleWxDataset('humidity')">&#128167; Humidity</button>
             <button class="wxd-btn"        id="wxd-btn-windMax"  data-ds="windMax"  onclick="toggleWxDataset('windMax')">&#128168; Wind Max</button>
+            <button class="wxd-btn"        id="wxd-btn-pressAvg" data-ds="pressAvg" onclick="toggleWxDataset('pressAvg')">&#129404; Pressure</button>
             <button class="wxd-btn active" id="wxd-btn-lakeLevel"  data-ds="lakeLevel"  onclick="toggleWxDataset('lakeLevel')">&#127754; Lake Level</button>
             <button class="wxd-btn active" id="wxd-btn-lakeChange" data-ds="lakeChange" onclick="toggleWxDataset('lakeChange')">&#128200; Lake Change</button>
         </div>
@@ -861,7 +863,7 @@ let _balWxhStore     = null;
 let _wxhStore        = null;   // Davis daily history - loaded from file, no localStorage
 let _wxRange      = 30;
 let _wxHistChart  = null;
-let _wxActiveDatasets = { rain: true, tMax: true, tMin: false, humidity: false, windMax: false, lakeLevel: true, lakeChange: true };
+let _wxActiveDatasets = { rain: true, tMax: true, tMin: false, humidity: false, windMax: false, pressAvg: false, lakeLevel: true, lakeChange: true };
 let _windKph      = null;   // shared across weather/powerboat/sailing tabs
 let _windGustKph  = null;
 let _windDeg      = null;
@@ -1614,6 +1616,7 @@ function renderWeatherHistory(days) {
     const tMinsAll= dates.map(d=>store[d]?.tMin??null);
     const hums    = dates.map(d=>store[d]?.humidity??null);
     const winds   = dates.map(d=>store[d]?.windMax??null);
+    const presses = dates.map(d=>store[d]?.pressAvg??null);
 
     // Build daily lake-level lookup (last reading per day → depth in metres)
     // and daily lake-change (last minus first reading of day → cm)
@@ -1647,6 +1650,7 @@ function renderWeatherHistory(days) {
     if(ad.tMin)       datasets.push({type:'line',label:'Min Temp (\u00b0C)',  data:tMinsAll,borderColor:'#5dade2',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#5dade2',yAxisID:'yTemp'});
     if(ad.humidity)   datasets.push({type:'line',label:'Humidity (%)',    data:hums,        borderColor:'#1abc9c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#1abc9c',yAxisID:'yHum'});
     if(ad.windMax)    datasets.push({type:'line',label:'Wind Max (km/h)', data:winds,       borderColor:'#d4ac0d',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#d4ac0d',yAxisID:'yWind'});
+    if(ad.pressAvg)   datasets.push({type:'line',label:'Pressure (hPa)',  data:presses,     borderColor:'#e67e22',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#e67e22',yAxisID:'yPress'});
     if(ad.lakeLevel)  datasets.push({type:'line',label:'Lake Depth (m)',  data:lakeLevels,  borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'});
     if(ad.lakeChange) datasets.push({type:'line',label:'Lake Change (cm)',data:lakeChanges, borderColor:'#9b59b6',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#9b59b6',yAxisID:'yLakeChg'});
 
@@ -1654,6 +1658,7 @@ function renderWeatherHistory(days) {
     const showTemp   =(ad.tMax||ad.tMin);
     const showHum    =(ad.humidity);
     const showWind   =(ad.windMax);
+    const showPress  =(ad.pressAvg);
     const showLake   =(ad.lakeLevel);
     const showLakeChg=(ad.lakeChange);
 
@@ -1669,6 +1674,7 @@ function renderWeatherHistory(days) {
                 yTemp:    {display:showTemp,    position:'right', ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Temp \u00b0C',color:'#e74c3c',font:{size:9}}},
                 yHum:     {display:showHum,     position:'right', ticks:{color:'#1abc9c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Humidity %',color:'#1abc9c',font:{size:9}},min:0,max:100},
                 yWind:    {display:showWind,    position:'right', ticks:{color:'#d4ac0d',font:{size:9}},grid:{display:false},               title:{display:true,text:'Wind km/h',color:'#d4ac0d',font:{size:9}},min:0},
+                yPress:   {display:showPress,   position:'right', ticks:{color:'#e67e22',font:{size:9}},grid:{display:false},               title:{display:true,text:'hPa',      color:'#e67e22',font:{size:9}}},
                 yLake:    {display:showLake,    position:'left',  ticks:{color:'#27ae60',font:{size:9}},grid:{display:false},               title:{display:true,text:'Depth m',  color:'#27ae60',font:{size:9}},min:lakeLevelMin},
                 yLakeChg: {display:showLakeChg, position:'right', ticks:{color:'#9b59b6',font:{size:9}},grid:{display:false},               title:{display:true,text:'Chg cm',   color:'#9b59b6',font:{size:9}}}
             }}
