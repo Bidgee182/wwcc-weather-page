@@ -368,7 +368,7 @@
             <div class="hero-block">
                 <div class="hero-val" id="pb-depth">--</div>
                 <div class="hero-lbl">Metres Deep</div>
-                <div class="hero-ref">Min. safe depth: 2.0 m</div>
+                <div class="hero-ref">Min. safe depth: 1.5 m (water skiing)</div>
             </div>
             <div class="hero-block">
                 <div class="hero-val" id="pb-depth-status" style="font-size:1.4em">--</div>
@@ -497,7 +497,7 @@
             <div class="wx-card">
                 <div class="wx-lbl">Lake Depth</div>
                 <div class="wx-val" id="sail-depth">--</div>
-                <div class="wx-unit">metres</div>
+                <div class="wx-unit" id="sail-depth-status">metres (min 1.2 m)</div>
             </div>
             <div class="wx-card">
                 <div class="wx-lbl">Pressure</div>
@@ -528,7 +528,8 @@ const LAKE_SURFACE_M2 = 1202046;
 const LAKE_BOTTOM_AHD = 188.1;
 const LAKE_FULL_AHD   = 191.551;
 const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
-const SAFE_DEPTH_M    = 2.0;
+const SAFE_DEPTH_M    = 1.5;   // powerboat / general boating minimum
+const SAFE_DEPTH_SAIL = 1.2;   // sailing minimum (shallow-keel lake boats)
 const v2ApiKey        = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
 const v2ApiSecret     = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
 const v2StationId     = 10489;
@@ -1422,11 +1423,11 @@ function updateSailingTab() {
     const subEl =document.getElementById('sail-sub');
     if(banner){
         banner.style.display='block';
-        if(depth!=null&&depth<SAFE_DEPTH_M){
+        if(depth!=null&&depth<SAFE_DEPTH_SAIL){
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
             mainEl.textContent='\u2717  LAKE CLOSED \u2014 Insufficient Depth';
-            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below '+SAFE_DEPTH_M+' m minimum. Do not launch.';
+            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below the '+SAFE_DEPTH_SAIL+' m sailing minimum. Do not launch.';
         } else if(kph!=null&&kph>=38){
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
@@ -1491,6 +1492,12 @@ function updateSailingTab() {
 
     // Lake & weather grid
     setEl('sail-depth',   depth,    2);
+    const dsEl=document.getElementById('sail-depth-status');
+    if(dsEl&&depth!=null){
+        if(depth<SAFE_DEPTH_SAIL){dsEl.textContent='metres \u2014 \u2717 below '+SAFE_DEPTH_SAIL+' m min';dsEl.style.color='#e74c3c';}
+        else if(depth<SAFE_DEPTH_SAIL+0.3){dsEl.textContent='metres \u2014 \u26a0 marginal';dsEl.style.color='#d4ac0d';}
+        else{dsEl.textContent='metres \u2014 \u2713 safe for sailing';dsEl.style.color='#27ae60';}
+    }
     setEl('sail-pressure',_pressHpa,0);
     setEl('sail-temp',    _tempC,   1);
     setEl('sail-rain',    _rainDayMm,1);
