@@ -135,6 +135,37 @@
             .wx-card { padding:10px; }
             .wx-val { font-size:1.3em; }
         }
+
+        /* ── Lake Forecast ── */
+        .lk-fc-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+        @media (max-width:600px) { .lk-fc-grid { grid-template-columns:repeat(4,1fr); } }
+        .lk-fc-cell { background:#1a252f; border-radius:8px; padding:10px 4px; text-align:center; }
+        .lk-fc-day  { font-size:0.7em; color:#7f8c8d; text-transform:uppercase; }
+        .lk-fc-icon { font-size:1.8em; margin:4px 0; line-height:1; }
+        .lk-fc-hi   { color:#e74c3c; font-weight:bold; font-size:0.95em; }
+        .lk-fc-lo   { color:#74b9ff; font-size:0.82em; }
+        .lk-fc-rain { font-size:0.7em; color:#74b9ff; margin-top:3px; }
+        .lk-fc-wind { font-size:0.7em; color:#bdc3c7; margin-top:2px; }
+        /* ── Lake Hourly strip ── */
+        .lk-hourly-grid { display:flex; overflow-x:auto; gap:8px; padding-bottom:6px; }
+        .lk-hourly-grid::-webkit-scrollbar { height:4px; }
+        .lk-hourly-grid::-webkit-scrollbar-track { background:#1a252f; }
+        .lk-hourly-grid::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
+        .lk-hc { background:#1a252f; border-radius:10px; padding:10px 8px; text-align:center; border:1px solid #2c3e50; min-width:68px; flex-shrink:0; }
+        .lk-hc-time { font-size:0.7em; color:#7f8c8d; }
+        .lk-hc-icon { font-size:1.5em; margin:4px 0; line-height:1; }
+        .lk-hc-temp { font-size:1em; font-weight:bold; }
+        .lk-hc-wind { font-size:0.68em; color:#4a90b8; margin-top:2px; }
+        .lk-hc-rain { font-size:0.65em; color:#74b9ff; margin-top:1px; }
+        /* ── Dataset toggle buttons ── */
+        .wxd-toggles { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+        .wxd-btn { background:#1a252f; border:1px solid #3d5166; color:#566573; border-radius:6px; padding:5px 10px; font-size:0.72em; cursor:pointer; transition:background 0.15s,color 0.15s,border-color 0.15s; }
+        .wxd-btn.active { color:#ecf0f1; font-weight:bold; }
+        .wxd-btn[data-ds="rain"].active    { border-color:#4a90b8; background:rgba(74,144,184,0.2); }
+        .wxd-btn[data-ds="tMax"].active    { border-color:#e74c3c; background:rgba(231,76,60,0.15); }
+        .wxd-btn[data-ds="tMin"].active    { border-color:#5dade2; background:rgba(93,173,226,0.15); }
+        .wxd-btn[data-ds="humidity"].active{ border-color:#1abc9c; background:rgba(26,188,156,0.15); }
+        .wxd-btn[data-ds="windMax"].active { border-color:#d4ac0d; background:rgba(212,172,13,0.15); }
     </style>
 </head>
 <body>
@@ -416,12 +447,29 @@
 
     <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="wx-updated"></div>
 
+    <div class="card" id="lk-hourly-card" style="display:none">
+        <h2>&#128336; Next 12 Hours</h2>
+        <div class="lk-hourly-grid" id="lk-hourly-grid"></div>
+    </div>
+
+    <div class="card" id="lk-forecast-card" style="display:none">
+        <h2>&#128197; 7-Day Forecast</h2>
+        <div class="lk-fc-grid" id="lk-forecast-grid"></div>
+    </div>
+
     <div class="card">
         <h2>&#128197; Weather History - Davis Station</h2>
         <div class="tank-history-range" id="wxh-range-row">
             <button class="tank-range-btn active" data-days="30"  onclick="setWxRange(30)">30 Days</button>
             <button class="tank-range-btn"        data-days="90"  onclick="setWxRange(90)">90 Days</button>
             <button class="tank-range-btn"        data-days="365" onclick="setWxRange(365)">1 Year</button>
+        </div>
+        <div class="wxd-toggles">
+            <button class="wxd-btn active" id="wxd-btn-rain"     data-ds="rain"     onclick="toggleWxDataset('rain')">&#127783; Rainfall</button>
+            <button class="wxd-btn active" id="wxd-btn-tMax"     data-ds="tMax"     onclick="toggleWxDataset('tMax')">&#127777; Max Temp</button>
+            <button class="wxd-btn"        id="wxd-btn-tMin"     data-ds="tMin"     onclick="toggleWxDataset('tMin')">&#129398; Min Temp</button>
+            <button class="wxd-btn"        id="wxd-btn-humidity" data-ds="humidity" onclick="toggleWxDataset('humidity')">&#128167; Humidity</button>
+            <button class="wxd-btn"        id="wxd-btn-windMax"  data-ds="windMax"  onclick="toggleWxDataset('windMax')">&#128168; Wind Max</button>
         </div>
         <div id="wxh-loading" style="text-align:center;color:#566573;font-size:0.8em;padding:20px 0">Loading Davis history…</div>
         <div style="position:relative;height:220px;width:100%;display:none" id="wxh-chart-wrap">
@@ -750,6 +798,7 @@ let _balWxhStore     = null;
 let _wxhStore        = null;   // Davis daily history - loaded from file, no localStorage
 let _wxRange      = 30;
 let _wxHistChart  = null;
+let _wxActiveDatasets = { rain: true, tMax: true, tMin: false, humidity: false, windMax: false };
 let _windKph      = null;   // shared across weather/powerboat/sailing tabs
 let _windGustKph  = null;
 let _windDeg      = null;
@@ -1428,6 +1477,13 @@ function setWxRange(days) {
     renderWeatherHistory(days);
 }
 
+function toggleWxDataset(name) {
+    _wxActiveDatasets[name] = !_wxActiveDatasets[name];
+    const btn = document.getElementById('wxd-btn-'+name);
+    if (btn) btn.classList.toggle('active', _wxActiveDatasets[name]);
+    renderWeatherHistory(_wxRange);
+}
+
 function renderWeatherHistory(days) {
     const canvas=document.getElementById('wx-history-chart');if(!canvas)return;
     const store   =_wxhStore||{};
@@ -1439,32 +1495,48 @@ function renderWeatherHistory(days) {
     for(let d=new Date(fromDate);d.toISOString().slice(0,10)<=today;d.setUTCDate(d.getUTCDate()+1))
         dates.push(d.toISOString().slice(0,10));
 
-    const labels=dates.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-    const rains =dates.map(d=>store[d]?.rain??0);
-    const tMaxes=dates.map(d=>store[d]?.tMax??null);
-    const tMins =dates.map(d=>store[d]?.tMin??null).filter(v=>v!=null);
+    const labels  = dates.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const rains   = dates.map(d=>store[d]?.rain??0);
+    const tMaxes  = dates.map(d=>store[d]?.tMax??null);
+    const tMinsAll= dates.map(d=>store[d]?.tMin??null);
+    const hums    = dates.map(d=>store[d]?.humidity??null);
+    const winds   = dates.map(d=>store[d]?.windMax??null);
 
-    const totalRain=rains.reduce((s,r)=>s+r,0);
-    const periodMax=tMaxes.filter(v=>v!=null).length?Math.max(...tMaxes.filter(v=>v!=null)):null;
-    const periodMin=tMins.length?Math.min(...tMins):null;
+    const totalRain =rains.reduce((s,r)=>s+r,0);
+    const periodMax =tMaxes.filter(v=>v!=null).length?Math.max(...tMaxes.filter(v=>v!=null)):null;
+    const periodMin =tMinsAll.filter(v=>v!=null).length?Math.min(...tMinsAll.filter(v=>v!=null)):null;
 
     document.getElementById('wxh-rain').textContent=totalRain.toFixed(1)+' mm';
     document.getElementById('wxh-tmax').textContent=periodMax!=null?periodMax.toFixed(1)+'°C':'--';
     document.getElementById('wxh-tmin').textContent=periodMin!=null?periodMin.toFixed(1)+'°C':'--';
 
+    const ad = _wxActiveDatasets;
+    const pr = days<=30?2:0;
+
+    const datasets=[];
+    if(ad.rain)    datasets.push({type:'bar', label:'Rainfall (mm)',  data:rains,   backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'});
+    if(ad.tMax)    datasets.push({type:'line',label:'Max Temp (\u00b0C)', data:tMaxes,  borderColor:'#e74c3c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#e74c3c',yAxisID:'yTemp'});
+    if(ad.tMin)    datasets.push({type:'line',label:'Min Temp (\u00b0C)', data:tMinsAll,borderColor:'#5dade2',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#5dade2',yAxisID:'yTemp'});
+    if(ad.humidity)datasets.push({type:'line',label:'Humidity (%)',   data:hums,    borderColor:'#1abc9c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#1abc9c',yAxisID:'yHum'});
+    if(ad.windMax) datasets.push({type:'line',label:'Wind Max (km/h)',data:winds,   borderColor:'#d4ac0d',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#d4ac0d',yAxisID:'yWind'});
+
+    const showRain=(ad.rain);
+    const showTemp=(ad.tMax||ad.tMin);
+    const showHum =(ad.humidity);
+    const showWind=(ad.windMax);
+
     if(_wxHistChart){_wxHistChart.destroy();_wxHistChart=null;}
     _wxHistChart=new Chart(canvas.getContext('2d'),{
-        data:{labels,datasets:[
-            {type:'bar', label:'Rainfall (mm)',data:rains, backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'},
-            {type:'line',label:'Max Temp (°C)',data:tMaxes,borderColor:'#e74c3c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:days<=30?2:0,pointHoverRadius:5,pointBackgroundColor:'#e74c3c',yAxisID:'yTemp'}
-        ]},
+        data:{labels,datasets},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
             plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
                 tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}},
             scales:{
                 x:{ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
-                yRain:{position:'left', ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}}},
-                yTemp:{position:'right',ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},title:{display:true,text:'Temp °C',color:'#e74c3c',font:{size:9}}}
+                yRain: {display:showRain, position:'left',  ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rain mm',  color:'#4a90b8',font:{size:9}}},
+                yTemp: {display:showTemp, position:'right', ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Temp \u00b0C',color:'#e74c3c',font:{size:9}}},
+                yHum:  {display:showHum,  position:'right', ticks:{color:'#1abc9c',font:{size:9}},grid:{display:false},               title:{display:true,text:'Humidity %',color:'#1abc9c',font:{size:9}},min:0,max:100},
+                yWind: {display:showWind, position:'right', ticks:{color:'#d4ac0d',font:{size:9}},grid:{display:false},               title:{display:true,text:'Wind km/h',color:'#d4ac0d',font:{size:9}},min:0}
             }}
     });
 }
@@ -1660,6 +1732,13 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
             mainEl.textContent='\u2713  GOOD CONDITIONS FOR BOATING';
             subEl.textContent='Depth '+(depth!=null?depth.toFixed(2)+' m':'--')+'  -  safe. Wind '+(kph!=null?kph.toFixed(0)+' km/h':'--')+'  -  '+beaufort(kph).name+'.';
         }
+        // Night / twilight note appended to sub-text
+        const _pbDl = getDaylightZone();
+        if (_pbDl === 'night') {
+            subEl.textContent += '  Navigation lights required. No water skiing after sunset.';
+        } else if (_pbDl === 'twilight') {
+            subEl.textContent += '  Approaching dusk - put your navigation lights on.';
+        }
     }
 
     // Depth hero
@@ -1772,6 +1851,13 @@ function updateSailingTab() {
             mainEl.textContent='\u2713  GREAT SAILING CONDITIONS';
             subEl.textContent='Wind '+(kph!=null?kph.toFixed(0):'--')+' km/h  -  '+bf.name+'. '+bf.desc+'.';
         }
+        // Night / twilight note appended to sub-text
+        const _sailDl = getDaylightZone();
+        if (_sailDl === 'night') {
+            subEl.textContent += '  Navigation lights required. No racing after dark.';
+        } else if (_sailDl === 'twilight') {
+            subEl.textContent += '  Approaching dusk - put your navigation lights on.';
+        }
     }
 
     // Wind display
@@ -1835,6 +1921,101 @@ function updateSailingTab() {
     if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
 }
 
+// ── WMO weather code icon ─────────────────────────────────────────────────
+function wmoIcon(code) {
+    if (code === 0)  return '&#9728;&#65039;';
+    if (code === 1)  return '&#127780;&#65039;';
+    if (code === 2)  return '&#9925;&#65039;';
+    if (code === 3)  return '&#9729;&#65039;';
+    if (code <= 48)  return '&#127787;&#65039;';
+    if (code <= 55)  return '&#127746;&#65039;';
+    if (code <= 65)  return '&#127783;&#65039;';
+    if (code <= 77)  return '&#10052;&#65039;';
+    if (code <= 82)  return '&#127782;&#65039;';
+    if (code <= 86)  return '&#127784;&#65039;';
+    if (code >= 95)  return '&#9928;&#65039;';
+    return '&#127780;&#65039;';
+}
+
+// ── Lake Forecast (Open-Meteo) ─────────────────────────────────────────────
+async function fetchLakeForecast() {
+    const LAT = -35.1208, LON = 147.3690;
+    const omUrl = 'https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON
+        +'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,windspeed_10m_max,winddirection_10m_dominant'
+        +'&hourly=temperature_2m,weather_code,windspeed_10m,winddirection_10m,precipitation_probability'
+        +'&timezone=Australia%2FSydney&forecast_days=7';
+    const urls = [
+        omUrl,
+        'https://corsproxy.io/?'+encodeURIComponent(omUrl),
+        'https://api.allorigins.win/raw?url='+encodeURIComponent(omUrl),
+    ];
+    let data = null;
+    for (const url of urls) {
+        try { const r = await fetch(url); if (r.ok) { data = await r.json(); break; } } catch(e) {}
+    }
+    if (!data) return;
+    _renderLakeHourly(data.hourly);
+    _renderLakeForecast(data.daily);
+}
+
+function _renderLakeHourly(hourly) {
+    const container = document.getElementById('lk-hourly-grid');
+    const card = document.getElementById('lk-hourly-card');
+    if (!container || !hourly) return;
+    const offsetMs = sydneyOffsetMs();
+    const nowStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    let html = '', count = 0;
+    for (let i = 0; i < hourly.time.length && count < 12; i++) {
+        if (hourly.time[i].slice(0, 13) < nowStr) continue;
+        const h = parseInt(hourly.time[i].slice(11, 13), 10);
+        const label = h === 0 ? '12am' : h < 12 ? h+'am' : h === 12 ? '12pm' : (h-12)+'pm';
+        const icon  = wmoIcon(hourly.weather_code[i]);
+        const temp  = hourly.temperature_2m[i];
+        const wind  = hourly.windspeed_10m[i];
+        const dir   = hourly.winddirection_10m[i];
+        const rain  = hourly.precipitation_probability[i];
+        html += '<div class="lk-hc">'
+            +'<div class="lk-hc-time">'+label+'</div>'
+            +'<div class="lk-hc-icon">'+icon+'</div>'
+            +'<div class="lk-hc-temp">'+(temp!=null?Math.round(temp)+'\u00b0':'--')+'</div>'
+            +'<div class="lk-hc-wind">'+(wind!=null?wind.toFixed(0)+' km/h':'')+' '+(dir!=null?degToCompass(dir):'')+'</div>'
+            +'<div class="lk-hc-rain">'+(rain!=null?rain+'%':'\u00a0')+'</div>'
+            +'</div>';
+        count++;
+    }
+    if (container) container.innerHTML = html;
+    if (card && html) card.style.display = '';
+}
+
+function _renderLakeForecast(daily) {
+    const container = document.getElementById('lk-forecast-grid');
+    const card = document.getElementById('lk-forecast-card');
+    if (!container || !daily) return;
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let html = '';
+    for (let i = 0; i < Math.min(7, daily.time.length); i++) {
+        const date  = new Date(daily.time[i]+'T12:00:00');
+        const label = i === 0 ? 'Today' : dayNames[date.getDay()];
+        const icon  = wmoIcon(daily.weather_code[i]);
+        const hi    = daily.temperature_2m_max[i];
+        const lo    = daily.temperature_2m_min[i];
+        const rain  = daily.precipitation_sum[i] || 0;
+        const prob  = daily.precipitation_probability_max[i];
+        const wind  = daily.windspeed_10m_max[i];
+        const wdir  = daily.winddirection_10m_dominant[i];
+        html += '<div class="lk-fc-cell">'
+            +'<div class="lk-fc-day">'+label+'</div>'
+            +'<div class="lk-fc-icon">'+icon+'</div>'
+            +'<div class="lk-fc-hi">'+(hi!=null?Math.round(hi)+'\u00b0':'--')+'</div>'
+            +'<div class="lk-fc-lo">'+(lo!=null?Math.round(lo)+'\u00b0':'--')+'</div>'
+            +'<div class="lk-fc-rain">'+(prob!=null?prob+'%':'')+' '+(rain>0?rain.toFixed(1)+'mm':'')+'</div>'
+            +'<div class="lk-fc-wind">'+(wind!=null?wind.toFixed(0)+' km/h':'')+' '+(wdir!=null?degToCompass(wdir):'')+'</div>'
+            +'</div>';
+    }
+    if (container) container.innerHTML = html;
+    if (card && html) card.style.display = '';
+}
+
 // ── Sunrise / Sunset algorithm ────────────────────────────────────────────
 function sunriseSunset(date, lat, lon) {
     // Returns {sunrise, sunset} as Date objects in UTC
@@ -1854,6 +2035,21 @@ function sunriseSunset(date, lat, lon) {
     const Jset  = Jtransit + H/360;
     const toDate = J => new Date((J - J2000 - 0.5) * 86400000 + new Date(2000,0,1,12,0,0,0).getTime());
     return { sunrise: toDate(Jrise), sunset: toDate(Jset) };
+}
+
+function getDaylightZone() {
+    const LAT = -35.1208, LON = 147.3690;
+    const offsetMs = sydneyOffsetMs();
+    const now = new Date();
+    const ss = sunriseSunset(now, LAT, LON);
+    if (!ss) return 'day';
+    const nowMs = now.getTime() + offsetMs;
+    const srMs  = ss.sunrise.getTime() + offsetMs;
+    const ssMs  = ss.sunset.getTime()  + offsetMs;
+    const TWILIGHT = 30 * 60 * 1000;
+    if (nowMs < srMs || nowMs > ssMs) return 'night';
+    if (nowMs < srMs + TWILIGHT || nowMs > ssMs - TWILIGHT) return 'twilight';
+    return 'day';
 }
 
 function updateNavLights() {
@@ -2163,6 +2359,7 @@ localStorage.removeItem('wxh_daily');   // clear old cached data - now file-base
 fetchLevel();
 fetchWaterQuality();
 updateNavLights();
+fetchLakeForecast();
 setInterval(fetchLevel,5*60*1000);
 setInterval(fetchWaterQuality,30*60*1000);
 </script>
