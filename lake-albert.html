@@ -31,7 +31,7 @@
 
         .tab-bar { display:flex; justify-content:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
         .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:10px 28px; font-size:0.9em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; }
-        .tab-btn.active { background:#27ae60; border-color:#27ae60; color:white; font-weight:bold; }
+        .tab-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
         .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
 
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
@@ -111,9 +111,11 @@
 </div>
 
 <div class="tab-bar">
-    <button class="tab-btn active" id="tab-btn-level"   onclick="showTab('level')">&#127754; Lake Level</button>
-    <button class="tab-btn"        id="tab-btn-balance" onclick="showTab('balance')">&#128197; Water Balance</button>
-    <button class="tab-btn"        id="tab-btn-weather" onclick="showTab('weather')">&#127748; Weather</button>
+    <button class="tab-btn active" id="tab-btn-level"     onclick="showTab('level')">&#127754; Lake Level</button>
+    <button class="tab-btn"        id="tab-btn-balance"   onclick="showTab('balance')">&#128197; Water Balance</button>
+    <button class="tab-btn"        id="tab-btn-weather"   onclick="showTab('weather')">&#127748; Weather</button>
+    <button class="tab-btn"        id="tab-btn-powerboat" onclick="showTab('powerboat')">&#128676; Power Boating</button>
+    <button class="tab-btn"        id="tab-btn-sailing"   onclick="showTab('sailing')">&#9973;&#65039; Sailing</button>
 </div>
 
 <!-- ══ TAB 1: LAKE LEVEL ══ -->
@@ -291,7 +293,7 @@
         <div class="wx-card">
             <div class="wx-lbl">Temperature</div>
             <div class="wx-val" id="wx-temp">--</div>
-            <div class="wx-unit">&deg;C</div>
+            <div class="wx-unit" id="wx-temp-hilo" style="font-size:0.7em;color:#7f8c8d">&deg;C</div>
         </div>
         <div class="wx-card">
             <div class="wx-lbl">Humidity</div>
@@ -304,13 +306,28 @@
             <div class="wx-unit">&deg;C</div>
         </div>
         <div class="wx-card">
-            <div class="wx-lbl">Sailing Conditions</div>
-            <div class="wx-val" id="wx-sailing-val" style="font-size:1.1em;line-height:1.3">--</div>
-            <div class="wx-unit" id="wx-sailing-sub" style="font-size:0.78em;line-height:1.4"></div>
+            <div class="wx-lbl">Wind Gust</div>
+            <div class="wx-val" id="wx-gust">--</div>
+            <div class="wx-unit">km/h</div>
         </div>
-        <div class="wx-card" style="grid-column:1/-1">
+        <div class="wx-card">
+            <div class="wx-lbl">Pressure</div>
+            <div class="wx-val" id="wx-pressure">--</div>
+            <div class="wx-unit">hPa</div>
+        </div>
+        <div class="wx-card">
             <div class="wx-lbl">Today's Rainfall</div>
             <div class="wx-val" id="wx-rain">--</div>
+            <div class="wx-unit">mm</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl">Month Rainfall</div>
+            <div class="wx-val" id="wx-rain-month">--</div>
+            <div class="wx-unit">mm</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl">Year to Date</div>
+            <div class="wx-val" id="wx-rain-year">--</div>
             <div class="wx-unit">mm</div>
         </div>
     </div>
@@ -336,6 +353,173 @@
     </div>
 </div>
 
+<!-- ══ TAB 4: POWER BOATING ══ -->
+<div id="tab-powerboat" class="tab-panel">
+    <div id="powerboat-err" class="err-bar"></div>
+
+    <div id="pb-banner" class="status-banner" style="display:none">
+        <div class="status-main" id="pb-main"></div>
+        <div class="status-sub"  id="pb-sub"></div>
+    </div>
+
+    <div class="card">
+        <h2>&#127754; Water Depth</h2>
+        <div class="hero-row">
+            <div class="hero-block">
+                <div class="hero-val" id="pb-depth">--</div>
+                <div class="hero-lbl">Metres Deep</div>
+                <div class="hero-ref">Min. safe depth: 2.0 m</div>
+            </div>
+            <div class="hero-block">
+                <div class="hero-val" id="pb-depth-status" style="font-size:1.4em">--</div>
+                <div class="hero-lbl">Depth Status</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>&#128168; Wind &amp; Water Surface</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Wind Speed</div>
+                <div class="lake-pill-val" id="pb-wind-kph">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Direction</div>
+                <div class="lake-pill-val" id="pb-wind-dir">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Gusts</div>
+                <div class="lake-pill-val" id="pb-wind-gust">--</div>
+            </div>
+        </div>
+        <div class="lake-pill-row">
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Water Surface</div>
+                <div class="lake-pill-val" id="pb-surface">--</div>
+            </div>
+            <div class="lake-pill" id="pb-ski-wrap">
+                <div class="lake-pill-lbl">&#127940; Water Skiing</div>
+                <div class="lake-pill-val" id="pb-ski">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>&#127777; Comfort &amp; Conditions</h2>
+        <div class="wx-grid">
+            <div class="wx-card">
+                <div class="wx-lbl">Temperature</div>
+                <div class="wx-val" id="pb-temp">--</div>
+                <div class="wx-unit" id="pb-temp-hilo" style="font-size:0.7em;color:#7f8c8d">&deg;C</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Humidity</div>
+                <div class="wx-val" id="pb-humidity">--</div>
+                <div class="wx-unit">%</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Today's Rain</div>
+                <div class="wx-val" id="pb-rain">--</div>
+                <div class="wx-unit">mm</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Pressure</div>
+                <div class="wx-val" id="pb-pressure">--</div>
+                <div class="wx-unit">hPa</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="pb-updated"></div>
+</div>
+
+<!-- ══ TAB 5: SAILING ══ -->
+<div id="tab-sailing" class="tab-panel">
+    <div id="sailing-err" class="err-bar"></div>
+
+    <div id="sail-banner" class="status-banner" style="display:none">
+        <div class="status-main" id="sail-main"></div>
+        <div class="status-sub"  id="sail-sub"></div>
+    </div>
+
+    <div class="card">
+        <h2>&#127788; Wind Conditions</h2>
+        <div class="wind-display">
+            <div class="wind-arrow-wrap">
+                <svg viewBox="0 0 64 64" id="sail-wind-svg">
+                    <circle cx="32" cy="32" r="30" fill="none" stroke="#3d5166" stroke-width="1.5"/>
+                    <text x="32" y="9"  text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">N</text>
+                    <text x="32" y="60" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">S</text>
+                    <text x="7"  y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">W</text>
+                    <text x="57" y="35" text-anchor="middle" font-size="7" fill="#7f8c8d" font-family="Arial">E</text>
+                    <line id="sail-wind-needle" x1="32" y1="32" x2="32" y2="6" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="32" cy="32" r="3" fill="#2980b9"/>
+                </svg>
+            </div>
+            <div style="text-align:center">
+                <div class="wind-speed-big" id="sail-wind-kph">--</div>
+                <div style="font-size:0.75em;color:#7f8c8d">km/h</div>
+                <div style="font-size:0.95em;color:#ecf0f1;margin-top:4px;font-weight:bold" id="sail-wind-dir">--</div>
+                <div style="font-size:0.8em;color:#7f8c8d;margin-top:3px" id="sail-beaufort-inline">--</div>
+            </div>
+        </div>
+        <div class="lake-pill-row" style="margin-top:14px">
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Avg Wind (10 min)</div>
+                <div class="lake-pill-val" id="sail-avg-wind">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Gusts</div>
+                <div class="lake-pill-val" id="sail-gust">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>&#9973;&#65039; Sailing Assessment</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill" id="sail-cond-wrap">
+                <div class="lake-pill-lbl">Conditions</div>
+                <div class="lake-pill-val" id="sail-conditions">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Beaufort Scale</div>
+                <div class="lake-pill-val" id="sail-bf-scale">--</div>
+            </div>
+        </div>
+        <div id="sail-advice" style="background:#1a252f;border-radius:8px;padding:12px 16px;margin-top:10px;font-size:0.85em;color:#bdc3c7;line-height:1.5"></div>
+    </div>
+
+    <div class="card">
+        <h2>&#128202; Lake &amp; Weather</h2>
+        <div class="wx-grid">
+            <div class="wx-card">
+                <div class="wx-lbl">Lake Depth</div>
+                <div class="wx-val" id="sail-depth">--</div>
+                <div class="wx-unit">metres</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Pressure</div>
+                <div class="wx-val" id="sail-pressure">--</div>
+                <div class="wx-unit">hPa</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Temperature</div>
+                <div class="wx-val" id="sail-temp">--</div>
+                <div class="wx-unit">&deg;C</div>
+            </div>
+            <div class="wx-card">
+                <div class="wx-lbl">Today's Rain</div>
+                <div class="wx-val" id="sail-rain">--</div>
+                <div class="wx-unit">mm</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="sail-updated"></div>
+</div>
+
 <div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 30 minutes</div>
 
 <script>
@@ -344,10 +528,13 @@ const LAKE_SURFACE_M2 = 1202046;
 const LAKE_BOTTOM_AHD = 188.1;
 const LAKE_FULL_AHD   = 191.551;
 const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
-const SAFE_DEPTH_M    = 1.8;
+const SAFE_DEPTH_M    = 2.0;
 const v2ApiKey        = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
 const v2ApiSecret     = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
 const v2StationId     = 10489;
+const davisV1User     = '001D0A00AB84';
+const davisV1Pass     = 'Ap08021977';
+const davisV1Token    = '771389FF9E4B4856A18AD35028EAFCE8';
 
 // ── State ─────────────────────────────────────────────────────────────────
 let _range        = 24;
@@ -359,7 +546,14 @@ let _levelChart   = null;
 let _balChart     = null;
 let _wxRange      = 30;
 let _wxHistChart  = null;
-let _windKph      = null;   // shared between weather and on-water card
+let _windKph      = null;   // shared across weather/powerboat/sailing tabs
+let _windGustKph  = null;
+let _windDeg      = null;
+let _tempC        = null;
+let _pressHpa     = null;
+let _rainDayMm    = null;
+let _rainMonthMm  = null;
+let _rainYearMm   = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2*(ahd-LAKE_BOTTOM_AHD)/1000) : null; }
@@ -466,7 +660,7 @@ function showTab(name) {
     document.getElementById('tab-'+name).classList.add('active');
     document.getElementById('tab-btn-'+name).classList.add('active');
     if (name==='balance') renderBalanceTab();
-    if (name==='weather') { fetchWeather(); fetchDavisHistory(); }
+    if (name==='weather' || name==='powerboat' || name==='sailing') { fetchWeather(); fetchDavisHistory(); }
 }
 
 // ── Range controls (level tab) ────────────────────────────────────────────
@@ -1038,48 +1232,271 @@ function updateActivityPills(windKph) {
     }
 }
 
-// ── Weather tab ───────────────────────────────────────────────────────────
+// ── Weather tab (Davis v1 API) ────────────────────────────────────────────
 async function fetchWeather() {
     const err=document.getElementById('wx-err');
     try {
-        const r=await fetch('data/farmbot_lake_weather.json?_='+Date.now());
-        if(!r.ok) throw new Error('Lake weather station data not yet available — history is loading below');
-        const wx=await r.json();
-        const kph=wx.wind_kph,deg=wx.wind_deg;
-        _windKph=kph!=null?parseFloat(kph):null;
-        updateActivityPills(_windKph);
-
-        document.getElementById('wx-wind-kph').textContent=kph!=null?parseFloat(kph).toFixed(1):'--';
-        document.getElementById('wx-wind-dir').textContent=deg!=null?degToCompass(deg)+' ('+parseFloat(deg).toFixed(0)+'\u00b0)':'--';
-        if(deg!=null){
-            const needle=document.getElementById('wind-needle');
-            if(needle){const rad=deg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
+        const v1Url=`https://api.weatherlink.com/v1/NoaaExt.json?user=${davisV1User}&pass=${davisV1Pass}&apiToken=${davisV1Token}`;
+        const proxies=[
+            `https://corsproxy.io/?${encodeURIComponent(v1Url)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(v1Url)}`
+        ];
+        let wx=null;
+        for(const url of proxies){
+            try{const res=await fetch(url);if(res.ok){wx=await res.json();break;}}catch(e){}
         }
-        // Beaufort next to wind direction
-        if(_windKph!=null){
-            const bf=beaufort(_windKph);
-            const bfi=document.getElementById('wx-beaufort-inline');
-            if(bfi)bfi.textContent=bf.scale+' \u2014 '+bf.name;
-            // Sailing conditions card
-            const bfv=document.getElementById('wx-sailing-val');
-            const bfs=document.getElementById('wx-sailing-sub');
-            if(bfv){bfv.textContent=bf.name;bfv.style.color=_windKph<38?'#27ae60':'#e74c3c';}
-            if(bfs)bfs.textContent=bf.desc;
-        }
+        if(!wx) throw new Error('Davis weather station unavailable — try again shortly');
 
+        const dco=wx.davis_current_observation||{};
+
+        // Wind (mph → km/h)
+        const windMph=parseFloat(dco.wind_ten_min_avg_mph??wx.wind_mph??0)||0;
+        _windKph=windMph*1.60934;
+        const gustMph=parseFloat(dco.wind_gust_10_min_mph??0)||0;
+        _windGustKph=gustMph*1.60934;
+        _windDeg=parseFloat(wx.wind_degrees??0)||0;
+
+        // Temperature (°F → °C if needed)
+        const tempF=parseFloat(wx.temp_f??32);
+        _tempC=wx.temp_c!=null?parseFloat(wx.temp_c):(tempF-32)/1.8;
+        const highF=parseFloat(wx.temp_day_high_f??tempF);
+        const lowF =parseFloat(wx.temp_day_low_f ??tempF);
+        const highC=wx.temp_day_high_c!=null?parseFloat(wx.temp_day_high_c):(highF-32)/1.8;
+        const lowC =wx.temp_day_low_c !=null?parseFloat(wx.temp_day_low_c ):(lowF-32)/1.8;
+
+        // Humidity & Magnus-formula dew point
+        const hum=parseFloat(wx.relative_humidity??0)||0;
+        const dp=hum>0&&!isNaN(_tempC)
+            ?(243.04*(Math.log(hum/100)+17.625*_tempC/(243.04+_tempC))/(17.625-(Math.log(hum/100)+17.625*_tempC/(243.04+_tempC))))
+            :null;
+
+        // Rainfall (inches → mm)
+        _rainDayMm  =dco.rain_day_in  !=null?parseFloat(dco.rain_day_in  )*25.4:0;
+        _rainMonthMm=dco.rain_month_in!=null?parseFloat(dco.rain_month_in)*25.4:null;
+        _rainYearMm =dco.rain_year_in !=null?parseFloat(dco.rain_year_in )*25.4:null;
+
+        // Pressure (mb or inHg → hPa)
+        _pressHpa=wx.pressure_mb!=null?parseFloat(wx.pressure_mb)
+                 :dco.bar_sea_level_in!=null?parseFloat(dco.bar_sea_level_in)*33.8639:null;
+
+        // ── Populate Weather tab ─────────────────────────────────────────
         const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
-        setEl('wx-temp',    wx.temp_c,     1);
-        setEl('wx-humidity',wx.humidity_pct,0);
-        setEl('wx-dewpoint',wx.dew_point_c,1);
-        setEl('wx-rain',    wx.rain_mm_raw,1);
+
+        document.getElementById('wx-wind-kph').textContent=_windKph.toFixed(1);
+        document.getElementById('wx-wind-dir').textContent=degToCompass(_windDeg)+' ('+_windDeg.toFixed(0)+'\u00b0)';
+        const needle=document.getElementById('wind-needle');
+        if(needle){const rad=_windDeg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
+
+        const bf=beaufort(_windKph);
+        const bfi=document.getElementById('wx-beaufort-inline');
+        if(bfi) bfi.textContent=bf.scale+' \u2014 '+bf.name;
+
+        setEl('wx-temp',      _tempC,      1);
+        setEl('wx-humidity',  hum,         0);
+        setEl('wx-dewpoint',  dp,          1);
+        setEl('wx-gust',      _windGustKph,1);
+        setEl('wx-pressure',  _pressHpa,   0);
+        setEl('wx-rain',      _rainDayMm,  1);
+        setEl('wx-rain-month',_rainMonthMm,1);
+        setEl('wx-rain-year', _rainYearMm, 0);
+
+        const hiloEl=document.getElementById('wx-temp-hilo');
+        if(hiloEl) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0 \u2014 Low '+lowC.toFixed(1)+'\u00b0';
 
         const upd=document.getElementById('wx-updated');
-        if(upd)upd.textContent='Updated: '+(wx.updated_at?new Date(wx.updated_at).toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}):'--');
-        if(err)err.style.display='none';
+        if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+        if(err) err.style.display='none';
+
+        // ── Shared updates ───────────────────────────────────────────────
+        updateActivityPills(_windKph);
+        updateOnwaterCard();
+
+        // ── Power Boating tab ────────────────────────────────────────────
+        updatePowerboatTab(windMph,gustMph,_windDeg,_tempC,highC,lowC,hum);
+
+        // ── Sailing tab ──────────────────────────────────────────────────
+        updateSailingTab();
+
     } catch(e){
         if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}
+        updateOnwaterCard();
     }
-    updateOnwaterCard();
+}
+
+function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
+    const kph =_windKph;
+    const gust=_windGustKph;
+    const ahd  =_lakeLatest?.lake_ahd;
+    const depth=ahd!=null?Math.max(0,ahd-LAKE_BOTTOM_AHD):null;
+    const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
+
+    // Banner
+    const banner=document.getElementById('pb-banner');
+    const mainEl=document.getElementById('pb-main');
+    const subEl =document.getElementById('pb-sub');
+    if(banner){
+        banner.style.display='block';
+        if(depth!=null&&depth<SAFE_DEPTH_M){
+            banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
+            mainEl.style.color='#e74c3c';
+            mainEl.textContent='\u2717  LAKE CLOSED FOR BOATING';
+            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below the '+SAFE_DEPTH_M+' m minimum safe depth';
+        } else if(kph!=null&&kph>38){
+            banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
+            mainEl.style.color='#e74c3c';
+            mainEl.textContent='\u26a0  CAUTION \u2014 Strong Wind Warning';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+beaufort(kph).name+'. Exercise extreme caution on the water.';
+        } else if((depth!=null&&depth<SAFE_DEPTH_M+0.4)||(kph!=null&&kph>25)){
+            banner.style.background='#2c2000';banner.style.borderColor='#d4ac0d';
+            mainEl.style.color='#d4ac0d';
+            mainEl.textContent='\u26a0  CAUTION \u2014 Borderline Conditions';
+            subEl.textContent=(depth!=null?'Depth '+depth.toFixed(2)+' m. ':'')+( kph!=null?'Wind '+kph.toFixed(0)+' km/h. ':'')+' Proceed with care.';
+        } else {
+            banner.style.background='#0a2c14';banner.style.borderColor='#27ae60';
+            mainEl.style.color='#27ae60';
+            mainEl.textContent='\u2713  GOOD CONDITIONS FOR BOATING';
+            subEl.textContent='Depth '+(depth!=null?depth.toFixed(2)+' m':'--')+' \u2014 safe. Wind '+(kph!=null?kph.toFixed(0)+' km/h':'--')+' \u2014 '+beaufort(kph).name+'.';
+        }
+    }
+
+    // Depth hero
+    const depthEl =document.getElementById('pb-depth');
+    const statusEl=document.getElementById('pb-depth-status');
+    if(depthEl) depthEl.textContent=depth!=null?depth.toFixed(2)+' m':'--';
+    if(statusEl&&depth!=null){
+        if(depth<SAFE_DEPTH_M){statusEl.textContent='\u2717 Closed';statusEl.style.color='#e74c3c';}
+        else if(depth<SAFE_DEPTH_M+0.4){statusEl.textContent='\u26a0 Marginal';statusEl.style.color='#d4ac0d';}
+        else{statusEl.textContent='\u2713 Safe';statusEl.style.color='#27ae60';}
+    }
+
+    // Wind pills
+    const wdEl=document.getElementById('pb-wind-dir');
+    if(wdEl) wdEl.textContent=degToCompass(deg)+' '+deg.toFixed(0)+'\u00b0';
+    const kwEl=document.getElementById('pb-wind-kph');
+    if(kwEl&&kph!=null){kwEl.textContent=kph.toFixed(0)+' km/h';kwEl.style.color=kph<25?'#27ae60':kph<38?'#d4ac0d':'#e74c3c';}
+    const gwEl=document.getElementById('pb-wind-gust');
+    if(gwEl&&gust!=null){gwEl.textContent=gust.toFixed(0)+' km/h';gwEl.style.color=gust<30?'#27ae60':gust<50?'#d4ac0d':'#e74c3c';}
+
+    // Water surface
+    const surfEl=document.getElementById('pb-surface');
+    if(surfEl&&kph!=null){
+        if(kph<10){surfEl.textContent='Flat \u2014 ideal for skiing';surfEl.style.color='#27ae60';}
+        else if(kph<20){surfEl.textContent='Light chop';surfEl.style.color='#27ae60';}
+        else if(kph<30){surfEl.textContent='Choppy \u2014 take care';surfEl.style.color='#d4ac0d';}
+        else{surfEl.textContent='Rough \u2014 not recommended';surfEl.style.color='#e74c3c';}
+    }
+
+    // Skiing
+    const skiEl=document.getElementById('pb-ski');
+    if(skiEl&&kph!=null){
+        if(depth!=null&&depth<SAFE_DEPTH_M){skiEl.textContent='\u2717 Lake too shallow';skiEl.style.color='#e74c3c';}
+        else if(kph>25){skiEl.textContent='\u2717 Too windy \u2014 rough water';skiEl.style.color='#e74c3c';}
+        else if(kph>15){skiEl.textContent='\u26a0 Some chop \u2014 take care';skiEl.style.color='#d4ac0d';}
+        else{skiEl.textContent='\u2713 Ideal \u2014 calm water';skiEl.style.color='#27ae60';}
+    }
+
+    // Comfort grid
+    setEl('pb-temp',tempC,1);
+    const hiloEl=document.getElementById('pb-temp-hilo');
+    if(hiloEl&&highC!=null) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0 \u2014 Low '+lowC.toFixed(1)+'\u00b0';
+    setEl('pb-humidity',hum,0);
+    setEl('pb-rain',    _rainDayMm,1);
+    setEl('pb-pressure',_pressHpa, 0);
+
+    const upd=document.getElementById('pb-updated');
+    if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+}
+
+function updateSailingTab() {
+    const kph =_windKph;
+    const gust=_windGustKph;
+    const deg =_windDeg||0;
+    const ahd  =_lakeLatest?.lake_ahd;
+    const depth=ahd!=null?Math.max(0,ahd-LAKE_BOTTOM_AHD):null;
+    const bf   =beaufort(kph);
+    const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
+
+    // Banner
+    const banner=document.getElementById('sail-banner');
+    const mainEl=document.getElementById('sail-main');
+    const subEl =document.getElementById('sail-sub');
+    if(banner){
+        banner.style.display='block';
+        if(depth!=null&&depth<SAFE_DEPTH_M){
+            banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
+            mainEl.style.color='#e74c3c';
+            mainEl.textContent='\u2717  LAKE CLOSED \u2014 Insufficient Depth';
+            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below '+SAFE_DEPTH_M+' m minimum. Do not launch.';
+        } else if(kph!=null&&kph>=38){
+            banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
+            mainEl.style.color='#e74c3c';
+            mainEl.textContent='\u26a0  TOO WINDY \u2014 Dangerous Conditions';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+        } else if(kph!=null&&kph<6){
+            banner.style.background='#1a252f';banner.style.borderColor='#3d5166';
+            mainEl.style.color='#7f8c8d';
+            mainEl.textContent='\u2014  TOO LIGHT \u2014 Motor Required';
+            subEl.textContent='Wind too light for sailing. Use your engine or wait for a breeze.';
+        } else if(kph!=null&&kph>=25){
+            banner.style.background='#2c2000';banner.style.borderColor='#d4ac0d';
+            mainEl.style.color='#d4ac0d';
+            mainEl.textContent='\u26a0  STRONG WIND \u2014 Experienced Sailors Only';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+        } else {
+            banner.style.background='#0a2c14';banner.style.borderColor='#27ae60';
+            mainEl.style.color='#27ae60';
+            mainEl.textContent='\u2713  GREAT SAILING CONDITIONS';
+            subEl.textContent='Wind '+(kph!=null?kph.toFixed(0):'--')+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+        }
+    }
+
+    // Wind display
+    const kphEl=document.getElementById('sail-wind-kph');
+    if(kphEl) kphEl.textContent=kph!=null?kph.toFixed(1):'--';
+    const dirEl=document.getElementById('sail-wind-dir');
+    if(dirEl) dirEl.textContent=degToCompass(deg)+' ('+deg.toFixed(0)+'\u00b0)';
+    const needle=document.getElementById('sail-wind-needle');
+    if(needle){const rad=deg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
+    const bfInl=document.getElementById('sail-beaufort-inline');
+    if(bfInl) bfInl.textContent=bf.scale+' \u2014 '+bf.name;
+    const avgEl=document.getElementById('sail-avg-wind');
+    if(avgEl) avgEl.textContent=kph!=null?kph.toFixed(0)+' km/h':'--';
+    const gustEl=document.getElementById('sail-gust');
+    if(gustEl) gustEl.textContent=gust!=null?gust.toFixed(0)+' km/h':'--';
+
+    // Conditions & Beaufort
+    const condEl=document.getElementById('sail-conditions');
+    const bfScEl=document.getElementById('sail-bf-scale');
+    const advEl =document.getElementById('sail-advice');
+    if(condEl&&kph!=null){
+        if(kph<6){condEl.textContent='Too Light';condEl.style.color='#7f8c8d';}
+        else if(kph<12){condEl.textContent='Light \u2014 Beginners';condEl.style.color='#27ae60';}
+        else if(kph<20){condEl.textContent='Perfect \u2014 All Levels';condEl.style.color='#27ae60';}
+        else if(kph<29){condEl.textContent='Good \u2014 Intermediate+';condEl.style.color='#27ae60';}
+        else if(kph<38){condEl.textContent='Strong \u2014 Experienced Only';condEl.style.color='#d4ac0d';}
+        else{condEl.textContent='Dangerous \u2014 Stay Ashore';condEl.style.color='#e74c3c';}
+    }
+    if(bfScEl) bfScEl.textContent=bf.scale;
+    const advMap={
+        'B0':'No wind \u2014 motoring only. Flat water is perfect for a relaxed cruise.',
+        'B1':'Very light air. Experienced sailors can sail but expect slow progress.',
+        'B2':'Light breeze. Ideal for beginners \u2014 stable, manageable conditions.',
+        'B3':'Gentle breeze. Perfect for all skill levels. Excellent racing conditions.',
+        'B4':'Moderate breeze. Exciting sailing for intermediate sailors. Be prepared to reef.',
+        'B5':'Fresh breeze. Experienced crew only. Depower and reef early.',
+        'B6':'Strong breeze. Rough conditions. Only highly experienced sailors. Consider staying ashore.',
+        'B7+':'Near gale or stronger. Do not sail. Dangerous conditions \u2014 stay ashore.'
+    };
+    if(advEl) advEl.textContent=advMap[bf.scale]||bf.desc;
+
+    // Lake & weather grid
+    setEl('sail-depth',   depth,    2);
+    setEl('sail-pressure',_pressHpa,0);
+    setEl('sail-temp',    _tempC,   1);
+    setEl('sail-rain',    _rainDayMm,1);
+
+    const upd=document.getElementById('sail-updated');
+    if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
