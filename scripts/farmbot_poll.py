@@ -51,8 +51,20 @@ DATA_DIR           = Path('data')
 LATEST_JSON        = DATA_DIR / 'farmbot_latest.json'
 HISTORY_JSON       = DATA_DIR / 'farmbot_history.json'
 READINGS_JSON      = DATA_DIR / 'farmbot_readings.json'
-LAKE_LATEST_JSON   = DATA_DIR / 'farmbot_lake_latest.json'
-LAKE_READINGS_JSON = DATA_DIR / 'farmbot_lake_readings.json'
+LAKE_LATEST_JSON        = DATA_DIR / 'farmbot_lake_latest.json'
+LAKE_READINGS_JSON      = DATA_DIR / 'farmbot_lake_readings.json'
+LAKE_WEATHER_JSON       = DATA_DIR / 'farmbot_lake_weather.json'
+LAKE_RAIN_READINGS_JSON = DATA_DIR / 'farmbot_lake_rain_readings.json'
+
+# Lake weather station sensor SIDs (hardcoded — fixed hardware)
+LAKE_WEATHER_SIDS = {
+    'wind':      '20ecfbd1-e73b-422b-b1a0-fdecaa4306a8',  # kph + deg (multiDimValues)
+    'temp':      '7555efcf-ef68-4057-9a79-5e2610854648',  # °C
+    'rain':      '9589ff0a-ca60-4e40-ae11-d6cb6389b0c2',  # mm (pulse counter)
+    'humidity':  '9acc5e26-d0e5-4f90-9ef2-366d885aa8c1',  # %
+    'dew_point': 'c9d6016f-9b6c-4fe6-90f3-6f43be90682d',  # °C
+    'delta_t':   'bf5d68bf-c894-40d4-9f3f-328405d808eb',  # °C
+}
 
 # Alert thresholds — email fires when tank DROPS INTO each band
 ALERT_LEVELS = [
@@ -298,6 +310,12 @@ def poll():
         except Exception as e:
             log.error(f'Lake poll failed: {e}')
 
+    # Poll lake weather station (always — SIDs are hardcoded)
+    try:
+        poll_lake_weather(token)
+    except Exception as e:
+        log.error(f'Lake weather poll failed: {e}')
+
 # ── Lake level poll ───────────────────────────────────────────────────────────
 def poll_lake(token):
     """Fetch latest lake level, convert to AHD, save to farmbot_lake_latest.json
@@ -381,6 +399,83 @@ def poll_lake(token):
     }
     LAKE_LATEST_JSON.write_text(json.dumps(out, indent=2))
     log.info(f'Wrote {LAKE_LATEST_JSON}')
+
+# ── Lake weather poll ─────────────────────────────────────────────────────────
+def poll_lake_weather(token):
+    """Fetch all lake weather station sensors → farmbot_lake_weather.json.
+    Also appends rain deltas to farmbot_lake_rain_readings.json."""
+    log.info('FarmBot lake weather poll starting')
+    out = {'updated_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
+
+    # Wind — multiDimValues: dim[0]=speed kph, dim[1]=direction deg
+    try:
+        resp   = fb_get(token, f'sensor/{LAKE_WEATHER_SIDS["wind"]}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
+        latest = (resp.get('data') or [None])[0]
+        if latest:
+            dims = (latest.get('multiDimValues') or {}).get('sampleDim', [])
+            if len(dims) >= 2:
+                out['wind_kph'] = dims[0].get('rwValue')
+                out['wind_deg'] = dims[1].get('rwValue')
+            out['wind_date'] = latest.get('date')
+    except Exception as e:
+        log.warning(f'Wind fetch failed: {e}')
+
+    # Scalar sensors
+    for key, sid in [
+        ('temp_c',       LAKE_WEATHER_SIDS['temp']),
+        ('humidity_pct', LAKE_WEATHER_SIDS['humidity']),
+        ('dew_point_c',  LAKE_WEATHER_SIDS['dew_point']),
+        ('delta_t_c',    LAKE_WEATHER_SIDS['delta_t']),
+    ]:
+        try:
+            resp   = fb_get(token, f'sensor/{sid}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
+            latest = (resp.get('data') or [None])[0]
+            if latest:
+                out[key] = latest.get('rwValue')
+        except Exception as e:
+            log.warning(f'{key} fetch failed: {e}')
+
+    # Rain gauge — pulse counter, store delta between readings
+    try:
+        resp     = fb_get(token, f'sensor/{LAKE_WEATHER_SIDS["rain"]}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
+        latest   = (resp.get('data') or [None])[0]
+        if latest:
+            raw_now   = latest.get('rwValue') or 0
+            rain_date = latest.get('date')
+
+            rain_readings = []
+            if LAKE_RAIN_READINGS_JSON.exists():
+                try:
+                    rain_readings = json.loads(LAKE_RAIN_READINGS_JSON.read_text())
+                except Exception:
+                    pass
+
+            prev_raw  = rain_readings[-1].get('raw_mm', 0) if rain_readings else 0
+            last_date = rain_readings[-1].get('date')       if rain_readings else None
+
+            # Delta — if counter reset (raw_now < prev_raw), treat current as delta
+            delta = round(max(0, raw_now - prev_raw) if raw_now >= prev_raw else raw_now, 2)
+
+            out['rain_mm_raw']   = raw_now
+            out['rain_mm_delta'] = delta
+            out['rain_date']     = rain_date
+
+            # Append new entry only when date changes (avoid duplicates)
+            if rain_date != last_date:
+                rain_readings.append({
+                    'date':    rain_date,
+                    'raw_mm':  raw_now,
+                    'rain_mm': delta,
+                })
+                DATA_DIR.mkdir(exist_ok=True)
+                LAKE_RAIN_READINGS_JSON.write_text(json.dumps(rain_readings, indent=2))
+                log.info(f'Rain: +{delta}mm (raw={raw_now}mm)')
+    except Exception as e:
+        log.warning(f'Rain gauge fetch failed: {e}')
+
+    DATA_DIR.mkdir(exist_ok=True)
+    LAKE_WEATHER_JSON.write_text(json.dumps(out, indent=2))
+    log.info(f'Wrote {LAKE_WEATHER_JSON}')
 
 # ── Historical backfill ────────────────────────────────────────────────────────
 def backfill(from_date='2025-01-01'):

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lake Albert — Water Level &amp; Conditions</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a1520; color: #ecf0f1; font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; min-height: 100vh; }
+
+        /* ── Header ── */
+        .page-header { background: #0d1e2e; border-bottom: 1px solid #1e3a50; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+        .page-header h1 { font-size: 1.15em; font-weight: 700; color: #ecf0f1; letter-spacing: -0.3px; }
+        .page-header .subtitle { font-size: 0.72em; color: #7f8c8d; margin-top: 2px; }
+        .wwcc-badge { background: #1a3a50; border: 1px solid #2d5a7a; border-radius: 6px; padding: 4px 10px; font-size: 0.68em; color: #4a90b8; font-weight: 600; white-space: nowrap; }
+
+        /* ── Tabs ── */
+        .tab-nav { display: flex; background: #0d1e2e; border-bottom: 1px solid #1e3a50; padding: 0 14px; gap: 4px; }
+        .tab-btn { padding: 10px 16px; font-size: 0.82em; font-weight: 600; color: #7f8c8d; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; transition: color 0.2s; white-space: nowrap; }
+        .tab-btn.active { color: #4a90b8; border-bottom-color: #4a90b8; }
+        .tab-btn:hover { color: #ecf0f1; }
+        .tab-panel { display: none; padding: 14px; max-width: 900px; margin: 0 auto; }
+        .tab-panel.active { display: block; }
+
+        /* ── Cards ── */
+        .card { background: #0f2030; border: 1px solid #1e3a50; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+        .card h2 { font-size: 0.9em; font-weight: 600; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+
+        /* ── Hero numbers ── */
+        .hero-row { display: flex; gap: 12px; justify-content: center; padding: 10px 0 14px; flex-wrap: wrap; }
+        .hero-block { text-align: center; flex: 1; min-width: 120px; }
+        .hero-val { font-size: 2.4em; font-weight: 700; color: #ecf0f1; letter-spacing: -1px; line-height: 1; }
+        .hero-lbl { font-size: 0.7em; color: #7f8c8d; margin-top: 4px; }
+
+        /* ── Pills ── */
+        .pill-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+        .pill { flex: 1; min-width: 130px; background: #0a1520; border: 1px solid #1e3a50; border-radius: 20px; padding: 12px 16px; text-align: center; transition: border-color 0.4s; }
+        .pill-lbl { font-size: 0.65em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .pill-val { font-size: 1.0em; font-weight: 700; color: #ecf0f1; }
+        @keyframes pillGlowGreen { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.3);border-color:#27ae60}50%{box-shadow:0 0 22px 6px rgba(39,174,96,.9),0 0 8px rgba(39,174,96,.6) inset;border-color:#2ecc71} }
+        @keyframes pillGlowRed   { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.3);border-color:#e74c3c}50%{box-shadow:0 0 22px 6px rgba(231,76,60,.9),0 0 8px rgba(231,76,60,.6) inset;border-color:#ff6b6b} }
+        .glow-green { animation: pillGlowGreen 2s ease-in-out infinite; }
+        .glow-red   { animation: pillGlowRed 1.5s ease-in-out infinite; }
+
+        /* ── Graph ── */
+        .range-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+        .range-btn { padding: 5px 12px; font-size: 0.75em; font-weight: 600; background: #1a2d3d; border: 1px solid #2d4a5e; border-radius: 14px; color: #7f8c8d; cursor: pointer; transition: all 0.2s; }
+        .range-btn.active, .range-btn:hover { background: #2d4a5e; color: #ecf0f1; border-color: #4a90b8; }
+        .graph-wrap { position: relative; height: 220px; width: 100%; }
+        .custom-row { display: none; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        .custom-row.visible { display: flex; }
+        .custom-row input[type=date] { background: #1a2d3d; border: 1px solid #2d4a5e; border-radius: 6px; color: #ecf0f1; padding: 4px 8px; font-size: 0.8em; }
+        .apply-btn { background: #2d4a5e; border: 1px solid #4a90b8; border-radius: 6px; color: #ecf0f1; padding: 4px 12px; font-size: 0.8em; cursor: pointer; }
+
+        /* ── Stat row ── */
+        .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+        .stat-cell { background: #0a1520; border: 1px solid #1e3a50; border-radius: 8px; padding: 8px 10px; text-align: center; }
+        .stat-lbl { font-size: 0.65em; color: #7f8c8d; text-transform: uppercase; margin-bottom: 4px; }
+        .stat-val { font-size: 0.9em; font-weight: 700; color: #ecf0f1; }
+
+        /* ── Weather grid ── */
+        .wx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .wx-card { background: #0a1520; border: 1px solid #1e3a50; border-radius: 10px; padding: 14px; text-align: center; }
+        .wx-lbl { font-size: 0.65em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .wx-val { font-size: 1.6em; font-weight: 700; color: #ecf0f1; }
+        .wx-unit { font-size: 0.7em; color: #7f8c8d; margin-top: 3px; }
+        .wx-wind { grid-column: 1 / -1; }
+
+        /* ── Wind compass ── */
+        .wind-display { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 6px 0; }
+        .wind-arrow-wrap { position: relative; width: 60px; height: 60px; }
+        .wind-arrow-wrap svg { width: 60px; height: 60px; }
+        .wind-speed-big { font-size: 2.2em; font-weight: 700; color: #ecf0f1; }
+        .wind-dir-lbl { font-size: 0.8em; color: #7f8c8d; }
+
+        /* ── Footer ── */
+        .page-footer { text-align: center; font-size: 0.68em; color: #566573; padding: 14px; }
+
+        /* ── Error ── */
+        .err-bar { display: none; background: #3d1a1a; border-left: 3px solid #e74c3c; padding: 8px 10px; border-radius: 4px; font-size: 0.8em; color: #e74c3c; margin-bottom: 10px; }
+
+        @media (max-width: 500px) {
+            .hero-val { font-size: 1.8em; }
+            .wx-grid { grid-template-columns: 1fr; }
+            .stat-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-header">
+    <div style="flex:1">
+        <h1>&#127754; Lake Albert — Water Level &amp; Conditions</h1>
+        <div class="subtitle">Wagga Wagga Country Club &mdash; Live monitoring</div>
+    </div>
+    <div class="wwcc-badge">WWCC</div>
+</div>
+
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('level')">&#127754; Lake Level</button>
+    <button class="tab-btn" onclick="showTab('balance')">&#128197; Water Balance</button>
+    <button class="tab-btn" onclick="showTab('weather')">&#127748; Weather</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 1: LAKE LEVEL
+══════════════════════════════════════════════════════════ -->
+<div id="tab-level" class="tab-panel active">
+    <div id="level-err" class="err-bar"></div>
+
+    <div class="card">
+        <h2>Current Water Level</h2>
+        <div class="hero-row">
+            <div class="hero-block">
+                <div class="hero-val" id="l-ahd">--</div>
+                <div class="hero-lbl">m AHD</div>
+            </div>
+            <div class="hero-block">
+                <div class="hero-val" id="l-depth">--</div>
+                <div class="hero-lbl">m depth</div>
+            </div>
+        </div>
+
+        <div class="pill-row">
+            <div class="pill" id="pill-safe-wrap">
+                <div class="pill-lbl">Safe Boating Depth</div>
+                <div class="pill-val" id="pill-safe">--</div>
+            </div>
+            <div class="pill" id="pill-vol-wrap">
+                <div class="pill-lbl">Volume</div>
+                <div class="pill-val" id="pill-vol">--</div>
+            </div>
+            <div class="pill" id="pill-trend-wrap">
+                <div class="pill-lbl">7-Day Trend</div>
+                <div class="pill-val" id="pill-trend">--</div>
+            </div>
+        </div>
+
+        <div style="font-size:0.7em;color:#566573;text-align:center;margin-bottom:6px" id="l-updated"></div>
+    </div>
+
+    <div class="card">
+        <h2>Lake Level History</h2>
+        <div class="range-row">
+            <button class="range-btn active" onclick="setRange(24)">24h</button>
+            <button class="range-btn" onclick="setRange(168)">7 Days</button>
+            <button class="range-btn" onclick="setRange(720)">30 Days</button>
+            <button class="range-btn" id="custom-btn" onclick="showCustom()">Custom</button>
+        </div>
+        <div class="custom-row" id="custom-row">
+            <label style="font-size:0.8em;color:#7f8c8d">From <input type="date" id="from-date"></label>
+            <label style="font-size:0.8em;color:#7f8c8d">To <input type="date" id="to-date"></label>
+            <button class="apply-btn" onclick="applyCustom()">Apply</button>
+        </div>
+        <div class="graph-wrap"><canvas id="level-chart"></canvas></div>
+        <div class="stat-row">
+            <div class="stat-cell"><div class="stat-lbl">Min AHD</div><div class="stat-val" id="s-min">--</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Max AHD</div><div class="stat-val" id="s-max">--</div></div>
+            <div class="stat-cell"><div class="stat-lbl">Change</div><div class="stat-val" id="s-change">--</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 2: WATER BALANCE
+══════════════════════════════════════════════════════════ -->
+<div id="tab-balance" class="tab-panel">
+    <div id="balance-err" class="err-bar"></div>
+
+    <div class="card">
+        <h2>Lake Volume</h2>
+        <div class="pill-row">
+            <div class="pill">
+                <div class="pill-lbl">Current Volume</div>
+                <div class="pill-val" id="b-vol">--</div>
+            </div>
+            <div class="pill">
+                <div class="pill-lbl">% of Capacity</div>
+                <div class="pill-val" id="b-pct">--</div>
+            </div>
+            <div class="pill" id="b-change-wrap">
+                <div class="pill-lbl">7-Day Volume Change</div>
+                <div class="pill-val" id="b-change">--</div>
+            </div>
+            <div class="pill">
+                <div class="pill-lbl">Est. Evaporation</div>
+                <div class="pill-val" id="b-evap">--</div>
+            </div>
+        </div>
+        <div style="font-size:0.65em;color:#566573;text-align:center">Volume estimate assumes uniform lake cross-section. Full capacity at RL 191.551 m AHD.</div>
+    </div>
+
+    <div class="card">
+        <h2>Rainfall vs Lake Rise — Daily Comparison</h2>
+        <div style="font-size:0.7em;color:#7f8c8d;margin-bottom:10px">Rainfall (bars) vs actual lake level change (line). When lake rises less than rainfall, the difference is evaporation + extraction losses.</div>
+        <div class="graph-wrap" style="height:200px"><canvas id="balance-chart"></canvas></div>
+        <div class="stat-row" style="grid-template-columns:1fr 1fr">
+            <div class="stat-cell"><div class="stat-lbl">30-Day Rainfall</div><div class="stat-val" id="b-rain-total">--</div></div>
+            <div class="stat-cell"><div class="stat-lbl">30-Day Lake Change</div><div class="stat-val" id="b-lake-change">--</div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Extraction History</h2>
+        <div style="font-size:0.7em;color:#7f8c8d;margin-bottom:10px">Weekly extraction from lake (ML). Updated manually.</div>
+        <div class="graph-wrap" style="height:180px"><canvas id="pump-chart"></canvas></div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 3: WEATHER AT THE LAKE
+══════════════════════════════════════════════════════════ -->
+<div id="tab-weather" class="tab-panel">
+    <div id="wx-err" class="err-bar"></div>
+
+    <div class="card wx-wind">
+        <h2>Wind</h2>
+        <div class="wind-display">
+            <div class="wind-arrow-wrap">
+                <svg viewBox="0 0 60 60" id="wind-svg">
+                    <circle cx="30" cy="30" r="28" fill="none" stroke="#1e3a50" stroke-width="1.5"/>
+                    <text x="30" y="8"  text-anchor="middle" font-size="7" fill="#566573">N</text>
+                    <text x="30" y="56" text-anchor="middle" font-size="7" fill="#566573">S</text>
+                    <text x="6"  y="33" text-anchor="middle" font-size="7" fill="#566573">W</text>
+                    <text x="54" y="33" text-anchor="middle" font-size="7" fill="#566573">E</text>
+                    <line id="wind-needle" x1="30" y1="30" x2="30" y2="8" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div>
+                <div class="wind-speed-big" id="wx-wind-kph">--</div>
+                <div class="wx-unit">km/h</div>
+                <div class="wind-dir-lbl" id="wx-wind-dir">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wx-grid">
+        <div class="wx-card">
+            <div class="wx-lbl">Temperature</div>
+            <div class="wx-val" id="wx-temp">--</div>
+            <div class="wx-unit">&deg;C</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl">Humidity</div>
+            <div class="wx-val" id="wx-humidity">--</div>
+            <div class="wx-unit">%</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl">Dew Point</div>
+            <div class="wx-val" id="wx-dewpoint">--</div>
+            <div class="wx-unit">&deg;C</div>
+        </div>
+        <div class="wx-card">
+            <div class="wx-lbl">Delta-T</div>
+            <div class="wx-val" id="wx-deltat">--</div>
+            <div class="wx-unit">&deg;C</div>
+        </div>
+        <div class="wx-card" style="grid-column:1/-1">
+            <div class="wx-lbl">Rainfall (since last reset)</div>
+            <div class="wx-val" id="wx-rain">--</div>
+            <div class="wx-unit">mm</div>
+        </div>
+    </div>
+
+    <div style="text-align:center;font-size:0.68em;color:#566573;padding:10px 0" id="wx-updated"></div>
+</div>
+
+<div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 15 minutes</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const LAKE_SURFACE_M2 = 1202046;
+const LAKE_BOTTOM_AHD = 188.1;
+const LAKE_FULL_AHD   = 191.551;
+const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
+const SAFE_DEPTH_M    = 1.8;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let _range       = 24;
+let _customFrom  = null;
+let _customTo    = null;
+let _lakeLatest  = null;
+let _lakeHistory = null;
+let _levelChart  = null;
+let _balChart    = null;
+let _pumpChart   = null;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2 * (ahd - LAKE_BOTTOM_AHD) / 1000) : null; }
+function ahdToPct(ahd) { const ml = ahdToML(ahd); return ml != null ? Math.min(100, ml / LAKE_FULL_ML * 100) : null; }
+
+function degToCompass(deg) {
+    if (deg == null) return '--';
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function fmtML(ml)   { return ml != null ? ml.toFixed(0) + ' ML' : '--'; }
+function fmtPct(pct) { return pct != null ? pct.toFixed(1) + '%' : '--'; }
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    const map = { level:'&#127754; Lake Level', balance:'&#128197; Water Balance', weather:'&#127748; Weather' };
+    document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.trim() === map[name]?.replace(/&#\d+;/g,'').trim() || b.getAttribute('onclick') === `showTab('${name}')`) b.classList.add('active'); });
+    if (name === 'balance') renderBalanceTab();
+    if (name === 'weather') fetchWeather();
+}
+
+// ── Range controls ─────────────────────────────────────────────────────────
+function setRange(hours) {
+    _range = hours; _customFrom = null; _customTo = null; _lakeHistory = null;
+    document.getElementById('custom-row').classList.remove('visible');
+    document.querySelectorAll('.range-btn').forEach(b => {
+        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
+        b.classList.toggle('active', map[hours] === b.textContent.trim());
+    });
+    fetchLevel();
+}
+
+function showCustom() {
+    const row = document.getElementById('custom-row');
+    row.classList.add('visible');
+    const today = new Date().toISOString().slice(0,10);
+    const ago30 = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+    const f = document.getElementById('from-date'), t = document.getElementById('to-date');
+    if (!f.value) f.value = ago30;
+    if (!t.value) t.value = today;
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('custom-btn').classList.add('active');
+}
+
+function applyCustom() {
+    const f = document.getElementById('from-date').value, t = document.getElementById('to-date').value;
+    if (!f || !t) return;
+    _range = null; _customFrom = f; _customTo = t; _lakeHistory = null;
+    fetchLevel();
+}
+
+// ── Level tab ──────────────────────────────────────────────────────────────
+async function fetchLevel() {
+    const err = document.getElementById('level-err');
+    try {
+        const r = await fetch('data/farmbot_lake_latest.json?_=' + Date.now());
+        if (!r.ok) throw new Error('Lake data unavailable');
+        _lakeLatest = await r.json();
+
+        const ahd   = _lakeLatest.lake_ahd;
+        const depth = ahd != null ? Math.max(0, ahd - LAKE_BOTTOM_AHD) : null;
+        const ml    = ahdToML(ahd);
+        const pct   = ahdToPct(ahd);
+
+        // Hero
+        document.getElementById('l-ahd').textContent   = ahd   != null ? ahd.toFixed(3) + ' m'   : '--';
+        document.getElementById('l-depth').textContent = depth != null ? depth.toFixed(2) + ' m'  : '--';
+
+        // Updated
+        const upd = document.getElementById('l-updated');
+        if (upd) upd.textContent = 'Last reading: ' + (_lakeLatest.lake_date
+            ? new Date(_lakeLatest.lake_date).toLocaleString('en-AU', {hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})
+            : '--');
+
+        // Pills
+        updateLevelPills(ahd, depth, ml, pct);
+
+        // Graph
+        let samples;
+        if (_range !== null && _range <= 24) {
+            samples = (_lakeLatest.lake_graph || []).slice();
+        } else {
+            if (!_lakeHistory) {
+                const hr = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
+                if (hr.ok) _lakeHistory = await hr.json();
+            }
+            const today    = new Date().toISOString().slice(0,10);
+            const fromDate = _range === null ? _customFrom : new Date(Date.now() - _range*3600000).toISOString().slice(0,10);
+            const toDate   = _range === null ? _customTo   : today;
+            samples = (_lakeHistory || []).filter(d => d.date.slice(0,10) >= fromDate && d.date.slice(0,10) <= toDate);
+        }
+        renderLevelChart(samples);
+
+        if (err) err.style.display = 'none';
+    } catch(e) {
+        if (err) { err.textContent = '⚠ ' + e.message; err.style.display = 'block'; }
+    }
+}
+
+function updateLevelPills(ahd, depth, ml, pct) {
+    // Safe depth pill
+    const safeWrap = document.getElementById('pill-safe-wrap');
+    const safeEl   = document.getElementById('pill-safe');
+    if (safeEl && depth != null) {
+        const margin = depth - SAFE_DEPTH_M;
+        safeEl.innerHTML   = depth.toFixed(2) + 'm — ' + (depth >= SAFE_DEPTH_M + 0.4 ? '✓ Safe' : depth >= SAFE_DEPTH_M ? '⚠ Marginal' : '✗ Shallow');
+        safeEl.style.color = depth >= SAFE_DEPTH_M + 0.4 ? '#27ae60' : depth >= SAFE_DEPTH_M ? '#d4ac0d' : '#e74c3c';
+        safeWrap.classList.remove('glow-green','glow-red');
+        if (depth < SAFE_DEPTH_M) safeWrap.classList.add('glow-red');
+        else if (depth < SAFE_DEPTH_M + 0.4) safeWrap.classList.add('glow-green');
+    }
+
+    // Volume pill
+    const volEl = document.getElementById('pill-vol');
+    if (volEl && ml != null) {
+        volEl.textContent  = Math.round(ml) + ' ML — ' + (pct ? pct.toFixed(1) + '%' : '--');
+        volEl.style.color  = pct >= 60 ? '#27ae60' : pct >= 30 ? '#d4ac0d' : '#e74c3c';
+    }
+
+    // 7-day trend pill (uses readings history)
+    if (_lakeHistory || (_lakeLatest && _lakeLatest.lake_graph)) {
+        const readings = _lakeHistory || _lakeLatest.lake_graph || [];
+        const ago7d    = Date.now() - 7*86400000;
+        const recent   = readings.filter(r => new Date(r.date).getTime() >= ago7d).sort((a,b) => new Date(a.date)-new Date(b.date));
+        const trendEl  = document.getElementById('pill-trend');
+        if (trendEl && recent.length >= 2) {
+            const days    = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / 86400000;
+            const dAhd    = parseFloat(recent[recent.length-1].ahd) - parseFloat(recent[0].ahd);
+            const dML     = dAhd * LAKE_SURFACE_M2 / 1000;
+            const mlDay   = days > 0 ? dML / days : 0;
+            trendEl.innerHTML   = (mlDay >= 0 ? '↑ +' : '↓ ') + Math.abs(mlDay).toFixed(1) + ' ML/day';
+            trendEl.style.color = mlDay >= 0 ? '#27ae60' : Math.abs(mlDay) < 5 ? '#d4ac0d' : '#e74c3c';
+        }
+    }
+}
+
+function renderLevelChart(samples) {
+    const canvas = document.getElementById('level-chart');
+    if (!canvas) return;
+
+    const is24h  = _range !== null && _range <= 24;
+    let plotLabels, plotVals, plotTooltips;
+
+    if (!is24h) {
+        let fromMs, toMs;
+        if (_range === null) {
+            fromMs = new Date(_customFrom).getTime();
+            toMs   = new Date(_customTo + 'T23:59:59').getTime();
+        } else {
+            toMs   = Date.now();
+            fromMs = toMs - _range * 3600000;
+        }
+        const slotMs  = 3600000;
+        const slotMap = new Map();
+        for (const s of (samples || [])) {
+            const key = Math.floor((new Date(s.date).getTime() - fromMs) / slotMs);
+            if (key >= 0) slotMap.set(key, { ahd: parseFloat(s.ahd ?? 0), date: s.date });
+        }
+        plotLabels = []; plotVals = []; plotTooltips = [];
+        const total = Math.ceil((toMs - fromMs) / slotMs);
+        for (let i = 0; i <= total; i++) {
+            const t     = new Date(fromMs + i * slotMs);
+            const entry = slotMap.get(i);
+            plotLabels.push(t.toLocaleDateString('en-AU', { day:'numeric', month:'short' }));
+            plotVals.push(entry ? entry.ahd : null);
+            plotTooltips.push(entry
+                ? new Date(entry.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false })
+                : t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' — no data');
+        }
+    } else {
+        if (!samples || samples.length < 2) {
+            if (_levelChart) { _levelChart.destroy(); _levelChart = null; }
+            ['s-min','s-max','s-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+            return;
+        }
+        plotVals     = samples.map(s => parseFloat(s.ahd ?? 0));
+        plotLabels   = samples.map(s => new Date(s.date).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', hour12:false }));
+        plotTooltips = samples.map(s => new Date(s.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false }));
+    }
+
+    const realVals = plotVals.filter(v => v !== null);
+    const minV = realVals.length ? Math.min(...realVals) : 190.0;
+    const maxV = realVals.length ? Math.max(...realVals) : 190.0;
+    const firstV = plotVals.find(v => v !== null);
+    const lastV  = [...plotVals].reverse().find(v => v !== null);
+    const change = (firstV != null && lastV != null) ? lastV - firstV : null;
+
+    const minEl = document.getElementById('s-min');   if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3) + ' m' : '--';
+    const maxEl = document.getElementById('s-max');   if (maxEl) maxEl.textContent = realVals.length ? maxV.toFixed(3) + ' m' : '--';
+    const chEl  = document.getElementById('s-change');
+    if (chEl && change !== null) {
+        chEl.textContent = (change >= 0 ? '+' : '') + (change * 100).toFixed(1) + ' cm';
+        chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c';
+    }
+
+    const ctx  = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 220);
+    grad.addColorStop(0, 'rgba(74,144,184,0.45)');
+    grad.addColorStop(1, 'rgba(74,144,184,0.02)');
+
+    const chartData = {
+        labels: plotLabels,
+        datasets: [{ data: plotVals, borderColor: '#4a90b8', borderWidth: 2.2, backgroundColor: grad, fill: true, tension: 0.35, spanGaps: true,
+            pointRadius: plotVals.length > 60 ? 0 : 3, pointHoverRadius: 6, pointHitRadius: 12,
+            pointBackgroundColor: '#4a90b8', pointBorderColor: '#0a1520', pointBorderWidth: 1.5 }]
+    };
+
+    const cfg = {
+        type: 'line', data: chartData,
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor:'rgba(10,22,34,.96)', borderColor:'#2d4a5e', borderWidth:1, titleColor:'#7f8c8d', bodyColor:'#ecf0f1', padding:10,
+                    callbacks: { title: i => plotTooltips[i[0].dataIndex], label: i => plotVals[i.dataIndex] != null ? plotVals[i.dataIndex].toFixed(3) + ' m AHD' : 'No data' } }
+            },
+            scales: {
+                x: { ticks:{ color:'#4a6070', maxTicksLimit:7, maxRotation:0, font:{size:10} }, grid:{ color:'rgba(255,255,255,.05)' }, border:{ color:'rgba(255,255,255,.08)' } },
+                y: { min: minV - 0.05, max: maxV + 0.05, ticks:{ color:'#4a6070', font:{size:10}, callback: v => v.toFixed(2)+' m' }, grid:{ color:'rgba(255,255,255,.07)' }, border:{ color:'rgba(255,255,255,.08)' } }
+            }
+        }
+    };
+
+    if (_levelChart) { _levelChart.data = chartData; _levelChart.options = cfg.options; _levelChart.update(); }
+    else { _levelChart = new Chart(ctx, cfg); }
+}
+
+// ── Balance tab ────────────────────────────────────────────────────────────
+async function renderBalanceTab() {
+    const err = document.getElementById('balance-err');
+    try {
+        // Ensure we have latest lake data
+        if (!_lakeLatest) {
+            const r = await fetch('data/farmbot_lake_latest.json?_=' + Date.now());
+            if (r.ok) _lakeLatest = await r.json();
+        }
+        const ahd = _lakeLatest?.lake_ahd;
+        const ml  = ahdToML(ahd);
+        const pct = ahdToPct(ahd);
+
+        document.getElementById('b-vol').textContent = ml  != null ? Math.round(ml)  + ' ML' : '--';
+        document.getElementById('b-pct').textContent = pct != null ? pct.toFixed(1) + '%'    : '--';
+
+        // Lake readings for 30d trend
+        if (!_lakeHistory) {
+            const hr = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
+            if (hr.ok) _lakeHistory = await hr.json();
+        }
+
+        // 7-day volume change
+        const ago7d   = Date.now() - 7*86400000;
+        const recent7 = (_lakeHistory || []).filter(r => new Date(r.date).getTime() >= ago7d).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const chEl    = document.getElementById('b-change');
+        const chWrap  = document.getElementById('b-change-wrap');
+        if (recent7.length >= 2) {
+            const dML = (parseFloat(recent7[recent7.length-1].ahd) - parseFloat(recent7[0].ahd)) * LAKE_SURFACE_M2 / 1000;
+            chEl.textContent  = (dML >= 0 ? '+' : '') + dML.toFixed(0) + ' ML';
+            chEl.style.color  = dML >= 0 ? '#27ae60' : '#e74c3c';
+        }
+
+        // Pumping data
+        let pumpData = [];
+        try {
+            const pr = await fetch('data/pumping_usage.json?_=' + Date.now());
+            if (pr.ok) pumpData = await pr.json();
+        } catch(e) {}
+
+        // 7-day extraction from pumping data
+        const ago7dDate = new Date(ago7d).toISOString().slice(0,10);
+        const recentPump = pumpData.filter(p => p.date >= ago7dDate);
+        const pumpTotal7d = recentPump.reduce((s,p) => s + (p.ml||0), 0);
+
+        // Evaporation estimate: 7d lake volume change + 7d extraction = -evaporation
+        const evapEl = document.getElementById('b-evap');
+        if (recent7.length >= 2) {
+            const dML    = (parseFloat(recent7[recent7.length-1].ahd) - parseFloat(recent7[0].ahd)) * LAKE_SURFACE_M2 / 1000;
+            const evapML = -(dML) + pumpTotal7d; // volume lost not accounted for by extraction
+            const days   = (new Date(recent7[recent7.length-1].date) - new Date(recent7[0].date)) / 86400000;
+            const evapPerDay = days > 0 ? evapML / days : 0;
+            evapEl.textContent  = evapML >= 0 ? evapML.toFixed(0) + ' ML (' + evapPerDay.toFixed(1) + ' ML/day)' : 'Gaining';
+            evapEl.style.color  = evapML > 0 ? '#d4ac0d' : '#27ae60';
+        } else {
+            evapEl.textContent = 'Insufficient data';
+            evapEl.style.color = '#7f8c8d';
+        }
+
+        // Rainfall readings
+        let rainReadings = [];
+        try {
+            const rr = await fetch('data/farmbot_lake_rain_readings.json?_=' + Date.now());
+            if (rr.ok) rainReadings = await rr.json();
+        } catch(e) {}
+
+        renderBalanceChart(_lakeHistory || [], rainReadings);
+        renderPumpChart(pumpData);
+
+        // 30-day totals
+        const ago30     = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+        const rain30    = rainReadings.filter(r => r.date >= ago30).reduce((s,r) => s + (r.rain_mm||0), 0);
+        const readings30 = (_lakeHistory||[]).filter(r => r.date >= ago30).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lake30chg  = readings30.length >= 2 ? (parseFloat(readings30[readings30.length-1].ahd) - parseFloat(readings30[0].ahd)) * 100 : null;
+
+        document.getElementById('b-rain-total').textContent  = rain30.toFixed(1) + ' mm';
+        const lc = document.getElementById('b-lake-change');
+        if (lc && lake30chg !== null) { lc.textContent = (lake30chg>=0?'+':'')+lake30chg.toFixed(1)+' cm'; lc.style.color = lake30chg>=0?'#27ae60':'#e74c3c'; }
+
+        if (err) err.style.display = 'none';
+    } catch(e) {
+        if (err) { err.textContent = '⚠ ' + e.message; err.style.display = 'block'; }
+    }
+}
+
+function renderBalanceChart(lakeReadings, rainReadings) {
+    const canvas = document.getElementById('balance-chart');
+    if (!canvas) return;
+
+    // Aggregate by day for last 30 days
+    const ago30 = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+    const today = new Date().toISOString().slice(0,10);
+
+    // Build daily lake level map (first and last AHD per day)
+    const dayLake = {};
+    for (const r of lakeReadings) {
+        const day = r.date.slice(0,10);
+        if (day < ago30 || day > today) continue;
+        if (!dayLake[day]) dayLake[day] = { first: parseFloat(r.ahd), last: parseFloat(r.ahd) };
+        dayLake[day].last = parseFloat(r.ahd);
+    }
+
+    // Build daily rain map
+    const dayRain = {};
+    for (const r of rainReadings) {
+        const day = r.date.slice(0,10);
+        if (day < ago30 || day > today) continue;
+        dayRain[day] = (dayRain[day] || 0) + (r.rain_mm || 0);
+    }
+
+    // Generate day list
+    const days = [];
+    for (let d = new Date(ago30); d <= new Date(today); d.setDate(d.getDate()+1)) {
+        days.push(d.toISOString().slice(0,10));
+    }
+
+    const labels    = days.map(d => { const dt = new Date(d); return dt.toLocaleDateString('en-AU',{day:'numeric',month:'short'}); });
+    const rainVals  = days.map(d => dayRain[d] != null ? parseFloat(dayRain[d].toFixed(2)) : 0);
+    const lakeVals  = days.map(d => dayLake[d] ? parseFloat(((dayLake[d].last - dayLake[d].first)*1000).toFixed(1)) : null);
+
+    if (_balChart) { _balChart.destroy(); _balChart = null; }
+    const ctx = canvas.getContext('2d');
+    _balChart = new Chart(ctx, {
+        data: {
+            labels,
+            datasets: [
+                { type:'bar',  label:'Rainfall (mm)',      data: rainVals, backgroundColor:'rgba(74,144,184,0.6)', borderColor:'#4a90b8', borderWidth:1, yAxisID:'y' },
+                { type:'line', label:'Lake Change (mm)',   data: lakeVals, borderColor:'#1abc9c', borderWidth:2, fill:false, tension:0.3, spanGaps:true,
+                  pointRadius:3, pointBackgroundColor:'#1abc9c', yAxisID:'y' }
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:300},
+            plugins: {
+                legend:{ display:true, labels:{ color:'#7f8c8d', font:{size:10}, boxWidth:12 } },
+                tooltip:{ backgroundColor:'rgba(10,22,34,.96)', borderColor:'#2d4a5e', borderWidth:1, titleColor:'#7f8c8d', bodyColor:'#ecf0f1', padding:8 }
+            },
+            scales: {
+                x: { ticks:{ color:'#4a6070', maxTicksLimit:10, maxRotation:0, font:{size:9} }, grid:{ color:'rgba(255,255,255,.04)' } },
+                y: { ticks:{ color:'#4a6070', font:{size:9} }, grid:{ color:'rgba(255,255,255,.06)' },
+                     title:{ display:true, text:'mm', color:'#566573', font:{size:9} } }
+            }
+        }
+    });
+}
+
+function renderPumpChart(pumpData) {
+    const canvas = document.getElementById('pump-chart');
+    if (!canvas || !pumpData.length) return;
+
+    const sorted = [...pumpData].sort((a,b) => a.date < b.date ? -1 : 1);
+    const labels = sorted.map(p => new Date(p.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const vals   = sorted.map(p => p.ml || 0);
+
+    if (_pumpChart) { _pumpChart.destroy(); _pumpChart = null; }
+    const ctx = canvas.getContext('2d');
+    _pumpChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets:[{ label:'Extraction (ML)', data:vals, backgroundColor:'rgba(231,76,60,0.5)', borderColor:'#e74c3c', borderWidth:1 }] },
+        options: {
+            responsive:true, maintainAspectRatio:false, animation:{duration:300},
+            plugins: {
+                legend:{ display:false },
+                tooltip:{ backgroundColor:'rgba(10,22,34,.96)', borderColor:'#2d4a5e', borderWidth:1, titleColor:'#7f8c8d', bodyColor:'#ecf0f1', padding:8,
+                    callbacks:{ label: i => i.raw.toFixed(1) + ' ML' } }
+            },
+            scales: {
+                x: { ticks:{ color:'#4a6070', maxRotation:30, font:{size:9} }, grid:{ color:'rgba(255,255,255,.04)' } },
+                y: { ticks:{ color:'#4a6070', font:{size:9} }, grid:{ color:'rgba(255,255,255,.06)' },
+                     title:{ display:true, text:'ML', color:'#566573', font:{size:9} } }
+            }
+        }
+    });
+}
+
+// ── Weather tab ────────────────────────────────────────────────────────────
+async function fetchWeather() {
+    const err = document.getElementById('wx-err');
+    try {
+        const r = await fetch('data/farmbot_lake_weather.json?_=' + Date.now());
+        if (!r.ok) throw new Error('Weather data unavailable');
+        const wx = await r.json();
+
+        // Wind
+        const kph = wx.wind_kph;
+        const deg = wx.wind_deg;
+        document.getElementById('wx-wind-kph').textContent = kph != null ? kph.toFixed(1) : '--';
+        document.getElementById('wx-wind-dir').textContent = deg != null ? degToCompass(deg) + ' (' + deg.toFixed(0) + '°)' : '--';
+
+        // Rotate needle
+        if (deg != null) {
+            const needle = document.getElementById('wind-needle');
+            if (needle) {
+                const rad  = (deg * Math.PI) / 180;
+                const x2   = 30 + 22 * Math.sin(rad);
+                const y2   = 30 - 22 * Math.cos(rad);
+                needle.setAttribute('x2', x2.toFixed(1));
+                needle.setAttribute('y2', y2.toFixed(1));
+            }
+        }
+
+        // Scalar readings
+        const fields = [
+            ['wx-temp',     wx.temp_c,       1, ''],
+            ['wx-humidity', wx.humidity_pct,  0, ''],
+            ['wx-dewpoint', wx.dew_point_c,  1, ''],
+            ['wx-deltat',   wx.delta_t_c,    1, ''],
+            ['wx-rain',     wx.rain_mm_raw,  1, ''],
+        ];
+        for (const [id, val, dec] of fields) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val != null ? parseFloat(val).toFixed(dec) : '--';
+        }
+
+        // Delta-T colour coding (spray conditions)
+        const dtEl = document.getElementById('wx-deltat');
+        if (dtEl && wx.delta_t_c != null) {
+            const dt = parseFloat(wx.delta_t_c);
+            dtEl.style.color = dt < 2 ? '#e74c3c' : dt <= 8 ? '#27ae60' : '#d4ac0d';
+        }
+
+        const upd = document.getElementById('wx-updated');
+        if (upd) upd.textContent = 'Updated: ' + (wx.updated_at ? new Date(wx.updated_at).toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}) : '--');
+
+        if (err) err.style.display = 'none';
+    } catch(e) {
+        if (err) { err.textContent = '⚠ ' + e.message; err.style.display = 'block'; }
+    }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+fetchLevel();
+setInterval(fetchLevel, 5 * 60 * 1000); // refresh every 5 min
+</script>
+</body>
+</html>
