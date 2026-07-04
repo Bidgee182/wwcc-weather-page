@@ -159,7 +159,7 @@
         <div class="lake-pill-row">
             <a href="https://wagga.nsw.gov.au/parks-and-recreation/parks-beaches-lakes/lake-albert/lake-albert-water-quality-readings" target="_blank" rel="noopener" style="text-decoration:none;flex:1;min-width:130px">
             <div class="lake-pill" id="pill-wq-wrap" style="cursor:pointer">
-                <div class="lake-pill-lbl">&#128167; Water Quality Alert</div>
+                <div class="lake-pill-lbl">&#128167; Water Quality — WWCC Test</div>
                 <div class="lake-pill-val" id="pill-wq-status">--</div>
                 <div style="font-size:0.68em;color:#566573;margin-top:5px" id="pill-wq-tested"></div>
             </div>
@@ -920,8 +920,8 @@ async function renderBalanceTab() {
         // Boating season outlook
         updateBoatingOutlook(depth,mlPerDay7);
 
-        // Davis rain cache from localStorage (fallback when FarmBot rain is empty)
-        const wxhStore=JSON.parse(localStorage.getItem('wxh_daily')||'{}');
+        // Load Davis daily history directly from file (don't rely on Weather tab localStorage)
+        const wxhStore = await loadDavisStore();
         updateMonthComparison(wxhStore);
 
         // FarmBot lake rain readings
@@ -1007,6 +1007,23 @@ function updateMonthComparison(wxhStore) {
             lyrEl.style.color='#566573';
         }
     }
+}
+
+// ── Davis store loader ────────────────────────────────────────────────────
+// Loads davis_weather_history.json directly (file-based, always available)
+// then merges with localStorage for any extra API-fetched days.
+async function loadDavisStore() {
+    const store = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
+    try {
+        const fr = await fetch('data/davis_weather_history.json?_='+Date.now());
+        if (fr.ok) {
+            const records = await fr.json();
+            for (const rec of records) {
+                store[rec.date] = rec;   // file data wins over stale localStorage
+            }
+        }
+    } catch(e) { /* file missing — fall back to localStorage only */ }
+    return store;
 }
 
 function renderBalanceChart(lakeReadings,rainReadings,wxhStore) {
@@ -1572,9 +1589,13 @@ async function fetchWaterQuality() {
             statEl.style.color  = '#7f8c8d';
         }
 
-        if (wq.last_tested && tstEl) {
-            const d = new Date(wq.last_tested);
-            tstEl.textContent = 'Tested: ' + d.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'});
+        if (tstEl) {
+            const parts = [];
+            if (wq.last_tested) {
+                const d = new Date(wq.last_tested);
+                parts.push('Last tested: ' + d.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'}));
+            }
+            tstEl.textContent = parts.join(' · ');
         }
     } catch(e) { /* silently ignore */ }
 }
