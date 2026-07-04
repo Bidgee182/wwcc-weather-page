@@ -36,8 +36,8 @@ LAKE_BATTERY_SID = '783eabbf-eda5-4d5d-bc36-bd0e8a6b7547'   # port 124, lake/wea
 
 # Lake AHD conversion: AHD (m) = sensor_reading_cm / 100 + LAKE_AHD_OFFSET
 # Calibration: 65.84 cm sensor reading = 190.00 m AHD
-# Therefore offset = 190.00 - (65.84 / 100) = 189.3416
-LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3416'))
+# Base offset = 190.00 - (65.84 / 100) = 189.3416; +0.003 correction applied 2026-07-04
+LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3446'))
 
 SENDGRID_API_KEY    = os.environ.get('SENDGRID_API_KEY',    '')
 EMAIL_FROM          = os.environ.get('EMAIL_FROM',          '')
