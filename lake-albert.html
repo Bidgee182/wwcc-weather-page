@@ -1757,7 +1757,7 @@ async function fetchWeather() {
         updateOnwaterCard();
 
         // ── Power Boating tab ────────────────────────────────────────────
-        updatePowerboatTab(windMph,gustMph,_windDeg,_tempC,highC,lowC,hum);
+        updatePowerboatTab(_windDeg,_tempC,highC,lowC,hum);
 
         // ── Sailing tab ──────────────────────────────────────────────────
         updateSailingTab();
@@ -1771,7 +1771,7 @@ async function fetchWeather() {
     }
 }
 
-function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
+function updatePowerboatTab(deg,tempC,highC,lowC,hum) {
     const kph =_windKph;
     const gust=_windGustKph;
     const ahd  =_lakeLatest?.lake_ahd;
