@@ -286,6 +286,24 @@
     </div>
 
     <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="wx-updated"></div>
+
+    <div class="card">
+        <h2>&#128197; Weather History — Davis Station</h2>
+        <div class="tank-history-range" id="wxh-range-row">
+            <button class="tank-range-btn active" data-days="30"  onclick="setWxRange(30)">30 Days</button>
+            <button class="tank-range-btn"        data-days="90"  onclick="setWxRange(90)">90 Days</button>
+            <button class="tank-range-btn"        data-days="365" onclick="setWxRange(365)">1 Year</button>
+        </div>
+        <div id="wxh-loading" style="text-align:center;color:#566573;font-size:0.8em;padding:20px 0">Loading Davis history…</div>
+        <div style="position:relative;height:220px;width:100%;display:none" id="wxh-chart-wrap">
+            <canvas id="wx-history-chart"></canvas>
+        </div>
+        <div class="tank-stat-row" style="grid-template-columns:repeat(3,1fr);margin-top:12px">
+            <div class="irr-metric"><div class="lbl">Total Rainfall</div><div class="val" id="wxh-rain">--</div></div>
+            <div class="irr-metric"><div class="lbl">Max Temp</div><div class="val" id="wxh-tmax">--</div></div>
+            <div class="irr-metric"><div class="lbl">Min Temp</div><div class="val" id="wxh-tmin">--</div></div>
+        </div>
+    </div>
 </div>
 
 <div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 15 minutes</div>
@@ -293,6 +311,9 @@
 <script>
 // ── Constants ────────────────────────────────────────────────────────────
 const LAKE_SURFACE_M2 = 1202046;
+const v2ApiKey    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
+const v2ApiSecret = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
+const v2StationId = 10489;
 const LAKE_BOTTOM_AHD = 188.1;
 const LAKE_FULL_AHD   = 191.551;
 const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
@@ -306,6 +327,8 @@ let _lakeLatest  = null;
 let _lakeHistory = null;
 let _levelChart  = null;
 let _balChart    = null;
+let _wxRange     = 30;
+let _wxHistChart = null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2 * (ahd - LAKE_BOTTOM_AHD) / 1000) : null; }
@@ -323,7 +346,7 @@ function showTab(name) {
     document.getElementById('tab-' + name).classList.add('active');
     document.getElementById('tab-btn-' + name).classList.add('active');
     if (name === 'balance') renderBalanceTab();
-    if (name === 'weather') fetchWeather();
+    if (name === 'weather') { fetchWeather(); fetchDavisHistory(); }
 }
 
 // ── Range controls ────────────────────────────────────────────────────────
@@ -599,6 +622,159 @@ function renderBalanceChart(lakeReadings, rainReadings) {
                 tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}},
             scales:{x:{ticks:{color:'#7f8c8d',maxTicksLimit:10,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
                 y:{ticks:{color:'#7f8c8d',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'mm',color:'#7f8c8d',font:{size:9}}}}}
+    });
+}
+
+// ── Davis v2 helpers ─────────────────────────────────────────────────────
+function sydneyOffsetMs() {
+    const now    = new Date();
+    const sydney = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+    return sydney - now;
+}
+
+async function v2Fetch(endpoint, params) {
+    const qs      = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
+    const baseUrl = `https://api.weatherlink.com/v2/${endpoint}?${qs}`;
+    const proxies = [
+        `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+    ];
+    let lastErr;
+    for (const proxyUrl of proxies) {
+        try {
+            const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
+            if (res.ok) return res.json();
+        } catch(e) { lastErr = e; }
+    }
+    throw lastErr || new Error('v2Fetch failed');
+}
+
+async function fetchDavisHistory() {
+    const offsetMs   = sydneyOffsetMs();
+    const offsetSecs = Math.round(offsetMs / 1000);
+    const store      = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
+
+    // Build 12 monthly windows
+    const now  = new Date(Date.now() + offsetMs);
+    const months = [];
+    for (let m = 0; m < 12; m++) {
+        const start = new Date(now);
+        start.setUTCMonth(start.getUTCMonth() - m);
+        start.setUTCDate(1);
+        start.setUTCHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setUTCMonth(end.getUTCMonth() + 1);
+        end.setUTCDate(0);
+        end.setUTCHours(23, 59, 59, 0);
+        const key = start.toISOString().slice(0, 7);
+        months.push({ key, startTs: Math.floor(start.getTime()/1000) - offsetSecs, endTs: Math.floor(end.getTime()/1000) - offsetSecs });
+    }
+
+    const currentMonth = months[0].key;
+    const toFetch = months.filter(m => m.key === currentMonth || !store[`_m_${m.key}`]);
+
+    const results = await Promise.all(toFetch.map(({ key, startTs, endTs }) =>
+        v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
+            .then(data => ({ key, data }))
+            .catch(err  => ({ key, err }))
+    ));
+
+    for (const { key, data, err } of results) {
+        if (err) { console.warn('[wxh]', key, err.message); continue; }
+        if (!data?.sensors) continue;
+
+        const dayData = {};
+        for (const sensor of data.sensors) {
+            for (const r of (sensor.data || [])) {
+                const ts   = ((r.ts ?? r.timestamp) || 0) * 1000;
+                if (!ts) continue;
+                const date = new Date(ts + offsetMs).toISOString().slice(0, 10);
+                if (!dayData[date]) dayData[date] = { tMax:-Infinity, tMin:Infinity, rain:0, hasTemp:false };
+                const tF = r.temp ?? r.temp_out;
+                if (tF != null) {
+                    const tC = (parseFloat(tF) - 32) / 1.8;
+                    if (tC > dayData[date].tMax) dayData[date].tMax = tC;
+                    if (tC < dayData[date].tMin) dayData[date].tMin = tC;
+                    dayData[date].hasTemp = true;
+                }
+                const rain = parseFloat(r.rainfall_mm ?? 0);
+                if (!isNaN(rain)) dayData[date].rain += rain;
+            }
+        }
+        for (const [date, d] of Object.entries(dayData)) {
+            store[date] = {
+                tMax: d.hasTemp ? +d.tMax.toFixed(1) : null,
+                tMin: d.hasTemp ? +d.tMin.toFixed(1) : null,
+                rain: +d.rain.toFixed(1)
+            };
+        }
+        if (key !== currentMonth) store[`_m_${key}`] = true;
+    }
+
+    // Prune data older than 13 months
+    const cutoffStr = new Date(Date.now() + offsetMs - 395*86400000).toISOString().slice(0, 10);
+    for (const k of Object.keys(store)) { if (!k.startsWith('_') && k < cutoffStr) delete store[k]; }
+
+    localStorage.setItem('wxh_daily', JSON.stringify(store));
+
+    const loadEl = document.getElementById('wxh-loading');
+    const wrapEl = document.getElementById('wxh-chart-wrap');
+    if (loadEl) loadEl.style.display = 'none';
+    if (wrapEl) wrapEl.style.display = 'block';
+    renderWeatherHistory(_wxRange);
+}
+
+function setWxRange(days) {
+    _wxRange = days;
+    document.querySelectorAll('#wxh-range-row .tank-range-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.days) === days);
+    });
+    renderWeatherHistory(days);
+}
+
+function renderWeatherHistory(days) {
+    const canvas = document.getElementById('wx-history-chart');
+    if (!canvas) return;
+    const store     = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
+    const offsetMs  = sydneyOffsetMs();
+    const today     = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+    const fromDate  = new Date(Date.now() + offsetMs - days * 86400000).toISOString().slice(0, 10);
+
+    const dates = [];
+    for (let d = new Date(fromDate); d.toISOString().slice(0,10) <= today; d.setUTCDate(d.getUTCDate()+1))
+        dates.push(d.toISOString().slice(0,10));
+
+    const labels = dates.map(d => new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const rains  = dates.map(d => store[d]?.rain ?? 0);
+    const tMaxes = dates.map(d => store[d]?.tMax ?? null);
+    const tMins  = dates.map(d => store[d]?.tMin ?? null).filter(v=>v!=null);
+
+    const totalRain = rains.reduce((s,r)=>s+r, 0);
+    const periodMax = tMaxes.filter(v=>v!=null).length ? Math.max(...tMaxes.filter(v=>v!=null)) : null;
+    const periodMin = tMins.length ? Math.min(...tMins) : null;
+
+    document.getElementById('wxh-rain').textContent = totalRain.toFixed(1) + ' mm';
+    document.getElementById('wxh-tmax').textContent = periodMax != null ? periodMax.toFixed(1) + '°C' : '--';
+    document.getElementById('wxh-tmin').textContent = periodMin != null ? periodMin.toFixed(1) + '°C' : '--';
+
+    if (_wxHistChart) { _wxHistChart.destroy(); _wxHistChart = null; }
+    _wxHistChart = new Chart(canvas.getContext('2d'), {
+        data: { labels, datasets: [
+            { type:'bar',  label:'Rainfall (mm)', data:rains,  backgroundColor:'rgba(74,144,184,0.55)', borderColor:'#4a90b8', borderWidth:1, yAxisID:'yRain' },
+            { type:'line', label:'Max Temp (°C)', data:tMaxes, borderColor:'#e74c3c', borderWidth:1.5, fill:false, tension:0.3, spanGaps:true, pointRadius:days<=30?2:0, pointHoverRadius:5, pointBackgroundColor:'#e74c3c', yAxisID:'yTemp' }
+        ]},
+        options:{
+            responsive:true, maintainAspectRatio:false, animation:{duration:300},
+            plugins:{
+                legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
+                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}
+            },
+            scales:{
+                x:{ ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} },
+                yRain:{ position:'left',  ticks:{color:'#4a90b8',font:{size:9}}, grid:{color:'rgba(255,255,255,.06)'}, title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}} },
+                yTemp:{ position:'right', ticks:{color:'#e74c3c',font:{size:9}}, grid:{display:false}, title:{display:true,text:'Temp °C',color:'#e74c3c',font:{size:9}} }
+            }
+        }
     });
 }
 
