@@ -285,7 +285,7 @@
 
     <div class="card">
         <h2>&#127783; Rainfall vs Lake Rise — Daily</h2>
-        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px">Daily rainfall (blue bars) against daily lake level change (green line). When rainfall is higher than the rise, the difference is lost to evaporation.</div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px">Daily rainfall (blue bars, left axis) and lake depth in metres (green line, right axis). When it rains but the lake doesn't rise, the difference is lost to evaporation.</div>
         <div style="position:relative;height:200px;width:100%">
             <canvas id="balance-chart"></canvas>
         </div>
@@ -1077,43 +1077,51 @@ function renderBalanceChart(lakeReadings,rainReadings,wxhStore) {
     const today=new Date().toISOString().slice(0,10);
     const dayLake={},dayRain={};
 
+    // Lake level: first + last AHD reading per day
     for(const r of lakeReadings){
         const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
         if(!dayLake[day])dayLake[day]={first:parseFloat(r.ahd),last:parseFloat(r.ahd)};
         dayLake[day].last=parseFloat(r.ahd);
     }
-    for(const r of rainReadings){
-        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
-        dayRain[day]=(dayRain[day]||0)+(r.rain_mm||0);
-    }
-    // Fall back to Davis if FarmBot rain data is empty
-    const hasFarmBot=Object.keys(dayRain).length>0;
-    if(!hasFarmBot&&wxhStore){
+
+    // Rainfall: Davis history as primary source (always available)
+    if(wxhStore){
         for(const[date,val] of Object.entries(wxhStore)){
             if(date.startsWith('_'))continue;
             if(date<ago30||date>today)continue;
-            if((val.rain||0)>0)dayRain[date]=val.rain;
+            if((val.rain||0)>=0)dayRain[date]=val.rain||0;
         }
     }
+    // FarmBot lake rain gauge overrides Davis for days it has non-zero data
+    for(const r of rainReadings){
+        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
+        const mm=r.rain_mm||0;
+        if(mm>0)dayRain[day]=(dayRain[day]||0)+mm;
+    }
+    const hasFarmBot=rainReadings.some(r=>r.date.slice(0,10)>=ago30&&(r.rain_mm||0)>0);
 
     const days=[];
     for(let d=new Date(ago30);d<=new Date(today);d.setDate(d.getDate()+1))days.push(d.toISOString().slice(0,10));
     const labels  =days.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-    const rainVals=days.map(d=>dayRain[d]!=null?parseFloat(dayRain[d].toFixed(2)):0);
-    const lakeVals=days.map(d=>dayLake[d]?parseFloat(((dayLake[d].last-dayLake[d].first)*1000).toFixed(1)):null);
+    const rainVals=days.map(d=>parseFloat((dayRain[d]||0).toFixed(2)));
+    const lakeVals=days.map(d=>dayLake[d]!=null?parseFloat((dayLake[d].last-LAKE_BOTTOM_AHD).toFixed(3)):null);
 
     if(_balChart){_balChart.destroy();_balChart=null;}
     const rainLabel=hasFarmBot?'Rainfall — Lake Station (mm)':'Rainfall — Davis Station (mm)';
     _balChart=new Chart(canvas.getContext('2d'),{
         data:{labels,datasets:[
-            {type:'bar', label:rainLabel,               data:rainVals,backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'y'},
-            {type:'line',label:'Lake Level Change (mm)',data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:3,pointBackgroundColor:'#27ae60',yAxisID:'y'}
+            {type:'bar', label:rainLabel,         data:rainVals,backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'},
+            {type:'line',label:'Lake Level (m)',  data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:2,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'}
         ]},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
             plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
-                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}},
-            scales:{x:{ticks:{color:'#7f8c8d',maxTicksLimit:10,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
-                y:{ticks:{color:'#7f8c8d',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'mm',color:'#7f8c8d',font:{size:9}}}}}
+                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8,
+                    callbacks:{label:ctx=>ctx.dataset.yAxisID==='yLake'&&ctx.raw!=null?'Lake: '+ctx.raw.toFixed(3)+' m deep':'Rain: '+ctx.raw+' mm'}}},
+            scales:{
+                x:{ticks:{color:'#7f8c8d',maxTicksLimit:10,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
+                yRain:{position:'left', ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}}},
+                yLake:{position:'right',ticks:{color:'#27ae60',font:{size:9},callback:v=>v.toFixed(2)+' m'},grid:{display:false},title:{display:true,text:'Lake Depth m',color:'#27ae60',font:{size:9}}}
+            }}
     });
 }
 
