@@ -156,6 +156,7 @@
     <button class="tab-btn"        id="tab-btn-weather"   onclick="showTab('weather')">&#127748; Weather</button>
     <button class="tab-btn"        id="tab-btn-powerboat" onclick="showTab('powerboat')">&#128676; Power Boating</button>
     <button class="tab-btn"        id="tab-btn-sailing"   onclick="showTab('sailing')">&#9973;&#65039; Sailing</button>
+    <button class="tab-btn" id="tab-btn-fishing" onclick="showTab('fishing')">&#127907; Fishing</button>
 </div>
 
 <!-- ══ TAB 1: LAKE LEVEL ══ -->
@@ -347,23 +348,20 @@
             <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
             <!-- Rose petals (built by JS) -->
             <g id="wind-rose" opacity="0.18"></g>
-            <!-- Inner circle -->
+            <!-- Inner circle hub background -->
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
-            <!-- Speed inside -->
+            <!-- Wind arrow drawn OVER hub, UNDER speed text so number stays readable -->
+            <g id="wind-arrow" transform="rotate(0,110,110)">
+                <line x1="110" y1="44" x2="101" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="44" x2="119" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="54" x2="103" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="54" x2="117" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="44" x2="110" y2="205" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <polygon points="110,205 101,183 119,183" fill="#e74c3c"/>
+            </g>
+            <!-- Speed text drawn LAST inside hub so it sits on top of arrow shaft -->
             <text id="wx-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <!-- Wind arrow - shaft through hub, arrowhead clearly below number -->
-            <g id="wind-arrow" transform="rotate(0,110,110)">
-                <!-- Tail feathers -->
-                <line x1="110" y1="48" x2="102" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="48" x2="118" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="57" x2="104" y2="75" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="57" x2="116" y2="75" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <!-- Shaft - runs from tail through hub to below circle -->
-                <line x1="110" y1="48" x2="110" y2="192" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
-                <!-- Arrowhead - tip sits 36px below hub bottom edge (156) -->
-                <polygon points="110,192 102,172 118,172" fill="#e74c3c"/>
-            </g>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
@@ -520,6 +518,25 @@
         </div>
     </div>
 
+    <div class="card">
+        <h2>&#128161; On-Water Safety</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill" id="pb-navlights-wrap">
+                <div class="lake-pill-lbl">&#128337; Navigation Lights</div>
+                <div class="lake-pill-val" id="pb-navlights">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="pb-navlights-sub"></div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">&#127762; Sunrise</div>
+                <div class="lake-pill-val" id="pb-sunrise">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">&#127763; Sunset</div>
+                <div class="lake-pill-val" id="pb-sunset">--</div>
+            </div>
+        </div>
+    </div>
+
     <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="pb-updated"></div>
 </div>
 
@@ -548,16 +565,16 @@
             <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
             <g id="sail-wind-rose" opacity="0.18"></g>
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
+            <g id="sail-wind-arrow" transform="rotate(0,110,110)">
+                <line x1="110" y1="44" x2="101" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="44" x2="119" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="54" x2="103" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="54" x2="117" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="44" x2="110" y2="205" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <polygon points="110,205 101,183 119,183" fill="#e74c3c"/>
+            </g>
             <text id="sail-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <g id="sail-wind-arrow" transform="rotate(0,110,110)">
-                <line x1="110" y1="48" x2="102" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="48" x2="118" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="57" x2="104" y2="75" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="57" x2="116" y2="75" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="48" x2="110" y2="182" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
-                <polygon points="110,182 103,163 117,163" fill="#e74c3c"/>
-            </g>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
@@ -574,10 +591,6 @@
             <div class="lake-pill">
                 <div class="lake-pill-lbl">Avg Wind (10 min)</div>
                 <div class="lake-pill-val" id="sail-avg-wind">--</div>
-            </div>
-            <div class="lake-pill">
-                <div class="lake-pill-lbl">Gusts</div>
-                <div class="lake-pill-val" id="sail-gust">--</div>
             </div>
         </div>
     </div>
@@ -624,6 +637,78 @@
     </div>
 
     <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="sail-updated"></div>
+</div>
+
+<!-- ══ TAB 6: FISHING ══ -->
+<div id="tab-fishing" class="tab-panel">
+    <div id="fishing-err" class="err-bar"></div>
+
+    <div id="fish-banner" class="status-banner" style="display:none">
+        <div class="status-main" id="fish-main"></div>
+        <div class="status-sub"  id="fish-sub"></div>
+    </div>
+
+    <div class="card">
+        <h2>&#127777; Conditions Overview</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill" id="fish-time-wrap">
+                <div class="lake-pill-lbl">&#128336; Best Feeding Time</div>
+                <div class="lake-pill-val" id="fish-time">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="fish-time-sub"></div>
+            </div>
+            <div class="lake-pill" id="fish-pressure-wrap">
+                <div class="lake-pill-lbl">&#127774; Barometric Pressure</div>
+                <div class="lake-pill-val" id="fish-pressure">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="fish-pressure-sub"></div>
+            </div>
+            <div class="lake-pill" id="fish-moon-wrap">
+                <div class="lake-pill-lbl">&#127769; Moon Phase</div>
+                <div class="lake-pill-val" id="fish-moon">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="fish-moon-sub"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>&#127754; Lake Conditions</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Lake Depth</div>
+                <div class="lake-pill-val" id="fish-depth">--</div>
+            </div>
+            <div class="lake-pill" id="fish-wind-wrap">
+                <div class="lake-pill-lbl">Wind (Casting)</div>
+                <div class="lake-pill-val" id="fish-wind">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="fish-wind-sub"></div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Air Temp</div>
+                <div class="lake-pill-val" id="fish-temp">--</div>
+            </div>
+        </div>
+        <div class="lake-pill-row">
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Today's Rain</div>
+                <div class="lake-pill-val" id="fish-rain">--</div>
+            </div>
+            <div class="lake-pill" id="fish-rain-effect-wrap">
+                <div class="lake-pill-lbl">Rain Effect</div>
+                <div class="lake-pill-val" id="fish-rain-effect">--</div>
+                <div style="font-size:0.65em;color:#566573;margin-top:4px" id="fish-rain-effect-sub"></div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl">Humidity</div>
+                <div class="lake-pill-val" id="fish-humidity">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>&#127908; Tips for Lake Albert</h2>
+        <div id="fish-tips" style="font-size:0.82em;color:#bdc3c7;line-height:1.7"></div>
+    </div>
+
+    <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="fish-updated"></div>
 </div>
 
 <div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 30 minutes</div>
@@ -777,6 +862,7 @@ function showTab(name) {
     document.getElementById('tab-btn-'+name).classList.add('active');
     if (name==='balance') renderBalanceTab();
     if (name==='weather' || name==='powerboat' || name==='sailing') { fetchWeather(); fetchDavisHistory(); }
+    if (name==='fishing') { if (_windKph != null) updateFishingTab(); else { fetchWeather(); fetchDavisHistory(); } }
 }
 
 // ── Range controls (level tab) ────────────────────────────────────────────
@@ -865,7 +951,7 @@ function updateLevelPills(ahd,depth,ml,pct) {
     const safeWrap=document.getElementById('pill-safe-wrap');
     const safeEl  =document.getElementById('pill-safe');
     if(safeEl&&depth!=null) {
-        safeEl.innerHTML=depth.toFixed(2)+'m \u2014 '+(depth>=MARGINAL_DEPTH_M?'\u2713 Safe':depth>=SAFE_DEPTH_M?'\u26a0 Marginal':'\u2717 Shallow');
+        safeEl.innerHTML=depth.toFixed(2)+'m  -  '+(depth>=MARGINAL_DEPTH_M?'\u2713 Safe':depth>=SAFE_DEPTH_M?'\u26a0 Marginal':'\u2717 Shallow');
         safeEl.style.color=depth>=MARGINAL_DEPTH_M?'#27ae60':depth>=SAFE_DEPTH_M?'#d4ac0d':'#e74c3c';
         safeWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
         if     (depth<SAFE_DEPTH_M)       safeWrap.classList.add('lake-pill-glow-red');
@@ -875,7 +961,7 @@ function updateLevelPills(ahd,depth,ml,pct) {
     // Volume pill
     const volEl=document.getElementById('pill-vol');
     if(volEl&&ml!=null) {
-        volEl.textContent=Math.round(ml)+' ML \u2014 '+(pct?pct.toFixed(1)+'%':'--');
+        volEl.textContent=Math.round(ml)+' ML  -  '+(pct?pct.toFixed(1)+'%':'--');
         volEl.style.color=pct>=60?'#27ae60':pct>=30?'#d4ac0d':'#e74c3c';
     }
 
@@ -917,7 +1003,7 @@ function renderLevelChart(samples) {
             plotVals.push(entry?entry.ahd:null);
             plotTooltips.push(entry
                 ?new Date(entry.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})
-                :t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' \u2014 no data');
+                :t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+'  -  no data');
         }
     } else {
         if(!samples||samples.length<2){
@@ -1048,7 +1134,7 @@ function updateBoatingOutlook(depth,mlPerDay7) {
     if(depth==null||mlPerDay7===null){el.textContent='Insufficient data';el.style.color='#7f8c8d';return;}
 
     if(mlPerDay7>=0){
-        el.textContent='Lake rising \u2014 no depth concerns';el.style.color='#27ae60';
+        el.textContent='Lake rising  -  no depth concerns';el.style.color='#27ae60';
     } else {
         const dropPerDay=Math.abs(mlPerDay7)*1000/LAKE_SURFACE_M2; // metres/day
         const daysLeft  =(depth-SAFE_DEPTH_M)/dropPerDay;
@@ -1417,7 +1503,7 @@ function updateActivityPills(windKph) {
             sailEl.style.color = '#e74c3c';
             sailWrap.classList.add('lake-pill-glow-red');
         } else if (windKph < 6) {
-            sailEl.textContent = '\u2014 Too light - motor only';
+            sailEl.textContent = ' -  Too light - motor only';
             sailEl.style.color = '#7f8c8d';
         } else if (windKph < 20) {
             sailEl.textContent = '\u2713 Perfect sailing wind';
@@ -1494,7 +1580,7 @@ async function fetchWeather() {
 
         const bf=beaufort(_windKph);
         const bfi=document.getElementById('wx-beaufort-inline');
-        if(bfi) bfi.textContent=bf.scale+' \u2014 '+bf.name;
+        if(bfi) bfi.textContent=bf.scale+'  -  '+bf.name;
         const cSpd=document.getElementById('wx-compass-spd');
         if(cSpd) cSpd.textContent=_windKph.toFixed(1)+' km/h';
         const cGust=document.getElementById('wx-compass-gust');
@@ -1512,10 +1598,10 @@ async function fetchWeather() {
         setEl('wx-rain-year', _rainYearMm, 0);
 
         const hiloEl=document.getElementById('wx-temp-hilo');
-        if(hiloEl) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0 \u2014 Low '+lowC.toFixed(1)+'\u00b0';
+        if(hiloEl) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0  -  Low '+lowC.toFixed(1)+'\u00b0';
 
         const upd=document.getElementById('wx-updated');
-        if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+        if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
         if(err) err.style.display='none';
 
         // ── Shared updates ───────────────────────────────────────────────
@@ -1527,6 +1613,9 @@ async function fetchWeather() {
 
         // ── Sailing tab ──────────────────────────────────────────────────
         updateSailingTab();
+
+        // ── Fishing tab ──────────────────────────────────────────────────
+        updateFishingTab();
 
     } catch(e){
         if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}
@@ -1551,22 +1640,22 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
             mainEl.textContent='\u2717  LAKE CLOSED FOR BOATING';
-            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below the '+SAFE_DEPTH_M+' m minimum safe depth';
+            subEl.textContent='Depth '+depth.toFixed(2)+' m  -  below the '+SAFE_DEPTH_M+' m minimum safe depth';
         } else if(kph!=null&&kph>38){
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
-            mainEl.textContent='\u26a0  CAUTION \u2014 Strong Wind Warning';
-            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+beaufort(kph).name+'. Exercise extreme caution on the water.';
+            mainEl.textContent='\u26a0  CAUTION  -  Strong Wind Warning';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h  -  '+beaufort(kph).name+'. Exercise extreme caution on the water.';
         } else if((depth!=null&&depth<MARGINAL_DEPTH_M)||(kph!=null&&kph>25)){
             banner.style.background='#2c2000';banner.style.borderColor='#d4ac0d';
             mainEl.style.color='#d4ac0d';
-            mainEl.textContent='\u26a0  CAUTION \u2014 Borderline Conditions';
+            mainEl.textContent='\u26a0  CAUTION  -  Borderline Conditions';
             subEl.textContent=(depth!=null?'Depth '+depth.toFixed(2)+' m. ':'')+( kph!=null?'Wind '+kph.toFixed(0)+' km/h. ':'')+' Proceed with care.';
         } else {
             banner.style.background='#0a2c14';banner.style.borderColor='#27ae60';
             mainEl.style.color='#27ae60';
             mainEl.textContent='\u2713  GOOD CONDITIONS FOR BOATING';
-            subEl.textContent='Depth '+(depth!=null?depth.toFixed(2)+' m':'--')+' \u2014 safe. Wind '+(kph!=null?kph.toFixed(0)+' km/h':'--')+' \u2014 '+beaufort(kph).name+'.';
+            subEl.textContent='Depth '+(depth!=null?depth.toFixed(2)+' m':'--')+'  -  safe. Wind '+(kph!=null?kph.toFixed(0)+' km/h':'--')+'  -  '+beaufort(kph).name+'.';
         }
     }
 
@@ -1591,19 +1680,19 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
     // Water surface
     const surfEl=document.getElementById('pb-surface');
     if(surfEl&&kph!=null){
-        if(kph<10){surfEl.textContent='Flat \u2014 ideal for skiing';surfEl.style.color='#27ae60';}
+        if(kph<10){surfEl.textContent='Flat  -  ideal for skiing';surfEl.style.color='#27ae60';}
         else if(kph<20){surfEl.textContent='Light chop';surfEl.style.color='#27ae60';}
-        else if(kph<30){surfEl.textContent='Choppy \u2014 take care';surfEl.style.color='#d4ac0d';}
-        else{surfEl.textContent='Rough \u2014 not recommended';surfEl.style.color='#e74c3c';}
+        else if(kph<30){surfEl.textContent='Choppy  -  take care';surfEl.style.color='#d4ac0d';}
+        else{surfEl.textContent='Rough  -  not recommended';surfEl.style.color='#e74c3c';}
     }
 
     // Recreational skiing
     const skiEl=document.getElementById('pb-ski');
     if(skiEl&&kph!=null){
         if(depth!=null&&depth<SAFE_DEPTH_M){skiEl.textContent='\u2717 Lake too shallow';skiEl.style.color='#e74c3c';}
-        else if(kph>25){skiEl.textContent='\u2717 Too windy \u2014 rough water';skiEl.style.color='#e74c3c';}
-        else if(kph>15){skiEl.textContent='\u26a0 Some chop \u2014 take care';skiEl.style.color='#d4ac0d';}
-        else{skiEl.textContent='\u2713 Ideal \u2014 calm water';skiEl.style.color='#27ae60';}
+        else if(kph>25){skiEl.textContent='\u2717 Too windy  -  rough water';skiEl.style.color='#e74c3c';}
+        else if(kph>15){skiEl.textContent='\u26a0 Some chop  -  take care';skiEl.style.color='#d4ac0d';}
+        else{skiEl.textContent='\u2713 Ideal  -  calm water';skiEl.style.color='#27ae60';}
     }
 
     // Race / competition skiing (Barry Carne etc - 2.0m minimum)
@@ -1612,14 +1701,14 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
     if(raceEl&&depth!=null){
         raceWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
         if(depth<RACE_DEPTH){
-            raceEl.textContent='\u2717 Unsafe \u2014 '+depth.toFixed(2)+' m (need 2.0 m)';
+            raceEl.textContent='\u2717 Unsafe  -  '+depth.toFixed(2)+' m (need 2.0 m)';
             raceEl.style.color='#e74c3c';
             raceWrap.classList.add('lake-pill-glow-red');
         } else if(kph!=null&&kph>25){
             raceEl.textContent='\u26a0 Wind too strong for racing';
             raceEl.style.color='#d4ac0d';
         } else {
-            raceEl.textContent='\u2713 Depth OK \u2014 '+depth.toFixed(2)+' m';
+            raceEl.textContent='\u2713 Depth OK  -  '+depth.toFixed(2)+' m';
             raceEl.style.color='#27ae60';
             raceWrap.classList.add('lake-pill-glow-green');
         }
@@ -1628,13 +1717,15 @@ function updatePowerboatTab(windMphRaw,gustMphRaw,deg,tempC,highC,lowC,hum) {
     // Comfort grid
     setEl('pb-temp',tempC,1);
     const hiloEl=document.getElementById('pb-temp-hilo');
-    if(hiloEl&&highC!=null) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0 \u2014 Low '+lowC.toFixed(1)+'\u00b0';
+    if(hiloEl&&highC!=null) hiloEl.textContent='High '+highC.toFixed(1)+'\u00b0  -  Low '+lowC.toFixed(1)+'\u00b0';
     setEl('pb-humidity',hum,0);
     setEl('pb-rain',    _rainDayMm,1);
     setEl('pb-pressure',_pressHpa, 0);
 
     const upd=document.getElementById('pb-updated');
-    if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+
+    updateNavLights();
 }
 
 function updateSailingTab() {
@@ -1655,28 +1746,28 @@ function updateSailingTab() {
         if(depth!=null&&depth<SAFE_DEPTH_SAIL){
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
-            mainEl.textContent='\u2717  LAKE CLOSED \u2014 Insufficient Depth';
-            subEl.textContent='Depth '+depth.toFixed(2)+' m \u2014 below the '+SAFE_DEPTH_SAIL+' m sailing minimum. Do not launch.';
+            mainEl.textContent='\u2717  LAKE CLOSED  -  Insufficient Depth';
+            subEl.textContent='Depth '+depth.toFixed(2)+' m  -  below the '+SAFE_DEPTH_SAIL+' m sailing minimum. Do not launch.';
         } else if(kph!=null&&kph>=38){
             banner.style.background='#2c0a0a';banner.style.borderColor='#e74c3c';
             mainEl.style.color='#e74c3c';
-            mainEl.textContent='\u26a0  TOO WINDY \u2014 Dangerous Conditions';
-            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+            mainEl.textContent='\u26a0  TOO WINDY  -  Dangerous Conditions';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h  -  '+bf.name+'. '+bf.desc+'.';
         } else if(kph!=null&&kph<6){
             banner.style.background='#0d1f30';banner.style.borderColor='#2980b9';
             mainEl.style.color='#5dade2';
-            mainEl.textContent='\u2014  TOO LIGHT \u2014 Motor Required';
+            mainEl.textContent=' -   TOO LIGHT  -  Motor Required';
             subEl.textContent='Wind too light for sailing. Use your engine or wait for a breeze.';
         } else if(kph!=null&&kph>=25){
             banner.style.background='#2c2000';banner.style.borderColor='#d4ac0d';
             mainEl.style.color='#d4ac0d';
-            mainEl.textContent='\u26a0  STRONG WIND \u2014 Experienced Sailors Only';
-            subEl.textContent='Wind '+kph.toFixed(0)+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+            mainEl.textContent='\u26a0  STRONG WIND  -  Experienced Sailors Only';
+            subEl.textContent='Wind '+kph.toFixed(0)+' km/h  -  '+bf.name+'. '+bf.desc+'.';
         } else {
             banner.style.background='#0a2c14';banner.style.borderColor='#27ae60';
             mainEl.style.color='#27ae60';
             mainEl.textContent='\u2713  GREAT SAILING CONDITIONS';
-            subEl.textContent='Wind '+(kph!=null?kph.toFixed(0):'--')+' km/h \u2014 '+bf.name+'. '+bf.desc+'.';
+            subEl.textContent='Wind '+(kph!=null?kph.toFixed(0):'--')+' km/h  -  '+bf.name+'. '+bf.desc+'.';
         }
     }
 
@@ -1688,7 +1779,7 @@ function updateSailingTab() {
     const arrow=document.getElementById('sail-wind-arrow');
     if(arrow&&deg!=null) arrow.setAttribute('transform','rotate('+deg.toFixed(1)+',110,110)');
     const bfInl=document.getElementById('sail-beaufort-inline');
-    if(bfInl) bfInl.textContent=bf.scale+' \u2014 '+bf.name;
+    if(bfInl) bfInl.textContent=bf.scale+'  -  '+bf.name;
     const scSpd=document.getElementById('sail-compass-spd');
     if(scSpd) scSpd.textContent=kph!=null?kph.toFixed(1)+' km/h':'--';
     const scGust=document.getElementById('sail-compass-gust');
@@ -1706,22 +1797,22 @@ function updateSailingTab() {
     const advEl =document.getElementById('sail-advice');
     if(condEl&&kph!=null){
         if(kph<6){condEl.textContent='Too Light';condEl.style.color='#7f8c8d';}
-        else if(kph<12){condEl.textContent='Light \u2014 Beginners';condEl.style.color='#27ae60';}
-        else if(kph<20){condEl.textContent='Perfect \u2014 All Levels';condEl.style.color='#27ae60';}
-        else if(kph<29){condEl.textContent='Good \u2014 Intermediate+';condEl.style.color='#27ae60';}
-        else if(kph<38){condEl.textContent='Strong \u2014 Experienced Only';condEl.style.color='#d4ac0d';}
-        else{condEl.textContent='Dangerous \u2014 Stay Ashore';condEl.style.color='#e74c3c';}
+        else if(kph<12){condEl.textContent='Light  -  Beginners';condEl.style.color='#27ae60';}
+        else if(kph<20){condEl.textContent='Perfect  -  All Levels';condEl.style.color='#27ae60';}
+        else if(kph<29){condEl.textContent='Good  -  Intermediate+';condEl.style.color='#27ae60';}
+        else if(kph<38){condEl.textContent='Strong  -  Experienced Only';condEl.style.color='#d4ac0d';}
+        else{condEl.textContent='Dangerous  -  Stay Ashore';condEl.style.color='#e74c3c';}
     }
     if(bfScEl) bfScEl.textContent=bf.scale;
     const advMap={
-        'B0':'No wind \u2014 motoring only. Flat water is perfect for a relaxed cruise.',
+        'B0':'No wind  -  motoring only. Flat water is perfect for a relaxed cruise.',
         'B1':'Very light air. Experienced sailors can sail but expect slow progress.',
-        'B2':'Light breeze. Ideal for beginners \u2014 stable, manageable conditions.',
+        'B2':'Light breeze. Ideal for beginners  -  stable, manageable conditions.',
         'B3':'Gentle breeze. Perfect for all skill levels. Excellent racing conditions.',
         'B4':'Moderate breeze. Exciting sailing for intermediate sailors. Be prepared to reef.',
         'B5':'Fresh breeze. Experienced crew only. Depower and reef early.',
         'B6':'Strong breeze. Rough conditions. Only highly experienced sailors. Consider staying ashore.',
-        'B7+':'Near gale or stronger. Do not sail. Dangerous conditions \u2014 stay ashore.'
+        'B7+':'Near gale or stronger. Do not sail. Dangerous conditions  -  stay ashore.'
     };
     if(advEl) advEl.textContent=advMap[bf.scale]||bf.desc;
 
@@ -1729,16 +1820,258 @@ function updateSailingTab() {
     setEl('sail-depth',   depth,    2);
     const dsEl=document.getElementById('sail-depth-status');
     if(dsEl&&depth!=null){
-        if(depth<SAFE_DEPTH_SAIL){dsEl.textContent='metres \u2014 \u2717 below '+SAFE_DEPTH_SAIL+' m min';dsEl.style.color='#e74c3c';}
-        else if(depth<SAFE_DEPTH_SAIL+0.3){dsEl.textContent='metres \u2014 \u26a0 marginal';dsEl.style.color='#d4ac0d';}
-        else{dsEl.textContent='metres \u2014 \u2713 safe for sailing';dsEl.style.color='#27ae60';}
+        if(depth<SAFE_DEPTH_SAIL){dsEl.textContent='metres  -  \u2717 below '+SAFE_DEPTH_SAIL+' m min';dsEl.style.color='#e74c3c';}
+        else if(depth<SAFE_DEPTH_SAIL+0.3){dsEl.textContent='metres  -  \u26a0 marginal';dsEl.style.color='#d4ac0d';}
+        else{dsEl.textContent='metres  -  \u2713 safe for sailing';dsEl.style.color='#27ae60';}
     }
     setEl('sail-pressure',_pressHpa,0);
     setEl('sail-temp',    _tempC,   1);
     setEl('sail-rain',    _rainDayMm,1);
 
     const upd=document.getElementById('sail-updated');
-    if(upd) upd.textContent='Davis Station \u2014 Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+    if(upd) upd.textContent='Davis Station  -  Updated: '+new Date().toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'});
+}
+
+// ── Sunrise / Sunset algorithm ────────────────────────────────────────────
+function sunriseSunset(date, lat, lon) {
+    // Returns {sunrise, sunset} as Date objects in UTC
+    const J2000 = 2451545.0;
+    const n = Math.floor(date.getTime() / 86400000) - Math.floor(new Date(2000,0,1).getTime()/86400000);
+    const Jstar = n - lon / 360;
+    const M = (357.5291 + 0.98560028 * Jstar) % 360;
+    const C = 1.9148 * Math.sin(M*Math.PI/180) + 0.0200 * Math.sin(2*M*Math.PI/180) + 0.0003 * Math.sin(3*M*Math.PI/180);
+    const lam = (M + C + 180 + 102.9372) % 360;
+    const Jtransit = 2451545.0 + Jstar + 0.0053 * Math.sin(M*Math.PI/180) - 0.0069 * Math.sin(2*lam*Math.PI/180);
+    const sinDec = Math.sin(lam*Math.PI/180) * Math.sin(23.4397*Math.PI/180);
+    const cosDec = Math.cos(Math.asin(sinDec));
+    const cosH = (Math.sin(-0.8333*Math.PI/180) - Math.sin(lat*Math.PI/180)*sinDec) / (Math.cos(lat*Math.PI/180)*cosDec);
+    if (Math.abs(cosH) > 1) return null; // polar day/night
+    const H = Math.acos(cosH) * 180 / Math.PI;
+    const Jrise = Jtransit - H/360;
+    const Jset  = Jtransit + H/360;
+    const toDate = J => new Date((J - J2000 - 0.5) * 86400000 + new Date(2000,0,1,12,0,0,0).getTime());
+    return { sunrise: toDate(Jrise), sunset: toDate(Jset) };
+}
+
+function updateNavLights() {
+    const LAT = -35.1208, LON = 147.3690;
+    const offsetMs = sydneyOffsetMs();
+    const now = new Date();
+    const ss = sunriseSunset(now, LAT, LON);
+    if (!ss) return;
+
+    const srLocal = new Date(ss.sunrise.getTime() + offsetMs);
+    const ssLocal = new Date(ss.sunset.getTime()  + offsetMs);
+    const nowLocal = new Date(now.getTime() + offsetMs);
+
+    const pad = n => String(n).padStart(2,'0');
+    const fmt = d => pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());
+    const srStr = fmt(srLocal);
+    const ssStr = fmt(ssLocal);
+
+    const srEl  = document.getElementById('pb-sunrise');
+    const ssEl  = document.getElementById('pb-sunset');
+    const nlEl  = document.getElementById('pb-navlights');
+    const nlSub = document.getElementById('pb-navlights-sub');
+    const nlWrap= document.getElementById('pb-navlights-wrap');
+    if (!nlEl) return;
+
+    if (srEl) srEl.textContent = srStr;
+    if (ssEl) ssEl.textContent = ssStr;
+    if (nlSub) nlSub.textContent = 'Sunrise '+srStr+' / Sunset '+ssStr;
+
+    const nowMs   = nowLocal.getTime();
+    const srMs    = srLocal.getTime();
+    const ssMs    = ssLocal.getTime();
+    const TWILIGHT = 30 * 60 * 1000; // 30 min
+
+    nlWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+
+    if (nowMs < srMs || nowMs > ssMs) {
+        // Before sunrise or after sunset  -  night
+        nlEl.textContent = 'Required';
+        nlEl.style.color = '#e74c3c';
+        nlWrap.classList.add('lake-pill-glow-red');
+    } else if (nowMs < srMs + TWILIGHT || nowMs > ssMs - TWILIGHT) {
+        // Within 30 min of sunrise or sunset  -  civil twilight
+        nlEl.textContent = 'Recommended';
+        nlEl.style.color = '#d4ac0d';
+    } else {
+        // Full daylight
+        nlEl.textContent = 'Not Required';
+        nlEl.style.color = '#27ae60';
+        nlWrap.classList.add('lake-pill-glow-green');
+    }
+}
+
+// ── Fishing tab ───────────────────────────────────────────────────────────
+function updateFishingTab() {
+    if (!_windKph && !_lakeLatest) return; // no data yet
+
+    const kph   = _windKph;
+    const depth = _lakeLatest?.lake_ahd != null ? Math.max(0, _lakeLatest.lake_ahd - LAKE_BOTTOM_AHD) : null;
+    const now   = new Date(Date.now() + sydneyOffsetMs());
+    const hour  = now.getHours() + now.getMinutes()/60;
+
+    // ── Banner ──────────────────────────────────────────────────────────────
+    const banner = document.getElementById('fish-banner');
+    const mainEl = document.getElementById('fish-main');
+    const subEl  = document.getElementById('fish-sub');
+
+    // Score fishing conditions 0-100
+    let score = 50;
+    const factors = [];
+
+    // Time of day factor
+    const isDawn = hour >= 5 && hour < 7;
+    const isMorn = hour >= 7 && hour < 10;
+    const isEve  = hour >= 17 && hour < 20;
+    const isDusk = hour >= 20 && hour < 21;
+    const isNight= hour >= 21 || hour < 5;
+    if      (isDawn||isDusk) { score += 25; factors.push('dawn/dusk prime feeding time'); }
+    else if (isMorn||isEve)  { score += 15; factors.push('active feeding period'); }
+    else if (isNight)        { score -= 10; factors.push('night - good for catfish/carp'); }
+
+    // Pressure factor
+    if (_pressHpa != null) {
+        if      (_pressHpa > 1020) { score += 10; factors.push('high pressure - fish active'); }
+        else if (_pressHpa < 1010) { score -= 10; factors.push('low pressure - fish sluggish'); }
+        else                        { score +=  5; factors.push('stable pressure'); }
+    }
+
+    // Wind factor (calm = better for surface fishing)
+    if (kph != null) {
+        if      (kph < 10) { score += 10; factors.push('calm surface'); }
+        else if (kph < 20) { score +=  0; }
+        else if (kph < 30) { score -=  5; factors.push('choppy surface'); }
+        else               { score -= 15; factors.push('rough - fish move deep'); }
+    }
+
+    // Rain factor
+    if (_rainDayMm != null && _rainDayMm > 0) {
+        if   (_rainDayMm > 10) { score += 15; factors.push('runoff feeding activity'); }
+        else                   { score +=  8; factors.push('light rain - fish active'); }
+    }
+
+    score = Math.max(0, Math.min(100, score));
+
+    if (banner && mainEl && subEl) {
+        banner.style.display = 'block';
+        if      (score >= 75) { banner.style.background='#0a2c14'; banner.style.borderColor='#27ae60'; mainEl.style.color='#27ae60'; mainEl.textContent='EXCELLENT FISHING CONDITIONS'; }
+        else if (score >= 55) { banner.style.background='#0a2c14'; banner.style.borderColor='#27ae60'; mainEl.style.color='#27ae60'; mainEl.textContent='GOOD FISHING CONDITIONS'; }
+        else if (score >= 35) { banner.style.background='#2c2000'; banner.style.borderColor='#d4ac0d'; mainEl.style.color='#d4ac0d'; mainEl.textContent='FAIR FISHING CONDITIONS'; }
+        else                  { banner.style.background='#2c0a0a'; banner.style.borderColor='#e74c3c'; mainEl.style.color='#e74c3c'; mainEl.textContent='POOR FISHING CONDITIONS'; }
+        subEl.textContent = factors.length ? factors.map(f=>f.charAt(0).toUpperCase()+f.slice(1)).join('. ')+'.' : 'Check individual factors below.';
+    }
+
+    // ── Best feeding time ───────────────────────────────────────────────────
+    const timeEl   = document.getElementById('fish-time');
+    const timeSub  = document.getElementById('fish-time-sub');
+    const timeWrap = document.getElementById('fish-time-wrap');
+    if (timeEl) {
+        timeWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if (isDawn||isDusk)      { timeEl.textContent='Prime'; timeEl.style.color='#27ae60'; timeWrap.classList.add('lake-pill-glow-green'); if(timeSub)timeSub.textContent='Dawn/dusk peak feeding'; }
+        else if (isMorn||isEve)  { timeEl.textContent='Active'; timeEl.style.color='#27ae60'; if(timeSub)timeSub.textContent='Morning/evening feeding'; }
+        else if (isNight)        { timeEl.textContent='Night'; timeEl.style.color='#7f8c8d'; if(timeSub)timeSub.textContent='Good for catfish & carp'; }
+        else                     { timeEl.textContent='Slow'; timeEl.style.color='#d4ac0d'; if(timeSub)timeSub.textContent='Midday - fish rest deep'; }
+    }
+
+    // ── Barometric pressure ─────────────────────────────────────────────────
+    const pressEl   = document.getElementById('fish-pressure');
+    const pressSub  = document.getElementById('fish-pressure-sub');
+    const pressWrap = document.getElementById('fish-pressure-wrap');
+    if (pressEl && _pressHpa != null) {
+        pressWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        pressEl.textContent = _pressHpa.toFixed(0)+' hPa';
+        if      (_pressHpa > 1020) { pressEl.style.color='#27ae60'; pressWrap.classList.add('lake-pill-glow-green'); if(pressSub)pressSub.textContent='High - fish feeding near surface'; }
+        else if (_pressHpa > 1013) { pressEl.style.color='#ecf0f1'; if(pressSub)pressSub.textContent='Normal - steady conditions'; }
+        else if (_pressHpa > 1005) { pressEl.style.color='#d4ac0d'; if(pressSub)pressSub.textContent='Low - fish move deeper'; }
+        else                       { pressEl.style.color='#e74c3c'; pressWrap.classList.add('lake-pill-glow-red'); if(pressSub)pressSub.textContent='Very low - fish inactive'; }
+    }
+
+    // ── Moon phase ──────────────────────────────────────────────────────────
+    const moonEl   = document.getElementById('fish-moon');
+    const moonSub  = document.getElementById('fish-moon-sub');
+    if (moonEl) {
+        // Days since known new moon (Jan 6 2000 = JD 2451549.5)
+        const knownNew = new Date(2000, 0, 6).getTime();
+        const lunation = 29.53058867;
+        const daysSince = (Date.now() - knownNew) / 86400000;
+        const phase = ((daysSince % lunation) + lunation) % lunation;
+        let moonName, moonIcon, moonEffect;
+        if      (phase < 1.85)  { moonIcon='New Moon';       moonName='New'; moonEffect='Fish active - low light'; }
+        else if (phase < 7.38)  { moonIcon='Waxing Crescent';moonName='Crescent+'; moonEffect='Improving conditions'; }
+        else if (phase < 9.22)  { moonIcon='First Quarter';  moonName='Half'; moonEffect='Good feeding activity'; }
+        else if (phase < 14.77) { moonIcon='Waxing Gibbous'; moonName='Gibbous+'; moonEffect='Very good activity'; }
+        else if (phase < 16.61) { moonIcon='Full Moon';      moonName='Full'; moonEffect='Peak night fishing'; }
+        else if (phase < 22.15) { moonIcon='Waning Gibbous'; moonName='Gibbous-'; moonEffect='Good activity'; }
+        else if (phase < 24.00) { moonIcon='Last Quarter';   moonName='Half-'; moonEffect='Moderate activity'; }
+        else if (phase < 29.53) { moonIcon='Waning Crescent';moonName='Crescent-'; moonEffect='Activity decreasing'; }
+        else                    { moonIcon='New Moon';        moonName='New'; moonEffect='Fish active - low light'; }
+        moonEl.textContent = moonName;
+        moonEl.style.color = '#ecf0f1';
+        if (moonSub) moonSub.textContent = moonEffect;
+    }
+
+    // ── Lake depth ──────────────────────────────────────────────────────────
+    const depthEl = document.getElementById('fish-depth');
+    if (depthEl) depthEl.textContent = depth != null ? depth.toFixed(2)+' m' : '--';
+
+    // ── Wind (casting) ──────────────────────────────────────────────────────
+    const windEl   = document.getElementById('fish-wind');
+    const windSub  = document.getElementById('fish-wind-sub');
+    const windWrap = document.getElementById('fish-wind-wrap');
+    if (windEl && kph != null) {
+        windWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        windEl.textContent = kph.toFixed(1)+' km/h';
+        if      (kph < 10) { windEl.style.color='#27ae60'; windWrap.classList.add('lake-pill-glow-green'); if(windSub)windSub.textContent='Ideal - easy casting'; }
+        else if (kph < 20) { windEl.style.color='#ecf0f1'; if(windSub)windSub.textContent='Manageable - cast with wind'; }
+        else if (kph < 30) { windEl.style.color='#d4ac0d'; if(windSub)windSub.textContent='Tricky - adjust technique'; }
+        else               { windEl.style.color='#e74c3c'; windWrap.classList.add('lake-pill-glow-red'); if(windSub)windSub.textContent='Difficult - wind too strong'; }
+    }
+
+    // ── Temperature ─────────────────────────────────────────────────────────
+    const tempEl = document.getElementById('fish-temp');
+    if (tempEl) tempEl.textContent = _tempC != null ? _tempC.toFixed(1)+'°C' : '--';
+
+    // ── Rain ────────────────────────────────────────────────────────────────
+    const rainEl       = document.getElementById('fish-rain');
+    const rainEffEl    = document.getElementById('fish-rain-effect');
+    const rainEffSub   = document.getElementById('fish-rain-effect-sub');
+    const rainEffWrap  = document.getElementById('fish-rain-effect-wrap');
+    if (rainEl) rainEl.textContent = _rainDayMm != null ? _rainDayMm.toFixed(1)+' mm' : '--';
+    if (rainEffEl && _rainDayMm != null) {
+        rainEffWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if      (_rainDayMm === 0)   { rainEffEl.textContent='None'; rainEffEl.style.color='#7f8c8d'; if(rainEffSub)rainEffSub.textContent='No runoff activity'; }
+        else if (_rainDayMm < 5)     { rainEffEl.textContent='Light'; rainEffEl.style.color='#27ae60'; rainEffWrap.classList.add('lake-pill-glow-green'); if(rainEffSub)rainEffSub.textContent='Light rain - fish become active'; }
+        else if (_rainDayMm < 15)    { rainEffEl.textContent='Good'; rainEffEl.style.color='#27ae60'; rainEffWrap.classList.add('lake-pill-glow-green'); if(rainEffSub)rainEffSub.textContent='Runoff brings insects & bait'; }
+        else                         { rainEffEl.textContent='Heavy'; rainEffEl.style.color='#d4ac0d'; if(rainEffSub)rainEffSub.textContent='Heavy rain - turbid water, fish scatter'; }
+    }
+
+    // ── Humidity ────────────────────────────────────────────────────────────
+    const humEl = document.getElementById('fish-humidity');
+    if (humEl) { const h = document.getElementById('wx-humidity'); if(h)humEl.textContent=h.textContent+(h.textContent!=='--'?'%':''); }
+
+    // ── Tips ─────────────────────────────────────────────────────────────────
+    const tipsEl = document.getElementById('fish-tips');
+    if (tipsEl) {
+        const tips = [];
+        if (isDawn||isDusk)  tips.push('Fish are actively feeding - use surface lures or live bait near weed edges.');
+        if (isNight)         tips.push('Try using a lantern over the water to attract insects and baitfish for catfish and carp.');
+        if (_pressHpa!=null&&_pressHpa>1020) tips.push('High pressure: fish are near the surface - try topwater lures and flies.');
+        if (_pressHpa!=null&&_pressHpa<1010) tips.push('Low pressure: fish retreat deeper - use weighted jigs and slow retrieves near the bottom.');
+        if (kph!=null&&kph<10)  tips.push('Calm surface ideal for sight fishing along the shallow edges and reeds.');
+        if (_rainDayMm!=null&&_rainDayMm>2) tips.push('After rain, fish the inlets and stormwater channels where runoff enters the lake - food washes in.');
+        if (depth!=null&&depth<1.8) tips.push('Shallow lake conditions - focus on deeper areas near the dam wall and boat ramp channel.');
+        if (_tempC!=null&&_tempC<12) tips.push('Cold conditions: fish are slow - use smaller baits and slower retrieves near deeper water.');
+        if (_tempC!=null&&_tempC>28) tips.push('Hot day: fish early morning before heat sets in. Target shaded areas and deep water midday.');
+        tips.push('Lake Albert holds redfin, golden perch, Murray cod, and carp. Best redfin spots are around the boat ramp and reed edges.');
+        tipsEl.innerHTML = tips.map(t=>`<div style="padding:4px 0;border-bottom:1px solid #3d5166">&#128310; ${t}</div>`).join('');
+    }
+
+    // ── Updated ──────────────────────────────────────────────────────────────
+    const updEl = document.getElementById('fish-updated');
+    if (updEl) updEl.textContent = 'Updated: '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
 }
 
 // ── Water quality pill ────────────────────────────────────────────────────
@@ -1826,9 +2159,12 @@ async function fetchWaterQuality() {
 localStorage.removeItem('wxh_daily');   // clear old cached data - now file-based only
 fetchLevel();
 fetchWaterQuality();
+updateNavLights();
 setInterval(fetchLevel,5*60*1000);
 setInterval(fetchWaterQuality,30*60*1000);
 </script>
 </body>
 </html>
+
+
 
