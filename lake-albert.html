@@ -349,28 +349,32 @@
             <g id="wind-rose" opacity="0.18"></g>
             <!-- Inner circle -->
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
-            <!-- Speed + direction inside -->
-            <text id="wx-wind-kph" x="110" y="103" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
-            <text x="110" y="117" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <text id="wx-wind-dir" x="110" y="133" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a90b8" font-family="Arial">--</text>
-            <!-- Wind arrow (rotated by JS) -->
+            <!-- Speed inside -->
+            <text id="wx-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
+            <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
+            <!-- Wind arrow — longer, passes through centre circle -->
             <g id="wind-arrow" transform="rotate(0,110,110)">
                 <!-- Tail feathers -->
-                <line x1="110" y1="64" x2="104" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="64" x2="116" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="70" x2="105" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="70" x2="115" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <!-- Shaft -->
-                <line x1="110" y1="64" x2="110" y2="156" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="110" y1="50" x2="103" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="50" x2="117" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="58" x2="104" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="58" x2="116" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <!-- Shaft — through centre -->
+                <line x1="110" y1="50" x2="110" y2="172" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
                 <!-- Arrowhead -->
-                <polygon points="110,156 105,142 115,142" fill="#e74c3c"/>
+                <polygon points="110,172 104,156 116,156" fill="#e74c3c"/>
             </g>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
         <div style="text-align:center;margin-top:6px">
-            <div style="font-size:0.8em;color:#7f8c8d" id="wx-beaufort-inline">--</div>
-            <div style="font-size:0.72em;color:#566573;margin-top:3px">Arrow points wind direction &rarr; · Tail shows wind FROM</div>
+            <div style="font-size:0.85em;font-weight:bold;color:#4a90b8" id="wx-wind-dir">--</div>
+            <div style="font-size:0.72em;color:#7f8c8d;margin-top:2px" id="wx-beaufort-inline">--</div>
+        </div>
+        <div class="irr-metrics" style="margin-top:12px">
+            <div class="irr-metric"><div class="lbl">Speed</div><div class="val" id="wx-compass-spd">--</div></div>
+            <div class="irr-metric"><div class="lbl">Gust</div><div class="val" style="color:#d4ac0d" id="wx-compass-gust">--</div></div>
+            <div class="irr-metric"><div class="lbl">Beaufort</div><div class="val" style="color:#27ae60" id="wx-compass-bf">--</div></div>
         </div>
     </div>
 
@@ -549,23 +553,27 @@
             <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
             <g id="sail-wind-rose" opacity="0.18"></g>
             <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
-            <text id="sail-wind-kph" x="110" y="103" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
-            <text x="110" y="117" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
-            <text id="sail-wind-dir" x="110" y="133" text-anchor="middle" font-size="10" font-weight="bold" fill="#4a90b8" font-family="Arial">--</text>
+            <text id="sail-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
+            <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
             <g id="sail-wind-arrow" transform="rotate(0,110,110)">
-                <line x1="110" y1="64" x2="104" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="64" x2="116" y2="80" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="70" x2="105" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="70" x2="115" y2="84" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="64" x2="110" y2="156" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
-                <polygon points="110,156 105,142 115,142" fill="#e74c3c"/>
+                <line x1="110" y1="50" x2="103" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="50" x2="117" y2="68" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="110" y1="58" x2="104" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="58" x2="116" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="110" y1="50" x2="110" y2="172" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
+                <polygon points="110,172 104,156 116,156" fill="#e74c3c"/>
             </g>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
         </svg>
         </div>
         <div style="text-align:center;margin-top:6px">
-            <div style="font-size:0.8em;color:#7f8c8d" id="sail-beaufort-inline">--</div>
-            <div style="font-size:0.72em;color:#566573;margin-top:3px">Arrow points wind direction &rarr; · Tail shows wind FROM</div>
+            <div style="font-size:0.85em;font-weight:bold;color:#4a90b8" id="sail-wind-dir">--</div>
+            <div style="font-size:0.72em;color:#7f8c8d;margin-top:2px" id="sail-beaufort-inline">--</div>
+        </div>
+        <div class="irr-metrics" style="margin-top:12px">
+            <div class="irr-metric"><div class="lbl">Speed</div><div class="val" id="sail-compass-spd">--</div></div>
+            <div class="irr-metric"><div class="lbl">Gust</div><div class="val" style="color:#d4ac0d" id="sail-compass-gust">--</div></div>
+            <div class="irr-metric"><div class="lbl">Beaufort</div><div class="val" style="color:#27ae60" id="sail-compass-bf">--</div></div>
         </div>
         <div class="lake-pill-row" style="margin-top:14px">
             <div class="lake-pill">
@@ -1479,13 +1487,19 @@ async function fetchWeather() {
         const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
 
         document.getElementById('wx-wind-kph').textContent=_windKph.toFixed(1);
-        document.getElementById('wx-wind-dir').textContent=degToCompass(_windDeg)+' '+_windDeg.toFixed(0)+'\u00b0';
+        document.getElementById('wx-wind-dir').textContent=degToCompass(_windDeg)+' ('+_windDeg.toFixed(0)+'\u00b0)';
         const arrow=document.getElementById('wind-arrow');
         if(arrow) arrow.setAttribute('transform','rotate('+_windDeg.toFixed(1)+',110,110)');
 
         const bf=beaufort(_windKph);
         const bfi=document.getElementById('wx-beaufort-inline');
         if(bfi) bfi.textContent=bf.scale+' \u2014 '+bf.name;
+        const cSpd=document.getElementById('wx-compass-spd');
+        if(cSpd) cSpd.textContent=_windKph.toFixed(1)+' km/h';
+        const cGust=document.getElementById('wx-compass-gust');
+        if(cGust) cGust.textContent=_windGustKph!=null?_windGustKph.toFixed(1)+' km/h':'--';
+        const cBf=document.getElementById('wx-compass-bf');
+        if(cBf){cBf.textContent=bf.scale;const bfN=parseInt(bf.scale)||0;cBf.style.color=bfN<=3?'#27ae60':bfN<=5?'#d4ac0d':'#e74c3c';}
 
         setEl('wx-temp',      _tempC,      1);
         setEl('wx-humidity',  hum,         0);
@@ -1670,11 +1684,17 @@ function updateSailingTab() {
     const kphEl=document.getElementById('sail-wind-kph');
     if(kphEl) kphEl.textContent=kph!=null?kph.toFixed(1):'--';
     const dirEl=document.getElementById('sail-wind-dir');
-    if(dirEl) dirEl.textContent=degToCompass(deg)+' '+deg.toFixed(0)+'\u00b0';
+    if(dirEl) dirEl.textContent=deg!=null?degToCompass(deg)+' ('+deg.toFixed(0)+'\u00b0)':'--';
     const arrow=document.getElementById('sail-wind-arrow');
     if(arrow&&deg!=null) arrow.setAttribute('transform','rotate('+deg.toFixed(1)+',110,110)');
     const bfInl=document.getElementById('sail-beaufort-inline');
     if(bfInl) bfInl.textContent=bf.scale+' \u2014 '+bf.name;
+    const scSpd=document.getElementById('sail-compass-spd');
+    if(scSpd) scSpd.textContent=kph!=null?kph.toFixed(1)+' km/h':'--';
+    const scGust=document.getElementById('sail-compass-gust');
+    if(scGust) scGust.textContent=_windGustKph!=null?_windGustKph.toFixed(1)+' km/h':'--';
+    const scBf=document.getElementById('sail-compass-bf');
+    if(scBf){scBf.textContent=bf.scale;const bfN=parseInt(bf.scale)||0;scBf.style.color=bfN<=3?'#27ae60':bfN<=5?'#d4ac0d':'#e74c3c';}
     const avgEl=document.getElementById('sail-avg-wind');
     if(avgEl) avgEl.textContent=kph!=null?kph.toFixed(0)+' km/h':'--';
     const gustEl=document.getElementById('sail-gust');
