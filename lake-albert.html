@@ -251,6 +251,20 @@
     </div>
 
     <div class="card">
+        <h2>&#9972; Activity Conditions</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill" id="pill-skiing-wrap">
+                <div class="lake-pill-lbl">&#127940; Water Skiing</div>
+                <div class="lake-pill-val" id="pill-skiing">--</div>
+            </div>
+            <div class="lake-pill" id="pill-sailing-wrap">
+                <div class="lake-pill-lbl">&#9973; Sailing</div>
+                <div class="lake-pill-val" id="pill-sailing">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>&#127788; Wind at the Lake</h2>
         <div class="wind-display">
             <div class="wind-arrow-wrap">
@@ -970,6 +984,60 @@ function renderWeatherHistory(days) {
     });
 }
 
+// ── Activity condition pills ──────────────────────────────────────────────
+function updateActivityPills(windKph) {
+    const ahd  = _lakeLatest?.lake_ahd;
+    const depth = ahd != null ? Math.max(0, ahd - LAKE_BOTTOM_AHD) : null;
+
+    // Water Skiing — needs calm water and safe depth
+    const skiWrap = document.getElementById('pill-skiing-wrap');
+    const skiEl   = document.getElementById('pill-skiing');
+    if (skiEl && windKph != null) {
+        skiWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if (depth != null && depth < SAFE_DEPTH_M) {
+            skiEl.textContent  = '\u2717 Lake too shallow';
+            skiEl.style.color  = '#e74c3c';
+            skiWrap.classList.add('lake-pill-glow-red');
+        } else if (windKph > 25) {
+            skiEl.textContent  = '\u2717 Too windy — rough water';
+            skiEl.style.color  = '#e74c3c';
+        } else if (windKph > 15) {
+            skiEl.textContent  = '\u26a0 Some chop — take care';
+            skiEl.style.color  = '#d4ac0d';
+        } else {
+            skiEl.textContent  = '\u2713 Ideal — calm water';
+            skiEl.style.color  = '#27ae60';
+            skiWrap.classList.add('lake-pill-glow-green');
+        }
+    }
+
+    // Sailing — needs enough wind but not too much
+    const sailWrap = document.getElementById('pill-sailing-wrap');
+    const sailEl   = document.getElementById('pill-sailing');
+    if (sailEl && windKph != null) {
+        sailWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
+        if (depth != null && depth < SAFE_DEPTH_M) {
+            sailEl.textContent = '\u2717 Lake too shallow';
+            sailEl.style.color = '#e74c3c';
+            sailWrap.classList.add('lake-pill-glow-red');
+        } else if (windKph < 6) {
+            sailEl.textContent = '\u2014 Too light — motor only';
+            sailEl.style.color = '#7f8c8d';
+        } else if (windKph < 20) {
+            sailEl.textContent = '\u2713 Perfect sailing wind';
+            sailEl.style.color = '#27ae60';
+            sailWrap.classList.add('lake-pill-glow-green');
+        } else if (windKph < 38) {
+            sailEl.textContent = '\u2713 Good — experienced sailors';
+            sailEl.style.color = '#27ae60';
+        } else {
+            sailEl.textContent = '\u2717 Too strong — stay ashore';
+            sailEl.style.color = '#e74c3c';
+            sailWrap.classList.add('lake-pill-glow-red');
+        }
+    }
+}
+
 // ── Weather tab ───────────────────────────────────────────────────────────
 async function fetchWeather() {
     const err=document.getElementById('wx-err');
@@ -979,6 +1047,7 @@ async function fetchWeather() {
         const wx=await r.json();
         const kph=wx.wind_kph,deg=wx.wind_deg;
         _windKph=kph!=null?parseFloat(kph):null;
+        updateActivityPills(_windKph);
 
         document.getElementById('wx-wind-kph').textContent=kph!=null?parseFloat(kph).toFixed(1):'--';
         document.getElementById('wx-wind-dir').textContent=deg!=null?degToCompass(deg)+' ('+parseFloat(deg).toFixed(0)+'\u00b0)':'--';
