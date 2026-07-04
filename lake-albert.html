@@ -2123,7 +2123,7 @@ async function fetchLakeForecast() {
     const omUrl = 'https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON
         +'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,windspeed_10m_max,winddirection_10m_dominant'
         +'&hourly=temperature_2m,weather_code,windspeed_10m,winddirection_10m,precipitation_probability'
-        +'&timezone=Australia%2FSydney&forecast_days=7';
+        +'&timezone=Australia%2FSydney&forecast_days=7&models=gfs_seamless';
     const urls = [
         omUrl,
         'https://corsproxy.io/?'+encodeURIComponent(omUrl),
