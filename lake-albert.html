@@ -13,13 +13,11 @@
         body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; padding: 20px; }
         @media (max-width: 480px) { body { padding: 10px; } }
 
-        /* ── Logo ── */
         .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
         .logo-wrap img { display:block; }
         .logo-wrap .logo-top  { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
         .logo-wrap .logo-base { filter: grayscale(1) contrast(200) invert(1); }
 
-        /* ── Header ── */
         .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
         .header-logo { height:64px; width:auto; flex-shrink:0; }
         .header-text { display:flex; flex-direction:column; }
@@ -31,23 +29,24 @@
             .header-text .subtitle { font-size:0.72em; }
         }
 
-        /* ── Tab Bar ── */
         .tab-bar { display:flex; justify-content:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
         .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:10px 28px; font-size:0.9em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; }
         .tab-btn.active { background:#27ae60; border-color:#27ae60; color:white; font-weight:bold; }
         .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
 
-        /* ── Cards ── */
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
         .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
 
-        /* ── Metrics grid ── */
+        /* Status / On-water banners */
+        .status-banner { border-radius:10px; padding:16px 20px; margin-bottom:14px; border:2px solid transparent; }
+        .status-main { font-size:1.2em; font-weight:bold; margin-bottom:4px; }
+        .status-sub  { font-size:0.82em; color:#bdc3c7; }
+
         .irr-metrics { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px; }
         .irr-metric { background:#1a252f; border-radius:6px; padding:8px; text-align:center; min-height:70px; display:flex; flex-direction:column; justify-content:center; }
         .irr-metric .lbl { font-size:0.7em; color:#7f8c8d; text-transform:uppercase; }
         .irr-metric .val { font-size:1.3em; font-weight:bold; margin-top:3px; }
 
-        /* ── Pills (lake style) ── */
         .lake-pill-row { display:flex; gap:10px; margin:14px 0 4px; flex-wrap:wrap; }
         .lake-pill { flex:1; min-width:130px; background:#1a252f; border:1px solid #3d5166; border-radius:20px; padding:14px 18px; text-align:center; transition:border-color 0.4s; }
         .lake-pill-lbl { font-size:0.72em; color:#7f8c8d; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:7px; }
@@ -57,7 +56,6 @@
         .lake-pill-glow-green { animation:pillGlowGreen 2s ease-in-out infinite; }
         .lake-pill-glow-red   { animation:pillGlowRed 1.5s ease-in-out infinite; }
 
-        /* ── Graph range buttons ── */
         .tank-history-range { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
         .tank-range-btn.active, .tank-range-btn:hover { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
@@ -69,7 +67,6 @@
         .tank-apply-btn { background:#2980b9; border:1px solid #2980b9; color:white; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; font-weight:bold; }
         .tank-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
 
-        /* ── Weather grid ── */
         .wx-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .wx-card { background:#1a252f; border-radius:10px; padding:14px; text-align:center; border:1px solid #3d5166; }
         .wx-lbl { font-size:0.68em; color:#7f8c8d; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
@@ -79,21 +76,17 @@
         .wind-arrow-wrap svg { width:64px; height:64px; }
         .wind-speed-big { font-size:2.2em; font-weight:bold; }
 
-        /* ── Tab panels ── */
         .tab-panel { display:none; }
         .tab-panel.active { display:block; }
-
-        /* ── Error bar ── */
         .err-bar { display:none; background:#3d1a1a; border-left:3px solid #e74c3c; padding:8px 10px; border-radius:4px; font-size:0.8em; color:#e74c3c; margin-bottom:10px; }
 
-        /* ── Hero numbers ── */
-        .hero-row { display:flex; gap:0; justify-content:center; background:#1a252f; border-radius:8px; margin-bottom:14px; overflow:hidden; }
+        .hero-row { display:flex; gap:0; justify-content:center; background:#1a252f; border-radius:8px; margin-bottom:10px; overflow:hidden; }
         .hero-block { flex:1; text-align:center; padding:18px 10px; }
         .hero-block + .hero-block { border-left:1px solid #3d5166; }
         .hero-val { font-size:2.6em; font-weight:bold; color:#ecf0f1; letter-spacing:-1px; line-height:1; }
         .hero-lbl { font-size:0.72em; color:#7f8c8d; margin-top:5px; text-transform:uppercase; letter-spacing:1px; }
+        .hero-ref { font-size:0.68em; color:#566573; margin-top:3px; }
 
-        /* ── Footer ── */
         .page-footer { text-align:center; font-size:0.72em; color:#566573; padding:14px 0; }
 
         @media (max-width:500px) {
@@ -106,7 +99,6 @@
 </head>
 <body>
 
-<!-- Header -->
 <div class="header">
     <div class="logo-wrap" style="height:64px;">
         <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC Logo">
@@ -118,29 +110,33 @@
     </div>
 </div>
 
-<!-- Tab Bar -->
 <div class="tab-bar">
     <button class="tab-btn active" id="tab-btn-level"   onclick="showTab('level')">&#127754; Lake Level</button>
     <button class="tab-btn"        id="tab-btn-balance" onclick="showTab('balance')">&#128197; Water Balance</button>
     <button class="tab-btn"        id="tab-btn-weather" onclick="showTab('weather')">&#127748; Weather</button>
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     TAB 1: LAKE LEVEL
-══════════════════════════════════════════════════════ -->
+<!-- ══ TAB 1: LAKE LEVEL ══ -->
 <div id="tab-level" class="tab-panel active">
     <div id="level-err" class="err-bar"></div>
+
+    <!-- Plain-English boating status banner -->
+    <div id="boating-banner" class="status-banner" style="display:none">
+        <div class="status-main" id="boating-main"></div>
+        <div class="status-sub"  id="boating-sub"></div>
+    </div>
 
     <div class="card">
         <h2>&#127754; Current Water Level</h2>
         <div class="hero-row">
             <div class="hero-block">
-                <div class="hero-val" id="l-ahd">--</div>
-                <div class="hero-lbl">m AHD</div>
+                <div class="hero-val" id="l-depth">--</div>
+                <div class="hero-lbl">Metres Deep</div>
+                <div class="hero-ref" id="l-ahd-ref"></div>
             </div>
             <div class="hero-block">
-                <div class="hero-val" id="l-depth">--</div>
-                <div class="hero-lbl">m depth</div>
+                <div class="hero-val" id="l-pct">--</div>
+                <div class="hero-lbl">% Full</div>
             </div>
         </div>
 
@@ -164,7 +160,7 @@
 
     <div class="card">
         <h2>&#128202; Lake Level History</h2>
-        <div class="tank-history-range">
+        <div class="tank-history-range" id="level-range-row">
             <button class="tank-range-btn active" onclick="setRange(24)">24h</button>
             <button class="tank-range-btn" onclick="setRange(168)">7 Days</button>
             <button class="tank-range-btn" onclick="setRange(720)">30 Days</button>
@@ -179,16 +175,14 @@
             <canvas id="level-chart"></canvas>
         </div>
         <div class="tank-stat-row">
-            <div class="irr-metric"><div class="lbl">Min AHD</div><div class="val" id="s-min">--</div></div>
-            <div class="irr-metric"><div class="lbl">Max AHD</div><div class="val" id="s-max">--</div></div>
+            <div class="irr-metric"><div class="lbl">Lowest Level</div><div class="val" id="s-min">--</div></div>
+            <div class="irr-metric"><div class="lbl">Highest Level</div><div class="val" id="s-max">--</div></div>
             <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="s-change">--</div></div>
         </div>
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     TAB 2: WATER BALANCE
-══════════════════════════════════════════════════════ -->
+<!-- ══ TAB 2: WATER BALANCE ══ -->
 <div id="tab-balance" class="tab-panel">
     <div id="balance-err" class="err-bar"></div>
 
@@ -216,8 +210,26 @@
     </div>
 
     <div class="card">
+        <h2>&#9972; Boating Season Outlook</h2>
+        <div class="lake-pill-row">
+            <div class="lake-pill" id="outlook-pill">
+                <div class="lake-pill-lbl">At Current Rate</div>
+                <div class="lake-pill-val" id="b-outlook">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl" id="b-month-lbl">This Month's Rainfall</div>
+                <div class="lake-pill-val" id="b-month-rain">--</div>
+            </div>
+            <div class="lake-pill">
+                <div class="lake-pill-lbl" id="b-lastyear-lbl">Same Month Last Year</div>
+                <div class="lake-pill-val" id="b-lastyear-rain">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>&#127783; Rainfall vs Lake Rise — Daily</h2>
-        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px">Rainfall bars vs actual daily lake level change. Gap between them = evaporation &amp; losses.</div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-bottom:10px">Daily rainfall (blue bars) against daily lake level change (green line). When rainfall is higher than the rise, the difference is lost to evaporation.</div>
         <div style="position:relative;height:200px;width:100%">
             <canvas id="balance-chart"></canvas>
         </div>
@@ -226,14 +238,17 @@
             <div class="irr-metric"><div class="lbl">30-Day Lake Change</div><div class="val" id="b-lake-change">--</div></div>
         </div>
     </div>
-
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     TAB 3: WEATHER
-══════════════════════════════════════════════════════ -->
+<!-- ══ TAB 3: WEATHER ══ -->
 <div id="tab-weather" class="tab-panel">
     <div id="wx-err" class="err-bar"></div>
+
+    <!-- Good day on the water? -->
+    <div id="onwater-banner" class="status-banner" style="display:none">
+        <div class="status-main" id="onwater-main"></div>
+        <div class="status-sub"  id="onwater-sub"></div>
+    </div>
 
     <div class="card">
         <h2>&#127788; Wind at the Lake</h2>
@@ -253,6 +268,7 @@
                 <div class="wind-speed-big" id="wx-wind-kph">--</div>
                 <div style="font-size:0.75em;color:#7f8c8d">km/h</div>
                 <div style="font-size:0.95em;color:#ecf0f1;margin-top:4px;font-weight:bold" id="wx-wind-dir">--</div>
+                <div style="font-size:0.8em;color:#7f8c8d;margin-top:3px" id="wx-beaufort-inline">--</div>
             </div>
         </div>
     </div>
@@ -274,12 +290,12 @@
             <div class="wx-unit">&deg;C</div>
         </div>
         <div class="wx-card">
-            <div class="wx-lbl">Delta-T</div>
-            <div class="wx-val" id="wx-deltat">--</div>
-            <div class="wx-unit">&deg;C — <span id="wx-deltat-lbl" style="font-size:0.85em"></span></div>
+            <div class="wx-lbl">Sailing Conditions</div>
+            <div class="wx-val" id="wx-sailing-val" style="font-size:1.1em;line-height:1.3">--</div>
+            <div class="wx-unit" id="wx-sailing-sub" style="font-size:0.78em;line-height:1.4"></div>
         </div>
         <div class="wx-card" style="grid-column:1/-1">
-            <div class="wx-lbl">Rainfall (since last reset)</div>
+            <div class="wx-lbl">Today's Rainfall</div>
             <div class="wx-val" id="wx-rain">--</div>
             <div class="wx-unit">mm</div>
         </div>
@@ -306,316 +322,507 @@
     </div>
 </div>
 
-<div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 15 minutes</div>
+<div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 30 minutes</div>
 
 <script>
-// ── Constants ────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────
 const LAKE_SURFACE_M2 = 1202046;
-const v2ApiKey    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
-const v2ApiSecret = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
-const v2StationId = 10489;
 const LAKE_BOTTOM_AHD = 188.1;
 const LAKE_FULL_AHD   = 191.551;
 const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
 const SAFE_DEPTH_M    = 1.8;
+const v2ApiKey        = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
+const v2ApiSecret     = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
+const v2StationId     = 10489;
 
-// ── State ────────────────────────────────────────────────────────────────
-let _range       = 24;
-let _customFrom  = null;
-let _customTo    = null;
-let _lakeLatest  = null;
-let _lakeHistory = null;
-let _levelChart  = null;
-let _balChart    = null;
-let _wxRange     = 30;
-let _wxHistChart = null;
+// ── State ─────────────────────────────────────────────────────────────────
+let _range        = 24;
+let _customFrom   = null;
+let _customTo     = null;
+let _lakeLatest   = null;
+let _lakeHistory  = null;
+let _levelChart   = null;
+let _balChart     = null;
+let _wxRange      = 30;
+let _wxHistChart  = null;
+let _windKph      = null;   // shared between weather and on-water card
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2 * (ahd - LAKE_BOTTOM_AHD) / 1000) : null; }
-function ahdToPct(ahd) { const ml = ahdToML(ahd); return ml != null ? Math.min(100, ml / LAKE_FULL_ML * 100) : null; }
+// ── Helpers ───────────────────────────────────────────────────────────────
+function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2*(ahd-LAKE_BOTTOM_AHD)/1000) : null; }
+function ahdToPct(ahd) { const ml=ahdToML(ahd); return ml!=null ? Math.min(100,ml/LAKE_FULL_ML*100) : null; }
+
 function degToCompass(deg) {
-    if (deg == null) return '--';
-    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    return dirs[Math.round(deg / 22.5) % 16];
+    if (deg==null) return '--';
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(deg/22.5)%16];
 }
 
-// ── Tabs ─────────────────────────────────────────────────────────────────
+function beaufort(kph) {
+    if (kph==null) return { scale:'--', name:'Unknown', desc:'Wind data not yet available' };
+    if (kph<2)  return { scale:'B0', name:'Calm',             desc:'Flat water — motor only' };
+    if (kph<6)  return { scale:'B1', name:'Light Air',        desc:'Barely steerable' };
+    if (kph<12) return { scale:'B2', name:'Light Breeze',     desc:'Perfect sailing conditions' };
+    if (kph<20) return { scale:'B3', name:'Gentle Breeze',    desc:'Great sailing conditions' };
+    if (kph<29) return { scale:'B4', name:'Moderate Breeze',  desc:'Good for experienced sailors' };
+    if (kph<39) return { scale:'B5', name:'Fresh Breeze',     desc:'Caution — small craft advisory' };
+    if (kph<50) return { scale:'B6', name:'Strong Breeze',    desc:'Rough — experienced sailors only' };
+    return             { scale:'B7+',name:'Near Gale+',       desc:'Stay ashore — dangerous conditions' };
+}
+
+function sydneyOffsetMs() {
+    const now=new Date();
+    return new Date(now.toLocaleString('en-US',{timeZone:'Australia/Sydney'})) - now;
+}
+
+// ── Boating status banner (Tab 1) ─────────────────────────────────────────
+function updateBoatingBanner(depth) {
+    const banner=document.getElementById('boating-banner');
+    const mainEl=document.getElementById('boating-main');
+    const subEl =document.getElementById('boating-sub');
+    if (!banner||depth==null) return;
+    banner.style.display='block';
+    if (depth >= SAFE_DEPTH_M+0.4) {
+        banner.style.background='#0a2c14'; banner.style.borderColor='#27ae60';
+        mainEl.style.color='#27ae60';
+        mainEl.textContent='✓  LAKE IS SAFE FOR BOATING';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m — ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the minimum safe depth`;
+    } else if (depth >= SAFE_DEPTH_M) {
+        banner.style.background='#2c2000'; banner.style.borderColor='#d4ac0d';
+        mainEl.style.color='#d4ac0d';
+        mainEl.textContent='⚠  CAUTION — Depth Approaching Minimum';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m — only ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the ${SAFE_DEPTH_M} m minimum`;
+    } else {
+        banner.style.background='#2c0a0a'; banner.style.borderColor='#e74c3c';
+        mainEl.style.color='#e74c3c';
+        mainEl.textContent='✗  LAKE CLOSED FOR BOATING';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m — below the ${SAFE_DEPTH_M} m minimum safe depth`;
+    }
+}
+
+// ── On-water summary card (Tab 3) ─────────────────────────────────────────
+function updateOnwaterCard() {
+    const banner=document.getElementById('onwater-banner');
+    const mainEl=document.getElementById('onwater-main');
+    const subEl =document.getElementById('onwater-sub');
+    if (!banner) return;
+
+    const ahd  =_lakeLatest?.lake_ahd;
+    const depth=ahd!=null ? Math.max(0,ahd-LAKE_BOTTOM_AHD) : null;
+    const kph  =_windKph;
+
+    let bg,bc,mc,text,sub;
+
+    if (depth!=null && depth<SAFE_DEPTH_M) {
+        bg='#2c0a0a'; bc='#e74c3c'; mc='#e74c3c';
+        text='✗  NOT SAFE — Insufficient Depth';
+        sub=`Lake depth ${depth.toFixed(2)} m — below the ${SAFE_DEPTH_M} m minimum. Do not launch.`;
+    } else if (kph!=null && kph>=38) {
+        const bf=beaufort(kph);
+        bg='#2c0a0a'; bc='#e74c3c'; mc='#e74c3c';
+        text='✗  NOT SAFE — Strong Wind Warning';
+        sub=`Wind ${kph.toFixed(0)} km/h — ${bf.name}. ${bf.desc}.`;
+    } else if ((depth!=null && depth<SAFE_DEPTH_M+0.4) || (kph!=null && kph>=25)) {
+        bg='#2c2000'; bc='#d4ac0d'; mc='#d4ac0d';
+        text='⚠  CAUTION — Borderline Conditions';
+        const parts=[];
+        if (depth!=null && depth<SAFE_DEPTH_M+0.4) parts.push(`depth marginal at ${depth.toFixed(2)} m`);
+        if (kph!=null && kph>=25) parts.push(`wind ${kph.toFixed(0)} km/h`);
+        sub='Conditions are borderline — '+parts.join(', ')+'. Experienced sailors only.';
+    } else if (kph==null) {
+        bg='#1a252f'; bc='#3d5166'; mc='#7f8c8d';
+        text='DEPTH OK — Wind Data Loading';
+        sub=`Lake depth ${depth!=null?depth.toFixed(2)+' m':'--'} — sufficient for boating. Weather station data loading…`;
+    } else {
+        const bf=beaufort(kph);
+        bg='#0a2c14'; bc='#27ae60'; mc='#27ae60';
+        text='✓  GOOD DAY ON THE WATER';
+        sub=`Depth ${depth!=null?depth.toFixed(2)+' m':'--'} — safe. Wind ${kph.toFixed(0)} km/h — ${bf.name}. ${bf.desc}.`;
+    }
+
+    banner.style.display='block';
+    banner.style.background=bg; banner.style.borderColor=bc;
+    mainEl.style.color=mc; mainEl.textContent=text;
+    subEl.textContent=sub;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
 function showTab(name) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    document.getElementById('tab-btn-' + name).classList.add('active');
-    if (name === 'balance') renderBalanceTab();
-    if (name === 'weather') { fetchWeather(); fetchDavisHistory(); }
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    document.getElementById('tab-btn-'+name).classList.add('active');
+    if (name==='balance') renderBalanceTab();
+    if (name==='weather') { fetchWeather(); fetchDavisHistory(); }
 }
 
-// ── Range controls ────────────────────────────────────────────────────────
+// ── Range controls (level tab) ────────────────────────────────────────────
 function setRange(hours) {
-    _range = hours; _customFrom = null; _customTo = null; _lakeHistory = null;
+    _range=hours; _customFrom=null; _customTo=null; _lakeHistory=null;
     document.getElementById('custom-row').classList.remove('visible');
-    document.querySelectorAll('.tank-range-btn').forEach(b => {
-        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
-        b.classList.toggle('active', map[hours] === b.textContent.trim());
+    document.querySelectorAll('#level-range-row .tank-range-btn').forEach(b=>{
+        const map={24:'24h',168:'7 Days',720:'30 Days'};
+        b.classList.toggle('active',map[hours]===b.textContent.trim());
     });
     fetchLevel();
 }
 
 function showCustom() {
     document.getElementById('custom-row').classList.add('visible');
-    const today = new Date().toISOString().slice(0,10);
-    const ago30 = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
-    const f = document.getElementById('from-date'), t = document.getElementById('to-date');
-    if (!f.value) f.value = ago30;
-    if (!t.value) t.value = today;
-    document.querySelectorAll('.tank-range-btn').forEach(b => b.classList.remove('active'));
+    const today=new Date().toISOString().slice(0,10);
+    const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const f=document.getElementById('from-date'),t=document.getElementById('to-date');
+    if(!f.value) f.value=ago30;
+    if(!t.value) t.value=today;
+    document.querySelectorAll('#level-range-row .tank-range-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('custom-btn').classList.add('active');
 }
 
 function applyCustom() {
-    const f = document.getElementById('from-date').value, t = document.getElementById('to-date').value;
-    if (!f || !t) return;
-    _range = null; _customFrom = f; _customTo = t; _lakeHistory = null;
+    const f=document.getElementById('from-date').value,t=document.getElementById('to-date').value;
+    if(!f||!t) return;
+    _range=null; _customFrom=f; _customTo=t; _lakeHistory=null;
     fetchLevel();
 }
 
 // ── Level tab ─────────────────────────────────────────────────────────────
 async function fetchLevel() {
-    const err = document.getElementById('level-err');
+    const err=document.getElementById('level-err');
     try {
-        const r = await fetch('data/farmbot_lake_latest.json?_=' + Date.now());
-        if (!r.ok) throw new Error('Lake data unavailable');
-        _lakeLatest = await r.json();
+        const r=await fetch('data/farmbot_lake_latest.json?_='+Date.now());
+        if(!r.ok) throw new Error('Lake data unavailable');
+        _lakeLatest=await r.json();
 
-        const ahd   = _lakeLatest.lake_ahd;
-        const depth = ahd != null ? Math.max(0, ahd - LAKE_BOTTOM_AHD) : null;
-        const ml    = ahdToML(ahd);
-        const pct   = ahdToPct(ahd);
+        // Always preload history so 7-day trend pill is accurate
+        if(!_lakeHistory) {
+            const hr=await fetch('data/farmbot_lake_readings.json?_='+Date.now());
+            if(hr.ok) _lakeHistory=await hr.json();
+        }
 
-        document.getElementById('l-ahd').textContent   = ahd   != null ? ahd.toFixed(3) + ' m'  : '--';
-        document.getElementById('l-depth').textContent = depth != null ? depth.toFixed(2) + ' m' : '--';
+        const ahd  =_lakeLatest.lake_ahd;
+        const depth=ahd!=null ? Math.max(0,ahd-LAKE_BOTTOM_AHD) : null;
+        const ml   =ahdToML(ahd);
+        const pct  =ahdToPct(ahd);
 
-        const upd = document.getElementById('l-updated');
-        if (upd) upd.textContent = 'Last reading: ' + (_lakeLatest.lake_date
+        // Depth is now the primary hero number
+        document.getElementById('l-depth').textContent=depth!=null ? depth.toFixed(2)+' m' : '--';
+        const pctEl=document.getElementById('l-pct');
+        if(pctEl) pctEl.textContent=pct!=null ? pct.toFixed(1)+'%' : '--';
+        const ahdRef=document.getElementById('l-ahd-ref');
+        if(ahdRef&&ahd!=null) ahdRef.textContent='AHD: '+ahd.toFixed(3)+' m';
+
+        const upd=document.getElementById('l-updated');
+        if(upd) upd.textContent='Last reading: '+(_lakeLatest.lake_date
             ? new Date(_lakeLatest.lake_date).toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})
             : '--');
 
-        updateLevelPills(ahd, depth, ml, pct);
+        updateBoatingBanner(depth);
+        updateLevelPills(ahd,depth,ml,pct);
+        // Refresh on-water card with updated depth (wind may already be loaded)
+        updateOnwaterCard();
 
-        // Graph samples
         let samples;
-        if (_range !== null && _range <= 24) {
-            samples = (_lakeLatest.lake_graph || []).slice();
+        if(_range!==null && _range<=24) {
+            samples=(_lakeLatest.lake_graph||[]).slice();
         } else {
-            if (!_lakeHistory) {
-                const hr = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
-                if (hr.ok) _lakeHistory = await hr.json();
-            }
-            const today    = new Date().toISOString().slice(0,10);
-            const fromDate = _range === null ? _customFrom : new Date(Date.now() - _range*3600000).toISOString().slice(0,10);
-            const toDate   = _range === null ? _customTo   : today;
-            samples = (_lakeHistory || []).filter(d => d.date.slice(0,10) >= fromDate && d.date.slice(0,10) <= toDate);
+            const today=new Date().toISOString().slice(0,10);
+            const fromDate=_range===null ? _customFrom : new Date(Date.now()-_range*3600000).toISOString().slice(0,10);
+            const toDate  =_range===null ? _customTo   : today;
+            samples=(_lakeHistory||[]).filter(d=>d.date.slice(0,10)>=fromDate&&d.date.slice(0,10)<=toDate);
         }
         renderLevelChart(samples);
-        if (err) err.style.display = 'none';
+        if(err) err.style.display='none';
     } catch(e) {
-        if (err) { err.textContent = '\u26a0 ' + e.message; err.style.display = 'block'; }
+        if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}
     }
 }
 
-function updateLevelPills(ahd, depth, ml, pct) {
-    // Safe depth
-    const safeWrap = document.getElementById('pill-safe-wrap');
-    const safeEl   = document.getElementById('pill-safe');
-    if (safeEl && depth != null) {
-        safeEl.innerHTML   = depth.toFixed(2) + 'm \u2014 ' + (depth >= SAFE_DEPTH_M + 0.4 ? '\u2713 Safe' : depth >= SAFE_DEPTH_M ? '\u26a0 Marginal' : '\u2717 Shallow');
-        safeEl.style.color = depth >= SAFE_DEPTH_M + 0.4 ? '#27ae60' : depth >= SAFE_DEPTH_M ? '#d4ac0d' : '#e74c3c';
+function updateLevelPills(ahd,depth,ml,pct) {
+    // Safe boating depth pill
+    const safeWrap=document.getElementById('pill-safe-wrap');
+    const safeEl  =document.getElementById('pill-safe');
+    if(safeEl&&depth!=null) {
+        safeEl.innerHTML=depth.toFixed(2)+'m \u2014 '+(depth>=SAFE_DEPTH_M+0.4?'\u2713 Safe':depth>=SAFE_DEPTH_M?'\u26a0 Marginal':'\u2717 Shallow');
+        safeEl.style.color=depth>=SAFE_DEPTH_M+0.4?'#27ae60':depth>=SAFE_DEPTH_M?'#d4ac0d':'#e74c3c';
         safeWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
-        if      (depth < SAFE_DEPTH_M)        safeWrap.classList.add('lake-pill-glow-red');
-        else if (depth < SAFE_DEPTH_M + 0.4)  safeWrap.classList.add('lake-pill-glow-green');
+        if     (depth<SAFE_DEPTH_M)       safeWrap.classList.add('lake-pill-glow-red');
+        else if(depth<SAFE_DEPTH_M+0.4)   safeWrap.classList.add('lake-pill-glow-green');
     }
 
-    // Volume
-    const volEl = document.getElementById('pill-vol');
-    if (volEl && ml != null) {
-        volEl.textContent  = Math.round(ml) + ' ML \u2014 ' + (pct ? pct.toFixed(1) + '%' : '--');
-        volEl.style.color  = pct >= 60 ? '#27ae60' : pct >= 30 ? '#d4ac0d' : '#e74c3c';
+    // Volume pill
+    const volEl=document.getElementById('pill-vol');
+    if(volEl&&ml!=null) {
+        volEl.textContent=Math.round(ml)+' ML \u2014 '+(pct?pct.toFixed(1)+'%':'--');
+        volEl.style.color=pct>=60?'#27ae60':pct>=30?'#d4ac0d':'#e74c3c';
     }
 
-    // 7-day trend
-    const readings = _lakeHistory || (_lakeLatest && _lakeLatest.lake_graph) || [];
-    const ago7d    = Date.now() - 7*86400000;
-    const recent   = readings.filter(r => new Date(r.date).getTime() >= ago7d).sort((a,b) => new Date(a.date)-new Date(b.date));
-    const trendEl  = document.getElementById('pill-trend');
-    if (trendEl && recent.length >= 2) {
-        const days  = (new Date(recent[recent.length-1].date) - new Date(recent[0].date)) / 86400000;
-        const dML   = (parseFloat(recent[recent.length-1].ahd) - parseFloat(recent[0].ahd)) * LAKE_SURFACE_M2 / 1000;
-        const mlDay = days > 0 ? dML / days : 0;
-        trendEl.innerHTML   = (mlDay >= 0 ? '\u2191 +' : '\u2193 ') + Math.abs(mlDay).toFixed(1) + ' ML/day';
-        trendEl.style.color = mlDay >= 0 ? '#27ae60' : Math.abs(mlDay) < 5 ? '#d4ac0d' : '#e74c3c';
+    // 7-day trend — uses preloaded _lakeHistory for accuracy
+    const readings=_lakeHistory||(_lakeLatest&&_lakeLatest.lake_graph)||[];
+    const ago7d=Date.now()-7*86400000;
+    const recent=readings.filter(r=>new Date(r.date).getTime()>=ago7d).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const trendEl=document.getElementById('pill-trend');
+    if(trendEl&&recent.length>=2) {
+        const days=(new Date(recent[recent.length-1].date)-new Date(recent[0].date))/86400000;
+        const dML =(parseFloat(recent[recent.length-1].ahd)-parseFloat(recent[0].ahd))*LAKE_SURFACE_M2/1000;
+        const mlDay=days>0?dML/days:0;
+        trendEl.innerHTML=(mlDay>=0?'\u2191 +':'\u2193 ')+Math.abs(mlDay).toFixed(1)+' ML/day';
+        trendEl.style.color=mlDay>=0?'#27ae60':Math.abs(mlDay)<5?'#d4ac0d':'#e74c3c';
     }
 }
 
 function renderLevelChart(samples) {
-    const canvas = document.getElementById('level-chart');
-    if (!canvas) return;
+    const canvas=document.getElementById('level-chart');
+    if(!canvas) return;
 
-    const is24h  = _range !== null && _range <= 24;
-    let plotLabels, plotVals, plotTooltips;
+    const is24h=_range!==null&&_range<=24;
+    let plotLabels,plotVals,plotTooltips;
 
-    if (!is24h) {
-        let fromMs, toMs;
-        if (_range === null) { fromMs = new Date(_customFrom).getTime(); toMs = new Date(_customTo + 'T23:59:59').getTime(); }
-        else                 { toMs = Date.now(); fromMs = toMs - _range * 3600000; }
-        const slotMs  = 3600000;
-        const slotMap = new Map();
-        for (const s of (samples || [])) {
-            const key = Math.floor((new Date(s.date).getTime() - fromMs) / slotMs);
-            if (key >= 0) slotMap.set(key, { ahd: parseFloat(s.ahd ?? 0), date: s.date });
+    if(!is24h) {
+        let fromMs,toMs;
+        if(_range===null){fromMs=new Date(_customFrom).getTime();toMs=new Date(_customTo+'T23:59:59').getTime();}
+        else             {toMs=Date.now();fromMs=toMs-_range*3600000;}
+        const slotMs=3600000, slotMap=new Map();
+        for(const s of(samples||[])){
+            const key=Math.floor((new Date(s.date).getTime()-fromMs)/slotMs);
+            if(key>=0) slotMap.set(key,{ahd:parseFloat(s.ahd??0),date:s.date});
         }
-        plotLabels = []; plotVals = []; plotTooltips = [];
-        const total = Math.ceil((toMs - fromMs) / slotMs);
-        for (let i = 0; i <= total; i++) {
-            const t = new Date(fromMs + i * slotMs), entry = slotMap.get(i);
+        plotLabels=[];plotVals=[];plotTooltips=[];
+        const total=Math.ceil((toMs-fromMs)/slotMs);
+        for(let i=0;i<=total;i++){
+            const t=new Date(fromMs+i*slotMs),entry=slotMap.get(i);
             plotLabels.push(t.toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-            plotVals.push(entry ? entry.ahd : null);
+            plotVals.push(entry?entry.ahd:null);
             plotTooltips.push(entry
-                ? new Date(entry.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})
-                : t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'}) + ' \u2014 no data');
+                ?new Date(entry.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})
+                :t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+' \u2014 no data');
         }
     } else {
-        if (!samples || samples.length < 2) {
-            if (_levelChart) { _levelChart.destroy(); _levelChart = null; }
-            ['s-min','s-max','s-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
+        if(!samples||samples.length<2){
+            if(_levelChart){_levelChart.destroy();_levelChart=null;}
+            ['s-min','s-max','s-change'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='--';});
             return;
         }
-        plotVals     = samples.map(s => parseFloat(s.ahd ?? 0));
-        plotLabels   = samples.map(s => new Date(s.date).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false}));
-        plotTooltips = samples.map(s => new Date(s.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}));
+        plotVals    =samples.map(s=>parseFloat(s.ahd??0));
+        plotLabels  =samples.map(s=>new Date(s.date).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false}));
+        plotTooltips=samples.map(s=>new Date(s.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}));
     }
 
-    const realVals = plotVals.filter(v => v !== null);
-    const minV = realVals.length ? Math.min(...realVals) : 190.0;
-    const maxV = realVals.length ? Math.max(...realVals) : 190.0;
-    const firstV = plotVals.find(v => v !== null), lastV = [...plotVals].reverse().find(v => v !== null);
-    const change = (firstV != null && lastV != null) ? lastV - firstV : null;
+    const realVals=plotVals.filter(v=>v!==null);
+    const minV=realVals.length?Math.min(...realVals):190.0;
+    const maxV=realVals.length?Math.max(...realVals):190.0;
+    const firstV=plotVals.find(v=>v!==null),lastV=[...plotVals].reverse().find(v=>v!==null);
+    const change=(firstV!=null&&lastV!=null)?lastV-firstV:null;
 
-    const minEl = document.getElementById('s-min');   if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3)+' m' : '--';
-    const maxEl = document.getElementById('s-max');   if (maxEl) maxEl.textContent = realVals.length ? maxV.toFixed(3)+' m' : '--';
-    const chEl  = document.getElementById('s-change');
-    if (chEl && change !== null) { chEl.textContent = (change>=0?'+':'')+(change*100).toFixed(1)+' cm'; chEl.style.color = change>=0?'#2ecc71':'#e74c3c'; }
+    // Stats shown as depth in metres, not raw AHD
+    const minEl=document.getElementById('s-min');
+    if(minEl) minEl.textContent=realVals.length?(minV-LAKE_BOTTOM_AHD).toFixed(2)+' m deep':'--';
+    const maxEl=document.getElementById('s-max');
+    if(maxEl) maxEl.textContent=realVals.length?(maxV-LAKE_BOTTOM_AHD).toFixed(2)+' m deep':'--';
+    const chEl=document.getElementById('s-change');
+    if(chEl&&change!==null){chEl.textContent=(change>=0?'+':'')+(change*100).toFixed(1)+' cm';chEl.style.color=change>=0?'#2ecc71':'#e74c3c';}
 
-    const ctx  = canvas.getContext('2d');
-    const grad = ctx.createLinearGradient(0,0,0,220);
+    const ctx=canvas.getContext('2d');
+    const grad=ctx.createLinearGradient(0,0,0,220);
     grad.addColorStop(0,'rgba(74,144,184,0.45)');
     grad.addColorStop(1,'rgba(74,144,184,0.02)');
 
-    const chartData = { labels:plotLabels, datasets:[{
-        data:plotVals, borderColor:'#4a90b8', borderWidth:2.2, backgroundColor:grad,
-        fill:true, tension:0.35, spanGaps:true,
-        pointRadius:plotVals.length>60?0:3, pointHoverRadius:6, pointHitRadius:12,
-        pointBackgroundColor:'#4a90b8', pointBorderColor:'#1a252f', pointBorderWidth:1.5
+    const chartData={labels:plotLabels,datasets:[{
+        data:plotVals,borderColor:'#4a90b8',borderWidth:2.2,backgroundColor:grad,
+        fill:true,tension:0.35,spanGaps:true,
+        pointRadius:plotVals.length>60?0:3,pointHoverRadius:6,pointHitRadius:12,
+        pointBackgroundColor:'#4a90b8',pointBorderColor:'#1a252f',pointBorderWidth:1.5
     }]};
 
-    const cfg = { type:'line', data:chartData, options:{
-        responsive:true, maintainAspectRatio:false, animation:{duration:400},
-        plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'rgba(10,22,34,.96)', borderColor:'#3d5166', borderWidth:1, titleColor:'#7f8c8d', bodyColor:'#ecf0f1', padding:10,
-            callbacks:{ title:i=>plotTooltips[i[0].dataIndex], label:i=>plotVals[i.dataIndex]!=null?plotVals[i.dataIndex].toFixed(3)+' m AHD':'No data' } } },
+    const cfg={type:'line',data:chartData,options:{
+        responsive:true,maintainAspectRatio:false,animation:{duration:400},
+        plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:10,
+            callbacks:{
+                title:i=>plotTooltips[i[0].dataIndex],
+                label:i=>plotVals[i.dataIndex]!=null?(plotVals[i.dataIndex]-LAKE_BOTTOM_AHD).toFixed(2)+' m deep (AHD '+plotVals[i.dataIndex].toFixed(3)+')':'No data'
+            }}},
         scales:{
-            x:{ ticks:{color:'#7f8c8d',maxTicksLimit:7,maxRotation:0,font:{size:10}}, grid:{color:'rgba(255,255,255,.05)'}, border:{color:'rgba(255,255,255,.08)'} },
-            y:{ min:minV-0.05, max:maxV+0.05, ticks:{color:'#7f8c8d',font:{size:10},callback:v=>v.toFixed(2)+' m'}, grid:{color:'rgba(255,255,255,.07)'}, border:{color:'rgba(255,255,255,.08)'} }
+            x:{ticks:{color:'#7f8c8d',maxTicksLimit:7,maxRotation:0,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},border:{color:'rgba(255,255,255,.08)'}},
+            y:{min:minV-0.05,max:maxV+0.05,ticks:{color:'#7f8c8d',font:{size:10},callback:v=>(v-LAKE_BOTTOM_AHD).toFixed(2)+' m'},grid:{color:'rgba(255,255,255,.07)'},border:{color:'rgba(255,255,255,.08)'}}
         }
     }};
 
-    if (_levelChart) { _levelChart.data=chartData; _levelChart.options=cfg.options; _levelChart.update(); }
-    else             { _levelChart = new Chart(ctx,cfg); }
+    if(_levelChart){_levelChart.data=chartData;_levelChart.options=cfg.options;_levelChart.update();}
+    else           {_levelChart=new Chart(ctx,cfg);}
 }
 
 // ── Balance tab ───────────────────────────────────────────────────────────
 async function renderBalanceTab() {
-    const err = document.getElementById('balance-err');
+    const err=document.getElementById('balance-err');
     try {
-        if (!_lakeLatest) {
-            const r = await fetch('data/farmbot_lake_latest.json?_=' + Date.now());
-            if (r.ok) _lakeLatest = await r.json();
+        if(!_lakeLatest){
+            const r=await fetch('data/farmbot_lake_latest.json?_='+Date.now());
+            if(r.ok) _lakeLatest=await r.json();
         }
-        const ahd = _lakeLatest?.lake_ahd;
-        const ml  = ahdToML(ahd), pct = ahdToPct(ahd);
-        document.getElementById('b-vol').textContent = ml  != null ? Math.round(ml)  + ' ML' : '--';
-        document.getElementById('b-pct').textContent = pct != null ? pct.toFixed(1) + '%'    : '--';
+        const ahd  =_lakeLatest?.lake_ahd;
+        const depth=ahd!=null?Math.max(0,ahd-LAKE_BOTTOM_AHD):null;
+        const ml   =ahdToML(ahd),pct=ahdToPct(ahd);
+        document.getElementById('b-vol').textContent=ml !=null?Math.round(ml)+' ML':'--';
+        document.getElementById('b-pct').textContent=pct!=null?pct.toFixed(1)+'%':'--';
 
-        if (!_lakeHistory) {
-            const hr = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
-            if (hr.ok) _lakeHistory = await hr.json();
-        }
-
-        // 7-day volume change
-        const ago7d   = Date.now() - 7*86400000;
-        const recent7 = (_lakeHistory||[]).filter(r=>new Date(r.date).getTime()>=ago7d).sort((a,b)=>new Date(a.date)-new Date(b.date));
-        const chEl = document.getElementById('b-change');
-        if (recent7.length >= 2) {
-            const dML = (parseFloat(recent7[recent7.length-1].ahd)-parseFloat(recent7[0].ahd))*LAKE_SURFACE_M2/1000;
-            chEl.textContent = (dML>=0?'+':'')+dML.toFixed(0)+' ML'; chEl.style.color = dML>=0?'#27ae60':'#e74c3c';
+        if(!_lakeHistory){
+            const hr=await fetch('data/farmbot_lake_readings.json?_='+Date.now());
+            if(hr.ok) _lakeHistory=await hr.json();
         }
 
-        // Load pumping data silently — used only to improve evaporation accuracy
-        let pumpData = [];
-        try { const pr = await fetch('data/pumping_usage.json?_='+Date.now()); if (pr.ok) pumpData = await pr.json(); } catch(e) {}
-        const ago7dDate  = new Date(ago7d).toISOString().slice(0,10);
-        const pumpTotal7 = pumpData.filter(p=>p.date>=ago7dDate).reduce((s,p)=>s+(p.ml||0),0);
+        const ago7d  =Date.now()-7*86400000;
+        const recent7=(_lakeHistory||[]).filter(r=>new Date(r.date).getTime()>=ago7d).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const chEl=document.getElementById('b-change');
+        let mlPerDay7=null;
+        if(recent7.length>=2){
+            const dML=(parseFloat(recent7[recent7.length-1].ahd)-parseFloat(recent7[0].ahd))*LAKE_SURFACE_M2/1000;
+            chEl.textContent=(dML>=0?'+':'')+dML.toFixed(0)+' ML';chEl.style.color=dML>=0?'#27ae60':'#e74c3c';
+            const days7=(new Date(recent7[recent7.length-1].date)-new Date(recent7[0].date))/86400000;
+            mlPerDay7=days7>0?dML/days7:0;
+        }
 
-        // Evaporation = lake level drop + pumping volume (pumping not shown, only evap result displayed)
-        const evapEl = document.getElementById('b-evap');
-        if (recent7.length >= 2) {
-            const dML    = (parseFloat(recent7[recent7.length-1].ahd)-parseFloat(recent7[0].ahd))*LAKE_SURFACE_M2/1000;
-            const evapML = -dML + pumpTotal7;  // true evaporation: what was lost minus what was pumped
-            const days   = (new Date(recent7[recent7.length-1].date)-new Date(recent7[0].date))/86400000;
-            evapEl.textContent = evapML>0 ? evapML.toFixed(0)+' ML ('+(days>0?(evapML/days).toFixed(1):0)+' ML/day)' : 'Lake gaining water';
-            evapEl.style.color = evapML>0?'#d4ac0d':'#27ae60';
-        } else { evapEl.textContent='Insufficient data'; evapEl.style.color='#7f8c8d'; }
+        // Pumping loaded silently — added back in to give accurate evaporation figure
+        let pumpData=[];
+        try{const pr=await fetch('data/pumping_usage.json?_='+Date.now());if(pr.ok)pumpData=await pr.json();}catch(e){}
+        const ago7dDate=new Date(ago7d).toISOString().slice(0,10);
+        const pumpTotal7=pumpData.filter(p=>p.date>=ago7dDate).reduce((s,p)=>s+(p.ml||0),0);
 
-        // Rain readings
-        let rainReadings = [];
-        try { const rr = await fetch('data/farmbot_lake_rain_readings.json?_='+Date.now()); if (rr.ok) rainReadings = await rr.json(); } catch(e) {}
+        const evapEl=document.getElementById('b-evap');
+        if(recent7.length>=2){
+            const dML   =(parseFloat(recent7[recent7.length-1].ahd)-parseFloat(recent7[0].ahd))*LAKE_SURFACE_M2/1000;
+            const evapML=-dML+pumpTotal7;
+            const days7 =(new Date(recent7[recent7.length-1].date)-new Date(recent7[0].date))/86400000;
+            evapEl.textContent=evapML>0?evapML.toFixed(0)+' ML ('+(days7>0?(evapML/days7).toFixed(1):0)+' ML/day)':'Lake gaining water';
+            evapEl.style.color=evapML>0?'#d4ac0d':'#27ae60';
+        } else {evapEl.textContent='Insufficient data';evapEl.style.color='#7f8c8d';}
 
-        renderBalanceChart(_lakeHistory||[], rainReadings);
+        // Boating season outlook
+        updateBoatingOutlook(depth,mlPerDay7);
+
+        // Davis rain cache from localStorage (fallback when FarmBot rain is empty)
+        const wxhStore=JSON.parse(localStorage.getItem('wxh_daily')||'{}');
+        updateMonthComparison(wxhStore);
+
+        // FarmBot lake rain readings
+        let rainReadings=[];
+        try{const rr=await fetch('data/farmbot_lake_rain_readings.json?_='+Date.now());if(rr.ok)rainReadings=await rr.json();}catch(e){}
+
+        renderBalanceChart(_lakeHistory||[],rainReadings,wxhStore);
 
         // 30-day stats
-        const ago30     = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
-        const rain30    = rainReadings.filter(r=>r.date>=ago30).reduce((s,r)=>s+(r.rain_mm||0),0);
-        const rdgs30    = (_lakeHistory||[]).filter(r=>r.date>=ago30).sort((a,b)=>new Date(a.date)-new Date(b.date));
-        const lakeChg30 = rdgs30.length>=2?(parseFloat(rdgs30[rdgs30.length-1].ahd)-parseFloat(rdgs30[0].ahd))*100:null;
-        document.getElementById('b-rain-total').textContent = rain30.toFixed(1)+' mm';
-        const lc = document.getElementById('b-lake-change');
-        if (lc&&lakeChg30!=null){lc.textContent=(lakeChg30>=0?'+':'')+lakeChg30.toFixed(1)+' cm';lc.style.color=lakeChg30>=0?'#27ae60':'#e74c3c';}
+        const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+        const today=new Date().toISOString().slice(0,10);
+        let rain30=rainReadings.filter(r=>r.date>=ago30).reduce((s,r)=>s+(r.rain_mm||0),0);
+        if(rain30===0){
+            // fall back to Davis
+            for(let d=new Date(ago30);d.toISOString().slice(0,10)<=today;d.setUTCDate(d.getUTCDate()+1)){
+                const dk=d.toISOString().slice(0,10);
+                rain30+=(wxhStore[dk]?.rain||0);
+            }
+        }
+        const rdgs30=(_lakeHistory||[]).filter(r=>r.date>=ago30).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lakeChg30=rdgs30.length>=2?(parseFloat(rdgs30[rdgs30.length-1].ahd)-parseFloat(rdgs30[0].ahd))*100:null;
+        document.getElementById('b-rain-total').textContent=rain30.toFixed(1)+' mm';
+        const lc=document.getElementById('b-lake-change');
+        if(lc&&lakeChg30!=null){lc.textContent=(lakeChg30>=0?'+':'')+lakeChg30.toFixed(1)+' cm';lc.style.color=lakeChg30>=0?'#27ae60':'#e74c3c';}
 
-        if (err) err.style.display='none';
-    } catch(e) { if (err){err.textContent='\u26a0 '+e.message;err.style.display='block';} }
+        if(err) err.style.display='none';
+    } catch(e){if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}}
 }
 
-function renderBalanceChart(lakeReadings, rainReadings) {
-    const canvas = document.getElementById('balance-chart'); if (!canvas) return;
-    const ago30 = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
-    const today = new Date().toISOString().slice(0,10);
-    const dayLake={}, dayRain={};
-    for (const r of lakeReadings) {
-        const day=r.date.slice(0,10); if(day<ago30||day>today) continue;
-        if(!dayLake[day]) dayLake[day]={first:parseFloat(r.ahd),last:parseFloat(r.ahd)};
+function updateBoatingOutlook(depth,mlPerDay7) {
+    const el  =document.getElementById('b-outlook');
+    const pill=document.getElementById('outlook-pill');
+    if(!el) return;
+    pill.classList.remove('lake-pill-glow-red');
+
+    if(depth==null||mlPerDay7===null){el.textContent='Insufficient data';el.style.color='#7f8c8d';return;}
+
+    if(mlPerDay7>=0){
+        el.textContent='Lake rising \u2014 no depth concerns';el.style.color='#27ae60';
+    } else {
+        const dropPerDay=Math.abs(mlPerDay7)*1000/LAKE_SURFACE_M2; // metres/day
+        const daysLeft  =(depth-SAFE_DEPTH_M)/dropPerDay;
+        if(daysLeft>90){
+            el.textContent='Safe for this season ('+Math.round(daysLeft)+' day margin)';el.style.color='#27ae60';
+        } else if(daysLeft>30){
+            el.textContent='~'+Math.round(daysLeft/7)+' weeks until minimum depth';el.style.color='#d4ac0d';
+        } else if(daysLeft>0){
+            el.textContent='~'+Math.round(daysLeft)+' days until minimum depth';el.style.color='#e74c3c';
+            pill.classList.add('lake-pill-glow-red');
+        } else {
+            el.textContent='Below minimum safe depth';el.style.color='#e74c3c';
+        }
+    }
+}
+
+function updateMonthComparison(wxhStore) {
+    const offsetMs    =sydneyOffsetMs();
+    const now         =new Date(Date.now()+offsetMs);
+    const monthName   =now.toLocaleDateString('en-AU',{month:'long'});
+    const thisMonthKey=now.toISOString().slice(0,7);
+    const lastYearKey =new Date(now.getFullYear()-1,now.getMonth(),1).toISOString().slice(0,7);
+
+    let thisRain=0,lastRain=0,hasLast=false;
+    for(const [date,val] of Object.entries(wxhStore)){
+        if(date.startsWith('_')) continue;
+        if(date.startsWith(thisMonthKey)) thisRain+=(val.rain||0);
+        if(date.startsWith(lastYearKey)) {lastRain+=(val.rain||0);hasLast=true;}
+    }
+
+    const lblEl =document.getElementById('b-month-lbl');
+    const lyLbl =document.getElementById('b-lastyear-lbl');
+    const mrEl  =document.getElementById('b-month-rain');
+    const lyrEl =document.getElementById('b-lastyear-rain');
+    if(lblEl) lblEl.textContent=monthName+' Rainfall';
+    if(lyLbl) lyLbl.textContent=monthName+' Last Year';
+    if(mrEl)  mrEl.textContent=thisRain.toFixed(1)+' mm';
+    if(lyrEl){
+        if(hasLast){
+            lyrEl.textContent=lastRain.toFixed(1)+' mm';
+            lyrEl.style.color=thisRain>=lastRain?'#27ae60':'#e74c3c';
+        } else {
+            lyrEl.textContent='Visit Weather tab';
+            lyrEl.style.color='#566573';
+        }
+    }
+}
+
+function renderBalanceChart(lakeReadings,rainReadings,wxhStore) {
+    const canvas=document.getElementById('balance-chart');if(!canvas)return;
+    const ago30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const today=new Date().toISOString().slice(0,10);
+    const dayLake={},dayRain={};
+
+    for(const r of lakeReadings){
+        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
+        if(!dayLake[day])dayLake[day]={first:parseFloat(r.ahd),last:parseFloat(r.ahd)};
         dayLake[day].last=parseFloat(r.ahd);
     }
-    for (const r of rainReadings) {
-        const day=r.date.slice(0,10); if(day<ago30||day>today) continue;
+    for(const r of rainReadings){
+        const day=r.date.slice(0,10);if(day<ago30||day>today)continue;
         dayRain[day]=(dayRain[day]||0)+(r.rain_mm||0);
     }
+    // Fall back to Davis if FarmBot rain data is empty
+    const hasFarmBot=Object.keys(dayRain).length>0;
+    if(!hasFarmBot&&wxhStore){
+        for(const[date,val] of Object.entries(wxhStore)){
+            if(date.startsWith('_'))continue;
+            if(date<ago30||date>today)continue;
+            if((val.rain||0)>0)dayRain[date]=val.rain;
+        }
+    }
+
     const days=[];
-    for(let d=new Date(ago30);d<=new Date(today);d.setDate(d.getDate()+1)) days.push(d.toISOString().slice(0,10));
-    const labels   = days.map(d=>{const dt=new Date(d);return dt.toLocaleDateString('en-AU',{day:'numeric',month:'short'});});
-    const rainVals = days.map(d=>dayRain[d]!=null?parseFloat(dayRain[d].toFixed(2)):0);
-    const lakeVals = days.map(d=>dayLake[d]?parseFloat(((dayLake[d].last-dayLake[d].first)*1000).toFixed(1)):null);
-    if (_balChart){_balChart.destroy();_balChart=null;}
-    _balChart = new Chart(canvas.getContext('2d'),{
+    for(let d=new Date(ago30);d<=new Date(today);d.setDate(d.getDate()+1))days.push(d.toISOString().slice(0,10));
+    const labels  =days.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const rainVals=days.map(d=>dayRain[d]!=null?parseFloat(dayRain[d].toFixed(2)):0);
+    const lakeVals=days.map(d=>dayLake[d]?parseFloat(((dayLake[d].last-dayLake[d].first)*1000).toFixed(1)):null);
+
+    if(_balChart){_balChart.destroy();_balChart=null;}
+    const rainLabel=hasFarmBot?'Rainfall — Lake Station (mm)':'Rainfall — Davis Station (mm)';
+    _balChart=new Chart(canvas.getContext('2d'),{
         data:{labels,datasets:[
-            {type:'bar', label:'Rainfall (mm)', data:rainVals, backgroundColor:'rgba(74,144,184,0.55)', borderColor:'#4a90b8', borderWidth:1, yAxisID:'y'},
-            {type:'line',label:'Lake Change (mm)',data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:3,pointBackgroundColor:'#27ae60',yAxisID:'y'}
+            {type:'bar', label:rainLabel,               data:rainVals,backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'y'},
+            {type:'line',label:'Lake Level Change (mm)',data:lakeVals,borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:3,pointBackgroundColor:'#27ae60',yAxisID:'y'}
         ]},
         options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
             plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
@@ -625,156 +832,128 @@ function renderBalanceChart(lakeReadings, rainReadings) {
     });
 }
 
-// ── Davis v2 helpers ─────────────────────────────────────────────────────
-function sydneyOffsetMs() {
-    const now    = new Date();
-    const sydney = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
-    return sydney - now;
-}
-
-async function v2Fetch(endpoint, params) {
-    const qs      = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
-    const baseUrl = `https://api.weatherlink.com/v2/${endpoint}?${qs}`;
-    const proxies = [
+// ── Davis v2 helpers ──────────────────────────────────────────────────────
+async function v2Fetch(endpoint,params) {
+    const qs     =new URLSearchParams({...params,'api-key':v2ApiKey}).toString();
+    const baseUrl=`https://api.weatherlink.com/v2/${endpoint}?${qs}`;
+    const proxies=[
         `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
     ];
     let lastErr;
-    for (const proxyUrl of proxies) {
-        try {
-            const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
-            if (res.ok) return res.json();
-        } catch(e) { lastErr = e; }
+    for(const url of proxies){
+        try{const res=await fetch(url,{headers:{'X-Api-Secret':v2ApiSecret}});if(res.ok)return res.json();}
+        catch(e){lastErr=e;}
     }
-    throw lastErr || new Error('v2Fetch failed');
+    throw lastErr||new Error('v2Fetch failed');
 }
 
 async function fetchDavisHistory() {
-    const offsetMs   = sydneyOffsetMs();
-    const offsetSecs = Math.round(offsetMs / 1000);
-    const store      = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
+    const offsetMs  =sydneyOffsetMs();
+    const offsetSecs=Math.round(offsetMs/1000);
+    const store     =JSON.parse(localStorage.getItem('wxh_daily')||'{}');
 
-    // Build 12 monthly windows
-    const now  = new Date(Date.now() + offsetMs);
-    const months = [];
-    for (let m = 0; m < 12; m++) {
-        const start = new Date(now);
-        start.setUTCMonth(start.getUTCMonth() - m);
-        start.setUTCDate(1);
-        start.setUTCHours(0, 0, 0, 0);
-        const end = new Date(start);
-        end.setUTCMonth(end.getUTCMonth() + 1);
-        end.setUTCDate(0);
-        end.setUTCHours(23, 59, 59, 0);
-        const key = start.toISOString().slice(0, 7);
-        months.push({ key, startTs: Math.floor(start.getTime()/1000) - offsetSecs, endTs: Math.floor(end.getTime()/1000) - offsetSecs });
+    const now=new Date(Date.now()+offsetMs);
+    const months=[];
+    for(let m=0;m<12;m++){
+        const start=new Date(now);
+        start.setUTCMonth(start.getUTCMonth()-m);start.setUTCDate(1);start.setUTCHours(0,0,0,0);
+        const end=new Date(start);end.setUTCMonth(end.getUTCMonth()+1);end.setUTCDate(0);end.setUTCHours(23,59,59,0);
+        const key=start.toISOString().slice(0,7);
+        months.push({key,startTs:Math.floor(start.getTime()/1000)-offsetSecs,endTs:Math.floor(end.getTime()/1000)-offsetSecs});
     }
 
-    const currentMonth = months[0].key;
-    const toFetch = months.filter(m => m.key === currentMonth || !store[`_m_${m.key}`]);
+    const currentMonth=months[0].key;
+    const toFetch=months.filter(m=>m.key===currentMonth||!store[`_m_${m.key}`]);
 
-    const results = await Promise.all(toFetch.map(({ key, startTs, endTs }) =>
-        v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
-            .then(data => ({ key, data }))
-            .catch(err  => ({ key, err }))
+    const results=await Promise.all(toFetch.map(({key,startTs,endTs})=>
+        v2Fetch(`historic/${v2StationId}`,{'start-timestamp':startTs,'end-timestamp':endTs})
+            .then(data=>({key,data})).catch(err=>({key,err}))
     ));
 
-    for (const { key, data, err } of results) {
-        if (err) { console.warn('[wxh]', key, err.message); continue; }
-        if (!data?.sensors) continue;
-
-        const dayData = {};
-        for (const sensor of data.sensors) {
-            for (const r of (sensor.data || [])) {
-                const ts   = ((r.ts ?? r.timestamp) || 0) * 1000;
-                if (!ts) continue;
-                const date = new Date(ts + offsetMs).toISOString().slice(0, 10);
-                if (!dayData[date]) dayData[date] = { tMax:-Infinity, tMin:Infinity, rain:0, hasTemp:false };
-                const tF = r.temp ?? r.temp_out;
-                if (tF != null) {
-                    const tC = (parseFloat(tF) - 32) / 1.8;
-                    if (tC > dayData[date].tMax) dayData[date].tMax = tC;
-                    if (tC < dayData[date].tMin) dayData[date].tMin = tC;
-                    dayData[date].hasTemp = true;
+    for(const{key,data,err} of results){
+        if(err){console.warn('[wxh]',key,err.message);continue;}
+        if(!data?.sensors) continue;
+        const dayData={};
+        for(const sensor of data.sensors){
+            for(const r of(sensor.data||[])){
+                const ts=((r.ts??r.timestamp)||0)*1000;if(!ts)continue;
+                const date=new Date(ts+offsetMs).toISOString().slice(0,10);
+                if(!dayData[date])dayData[date]={tMax:-Infinity,tMin:Infinity,rain:0,hasTemp:false};
+                const tF=r.temp??r.temp_out;
+                if(tF!=null){
+                    const tC=(parseFloat(tF)-32)/1.8;
+                    if(tC>dayData[date].tMax)dayData[date].tMax=tC;
+                    if(tC<dayData[date].tMin)dayData[date].tMin=tC;
+                    dayData[date].hasTemp=true;
                 }
-                const rain = parseFloat(r.rainfall_mm ?? 0);
-                if (!isNaN(rain)) dayData[date].rain += rain;
+                const rain=parseFloat(r.rainfall_mm??0);
+                if(!isNaN(rain))dayData[date].rain+=rain;
             }
         }
-        for (const [date, d] of Object.entries(dayData)) {
-            store[date] = {
-                tMax: d.hasTemp ? +d.tMax.toFixed(1) : null,
-                tMin: d.hasTemp ? +d.tMin.toFixed(1) : null,
-                rain: +d.rain.toFixed(1)
-            };
+        for(const[date,d] of Object.entries(dayData)){
+            store[date]={tMax:d.hasTemp?+d.tMax.toFixed(1):null,tMin:d.hasTemp?+d.tMin.toFixed(1):null,rain:+d.rain.toFixed(1)};
         }
-        if (key !== currentMonth) store[`_m_${key}`] = true;
+        if(key!==currentMonth)store[`_m_${key}`]=true;
     }
 
-    // Prune data older than 13 months
-    const cutoffStr = new Date(Date.now() + offsetMs - 395*86400000).toISOString().slice(0, 10);
-    for (const k of Object.keys(store)) { if (!k.startsWith('_') && k < cutoffStr) delete store[k]; }
+    const cutoffStr=new Date(Date.now()+offsetMs-395*86400000).toISOString().slice(0,10);
+    for(const k of Object.keys(store)){if(!k.startsWith('_')&&k<cutoffStr)delete store[k];}
+    localStorage.setItem('wxh_daily',JSON.stringify(store));
 
-    localStorage.setItem('wxh_daily', JSON.stringify(store));
-
-    const loadEl = document.getElementById('wxh-loading');
-    const wrapEl = document.getElementById('wxh-chart-wrap');
-    if (loadEl) loadEl.style.display = 'none';
-    if (wrapEl) wrapEl.style.display = 'block';
+    const loadEl=document.getElementById('wxh-loading');
+    const wrapEl=document.getElementById('wxh-chart-wrap');
+    if(loadEl)loadEl.style.display='none';
+    if(wrapEl)wrapEl.style.display='block';
     renderWeatherHistory(_wxRange);
 }
 
 function setWxRange(days) {
-    _wxRange = days;
-    document.querySelectorAll('#wxh-range-row .tank-range-btn').forEach(b => {
-        b.classList.toggle('active', parseInt(b.dataset.days) === days);
+    _wxRange=days;
+    document.querySelectorAll('#wxh-range-row .tank-range-btn').forEach(b=>{
+        b.classList.toggle('active',parseInt(b.dataset.days)===days);
     });
     renderWeatherHistory(days);
 }
 
 function renderWeatherHistory(days) {
-    const canvas = document.getElementById('wx-history-chart');
-    if (!canvas) return;
-    const store     = JSON.parse(localStorage.getItem('wxh_daily') || '{}');
-    const offsetMs  = sydneyOffsetMs();
-    const today     = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
-    const fromDate  = new Date(Date.now() + offsetMs - days * 86400000).toISOString().slice(0, 10);
+    const canvas=document.getElementById('wx-history-chart');if(!canvas)return;
+    const store   =JSON.parse(localStorage.getItem('wxh_daily')||'{}');
+    const offsetMs=sydneyOffsetMs();
+    const today   =new Date(Date.now()+offsetMs).toISOString().slice(0,10);
+    const fromDate=new Date(Date.now()+offsetMs-days*86400000).toISOString().slice(0,10);
 
-    const dates = [];
-    for (let d = new Date(fromDate); d.toISOString().slice(0,10) <= today; d.setUTCDate(d.getUTCDate()+1))
+    const dates=[];
+    for(let d=new Date(fromDate);d.toISOString().slice(0,10)<=today;d.setUTCDate(d.getUTCDate()+1))
         dates.push(d.toISOString().slice(0,10));
 
-    const labels = dates.map(d => new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-    const rains  = dates.map(d => store[d]?.rain ?? 0);
-    const tMaxes = dates.map(d => store[d]?.tMax ?? null);
-    const tMins  = dates.map(d => store[d]?.tMin ?? null).filter(v=>v!=null);
+    const labels=dates.map(d=>new Date(d).toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const rains =dates.map(d=>store[d]?.rain??0);
+    const tMaxes=dates.map(d=>store[d]?.tMax??null);
+    const tMins =dates.map(d=>store[d]?.tMin??null).filter(v=>v!=null);
 
-    const totalRain = rains.reduce((s,r)=>s+r, 0);
-    const periodMax = tMaxes.filter(v=>v!=null).length ? Math.max(...tMaxes.filter(v=>v!=null)) : null;
-    const periodMin = tMins.length ? Math.min(...tMins) : null;
+    const totalRain=rains.reduce((s,r)=>s+r,0);
+    const periodMax=tMaxes.filter(v=>v!=null).length?Math.max(...tMaxes.filter(v=>v!=null)):null;
+    const periodMin=tMins.length?Math.min(...tMins):null;
 
-    document.getElementById('wxh-rain').textContent = totalRain.toFixed(1) + ' mm';
-    document.getElementById('wxh-tmax').textContent = periodMax != null ? periodMax.toFixed(1) + '°C' : '--';
-    document.getElementById('wxh-tmin').textContent = periodMin != null ? periodMin.toFixed(1) + '°C' : '--';
+    document.getElementById('wxh-rain').textContent=totalRain.toFixed(1)+' mm';
+    document.getElementById('wxh-tmax').textContent=periodMax!=null?periodMax.toFixed(1)+'°C':'--';
+    document.getElementById('wxh-tmin').textContent=periodMin!=null?periodMin.toFixed(1)+'°C':'--';
 
-    if (_wxHistChart) { _wxHistChart.destroy(); _wxHistChart = null; }
-    _wxHistChart = new Chart(canvas.getContext('2d'), {
-        data: { labels, datasets: [
-            { type:'bar',  label:'Rainfall (mm)', data:rains,  backgroundColor:'rgba(74,144,184,0.55)', borderColor:'#4a90b8', borderWidth:1, yAxisID:'yRain' },
-            { type:'line', label:'Max Temp (°C)', data:tMaxes, borderColor:'#e74c3c', borderWidth:1.5, fill:false, tension:0.3, spanGaps:true, pointRadius:days<=30?2:0, pointHoverRadius:5, pointBackgroundColor:'#e74c3c', yAxisID:'yTemp' }
+    if(_wxHistChart){_wxHistChart.destroy();_wxHistChart=null;}
+    _wxHistChart=new Chart(canvas.getContext('2d'),{
+        data:{labels,datasets:[
+            {type:'bar', label:'Rainfall (mm)',data:rains, backgroundColor:'rgba(74,144,184,0.55)',borderColor:'#4a90b8',borderWidth:1,yAxisID:'yRain'},
+            {type:'line',label:'Max Temp (°C)',data:tMaxes,borderColor:'#e74c3c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:days<=30?2:0,pointHoverRadius:5,pointBackgroundColor:'#e74c3c',yAxisID:'yTemp'}
         ]},
-        options:{
-            responsive:true, maintainAspectRatio:false, animation:{duration:300},
-            plugins:{
-                legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
-                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}
-            },
+        options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
+            plugins:{legend:{display:true,labels:{color:'#7f8c8d',font:{size:10},boxWidth:12}},
+                tooltip:{backgroundColor:'rgba(10,22,34,.96)',borderColor:'#3d5166',borderWidth:1,titleColor:'#7f8c8d',bodyColor:'#ecf0f1',padding:8}},
             scales:{
-                x:{ ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} },
-                yRain:{ position:'left',  ticks:{color:'#4a90b8',font:{size:9}}, grid:{color:'rgba(255,255,255,.06)'}, title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}} },
-                yTemp:{ position:'right', ticks:{color:'#e74c3c',font:{size:9}}, grid:{display:false}, title:{display:true,text:'Temp °C',color:'#e74c3c',font:{size:9}} }
-            }
-        }
+                x:{ticks:{color:'#7f8c8d',maxTicksLimit:days<=30?15:12,maxRotation:0,font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},
+                yRain:{position:'left', ticks:{color:'#4a90b8',font:{size:9}},grid:{color:'rgba(255,255,255,.06)'},title:{display:true,text:'Rainfall mm',color:'#4a90b8',font:{size:9}}},
+                yTemp:{position:'right',ticks:{color:'#e74c3c',font:{size:9}},grid:{display:false},title:{display:true,text:'Temp °C',color:'#e74c3c',font:{size:9}}}
+            }}
     });
 }
 
@@ -783,39 +962,47 @@ async function fetchWeather() {
     const err=document.getElementById('wx-err');
     try {
         const r=await fetch('data/farmbot_lake_weather.json?_='+Date.now());
-        if(!r.ok) throw new Error('Weather data not yet available — will appear after next poll');
+        if(!r.ok) throw new Error('Lake weather station data not yet available — history is loading below');
         const wx=await r.json();
-        const kph=wx.wind_kph, deg=wx.wind_deg;
+        const kph=wx.wind_kph,deg=wx.wind_deg;
+        _windKph=kph!=null?parseFloat(kph):null;
+
         document.getElementById('wx-wind-kph').textContent=kph!=null?parseFloat(kph).toFixed(1):'--';
         document.getElementById('wx-wind-dir').textContent=deg!=null?degToCompass(deg)+' ('+parseFloat(deg).toFixed(0)+'\u00b0)':'--';
         if(deg!=null){
             const needle=document.getElementById('wind-needle');
             if(needle){const rad=deg*Math.PI/180;needle.setAttribute('x2',(32+26*Math.sin(rad)).toFixed(1));needle.setAttribute('y2',(32-26*Math.cos(rad)).toFixed(1));}
         }
-        const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
-        setEl('wx-temp',    wx.temp_c,      1);
-        setEl('wx-humidity',wx.humidity_pct,0);
-        setEl('wx-dewpoint',wx.dew_point_c, 1);
-        setEl('wx-deltat',  wx.delta_t_c,   1);
-        setEl('wx-rain',    wx.rain_mm_raw,  1);
-        // Delta-T label
-        const dt=parseFloat(wx.delta_t_c);
-        const dtLbl=document.getElementById('wx-deltat-lbl');
-        const dtEl=document.getElementById('wx-deltat');
-        if(dtLbl&&!isNaN(dt)){
-            if(dt<2){dtLbl.textContent='Too humid'; dtEl.style.color='#e74c3c';}
-            else if(dt<=8){dtLbl.textContent='Good spray conditions'; dtEl.style.color='#27ae60';}
-            else{dtLbl.textContent='Too dry'; dtEl.style.color='#d4ac0d';}
+        // Beaufort next to wind direction
+        if(_windKph!=null){
+            const bf=beaufort(_windKph);
+            const bfi=document.getElementById('wx-beaufort-inline');
+            if(bfi)bfi.textContent=bf.scale+' \u2014 '+bf.name;
+            // Sailing conditions card
+            const bfv=document.getElementById('wx-sailing-val');
+            const bfs=document.getElementById('wx-sailing-sub');
+            if(bfv){bfv.textContent=bf.name;bfv.style.color=_windKph<38?'#27ae60':'#e74c3c';}
+            if(bfs)bfs.textContent=bf.desc;
         }
+
+        const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};
+        setEl('wx-temp',    wx.temp_c,     1);
+        setEl('wx-humidity',wx.humidity_pct,0);
+        setEl('wx-dewpoint',wx.dew_point_c,1);
+        setEl('wx-rain',    wx.rain_mm_raw,1);
+
         const upd=document.getElementById('wx-updated');
         if(upd)upd.textContent='Updated: '+(wx.updated_at?new Date(wx.updated_at).toLocaleString('en-AU',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}):'--');
         if(err)err.style.display='none';
-    } catch(e){if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}}
+    } catch(e){
+        if(err){err.textContent='\u26a0 '+e.message;err.style.display='block';}
+    }
+    updateOnwaterCard();
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────
 fetchLevel();
-setInterval(fetchLevel, 5*60*1000);
+setInterval(fetchLevel,5*60*1000);
 </script>
 </body>
 </html>
