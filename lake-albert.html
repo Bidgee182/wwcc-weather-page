@@ -2176,6 +2176,7 @@ function _renderLakeHourly(hourly) {
             nowInserted = true;
             count++;
             if (count >= 12) break;
+            continue; // skip regular pill for this hour — Now already covers it
         }
         const h = parseInt(hourly.time[i].slice(11, 13), 10);
         const label = h === 0 ? '12am' : h < 12 ? h+'am' : h === 12 ? '12pm' : (h-12)+'pm';
