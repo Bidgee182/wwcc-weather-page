@@ -853,6 +853,19 @@ async function fetchDavisHistory() {
     const offsetSecs=Math.round(offsetMs/1000);
     const store     =JSON.parse(localStorage.getItem('wxh_daily')||'{}');
 
+    // Load pre-built history file first (populated by backfill script + daily poll)
+    try {
+        const fr=await fetch('data/davis_weather_history.json?_='+Date.now());
+        if(fr.ok){
+            const fileRecords=await fr.json();
+            let added=0;
+            for(const rec of fileRecords){
+                if(!store[rec.date]){ store[rec.date]=rec; added++; }
+            }
+            if(added>0) localStorage.setItem('wxh_daily',JSON.stringify(store));
+        }
+    } catch(e){ /* file not yet created — will fall through to API */ }
+
     const now=new Date(Date.now()+offsetMs);
     const months=[];
     for(let m=0;m<12;m++){

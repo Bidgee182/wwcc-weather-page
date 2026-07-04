@@ -53,8 +53,15 @@ HISTORY_JSON       = DATA_DIR / 'farmbot_history.json'
 READINGS_JSON      = DATA_DIR / 'farmbot_readings.json'
 LAKE_LATEST_JSON        = DATA_DIR / 'farmbot_lake_latest.json'
 LAKE_READINGS_JSON      = DATA_DIR / 'farmbot_lake_readings.json'
-LAKE_WEATHER_JSON       = DATA_DIR / 'farmbot_lake_weather.json'
-LAKE_RAIN_READINGS_JSON = DATA_DIR / 'farmbot_lake_rain_readings.json'
+LAKE_WEATHER_JSON        = DATA_DIR / 'farmbot_lake_weather.json'
+LAKE_RAIN_READINGS_JSON  = DATA_DIR / 'farmbot_lake_rain_readings.json'
+DAVIS_WEATHER_HISTORY_JSON = DATA_DIR / 'davis_weather_history.json'
+
+# Davis WeatherLink v2 (same station as the golf course dashboard)
+DAVIS_V2_API_KEY    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x'
+DAVIS_V2_API_SECRET = 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
+DAVIS_V2_STATION_ID = 10489
+DAVIS_V2_BASE       = 'https://api.weatherlink.com/v2'
 
 # Lake weather station sensor SIDs (hardcoded — fixed hardware)
 LAKE_WEATHER_SIDS = {
@@ -221,6 +228,92 @@ def fetch_graph_samples(token, total_height, hours=24):
             break
     return sorted(graph, key=lambda x: x['date'])
 
+# ── Davis WeatherLink v2 daily history update ─────────────────────────────────
+def davis_v2_get(endpoint, params):
+    p = dict(params)
+    p['api-key'] = DAVIS_V2_API_KEY
+    r = requests.get(f'{DAVIS_V2_BASE}/{endpoint}', params=p,
+                     headers={'X-Api-Secret': DAVIS_V2_API_SECRET}, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
+def _process_davis_day(records):
+    """Aggregate a list of 15-min sensor records into a single day summary."""
+    t_max = -999.0; t_min = 999.0; rain = 0.0
+    hum_sum = 0.0;  hum_count = 0; wind_max = 0.0; has_temp = False
+    for sensor in records:
+        for r in (sensor.get('data') or []):
+            t_f = r.get('temp') or r.get('temp_out')
+            if t_f is not None:
+                t_c = (float(t_f) - 32.0) / 1.8
+                if t_c > t_max: t_max = t_c
+                if t_c < t_min: t_min = t_c
+                has_temp = True
+            rn = r.get('rainfall_mm')
+            if rn is not None: rain += float(rn)
+            hm = r.get('hum') or r.get('hum_out')
+            if hm is not None: hum_sum += float(hm); hum_count += 1
+            wm = (r.get('wind_speed_last') or r.get('wind_speed_avg_last_1_min')
+                  or r.get('wind_speed_hi_last_2_min') or r.get('wind_speed_avg_last_10_min'))
+            if wm is not None:
+                kph = float(wm) * 1.60934
+                if kph > wind_max: wind_max = kph
+    return {
+        'tMax':     round(t_max, 1) if has_temp else None,
+        'tMin':     round(t_min, 1) if has_temp else None,
+        'rain':     round(rain,  1),
+        'humidity': round(hum_sum / hum_count, 0) if hum_count > 0 else None,
+        'windMax':  round(wind_max, 1) if wind_max > 0 else None,
+    }
+
+
+def poll_davis_history():
+    """Fetch yesterday's and today's Davis data and update davis_weather_history.json."""
+    log.info('Davis history update starting')
+    now_syd = datetime.now(tz=SYDNEY_TZ)
+
+    # Load existing file
+    all_days = {}
+    if DAVIS_WEATHER_HISTORY_JSON.exists():
+        try:
+            existing = json.loads(DAVIS_WEATHER_HISTORY_JSON.read_text())
+            all_days = {r['date']: r for r in existing}
+        except Exception as e:
+            log.warning(f'Could not load davis history: {e}')
+
+    updated = False
+    for days_ago in [1, 0]:   # yesterday (complete) then today (partial)
+        target    = now_syd - timedelta(days=days_ago)
+        date_str  = target.strftime('%Y-%m-%d')
+        start     = target.replace(hour=0, minute=0, second=0, microsecond=0)
+        end       = target.replace(hour=23, minute=59, second=59, microsecond=0)
+        start_ts  = int(start.timestamp())
+        end_ts    = int(end.timestamp())
+
+        # Skip yesterday if already cached
+        if days_ago == 1 and date_str in all_days:
+            log.info(f'Davis: {date_str} already cached — skipping')
+            continue
+
+        try:
+            data = davis_v2_get(f'historic/{DAVIS_V2_STATION_ID}',
+                                {'start-timestamp': start_ts, 'end-timestamp': end_ts})
+            sensors = data.get('sensors') or []
+            if sensors:
+                summary = _process_davis_day(sensors)
+                all_days[date_str] = {'date': date_str, **summary}
+                log.info(f'Davis: {date_str} → tMax={summary["tMax"]}°C rain={summary["rain"]}mm')
+                updated = True
+        except Exception as e:
+            log.warning(f'Davis history fetch failed for {date_str}: {e}')
+
+    if updated:
+        records = sorted(all_days.values(), key=lambda r: r['date'])
+        DAVIS_WEATHER_HISTORY_JSON.write_text(json.dumps(records, indent=2))
+        log.info(f'Wrote {len(records)} records → {DAVIS_WEATHER_HISTORY_JSON}')
+
+
 # ── Regular poll ──────────────────────────────────────────────────────────────
 def poll():
     log.info('FarmBot poll starting')
@@ -315,6 +408,12 @@ def poll():
         poll_lake_weather(token)
     except Exception as e:
         log.error(f'Lake weather poll failed: {e}')
+
+    # Update Davis daily weather history (yesterday + today)
+    try:
+        poll_davis_history()
+    except Exception as e:
+        log.error(f'Davis history update failed: {e}')
 
 # ── Lake level poll ───────────────────────────────────────────────────────────
 def poll_lake(token):
