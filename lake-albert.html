@@ -95,6 +95,51 @@
             .tank-stat-row { grid-template-columns:1fr 1fr; }
             .irr-metrics { grid-template-columns:1fr 1fr; }
         }
+
+        /* ── Mobile (≤480px) ─────────────────────────────────────────── */
+        @media (max-width:480px) {
+            .tab-bar { gap:4px; }
+            .tab-btn { padding:7px 10px; font-size:0.72em; letter-spacing:0.5px; }
+
+            .card { padding:14px 12px; margin-bottom:12px; }
+            .status-banner { padding:12px 14px; }
+            .status-main { font-size:1em; }
+
+            .lake-pill { min-width:90px; padding:10px 12px; }
+            .lake-pill-lbl { font-size:0.65em; }
+            .lake-pill-val { font-size:0.9em; }
+
+            .wind-display { gap:14px; }
+            .wind-speed-big { font-size:1.8em; }
+        }
+
+        /* ── Small phones (≤390px) ───────────────────────────────────── */
+        @media (max-width:390px) {
+            body { padding:8px; }
+
+            .header-logo { height:42px; }
+            .header-text h1 { font-size:1em; }
+            .header-text .subtitle { font-size:0.65em; }
+
+            .tab-btn { padding:6px 8px; font-size:0.65em; }
+            .tab-bar { gap:3px; }
+
+            .hero-val { font-size:1.5em; letter-spacing:0; }
+            .hero-block { padding:14px 8px; }
+
+            .lake-pill { flex:1 1 calc(50% - 4px); min-width:auto; }
+
+            .irr-metrics { grid-template-columns:1fr; }
+            .irr-metric .val { font-size:1.1em; }
+            .tank-stat-row { grid-template-columns:1fr; }
+
+            .wind-display { flex-direction:column; gap:10px; }
+            .wind-speed-big { font-size:1.6em; }
+            .wind-arrow-wrap svg { width:56px; height:56px; }
+
+            .wx-card { padding:10px; }
+            .wx-val { font-size:1.3em; }
+        }
     </style>
 </head>
 <body>
