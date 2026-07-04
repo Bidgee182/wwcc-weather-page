@@ -348,18 +348,12 @@
             <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
             <!-- Rose petals (built by JS) -->
             <g id="wind-rose" opacity="0.18"></g>
-            <!-- Inner circle hub background -->
-            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
-            <!-- Wind arrow drawn OVER hub, UNDER speed text so number stays readable -->
             <g id="wind-arrow" transform="rotate(0,110,110)">
-                <line x1="110" y1="44" x2="101" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="44" x2="119" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="54" x2="103" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="54" x2="117" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="44" x2="110" y2="205" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
-                <polygon points="110,205 101,183 119,183" fill="#e74c3c"/>
+                <line x1="110" y1="110" x2="110" y2="32" stroke="#2980b9" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+                <line x1="110" y1="110" x2="110" y2="168" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="110,175 104,162 116,162" fill="#2980b9"/>
             </g>
-            <!-- Speed text drawn LAST inside hub so it sits on top of arrow shaft -->
+            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="wx-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
@@ -564,15 +558,12 @@
             <text x="57"  y="48"  text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">NW</text>
             <text x="57"  y="178" text-anchor="middle" font-size="9" fill="#566573" font-family="Arial">SW</text>
             <g id="sail-wind-rose" opacity="0.18"></g>
-            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <g id="sail-wind-arrow" transform="rotate(0,110,110)">
-                <line x1="110" y1="44" x2="101" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="44" x2="119" y2="66" stroke="#4a90b8" stroke-width="2"   stroke-linecap="round"/>
-                <line x1="110" y1="54" x2="103" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="54" x2="117" y2="74" stroke="#4a90b8" stroke-width="1.5" stroke-linecap="round"/>
-                <line x1="110" y1="44" x2="110" y2="205" stroke="#4a90b8" stroke-width="2.5" stroke-linecap="round"/>
-                <polygon points="110,205 101,183 119,183" fill="#e74c3c"/>
+                <line x1="110" y1="110" x2="110" y2="32" stroke="#2980b9" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+                <line x1="110" y1="110" x2="110" y2="168" stroke="#2980b9" stroke-width="3" stroke-linecap="round"/>
+                <polygon points="110,175 104,162 116,162" fill="#2980b9"/>
             </g>
+            <circle cx="110" cy="110" r="46" fill="#2c3e50" stroke="#3d5166" stroke-width="1"/>
             <text id="sail-wind-kph" x="110" y="106" text-anchor="middle" font-size="22" font-weight="bold" fill="#ecf0f1" font-family="Arial">--</text>
             <text x="110" y="120" text-anchor="middle" font-size="9" fill="#7f8c8d" font-family="Arial">km/h</text>
             <circle cx="110" cy="110" r="4" fill="#ecf0f1"/>
