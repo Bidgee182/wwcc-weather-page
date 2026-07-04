@@ -1568,7 +1568,7 @@ function renderWeatherHistory(days) {
     if(ad.humidity)   datasets.push({type:'line',label:'Humidity (%)',    data:hums,        borderColor:'#1abc9c',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#1abc9c',yAxisID:'yHum'});
     if(ad.windMax)    datasets.push({type:'line',label:'Wind Max (km/h)', data:winds,       borderColor:'#d4ac0d',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#d4ac0d',yAxisID:'yWind'});
     if(ad.lakeLevel)  datasets.push({type:'line',label:'Lake Depth (m)',  data:lakeLevels,  borderColor:'#27ae60',borderWidth:2,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#27ae60',yAxisID:'yLake'});
-    if(ad.lakeChange) datasets.push({type:'bar', label:'Lake Change (cm)',data:lakeChanges, backgroundColor:lakeChanges.map(v=>v==null?'transparent':v>=0?'rgba(39,174,96,0.6)':'rgba(231,76,60,0.6)'),borderColor:lakeChanges.map(v=>v==null?'transparent':v>=0?'#27ae60':'#e74c3c'),borderWidth:1,yAxisID:'yLakeChg'});
+    if(ad.lakeChange) datasets.push({type:'line',label:'Lake Change (cm)',data:lakeChanges, borderColor:'#9b59b6',borderWidth:1.5,fill:false,tension:0.3,spanGaps:true,pointRadius:pr,pointHoverRadius:5,pointBackgroundColor:'#9b59b6',yAxisID:'yLakeChg'});
 
     const showRain   =(ad.rain);
     const showTemp   =(ad.tMax||ad.tMin);
