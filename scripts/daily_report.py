@@ -915,6 +915,8 @@ def sec_header(num, title, subtitle=''):
     border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
       <table cellpadding="0" cellspacing="0" width="100%">
         <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">{num}</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
           <td width="44" valign="middle" style="width:44px;">
             <table cellpadding="0" cellspacing="0">
               <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
@@ -925,6 +927,7 @@ def sec_header(num, title, subtitle=''):
               </td></tr>
             </table>
           </td>
+          <!--<![endif]-->
           <td valign="middle"
               style="color:white;font-size:16px;font-weight:700;padding-left:2px;">{title}</td>
         </tr>
@@ -1245,9 +1248,11 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
-      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
-        {chart_img}
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+        <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
+          {chart_img}
+        </td></tr>
+      </table>
 
       {threshold_tbl}"""
 
@@ -1359,9 +1364,11 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
-      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
-        {chart_img}
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+        <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
+          {chart_img}
+        </td></tr>
+      </table>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">DAILY BREAKDOWN</div>
@@ -1474,9 +1481,11 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
-      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
-        {chart_img}
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+        <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
+          {chart_img}
+        </td></tr>
+      </table>
 
       {threshold_tbl}"""
 
@@ -1619,9 +1628,11 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
-      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
-        {chart_img}
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+        <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
+          {chart_img}
+        </td></tr>
+      </table>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">MONTHLY BREAKDOWN</div>
@@ -1853,10 +1864,12 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:#3a2c08;
-            border:1px solid #6b540f;color:#f5d87a;
-            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Daily Briefing</div>
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
+              padding:3px 10px;border-radius:20px;">
+            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;">Daily Briefing</span>
+          </td></tr></table>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Morning Weather Briefing</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;
@@ -2125,10 +2138,12 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club - Automated Daily Report</div>
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://bidgee182.github.io/wwcc-weather-page/?gk=1" style="height:38px;v-text-anchor:middle;width:244px;" arcsize="50%" stroke="f" fillcolor="#4caf7d"><w:anchorlock/><center style="color:white;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:0.5px;">&#9971; Open Greenkeeper Dashboard</center></v:roundrect><![endif]--><!--[if !mso]><!-->
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
         style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
         font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;
         letter-spacing:0.5px;">&#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <!--<![endif]-->
     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
         Davis WeatherLink - Open-Meteo archive and forecast</div>
   </td></tr>
@@ -2202,10 +2217,12 @@ def build_weekly_html(history, week_end_date):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:#3a2c08;
-            border:1px solid #6b540f;color:#f5d87a;
-            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Weekly Summary</div>
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
+              padding:3px 10px;border-radius:20px;">
+            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;">Weekly Summary</span>
+          </td></tr></table>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Weekly Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{date_str}</div>
@@ -2393,10 +2410,12 @@ def build_weekly_html(history, week_end_date):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Weekly Report</div>
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://bidgee182.github.io/wwcc-weather-page/?gk=1" style="height:38px;v-text-anchor:middle;width:244px;" arcsize="50%" stroke="f" fillcolor="#4caf7d"><w:anchorlock/><center style="color:white;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:0.5px;">&#9971; Open Greenkeeper Dashboard</center></v:roundrect><![endif]--><!--[if !mso]><!-->
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
         style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
         font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
         &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <!--<![endif]-->
     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
         Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
   </td></tr>
@@ -2466,10 +2485,12 @@ def build_monthly_html(history, month_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:#3a2c08;
-            border:1px solid #6b540f;color:#f5d87a;
-            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Monthly Summary</div>
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
+              padding:3px 10px;border-radius:20px;">
+            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;">Monthly Summary</span>
+          </td></tr></table>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Monthly Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{month_label}</div>
@@ -2678,10 +2699,12 @@ def build_monthly_html(history, month_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Monthly Report</div>
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://bidgee182.github.io/wwcc-weather-page/?gk=1" style="height:38px;v-text-anchor:middle;width:244px;" arcsize="50%" stroke="f" fillcolor="#4caf7d"><w:anchorlock/><center style="color:white;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:0.5px;">&#9971; Open Greenkeeper Dashboard</center></v:roundrect><![endif]--><!--[if !mso]><!-->
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
         style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
         font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
         &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <!--<![endif]-->
     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
         Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
   </td></tr>
@@ -2776,10 +2799,12 @@ def build_yearly_html(history, year_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:#3a2c08;
-            border:1px solid #6b540f;color:#f5d87a;
-            font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Annual Summary</div>
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
+          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
+              padding:3px 10px;border-radius:20px;">
+            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;">Annual Summary</span>
+          </td></tr></table>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Annual Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{year_label}</div>
@@ -2926,10 +2951,12 @@ def build_yearly_html(history, year_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
         margin-bottom:14px;">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Automated Annual Report</div>
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://bidgee182.github.io/wwcc-weather-page/?gk=1" style="height:38px;v-text-anchor:middle;width:244px;" arcsize="50%" stroke="f" fillcolor="#4caf7d"><w:anchorlock/><center style="color:white;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:0.5px;">&#9971; Open Greenkeeper Dashboard</center></v:roundrect><![endif]--><!--[if !mso]><!-->
     <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
         style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
         font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;letter-spacing:0.5px;">
         &#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <!--<![endif]-->
     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
         Davis WeatherLink &nbsp;&bull;&nbsp; Open-Meteo archive</div>
   </td></tr>
