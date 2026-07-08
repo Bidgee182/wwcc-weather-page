@@ -52,6 +52,44 @@ def _ahd_to_ml(ahd):
     return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
 
 
+_WHITE_LOGO_B64_CACHE = None
+
+
+def _get_white_logo_b64():
+    global _WHITE_LOGO_B64_CACHE
+    if _WHITE_LOGO_B64_CACHE is not None:
+        return _WHITE_LOGO_B64_CACHE
+    try:
+        import io as _io, base64 as _b64, requests as _req
+        from PIL import Image
+        resp = _req.get(
+            'https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png',
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
+            timeout=10
+        )
+        resp.raise_for_status()
+        img = Image.open(_io.BytesIO(resp.content)).convert('RGBA')
+        r, g, b, a = img.split()
+        white = Image.new('L', img.size, 255)
+        white_img = Image.merge('RGBA', (white, white, white, a))
+        buf = _io.BytesIO()
+        white_img.save(buf, format='PNG')
+        b64 = _b64.b64encode(buf.getvalue()).decode('ascii')
+        _WHITE_LOGO_B64_CACHE = f'data:image/png;base64,{b64}'
+        return _WHITE_LOGO_B64_CACHE
+    except Exception as e:
+        logging.warning(f'Could not generate white logo: {e}')
+        return None
+
+
+def _white_logo_html():
+    src = _get_white_logo_b64()
+    if src:
+        return (f'<img src="{src}" height="44" alt="Wagga Wagga Country Club"'
+                f' style="display:block;height:44px;width:auto;border:0;">')
+    return ''
+
+
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 EMAIL_LAKE_TO    = os.environ.get('EMAIL_LAKE_TO', '')
@@ -173,13 +211,7 @@ def _header(title, subtitle=''):
             {sub}
           </td>
           <td align="right" valign="middle" style="padding-left:16px;white-space:nowrap;">
-            <table cellpadding="0" cellspacing="0"><tr>
-              <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
-                <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-                     height="44" alt="Wagga Wagga Country Club"
-                     style="display:block;height:44px;width:auto;border:0;">
-              </td>
-            </tr></table>
+            {_white_logo_html()}
           </td>
         </tr>
       </table>
