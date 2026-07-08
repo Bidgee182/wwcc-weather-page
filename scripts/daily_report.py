@@ -855,8 +855,8 @@ RISK_COLOURS = {
 
 def risk_badge(risk):
     bg, fg = RISK_COLOURS.get(risk, ('#f1f5f9', '#374151'))
-    return (f'<span style="background:{bg};color:{fg};padding:4px 14px;'
-            f'border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">{risk}</span>')
+    return (f'<span style="background:{bg};color:{fg};padding:3px 10px;'
+            f'border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">{risk}</span>')
 
 
 RISK_ROW_BG = {
@@ -1606,7 +1606,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
 
         if m_avg:
             lnum2, lname2, lrate2, lbg2, lfg2, _, _ = _lake_level_info(m_avg)
-            badge = f'<span style="display:inline-block;background:{lbg2};color:{lfg2};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">L{lnum2}</span>'
+            badge = f'<span style="display:inline-block;background:{lbg2};color:{lfg2};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">L{lnum2}</span>'
         else:
             badge = '—'
 
@@ -1742,8 +1742,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     out1 = _disease_outlook(fd1['max_c'], fd1['min_c'], fd1['precip_mm']) if fd1 else None
 
     def _no_badge():
-        return ('<span style="background:#f1f5f9;color:#94a3b8;padding:4px 14px;'
-                'border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">--</span>')
+        return ('<span style="background:#f1f5f9;color:#94a3b8;padding:3px 10px;'
+                'border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">--</span>')
 
     def outlook_badge(risk):
         return risk_badge(risk) if risk and risk != '--' else _no_badge()
@@ -1906,10 +1906,10 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:rgba(201,162,39,0.25);
-            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+        <div style="display:inline-block;background:#3a2c08;
+            border:1px solid #6b540f;color:#f5d87a;
             font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Daily Briefing</div>
+            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Daily Briefing</div>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Morning Weather Briefing</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;
@@ -2020,8 +2020,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               <div style="font-size:12px;color:#2d7a4e;font-weight:600;
                   margin-bottom:10px;">Yesterday accumulation</div>
               <div>
-                <span style="background:#1a4a2e;color:white;padding:4px 14px;
-                    border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+                <span style="background:#1a4a2e;color:white;padding:3px 10px;
+                    border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
                     7-day: {row['gdd_bent_7d']} GDD</span>
               </div>
             </td></tr>
@@ -2039,8 +2039,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               <div style="font-size:12px;color:#92400e;font-weight:600;
                   margin-bottom:10px;">Yesterday accumulation</div>
               <div>
-                <span style="background:#713f12;color:white;padding:4px 14px;
-                    border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+                <span style="background:#713f12;color:white;padding:3px 10px;
+                    border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
                     7-day: {row['gdd_kik_7d']} GDD</span>
               </div>
             </td></tr>
@@ -2055,7 +2055,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
   <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <div style="margin-bottom:14px;">
       <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
-          padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+          padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
           &#127807; Leaf wetness yesterday: {row['leaf_wet_hours']} hrs</span>
     </div>
     <table width="100%" cellpadding="0" cellspacing="0"
@@ -2130,8 +2130,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               style="background:#dcfce7;border:2px solid #86efac;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#15803d;color:white;padding:4px 14px;
-                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+              <span style="background:#15803d;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
                   GO</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#15803d;
                 line-height:1;padding:8px 0;">{row['spray_go_hours']}</td></tr>
@@ -2143,8 +2143,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               style="background:#fef9c3;border:2px solid #fde047;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#a16207;color:white;padding:4px 14px;
-                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+              <span style="background:#a16207;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
                   CAUTION</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#a16207;
                 line-height:1;padding:8px 0;">{row['spray_caution_hours']}</td></tr>
@@ -2156,8 +2156,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               style="background:#fee2e2;border:2px solid #fca5a5;border-radius:12px;
               text-align:center;padding:20px 8px;">
             <tr><td style="padding-bottom:8px;">
-              <span style="background:#dc2626;color:white;padding:4px 14px;
-                  border-radius:20px;font-size:12px;font-weight:700;display:inline-block;">
+              <span style="background:#dc2626;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
                   NO-GO</span></td></tr>
             <tr><td style="font-size:44px;font-weight:700;color:#dc2626;
                 line-height:1;padding:8px 0;">{row['spray_nogo_hours']}</td></tr>
@@ -2255,10 +2255,10 @@ def build_weekly_html(history, week_end_date):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:rgba(201,162,39,0.25);
-            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+        <div style="display:inline-block;background:#3a2c08;
+            border:1px solid #6b540f;color:#f5d87a;
             font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Weekly Summary</div>
+            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Weekly Summary</div>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Weekly Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{date_str}</div>
@@ -2519,10 +2519,10 @@ def build_monthly_html(history, month_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:rgba(201,162,39,0.25);
-            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+        <div style="display:inline-block;background:#3a2c08;
+            border:1px solid #6b540f;color:#f5d87a;
             font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Monthly Summary</div>
+            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Monthly Summary</div>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Monthly Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{month_label}</div>
@@ -2788,7 +2788,7 @@ def build_yearly_html(history, year_label):
         year_totals['alert_days'] += m['alert_days']
         year_totals['frost_days'] += m['frost_days']
         ad_cell = (f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;'
-                   f'border-radius:10px;font-size:11px;font-weight:700;">{m["alert_days"]}</span>'
+                   f'border-radius:4px;font-size:11px;font-weight:700;">{m["alert_days"]}</span>'
                    if m['alert_days'] > 0 else
                    f'<span style="color:#94a3b8;font-size:11px;">0</span>')
         rows_html += f"""
@@ -2829,10 +2829,10 @@ def build_yearly_html(history, year_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
     <table width="100%" cellpadding="0" cellspacing="0"><tr>
       <td valign="top">
-        <div style="display:inline-block;background:rgba(201,162,39,0.25);
-            border:1px solid rgba(201,162,39,0.55);color:#f5d87a;
+        <div style="display:inline-block;background:#3a2c08;
+            border:1px solid #6b540f;color:#f5d87a;
             font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-            padding:4px 14px;border-radius:20px;margin-bottom:16px;">Annual Summary</div>
+            padding:3px 10px;border-radius:20px;margin-bottom:16px;">Annual Summary</div>
         <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
             margin-bottom:8px;">Annual Weather Summary</div>
         <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{year_label}</div>

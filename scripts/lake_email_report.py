@@ -131,7 +131,7 @@ BORDER   = '#a9cce3'   # table border colour
 
 def _pill(label, bg, fg='#ffffff'):
     return (f'<span style="display:inline-block;background-color:{bg};color:{fg};'
-            f'padding:3px 10px;border-radius:3px;font-size:12px;font-weight:bold;'
+            f'padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;'
             f'font-family:Arial,sans-serif;">{label}</span>')
 
 def _header(title, subtitle=''):
