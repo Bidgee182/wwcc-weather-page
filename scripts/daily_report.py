@@ -891,8 +891,8 @@ _HDR_TXT = 'color:white;font-size:16px;font-weight:700;vertical-align:middle;'
 _HDR_SUB = 'color:rgba(255,255,255,0.8);font-size:12px;margin-top:3px;'
 _CARD    = ('background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;'
             'padding:14px 16px;')
-_LABEL   = ('font-size:10px;font-weight:700;letter-spacing:1.5px;'
-            'text-transform:uppercase;color:#94a3b8;margin-bottom:6px;')
+_LABEL   = ('font-size:11px;font-weight:700;letter-spacing:1.5px;'
+            'text-transform:uppercase;color:#475569;margin-bottom:6px;')
 _VAL     = 'font-size:22px;font-weight:700;color:#111827;line-height:1.2;'
 _SUB     = 'font-size:12px;color:#64748b;margin-top:4px;'
 
@@ -1191,12 +1191,12 @@ def _lake_threshold_table(current_ahd):
 
 
 def _metric_card(label, value, sub='', bg='#f8fafc', border='#e2e8f0',
-                 label_col='#94a3b8', val_col='#111827', sub_col='#64748b'):
+                 label_col='#475569', val_col='#111827', sub_col='#64748b'):
     sub_html = f'<div style="font-size:12px;color:{sub_col};margin-top:4px;">{sub}</div>' if sub else ''
     return f"""<table width="100%" height="100%" cellpadding="14" cellspacing="0"
         style="height:100%;background:{bg};border:1px solid {border};border-radius:10px;">
       <tr><td valign="top">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
             color:{label_col};margin-bottom:6px;">{label}</div>
         <div style="font-size:22px;font-weight:700;color:{val_col};line-height:1.2;">{value}</div>
         {sub_html}
@@ -1342,7 +1342,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
               border-radius:8px;border-left:5px solid {accent};">
             <table cellpadding="0" cellspacing="0" width="100%"><tr>
               <td valign="middle">
-                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:{banner_text};
+                <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:{banner_text};
                     text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
                   Level {level_num} &mdash; {level_name}</div>
@@ -1486,7 +1486,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
               border-radius:8px;border-left:5px solid {accent};">
             <table cellpadding="0" cellspacing="0" width="100%"><tr>
               <td valign="middle">
-                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
                   Level {level_num} &mdash; {level_name}</div>
@@ -1635,7 +1635,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
               border-radius:8px;border-left:5px solid {accent};">
             <table cellpadding="0" cellspacing="0" width="100%"><tr>
               <td valign="middle">
-                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
                   Level {level_num} &mdash; {level_name}</div>
@@ -1814,7 +1814,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
               border-radius:8px;border-left:5px solid {accent};">
             <table cellpadding="0" cellspacing="0" width="100%"><tr>
               <td valign="middle">
-                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
                   Level {level_num} &mdash; {level_name}</div>
@@ -1979,7 +1979,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
               bgcolor="{bg_col}"
               style="background-color:{bg_col};border:{bdr_style};border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
                   color:{lbl_color};margin-bottom:2px;">{heading}</div>
               <div style="font-size:11px;color:#374151;margin-bottom:8px;">{subdate}</div>
               <div style="font-size:28px;margin-bottom:6px;">{fd['icon']}</div>
@@ -2099,11 +2099,11 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
       <tr>
         <td width="33%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Temperature</div>
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
+              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td valign="top">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Temperature</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['temp_max']}° / {row['temp_min']}°C</div>
               <div style="font-size:12px;color:#64748b;">Mean {row['temp_mean']}°C - RH {row['rh_mean']}%</div>
@@ -2112,11 +2112,11 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           </table>
         </td>
         <td width="33%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Rain &amp; ET</div>
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
+              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td valign="top">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Rain &amp; ET</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['rain_mm']} mm</div>
               <div style="font-size:12px;color:#64748b;">ET {row['et_mm']} mm - Net {net_str} mm</div>
@@ -2124,11 +2124,11 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           </table>
         </td>
         <td width="33%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Wind</div>
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
+              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td valign="top">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Wind</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">{row['wind_max_kmh']} km/h</div>
               <div style="font-size:12px;color:#64748b;">Mean {row['wind_mean_kmh']} km/h - Delta T {row['delta_t_mean']}°C</div>
@@ -2144,7 +2144,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           <table width="100%" cellpadding="14" cellspacing="0"
               style="background:{soil_bg};border:1px solid {soil_bdr};border-radius:10px;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:{soil_lbl_c};margin-bottom:6px;">Soil Moisture</div>
               <div style="font-size:22px;font-weight:700;color:{soil_val_c};
                   line-height:1.1;margin-bottom:5px;">{soil_zone_val}</div>
@@ -2153,11 +2153,11 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           </table>
         </td>
         <td width="50%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">UV &amp; Pressure</div>
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
+              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <tr><td valign="top">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
+                  text-transform:uppercase;color:#475569;margin-bottom:6px;">UV &amp; Pressure</div>
               <div style="font-size:22px;font-weight:700;color:#111827;
                   line-height:1.1;margin-bottom:5px;">UV {uv_str}</div>
               <div style="font-size:12px;color:#64748b;">Pressure {pres_str} hPa - Leaf wet {row['leaf_wet_hours']} hrs</div>
@@ -2177,7 +2177,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           <table width="100%" cellpadding="16" cellspacing="0"
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#065f46;margin-bottom:6px;">
                   Bentgrass - base 10 C</div>
               <div style="font-size:28px;font-weight:700;color:#1a4a2e;
@@ -2196,7 +2196,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           <table width="100%" cellpadding="16" cellspacing="0"
               style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#713f12;margin-bottom:6px;">
                   Kikuyu - base 15 C</div>
               <div style="font-size:28px;font-weight:700;color:#713f12;
@@ -2493,7 +2493,7 @@ def build_weekly_html(history, week_end_date):
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;
               text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#065f46;margin-bottom:6px;">Rainfall</div>
               <div style="font-size:24px;font-weight:700;color:#1a4a2e;
                   line-height:1;">{totals['rain']:.1f}</div>
@@ -2506,7 +2506,7 @@ def build_weekly_html(history, week_end_date):
               style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
               text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#64748b;margin-bottom:6px;">Total ET</div>
               <div style="font-size:24px;font-weight:700;color:#111827;
                   line-height:1;">{totals['et']:.1f}</div>
@@ -2520,7 +2520,7 @@ def build_weekly_html(history, week_end_date):
               border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
               border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;
                   color:{'#065f46' if water_bal >= 0 else '#991b1b'};margin-bottom:6px;">
                   Water Balance</div>
@@ -2537,7 +2537,7 @@ def build_weekly_html(history, week_end_date):
               style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;
               text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#713f12;margin-bottom:6px;">GDD Bent</div>
               <div style="font-size:24px;font-weight:700;color:#713f12;
                   line-height:1;">{totals['gdd_bent']:.1f}</div>
@@ -2551,7 +2551,7 @@ def build_weekly_html(history, week_end_date):
           <table width="100%" cellpadding="14" cellspacing="0"
               style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#1e40af;margin-bottom:6px;">Tank Water Used</div>
               <div style="font-size:24px;font-weight:700;color:#1d4ed8;
                   line-height:1;">{totals['tank_used_l']/1000:.1f}</div>
@@ -2574,7 +2574,7 @@ def build_weekly_html(history, week_end_date):
               border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;
                   color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
                   Disease Alert Days</div>
@@ -2593,7 +2593,7 @@ def build_weekly_html(history, week_end_date):
               border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;
                   color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
                   Frost Days</div>
@@ -2831,7 +2831,7 @@ def build_monthly_html(history, month_label):
               border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;
                   color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
                   Disease Alert Days</div>
@@ -2850,7 +2850,7 @@ def build_monthly_html(history, month_label):
               border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;
                   color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
                   Frost Days</div>
@@ -2876,7 +2876,7 @@ def build_monthly_html(history, month_label):
           <table width="100%" cellpadding="16" cellspacing="0"
               style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#1e40af;margin-bottom:8px;">Total Used</div>
               <div style="font-size:44px;font-weight:700;color:#1d4ed8;line-height:1;">
                   {totals['tank_used_l']/1000:.0f}</div>
@@ -2888,7 +2888,7 @@ def build_monthly_html(history, month_label):
           <table width="100%" cellpadding="16" cellspacing="0"
               style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;text-align:center;">
             <tr><td>
-              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                   text-transform:uppercase;color:#065f46;margin-bottom:8px;">Daily Average</div>
               <div style="font-size:44px;font-weight:700;color:#15803d;line-height:1;">
                   {(totals['tank_used_l']/1000/max(len(history),1)):.1f}</div>
