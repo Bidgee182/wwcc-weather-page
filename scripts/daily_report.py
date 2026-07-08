@@ -25,6 +25,8 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, To, Email
+import base64
+import io
 
 logging.basicConfig(
     level=logging.INFO,
@@ -940,6 +942,768 @@ def card(label, value, sub=''):
       {sub_html}</td></tr></table>"""
 
 
+# ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
+
+LAKE_BOTTOM_AHD = 189.362
+
+_LAKE_LEVELS = [
+    # (min_ahd, level_num, name, rate_str, bg_hex, fg_hex, row_bg, accent)
+    (190.250, 1, 'Normal Operations',           '1.50 ML/day', '#00762A', 'white',  '#f0fdf4', '#00762A'),
+    (190.050, 2, 'Increased Monitoring',        '1.00 ML/day', '#8AC63F', '#111111','#f7fee7', '#8AC63F'),
+    (189.850, 3, 'Water Conservation Planning', '0.75 ML/day', '#FFDD00', '#111111','#fefce8', '#FFDD00'),
+    (189.650, 4, 'Critical Warning',            '0.50 ML/day', '#F58E1E', '#111111','#fff7ed', '#F58E1E'),
+    (0,       5, 'Shutdown Verification',       '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#EB1E23'),
+]
+
+
+def _lake_level_info(ahd):
+    """Return (num, name, rate_str, bg, fg, row_bg, accent) for given AHD."""
+    for min_ahd, num, name, rate, bg, fg, row_bg, accent in _LAKE_LEVELS:
+        if ahd >= min_ahd:
+            return num, name, rate, bg, fg, row_bg, accent
+    return _LAKE_LEVELS[-1][1:]
+
+
+def _load_lake_data():
+    """Load all lake-related JSON files. Returns dict or None on error."""
+    base = Path(__file__).parent.parent / 'data'
+    try:
+        with open(base / 'farmbot_lake_latest.json') as f:
+            latest = json.load(f)
+        with open(base / 'farmbot_lake_readings.json') as f:
+            readings = json.load(f)
+        with open(base / 'pumping_usage.json') as f:
+            pumping = json.load(f)
+        with open(base / 'water_quality.json') as f:
+            quality = json.load(f)
+        return {'latest': latest, 'readings': readings, 'pumping': pumping, 'quality': quality}
+    except Exception as e:
+        logging.warning(f'Lake data load failed: {e}')
+        return None
+
+
+def _readings_in_range(readings, start_date, end_date):
+    """Filter readings to [start_date, end_date] inclusive. Attaches _date attr."""
+    result = []
+    for r in readings:
+        try:
+            dt = datetime.fromisoformat(r['date'].replace('Z', '+00:00'))
+            d = dt.astimezone(ZoneInfo('Australia/Sydney')).date()
+            if start_date <= d <= end_date:
+                result.append({**r, '_date': d, '_dt': dt})
+        except Exception:
+            pass
+    return sorted(result, key=lambda x: x['_dt'])
+
+
+def _pumping_in_range(pumping, start_date, end_date):
+    """Filter pumping records to [start_date, end_date] inclusive."""
+    result = []
+    for p in pumping:
+        try:
+            d = date.fromisoformat(p['date'])
+            if start_date <= d <= end_date:
+                result.append({**p, '_date': d})
+        except Exception:
+            pass
+    return sorted(result, key=lambda x: x['_date'])
+
+
+def _lake_chart_b64(readings, start_date, end_date, title=''):
+    """Generate a dark-theme lake level chart as base64 PNG using matplotlib."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib.transforms import blended_transform_factory
+
+    # Build date→ahd dict; one reading per day (latest per day)
+    day_ahd = {}
+    for r in readings:
+        d = r['_date']
+        ahd = float(r.get('ahd', 0) or 0)
+        if ahd > 0:
+            day_ahd[d] = ahd
+
+    # Build ordered lists over the range
+    total_days = (end_date - start_date).days + 1
+    dates, vals = [], []
+    for i in range(total_days):
+        d = start_date + timedelta(days=i)
+        if d in day_ahd:
+            dates.append(d)
+            vals.append(day_ahd[d])
+
+    fig, ax = plt.subplots(figsize=(6, 1.9), dpi=100)
+    fig.patch.set_facecolor('#0d1b2a')
+    ax.set_facecolor('#0d1b2a')
+
+    if dates and vals:
+        import matplotlib.dates as mdates
+        date_nums = mdates.date2num(dates)
+        ax.plot(date_nums, vals, color='#1abc9c', linewidth=2.2, solid_capstyle='round')
+        ax.fill_between(date_nums, vals,
+                         color='#1abc9c', alpha=0.15)
+
+        # Threshold lines
+        thresholds = [
+            (190.250, '#00762A', 'L1 190.25'),
+            (190.050, '#8AC63F', 'L2 190.05'),
+            (189.850, '#FFDD00', 'L3 189.85'),
+            (189.650, '#EB1E23', 'L5 189.65'),
+        ]
+        trans = blended_transform_factory(ax.transAxes, ax.transData)
+        ymin = min(vals) - 0.05
+        ymax = max(vals) + 0.05
+        for thr, col, lbl in thresholds:
+            if ymin - 0.1 <= thr <= ymax + 0.1:
+                ax.axhline(thr, color=col, linewidth=1.0, linestyle=(0, (6, 4)), alpha=0.85)
+                ax.text(0.01, thr + 0.003, lbl, transform=trans,
+                        color=col, fontsize=7, va='bottom', alpha=0.9)
+
+        ax.set_xlim(date_nums[0] - 0.5, date_nums[-1] + 0.5)
+        ax.set_ylim(ymin, ymax)
+
+        # X-axis date formatting
+        n_days = (end_date - start_date).days
+        if n_days <= 10:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%-d %b'))
+            ax.xaxis.set_major_locator(mdates.DayLocator())
+        elif n_days <= 35:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%-d %b'))
+            ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=0))
+        else:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+            ax.xaxis.set_major_locator(mdates.MonthLocator())
+
+        ax.xaxis.set_tick_params(colors='#4a6070', labelsize=8)
+        ax.yaxis.set_tick_params(colors='#4a6070', labelsize=8)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f'{v:.2f}'))
+
+    for spine in ax.spines.values():
+        spine.set_color('rgba(255,255,255,0.08)' if False else '#1e3040')
+    ax.tick_params(colors='#4a6070')
+    ax.grid(axis='y', color='#1e3040', linewidth=0.6)
+    ax.grid(axis='x', color='#1a2d3d', linewidth=0.4)
+
+    plt.tight_layout(pad=0.4)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', facecolor='#0d1b2a', dpi=100)
+    plt.close(fig)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode('ascii')
+
+
+def _lake_threshold_table(current_ahd):
+    """Build the water licence threshold reference table HTML."""
+    level_num, _, _, _, _, _, _ = _lake_level_info(current_ahd)
+
+    level_data = [
+        (1, '&ge; 190.250 m AHD', 'Normal Operations',           '1.50 ML/day', '#00762A', 'white',  '#f0fdf4', '#374151', '#065f46', '#065f46'),
+        (2, '&ge; 190.050 m AHD', 'Increased Monitoring',        '1.00 ML/day', '#8AC63F', '#111',   '#f7fee7', '#374151', '#3a6b10', '#3a6b10'),
+        (3, '&ge; 189.850 m AHD', 'Water Conservation Planning', '0.75 ML/day', '#FFDD00', '#111',   '#fefce8', '#374151', '#854d0e', '#854d0e'),
+        (4, '&ge; 189.650 m AHD', 'Critical Warning',            '0.50 ML/day', '#F58E1E', '#111',   '#fff7ed', '#374151', '#9a3412', '#9a3412'),
+        (5, '&lt; 189.650 m AHD', 'Shutdown Verification',       '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#374151', '#991b1b', '#991b1b'),
+    ]
+
+    rows = ''
+    for lnum, thresh, status, rate, badge_bg, badge_fg, row_bg, thr_col, stat_col, rate_col in level_data:
+        is_current = lnum == level_num
+        bl = f'border-left:3px solid {badge_bg};' if is_current else ''
+        now_tag = f'<span style="font-size:10px;color:{stat_col};font-weight:700;margin-left:4px;">&#9654; NOW</span>' if is_current else ''
+        rows += f"""
+        <tr>
+          <td bgcolor="{row_bg}" style="background:{row_bg};padding:8px 12px;{bl}">
+            <span style="display:inline-block;background:{badge_bg};color:{badge_fg};padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L{lnum}</span>{now_tag}</td>
+          <td bgcolor="{row_bg}" style="background:{row_bg};padding:8px 12px;color:{thr_col};{bl}">{thresh}</td>
+          <td bgcolor="{row_bg}" style="background:{row_bg};padding:8px 12px;color:{stat_col};font-weight:600;{bl}">{status}</td>
+          <td bgcolor="{row_bg}" style="background:{row_bg};padding:8px 12px;text-align:right;font-weight:700;color:{rate_col};{bl}">{rate}</td>
+        </tr>"""
+
+    return f"""<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+        color:#94a3b8;margin-bottom:8px;">WATER LICENCE — OPERATING LEVELS</div>
+      <table width="100%" cellpadding="0" cellspacing="0"
+          style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
+        <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Level</th>
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Threshold</th>
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Status</th>
+          <th style="padding:9px 12px;text-align:right;color:white;font-size:11px;font-weight:700;">Max Rate</th>
+        </tr>{rows}
+      </table>"""
+
+
+def _metric_card(label, value, sub='', bg='#f8fafc', border='#e2e8f0',
+                 label_col='#94a3b8', val_col='#111827', sub_col='#64748b'):
+    sub_html = f'<div style="font-size:12px;color:{sub_col};margin-top:4px;">{sub}</div>' if sub else ''
+    return f"""<table width="100%" cellpadding="14" cellspacing="0"
+        style="background:{bg};border:1px solid {border};border-radius:10px;">
+      <tr><td>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+            color:{label_col};margin-bottom:6px;">{label}</div>
+        <div style="font-size:22px;font-weight:700;color:{val_col};line-height:1.2;">{value}</div>
+        {sub_html}
+      </td></tr></table>"""
+
+
+def _build_lake_section_daily(lake_data, target_date, section_num=7):
+    """Build the lake section HTML for the daily GK email."""
+    if lake_data is None:
+        return ''
+
+    latest   = lake_data['latest']
+    readings = lake_data['readings']
+    pumping  = lake_data['pumping']
+    quality  = lake_data['quality']
+
+    ahd = float(latest.get('lake_ahd', 0) or 0)
+    if ahd <= 0:
+        return ''
+
+    level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
+    depth = ahd - LAKE_BOTTOM_AHD
+
+    # Buffer distances
+    l3_thresh = 189.850
+    l1_thresh = 190.250
+    buf_to_l3 = ahd - l3_thresh
+    rise_to_l1 = l1_thresh - ahd
+
+    # 7-day window
+    chart_end   = target_date
+    chart_start = target_date - timedelta(days=6)
+    chart_readings = _readings_in_range(readings, chart_start, chart_end)
+
+    # Yesterday's pumping
+    yest_pump = next((p for p in pumping if p['date'] == target_date.strftime('%Y-%m-%d')), None)
+    pump_ml   = float(yest_pump['ml']) if yest_pump else 0.0
+    pump_note = yest_pump.get('note', '') if yest_pump else ''
+
+    # Water quality
+    q_alert = quality.get('alert_level', 'unknown')
+    q_label = quality.get('alert_label', 'Unknown')
+    q_tested = quality.get('last_tested', '')
+    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
+    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
+    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
+    q_val_col = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
+    q_icon = '&#9679;'
+
+    # Chart
+    chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
+    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+
+    # Banner text colour adjust
+    banner_text = '#111' if fg == '#111111' else 'white'
+    buf_text = f'{buf_to_l3:+.3f} m from Level 3 threshold' if buf_to_l3 >= 0 else f'{abs(buf_to_l3):.3f} m BELOW Level 3'
+    rise_text = f'{rise_to_l1:.3f} m needed for Level 1' if rise_to_l1 > 0 else 'At or above Level 1'
+
+    section_header = sec_header(section_num, 'Lake Albert — Current Level &amp; Licence Status',
+                                 'Live FarmBot sensor &bull; Water licence level &bull; Current max pump rate')
+
+    # Metric cards row 1
+    cards_r1 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+        <tr>
+          <td width="33%" style="padding-right:5px;vertical-align:top;">
+            {_metric_card('Lake Level (AHD)', f'{ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="33%" style="padding:0 3px;vertical-align:top;">
+            {_metric_card('Buffer to Level 3', f'{buf_to_l3:+.3f} m', f'above {l3_thresh:.3f} m AHD')}
+          </td>
+          <td width="33%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Rise to Level 1', f'{rise_to_l1:.3f} m', f'needed for {l1_thresh:.3f} m AHD')}
+          </td>
+        </tr>
+      </table>"""
+
+    # Metric cards row 2
+    cards_r2 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="50%" style="padding-right:5px;vertical-align:top;">
+            {_metric_card("Yesterday's Extraction", f'{pump_ml:.1f} ML', pump_note or '&nbsp;')}
+          </td>
+          <td width="50%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Water Quality', f'{q_icon} {q_label.split("—")[0].strip()}',
+                          ('BGA &amp; Bacterial: Low' if q_alert == 'green' else '') +
+                          (f' &bull; Tested {q_tested}' if q_tested else ''),
+                          bg=q_bg, border=q_border, label_col=q_label_col,
+                          val_col=q_val_col, sub_col=q_label_col)}
+          </td>
+        </tr>
+      </table>"""
+
+    threshold_tbl = _lake_threshold_table(ahd)
+
+    body = f"""
+      <!-- Licence level banner -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td bgcolor="{bg}" style="background-color:{bg};padding:12px 18px;
+              border-radius:8px;border-left:5px solid {accent};">
+            <table cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td valign="middle">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:{banner_text};
+                    text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
+                <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
+                  Level {level_num} &mdash; {level_name}</div>
+                <div style="font-size:12px;color:{banner_text};opacity:0.75;margin-top:3px;">
+                  {buf_text} &bull; {rise_text}
+                </div>
+              </td>
+              <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
+                <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
+                <div style="font-size:11px;color:{banner_text};opacity:0.75;text-align:right;margin-top:2px;">max pump rate</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+
+      {cards_r1}
+      {cards_r2}
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
+      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
+        {chart_img}
+      </div>
+
+      {threshold_tbl}"""
+
+    return f"""
+  {section_header}
+  <tr>
+    <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+      {body}
+    </td>
+  </tr>"""
+
+
+def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
+    """Build the lake section HTML for the weekly GK email."""
+    if lake_data is None:
+        return ''
+
+    latest   = lake_data['latest']
+    readings = lake_data['readings']
+    pumping  = lake_data['pumping']
+    quality  = lake_data['quality']
+
+    ahd = float(latest.get('lake_ahd', 0) or 0)
+    if ahd <= 0:
+        return ''
+
+    level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
+
+    # 7-day window
+    chart_end   = week_end_date
+    chart_start = week_end_date - timedelta(days=6)
+    chart_readings = _readings_in_range(readings, chart_start, chart_end)
+    week_pumping   = _pumping_in_range(pumping, chart_start, chart_end)
+
+    # First and last readings this week for change calc
+    week_ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
+    first_ahd = week_ahd_vals[0]  if week_ahd_vals else ahd
+    last_ahd  = week_ahd_vals[-1] if week_ahd_vals else ahd
+    week_change = last_ahd - first_ahd
+
+    total_pump_ml = sum(float(p.get('ml', 0)) for p in week_pumping)
+
+    # Water quality
+    q_alert  = quality.get('alert_level', 'unknown')
+    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
+    q_tested = quality.get('last_tested', '')
+    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
+    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
+    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
+    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
+
+    chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
+    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+
+    banner_text = '#111' if fg == '#111111' else 'white'
+    change_sign = '+' if week_change >= 0 else ''
+
+    # Daily breakdown table
+    day_rows = ''
+    for i in range(7):
+        d = chart_start + timedelta(days=i)
+        day_readings = [r for r in chart_readings if r['_date'] == d]
+        day_ahd = float(day_readings[-1].get('ahd', 0)) if day_readings else None
+        day_pump = next((p for p in week_pumping if p['_date'] == d), None)
+        pump_ml = float(day_pump['ml']) if day_pump else 0.0
+        pump_note = day_pump.get('note', '—') if day_pump else '—'
+        bg_row = '#f8fafc' if i % 2 == 0 else 'white'
+        ahd_str = f'{day_ahd:.3f} m' if day_ahd else '—'
+        day_rows += f"""<tr>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{d.strftime('%a %-d %b')}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#111827;font-weight:600;">{ahd_str}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{pump_ml:.1f} ML</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#64748b;font-style:italic;">{pump_note}</td>
+        </tr>"""
+
+    section_header = sec_header(section_num, 'Lake Albert — Weekly Summary',
+                                 'Lake level trend &bull; Weekly extraction &bull; Licence status')
+
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="25%" style="padding-right:4px;vertical-align:top;">
+            {_metric_card('End Level', f'{ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card('Week Change', f'{change_sign}{week_change:.3f} m',
+                          'rise' if week_change >= 0 else 'fall')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card("Week's Extraction", f'{total_pump_ml:.1f} ML', 'total pumped')}
+          </td>
+          <td width="25%" style="padding-left:4px;vertical-align:top;">
+            {_metric_card('Water Quality', f'&#9679; {q_label}', f'Tested {q_tested}' if q_tested else '',
+                          bg=q_bg, border=q_border, label_col=q_label_col,
+                          val_col=q_val_col, sub_col=q_label_col)}
+          </td>
+        </tr>
+      </table>"""
+
+    threshold_tbl = _lake_threshold_table(ahd)
+
+    body = f"""
+      <!-- Licence banner -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td bgcolor="{bg}" style="background-color:{bg};padding:12px 18px;
+              border-radius:8px;border-left:5px solid {accent};">
+            <table cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td valign="middle">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                    color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
+                <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
+                  Level {level_num} &mdash; {level_name}</div>
+              </td>
+              <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
+                <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
+                <div style="font-size:11px;color:{banner_text};opacity:0.75;text-align:right;margin-top:2px;">max pump rate</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+
+      {cards_html}
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
+      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
+        {chart_img}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">DAILY BREAKDOWN</div>
+      <table width="100%" cellpadding="0" cellspacing="0"
+          style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;margin-bottom:16px;">
+        <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Day</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Level (AHD)</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Extraction</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Note</th>
+        </tr>
+        {day_rows}
+      </table>
+
+      {threshold_tbl}"""
+
+    return f"""
+  {section_header}
+  <tr>
+    <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+      {body}
+    </td>
+  </tr>"""
+
+
+def _build_lake_section_monthly(lake_data, month_label, section_num=5):
+    """Build the lake section HTML for the monthly GK email."""
+    if lake_data is None:
+        return ''
+
+    latest   = lake_data['latest']
+    readings = lake_data['readings']
+    pumping  = lake_data['pumping']
+    quality  = lake_data['quality']
+
+    ahd = float(latest.get('lake_ahd', 0) or 0)
+    if ahd <= 0:
+        return ''
+
+    level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
+
+    # Parse month_label e.g. "June 2026"
+    try:
+        month_start = datetime.strptime(month_label, '%B %Y').replace(tzinfo=ZoneInfo('Australia/Sydney')).date()
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+    except Exception:
+        return ''
+
+    chart_readings = _readings_in_range(readings, month_start, month_end)
+    month_pumping  = _pumping_in_range(pumping, month_start, month_end)
+
+    ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
+    high_ahd = max(ahd_vals) if ahd_vals else ahd
+    low_ahd  = min(ahd_vals) if ahd_vals else ahd
+    avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    total_pump_ml = sum(float(p.get('ml', 0)) for p in month_pumping)
+
+    q_alert  = quality.get('alert_level', 'unknown')
+    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
+    q_tested = quality.get('last_tested', '')
+    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
+    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
+    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
+    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
+
+    chart_b64 = _lake_chart_b64(chart_readings, month_start, month_end)
+    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+
+    banner_text = '#111' if fg == '#111111' else 'white'
+
+    section_header = sec_header(section_num, 'Lake Albert — Monthly Summary',
+                                 f'{month_label} &bull; Lake level range &bull; Extraction total')
+
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="25%" style="padding-right:4px;vertical-align:top;">
+            {_metric_card('Month High', f'{high_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card('Month Low', f'{low_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card('Month Average', f'{avg_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding-left:4px;vertical-align:top;">
+            {_metric_card('Total Extraction', f'{total_pump_ml:.1f} ML', f'Licence: {rate}')}
+          </td>
+        </tr>
+      </table>"""
+
+    threshold_tbl = _lake_threshold_table(ahd)
+
+    body = f"""
+      <!-- Licence banner -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td bgcolor="{bg}" style="background-color:{bg};padding:12px 18px;
+              border-radius:8px;border-left:5px solid {accent};">
+            <table cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td valign="middle">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                    color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
+                <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
+                  Level {level_num} &mdash; {level_name}</div>
+              </td>
+              <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
+                <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
+                <div style="font-size:11px;color:{banner_text};opacity:0.75;text-align:right;margin-top:2px;">max pump rate</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+
+      {cards_html}
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
+      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
+        {chart_img}
+      </div>
+
+      {threshold_tbl}"""
+
+    return f"""
+  {section_header}
+  <tr>
+    <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+      {body}
+    </td>
+  </tr>"""
+
+
+def _build_lake_section_yearly(lake_data, year_label, section_num=3):
+    """Build the lake section HTML for the yearly GK email."""
+    if lake_data is None:
+        return ''
+
+    latest   = lake_data['latest']
+    readings = lake_data['readings']
+    pumping  = lake_data['pumping']
+    quality  = lake_data['quality']
+
+    ahd = float(latest.get('lake_ahd', 0) or 0)
+    if ahd <= 0:
+        return ''
+
+    level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
+
+    # Parse year_label e.g. "Full Year 2025"
+    try:
+        year = int(year_label.split()[-1])
+    except Exception:
+        return ''
+
+    year_start = date(year, 1, 1)
+    year_end   = date(year, 12, 31)
+
+    chart_readings = _readings_in_range(readings, year_start, year_end)
+    year_pumping   = _pumping_in_range(pumping, year_start, year_end)
+
+    ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
+    high_ahd = max(ahd_vals) if ahd_vals else ahd
+    low_ahd  = min(ahd_vals) if ahd_vals else ahd
+    avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    total_pump_ml = sum(float(p.get('ml', 0)) for p in year_pumping)
+
+    q_alert  = quality.get('alert_level', 'unknown')
+    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
+    q_tested = quality.get('last_tested', '')
+    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
+    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
+    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
+    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
+
+    chart_b64 = _lake_chart_b64(chart_readings, year_start, year_end)
+    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+
+    banner_text = '#111' if fg == '#111111' else 'white'
+
+    # Monthly summary table
+    from collections import defaultdict
+    monthly = defaultdict(lambda: {'ahd_vals': [], 'pump_ml': 0.0})
+    for r in chart_readings:
+        key = r['_date'].strftime('%Y-%m')
+        v = float(r.get('ahd', 0))
+        if v > 0:
+            monthly[key]['ahd_vals'].append(v)
+    for p in year_pumping:
+        key = p['_date'].strftime('%Y-%m')
+        monthly[key]['pump_ml'] += float(p.get('ml', 0))
+
+    month_rows = ''
+    for mi in range(1, 13):
+        key = f'{year}-{mi:02d}'
+        m_label = date(year, mi, 1).strftime('%B')
+        m_data = monthly.get(key, {'ahd_vals': [], 'pump_ml': 0.0})
+        m_ahd_vals = m_data['ahd_vals']
+        m_avg = sum(m_ahd_vals) / len(m_ahd_vals) if m_ahd_vals else None
+        m_high = max(m_ahd_vals) if m_ahd_vals else None
+        m_low  = min(m_ahd_vals) if m_ahd_vals else None
+        m_pump = m_data['pump_ml']
+        bg_row = '#f8fafc' if mi % 2 == 0 else 'white'
+
+        if m_avg:
+            lnum2, lname2, lrate2, lbg2, lfg2, _, _ = _lake_level_info(m_avg)
+            badge = f'<span style="display:inline-block;background:{lbg2};color:{lfg2};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">L{lnum2}</span>'
+        else:
+            badge = '—'
+
+        avg_str  = f'{m_avg:.3f} m'  if m_avg  else '—'
+        high_str = f'{m_high:.3f} m' if m_high else '—'
+        low_str  = f'{m_low:.3f} m'  if m_low  else '—'
+        pump_str = f'{m_pump:.1f} ML'
+
+        month_rows += f"""<tr>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;font-weight:600;">{m_label}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#111827;">{avg_str}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#065f46;">{high_str}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#9a3412;">{low_str}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{pump_str}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;">{badge}</td>
+        </tr>"""
+
+    section_header = sec_header(section_num, 'Lake Albert — Annual Summary',
+                                 f'{year_label} &bull; Lake level range &bull; Annual extraction')
+
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="25%" style="padding-right:4px;vertical-align:top;">
+            {_metric_card('Year High', f'{high_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card('Year Low', f'{low_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding:0 2px;vertical-align:top;">
+            {_metric_card('Year Average', f'{avg_ahd:.3f}', 'metres AHD')}
+          </td>
+          <td width="25%" style="padding-left:4px;vertical-align:top;">
+            {_metric_card('Annual Extraction', f'{total_pump_ml:.1f} ML', 'total for year')}
+          </td>
+        </tr>
+      </table>"""
+
+    threshold_tbl = _lake_threshold_table(ahd)
+
+    body = f"""
+      <!-- Licence banner -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td bgcolor="{bg}" style="background-color:{bg};padding:12px 18px;
+              border-radius:8px;border-left:5px solid {accent};">
+            <table cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td valign="middle">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;
+                    color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
+                <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
+                  Level {level_num} &mdash; {level_name}</div>
+              </td>
+              <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
+                <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
+                <div style="font-size:11px;color:{banner_text};opacity:0.75;text-align:right;margin-top:2px;">max pump rate</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+
+      {cards_html}
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
+      <div style="background:#0d1b2a;border-radius:10px;padding:16px;margin-bottom:18px;">
+        {chart_img}
+      </div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">MONTHLY BREAKDOWN</div>
+      <table width="100%" cellpadding="0" cellspacing="0"
+          style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;margin-bottom:16px;">
+        <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Month</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Avg AHD</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">High</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Low</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Extraction</th>
+          <th style="padding:8px 10px;text-align:left;color:white;font-size:11px;">Licence</th>
+        </tr>
+        {month_rows}
+      </table>
+
+      {threshold_tbl}"""
+
+    return f"""
+  {section_header}
+  <tr>
+    <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+      {body}
+    </td>
+  </tr>"""
+
+# ─────────────────────────── END LAKE ALBERT HELPERS ────────────────────────
+
+
 def build_daily_html(row, target_date, history, forecast_days=None):
     """Generate the HTML email body for the daily morning report (Demo 1 layout)."""
     yesterday_str = target_date.strftime('%A, %-d %B %Y')
@@ -1120,6 +1884,9 @@ def build_daily_html(row, target_date, history, forecast_days=None):
       </tr>
     </table>
   </td></tr>"""
+
+    lake_data = _load_lake_data()
+    lake_section_html = _build_lake_section_daily(lake_data, target_date)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1405,6 +2172,8 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {tank_section_html}
 
+  {lake_section_html}
+
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
@@ -1465,6 +2234,9 @@ def build_weekly_html(history, week_end_date):
     w_sec1 = sec_header('1', 'Daily Breakdown',   'Weather, GDD and disease risk for each day this week')
     w_sec2 = sec_header('2', 'Weekly Totals',     'Cumulative water, ET and heat accumulation for the week')
     w_sec3 = sec_header('3', 'Disease &amp; Frost Alerts', 'Days this week where conditions triggered alerts')
+
+    lake_data = _load_lake_data()
+    lake_section_html = _build_lake_section_weekly(lake_data, week_end_date)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1668,6 +2440,8 @@ def build_weekly_html(history, week_end_date):
     </table>
   </td></tr>
 
+  {lake_section_html}
+
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
@@ -1724,6 +2498,9 @@ def build_monthly_html(history, month_label):
     m_sec2 = sec_header('2', 'Monthly Totals',         'Cumulative water, evapotranspiration and heat for the month')
     m_sec3 = sec_header('3', 'Disease &amp; Frost Summary', 'Alert days recorded during the month')
     m_sec4 = sec_header('4', 'Water Tank',             'FarmBot tank usage for the month')
+
+    lake_data = _load_lake_data()
+    lake_section_html = _build_lake_section_monthly(lake_data, month_label)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -1948,6 +2725,8 @@ def build_monthly_html(history, month_label):
     </table>
   </td></tr>
 
+  {lake_section_html}
+
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
     <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
@@ -2033,6 +2812,9 @@ def build_yearly_html(history, year_label):
       </tr>"""
 
     annual_bal = year_totals['rain'] - year_totals['et']
+
+    lake_data = _load_lake_data()
+    lake_section_html = _build_lake_section_yearly(lake_data, year_label)
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -2190,6 +2972,8 @@ def build_yearly_html(history, year_label):
       </tr>
     </table>
   </td></tr>
+
+  {lake_section_html}
 
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
