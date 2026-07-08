@@ -159,7 +159,6 @@ def _header(title, subtitle=''):
     return f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
-  <!--[if mso]><tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:10px 20px;text-align:right;"><img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" height="44" style="display:block;height:44px;width:auto;margin-left:auto;" alt="Wagga Wagga Country Club"></td></tr><![endif]-->
   <tr>
     <td bgcolor="{HDR_BG}" style="background-color:{HDR_BG};padding:22px 20px 16px 20px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -173,13 +172,11 @@ def _header(title, subtitle=''):
                 font-family:Arial,sans-serif;">{title}</h1>
             {sub}
           </td>
-          <!--[if !mso]><!-->
           <td align="right" valign="middle" style="padding-left:12px;">
             <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
                  height="50" alt="Wagga Wagga Country Club"
                  style="display:block;filter:grayscale(1) contrast(200) invert(1);height:50px;width:auto;opacity:0.9;">
           </td>
-          <!--<![endif]-->
         </tr>
       </table>
     </td>
