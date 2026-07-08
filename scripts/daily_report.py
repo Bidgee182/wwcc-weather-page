@@ -889,14 +889,6 @@ _CIRCLE = ('display:inline-block;width:32px;height:32px;line-height:32px;'
            'margin-right:10px;vertical-align:middle;')
 _HDR_TXT = 'color:white;font-size:16px;font-weight:700;vertical-align:middle;'
 _HDR_SUB = 'color:rgba(255,255,255,0.8);font-size:12px;margin-top:3px;'
-_CARD    = ('background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;'
-            'padding:14px 16px;')
-_LABEL   = ('font-size:11px;font-weight:700;letter-spacing:1.5px;'
-            'text-transform:uppercase;color:#475569;margin-bottom:6px;')
-_VAL     = 'font-size:22px;font-weight:700;color:#111827;line-height:1.2;'
-_SUB     = 'font-size:12px;color:#64748b;margin-top:4px;'
-
-
 def sec_header(num, title, subtitle=''):
     """
     Dark-green section header, fully Outlook-compatible.
@@ -937,13 +929,32 @@ def sec_header(num, title, subtitle=''):
     </td></tr>"""
 
 
-def card(label, value, sub=''):
-    """Metric card."""
-    sub_html = f'<div style="{_SUB}">{sub}</div>' if sub else ''
-    return f"""<table width="100%" cellpadding="0" cellspacing="0" style="{_CARD}">
-      <tr><td><div style="{_LABEL}">{label}</div>
-      <div style="{_VAL}">{value}</div>
-      {sub_html}</td></tr></table>"""
+# ── GK email kv-table helper ─────────────────────────────────────────────────
+_GK_ROW_A      = '#f0f7f2'   # very light green
+_GK_ROW_B      = '#ffffff'   # white
+_GK_BORDER     = '#d1e7d8'   # light green border
+_GK_LABEL_COL  = '#1a4a2e'   # dark green label
+_GK_VAL_COL    = '#111827'   # near-black value
+
+
+def _gk_kv_table(rows):
+    """rows = [(label, value_html), ...]. Alternating green-tinted rows."""
+    cells = ''
+    for i, (k, v) in enumerate(rows):
+        bg = _GK_ROW_A if i % 2 == 0 else _GK_ROW_B
+        cells += f"""
+  <tr>
+    <td bgcolor="{bg}" style="background-color:{bg};padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:{_GK_LABEL_COL};
+        border-bottom:1px solid {_GK_BORDER};">{k}</td>
+    <td bgcolor="{bg}" style="background-color:{bg};padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:{_GK_VAL_COL};
+        border-bottom:1px solid {_GK_BORDER};">{v}</td>
+  </tr>"""
+    return f"""<table width="100%" cellpadding="0" cellspacing="0"
+    style="border-collapse:collapse;border:1px solid {_GK_BORDER};border-radius:8px;overflow:hidden;">
+{cells}
+</table>"""
 
 
 # ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
@@ -1190,19 +1201,6 @@ def _lake_threshold_table(current_ahd):
       </table>"""
 
 
-def _metric_card(label, value, sub='', bg='#f8fafc', border='#e2e8f0',
-                 label_col='#475569', val_col='#111827', sub_col='#64748b'):
-    sub_html = f'<div style="font-size:12px;color:{sub_col};margin-top:4px;">{sub}</div>' if sub else ''
-    return f"""<table width="100%" height="100%" cellpadding="14" cellspacing="0"
-        style="height:100%;background:{bg};border:1px solid {border};border-radius:10px;">
-      <tr><td valign="top">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
-            color:{label_col};margin-bottom:6px;">{label}</div>
-        <div style="font-size:22px;font-weight:700;color:{val_col};line-height:1.2;">{value}</div>
-        {sub_html}
-      </td></tr></table>"""
-
-
 def _build_lake_section_daily(lake_data, target_date, section_num=7):
     """Build the lake section HTML for the daily GK email."""
     if lake_data is None:
@@ -1288,51 +1286,18 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     section_header = sec_header(section_num, 'Lake Albert — Current Level &amp; Licence Status',
                                  'Live FarmBot sensor &bull; Water licence level &bull; Current max pump rate')
 
-    # Row 1: AHD | Drop to L3 (L3 yellow) | Rise to L1 (L1 green)
-    cards_r1 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>
-          <td width="33%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card('Lake Level (AHD)', f'{ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Drop to Level 3', f'{drop_to_l3:+.3f} m', f'above {l3_thresh:.3f} m AHD',
-                          bg='#FFDD00', border='#e6c800', label_col='#7a5c00', val_col='#111111', sub_col='#5a4400')}
-          </td>
-          <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Rise to Level 1', f'{rise_to_l1:.3f} m', f'for {l1_thresh:.3f} m AHD' if rise_to_l1 > 0 else 'Already at L1',
-                          bg='#00762A', border='#005c20', label_col='#a8e6bf', val_col='white', sub_col='rgba(255,255,255,0.75)')}
-          </td>
-        </tr>
-      </table>"""
-
-    # Row 2: Volume | % Capacity | Daily Change
-    cards_r2 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>
-          <td width="33%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
-          </td>
-          <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Full Capacity', f'{LAKE_FULL_ML:.0f} ML', f'at {LAKE_FULL_AHD_V} m AHD')}
-          </td>
-          <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Daily Level Change', chg_str, chg_sub)}
-          </td>
-        </tr>
-      </table>"""
-
-    # Row 3: Extraction | Evaporation
-    cards_r3 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td width="50%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card("Yesterday's Extraction", f'{pump_ml:.1f} ML', pump_note or '&nbsp;')}
-          </td>
-          <td width="50%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
-          </td>
-        </tr>
-      </table>"""
-
     threshold_tbl = _lake_threshold_table(ahd)
+
+    lake_kv = _gk_kv_table([
+        ('Lake Level (AHD)',        f'{ahd:.3f} m AHD'),
+        ('Drop to Level 3',         drop_text),
+        ('Rise to Level 1',         rise_text),
+        ('Volume',                  f'{vol_ml:.0f} ML ({vol_pct:.1f}% of capacity)'),
+        ('Full Capacity',           f'{LAKE_FULL_ML:.0f} ML at {LAKE_FULL_AHD_V} m AHD'),
+        ('Daily Level Change',      f'{chg_str} &nbsp;&bull;&nbsp; {chg_sub}'),
+        ("Yesterday's Extraction",  f'{pump_ml:.1f} ML{(" — " + pump_note) if pump_note else ""}'),
+        ('Evaporation (est.)',       f'{evap_str} &nbsp;&bull;&nbsp; {evap_sub}'),
+    ])
 
     body = f"""
       <!-- Licence level banner -->
@@ -1359,9 +1324,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         </tr>
       </table>
 
-      {cards_r1}
-      {cards_r2}
-      {cards_r3}
+      <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
@@ -1451,32 +1414,15 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     section_header = sec_header(section_num, 'Lake Albert — Weekly Summary',
                                  'Lake level trend &bull; Weekly extraction &bull; Licence status')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>
-          <td width="33%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card('End Level', f'{ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Week Change', f'{change_sign}{week_change:.3f} m',
-                          f'{"rise" if week_change >= 0 else "fall"} &bull; {chg_ml_sign}{week_chg_ml:.1f} ML')}
-          </td>
-          <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of {LAKE_FULL_ML:.0f} ML')}
-          </td>
-        </tr>
-      </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td width="50%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card("Week's Extraction", f'{total_pump_ml:.1f} ML', 'total pumped')}
-          </td>
-          <td width="50%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
-          </td>
-        </tr>
-      </table>"""
-
     threshold_tbl = _lake_threshold_table(ahd)
+
+    lake_kv = _gk_kv_table([
+        ('End Level (AHD)',     f'{ahd:.3f} m AHD'),
+        ('Week Change',         f'{change_sign}{week_change:.3f} m &nbsp;&bull;&nbsp; {"rise" if week_change >= 0 else "fall"} &nbsp;&bull;&nbsp; {chg_ml_sign}{week_chg_ml:.1f} ML'),
+        ('Current Volume',      f'{vol_ml:.0f} ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f} ML)'),
+        ("Week's Extraction",   f'{total_pump_ml:.1f} ML'),
+        ('Evaporation (est.)',  f'{evap_str} &nbsp;&bull;&nbsp; {evap_sub}'),
+    ])
 
     body = f"""
       <!-- Licence banner -->
@@ -1500,7 +1446,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
         </tr>
       </table>
 
-      {cards_html}
+      <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
@@ -1594,38 +1540,17 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     section_header = sec_header(section_num, 'Lake Albert — Monthly Summary',
                                  f'{month_label} &bull; Lake level range &bull; Extraction total')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>
-          <td width="25%" style="padding-right:4px;vertical-align:top;">
-            {_metric_card('Month High', f'{high_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
-            {_metric_card('Month Low', f'{low_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
-            {_metric_card('Month Average', f'{avg_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding-left:4px;vertical-align:top;">
-            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
-          </td>
-        </tr>
-      </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td width="33%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card('Month Change', f'{chg_sign}{month_change:.3f} m',
-                          f'{"rise" if month_change >= 0 else "fall"} &bull; {chg_ml_sign}{month_chg_ml:.1f} ML')}
-          </td>
-          <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Total Extraction', f'{total_pump_ml:.1f} ML', f'Licence: {rate}')}
-          </td>
-          <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
-          </td>
-        </tr>
-      </table>"""
-
     threshold_tbl = _lake_threshold_table(ahd)
+
+    lake_kv = _gk_kv_table([
+        ('Month High (AHD)',    f'{high_ahd:.3f} m AHD'),
+        ('Month Low (AHD)',     f'{low_ahd:.3f} m AHD'),
+        ('Month Average (AHD)', f'{avg_ahd:.3f} m AHD'),
+        ('Current Volume',      f'{vol_ml:.0f} ML ({vol_pct:.1f}% of capacity)'),
+        ('Month Change',        f'{chg_sign}{month_change:.3f} m &nbsp;&bull;&nbsp; {"rise" if month_change >= 0 else "fall"} &nbsp;&bull;&nbsp; {chg_ml_sign}{month_chg_ml:.1f} ML'),
+        ('Total Extraction',    f'{total_pump_ml:.1f} ML &nbsp;&bull;&nbsp; Licence: {rate}'),
+        ('Evaporation (est.)',  f'{evap_str} &nbsp;&bull;&nbsp; {evap_sub}'),
+    ])
 
     body = f"""
       <!-- Licence banner -->
@@ -1649,7 +1574,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
         </tr>
       </table>
 
-      {cards_html}
+      <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
@@ -1773,38 +1698,17 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     section_header = sec_header(section_num, 'Lake Albert — Annual Summary',
                                  f'{year_label} &bull; Lake level range &bull; Annual extraction')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>
-          <td width="25%" style="padding-right:4px;vertical-align:top;">
-            {_metric_card('Year High', f'{high_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
-            {_metric_card('Year Low', f'{low_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
-            {_metric_card('Year Average', f'{avg_ahd:.3f}', 'metres AHD')}
-          </td>
-          <td width="25%" style="padding-left:4px;vertical-align:top;">
-            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
-          </td>
-        </tr>
-      </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td width="33%" style="padding-right:5px;vertical-align:top;">
-            {_metric_card('Year Change', f'{chg_sign}{year_change:.3f} m',
-                          f'{"rise" if year_change >= 0 else "fall"} &bull; {chg_ml_sign}{year_chg_ml:.1f} ML')}
-          </td>
-          <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Annual Extraction', f'{total_pump_ml:.1f} ML', 'total for year')}
-          </td>
-          <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
-          </td>
-        </tr>
-      </table>"""
-
     threshold_tbl = _lake_threshold_table(ahd)
+
+    lake_kv = _gk_kv_table([
+        ('Year High (AHD)',     f'{high_ahd:.3f} m AHD'),
+        ('Year Low (AHD)',      f'{low_ahd:.3f} m AHD'),
+        ('Year Average (AHD)',  f'{avg_ahd:.3f} m AHD'),
+        ('Current Volume',      f'{vol_ml:.0f} ML ({vol_pct:.1f}% of capacity)'),
+        ('Year Change',         f'{chg_sign}{year_change:.3f} m &nbsp;&bull;&nbsp; {"rise" if year_change >= 0 else "fall"} &nbsp;&bull;&nbsp; {chg_ml_sign}{year_chg_ml:.1f} ML'),
+        ('Annual Extraction',   f'{total_pump_ml:.1f} ML'),
+        ('Evaporation (est.)',  f'{evap_str} &nbsp;&bull;&nbsp; {evap_sub}'),
+    ])
 
     body = f"""
       <!-- Licence banner -->
@@ -1828,7 +1732,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
         </tr>
       </table>
 
-      {cards_html}
+      <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
@@ -2094,125 +1998,29 @@ def build_daily_html(row, target_date, history, forecast_days=None):
 
   {sec_header('1', 'Yesterday at a Glance', f'Key weather measurements for {yesterday_str}')}
 
-  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
-    <!-- Row 1: Temp / Rain / Wind -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-      <tr>
-        <td width="33%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td valign="top">
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Temperature</div>
-              <div style="font-size:22px;font-weight:700;color:#111827;
-                  line-height:1.1;margin-bottom:5px;">{row['temp_max']}° / {row['temp_min']}°C</div>
-              <div style="font-size:12px;color:#64748b;">Mean {row['temp_mean']}°C - RH {row['rh_mean']}%</div>
-              <div style="font-size:12px;color:#64748b;margin-top:3px;">Overnight min {night_min_str}°C</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="33%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td valign="top">
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Rain &amp; ET</div>
-              <div style="font-size:22px;font-weight:700;color:#111827;
-                  line-height:1.1;margin-bottom:5px;">{row['rain_mm']} mm</div>
-              <div style="font-size:12px;color:#64748b;">ET {row['et_mm']} mm - Net {net_str} mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="33%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td valign="top">
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#475569;margin-bottom:6px;">Wind</div>
-              <div style="font-size:22px;font-weight:700;color:#111827;
-                  line-height:1.1;margin-bottom:5px;">{row['wind_max_kmh']} km/h</div>
-              <div style="font-size:12px;color:#64748b;">Mean {row['wind_mean_kmh']} km/h - Delta T {row['delta_t_mean']}°C</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-    <!-- Row 2: Soil / UV + Pressure -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td width="50%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:{soil_bg};border:1px solid {soil_bdr};border-radius:10px;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:{soil_lbl_c};margin-bottom:6px;">Soil Moisture</div>
-              <div style="font-size:22px;font-weight:700;color:{soil_val_c};
-                  line-height:1.1;margin-bottom:5px;">{soil_zone_val}</div>
-              <div style="font-size:12px;color:{soil_sub_c};">7-day balance: {soil_bal:+.1f} mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="height:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <tr><td valign="top">
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#475569;margin-bottom:6px;">UV &amp; Pressure</div>
-              <div style="font-size:22px;font-weight:700;color:#111827;
-                  line-height:1.1;margin-bottom:5px;">UV {uv_str}</div>
-              <div style="font-size:12px;color:#64748b;">Pressure {pres_str} hPa - Leaf wet {row['leaf_wet_hours']} hrs</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Max / Min Temp',   f"{row['temp_max']}° / {row['temp_min']}°C"),
+        ('Mean Temp',        f"{row['temp_mean']}°C &nbsp;&bull;&nbsp; RH {row['rh_mean']}%"),
+        ('Overnight Low',    f"{night_min_str}°C"),
+        ('Rainfall',         f"{row['rain_mm']} mm"),
+        ('ET',               f"{row['et_mm']} mm &nbsp;&bull;&nbsp; Net {net_str} mm"),
+        ('Wind Max',         f"{row['wind_max_kmh']} km/h"),
+        ('Wind Mean',        f"{row['wind_mean_kmh']} km/h &nbsp;&bull;&nbsp; Delta T {row['delta_t_mean']}°C"),
+        ('Soil Moisture',    soil_zone_val),
+        ('7-Day Balance',    f"{soil_bal:+.1f} mm"),
+        ('UV Index',         str(uv_str)),
+        ('Pressure',         f"{pres_str} hPa &nbsp;&bull;&nbsp; Leaf Wet {row['leaf_wet_hours']} hrs"),
+    ])}
   </td></tr>
 
   {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth - base temperatures apply')}
 
   <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="50%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">
-                  Bentgrass - base 10 C</div>
-              <div style="font-size:28px;font-weight:700;color:#1a4a2e;
-                  line-height:1;margin-bottom:6px;">{row['gdd_bent']} GDD</div>
-              <div style="font-size:12px;color:#2d7a4e;font-weight:600;
-                  margin-bottom:10px;">Yesterday accumulation</div>
-              <div>
-                <span style="background:#1a4a2e;color:white;padding:3px 10px;
-                    border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
-                    7-day: {row['gdd_bent_7d']} GDD</span>
-              </div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#713f12;margin-bottom:6px;">
-                  Kikuyu - base 15 C</div>
-              <div style="font-size:28px;font-weight:700;color:#713f12;
-                  line-height:1;margin-bottom:6px;">{row['gdd_kik']} GDD</div>
-              <div style="font-size:12px;color:#92400e;font-weight:600;
-                  margin-bottom:10px;">Yesterday accumulation</div>
-              <div>
-                <span style="background:#713f12;color:white;padding:3px 10px;
-                    border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
-                    7-day: {row['gdd_kik_7d']} GDD</span>
-              </div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Bentgrass (base 10°C)', f"{row['gdd_bent']} GDD &nbsp;&bull;&nbsp; 7-day: {row['gdd_bent_7d']} GDD"),
+        ('Kikuyu (base 15°C)',    f"{row['gdd_kik']} GDD &nbsp;&bull;&nbsp; 7-day: {row['gdd_kik_7d']} GDD"),
+    ])}
   </td></tr>
 
   {sec_header('3', 'Disease Risk', 'Yesterday actuals + estimated outlook from forecast')}
@@ -2486,128 +2294,22 @@ def build_weekly_html(history, week_end_date):
   {w_sec2}
 
   <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="25%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;
-              text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">Rainfall</div>
-              <div style="font-size:24px;font-weight:700;color:#1a4a2e;
-                  line-height:1;">{totals['rain']:.1f}</div>
-              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
-              text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#64748b;margin-bottom:6px;">Total ET</div>
-              <div style="font-size:24px;font-weight:700;color:#111827;
-                  line-height:1;">{totals['et']:.1f}</div>
-              <div style="font-size:11px;color:#64748b;margin-top:4px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:{'#e8f5ee' if water_bal >= 0 else '#fef2f2'};
-              border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#065f46' if water_bal >= 0 else '#991b1b'};margin-bottom:6px;">
-                  Water Balance</div>
-              <div style="font-size:24px;font-weight:700;
-                  color:{'#1a4a2e' if water_bal >= 0 else '#dc2626'};line-height:1;">
-                  {water_bal:+.1f}</div>
-              <div style="font-size:11px;
-                  color:{'#2d7a4e' if water_bal >= 0 else '#991b1b'};margin-top:4px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;
-              text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#713f12;margin-bottom:6px;">GDD Bent</div>
-              <div style="font-size:24px;font-weight:700;color:#713f12;
-                  line-height:1;">{totals['gdd_bent']:.1f}</div>
-              <div style="font-size:11px;color:#92400e;margin-top:4px;">this week</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-      <tr>
-        <td colspan="4" style="padding-top:8px;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#1e40af;margin-bottom:6px;">Tank Water Used</div>
-              <div style="font-size:24px;font-weight:700;color:#1d4ed8;
-                  line-height:1;">{totals['tank_used_l']/1000:.1f}</div>
-              <div style="font-size:11px;color:#3b82f6;margin-top:4px;">kL this week</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Rainfall',         f"{totals['rain']:.1f} mm"),
+        ('Evapotranspiration', f"{totals['et']:.1f} mm"),
+        ('Water Balance',    f"{water_bal:+.1f} mm"),
+        ('GDD Bentgrass',    f"{totals['gdd_bent']:.1f}"),
+        ('Tank Water Used',  f"{totals['tank_used_l']/1000:.1f} kL"),
+    ])}
   </td></tr>
 
   {w_sec3}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
-              border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
-                  Disease Alert Days</div>
-              <div style="font-size:40px;font-weight:700;
-                  color:{'#dc2626' if alert_days > 0 else '#15803d'};line-height:1;">
-                  {alert_days}</div>
-              <div style="font-size:12px;
-                  color:{'#991b1b' if alert_days > 0 else '#166534'};margin-top:6px;">
-                  {'HIGH or SEVERE risk days' if alert_days > 0 else 'No high-risk days'}</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
-              border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
-                  Frost Days</div>
-              <div style="font-size:40px;font-weight:700;
-                  color:{'#2563eb' if frost_days > 0 else '#15803d'};line-height:1;">
-                  {frost_days}</div>
-              <div style="font-size:12px;
-                  color:{'#1e40af' if frost_days > 0 else '#166534'};margin-top:6px;">
-                  {'nights below 2°C' if frost_days > 0 else 'No frost this week'}</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Disease Alert Days', f"{alert_days} {'HIGH or SEVERE risk days' if alert_days > 0 else '— no high-risk days'}"),
+        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '— no frost this week'}"),
+    ])}
   </td></tr>
 
   {lake_section_html}
@@ -2749,155 +2451,31 @@ def build_monthly_html(history, month_label):
   {m_sec2}
 
   <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="20%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:5px;">Rainfall</div>
-              <div style="font-size:20px;font-weight:700;color:#1a4a2e;line-height:1;">
-                  {totals['rain']:.0f}</div>
-              <div style="font-size:10px;color:#2d7a4e;margin-top:3px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="20%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#64748b;margin-bottom:5px;">Total ET</div>
-              <div style="font-size:20px;font-weight:700;color:#111827;line-height:1;">
-                  {totals['et']:.0f}</div>
-              <div style="font-size:10px;color:#64748b;margin-top:3px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="20%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:{'#e8f5ee' if water_bal >= 0 else '#fef2f2'};
-              border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#065f46' if water_bal >= 0 else '#991b1b'};margin-bottom:5px;">Balance</div>
-              <div style="font-size:20px;font-weight:700;
-                  color:{'#1a4a2e' if water_bal >= 0 else '#dc2626'};line-height:1;">
-                  {water_bal:+.0f}</div>
-              <div style="font-size:10px;
-                  color:{'#2d7a4e' if water_bal >= 0 else '#991b1b'};margin-top:3px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="20%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:5px;">GDD Bent</div>
-              <div style="font-size:20px;font-weight:700;color:#1a4a2e;line-height:1;">
-                  {totals['gdd_bent']:.0f}</div>
-              <div style="font-size:10px;color:#2d7a4e;margin-top:3px;">base 10°C</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="20%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" cellpadding="12" cellspacing="0"
-              style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#713f12;margin-bottom:5px;">GDD Kik</div>
-              <div style="font-size:20px;font-weight:700;color:#713f12;line-height:1;">
-                  {totals['gdd_kik']:.0f}</div>
-              <div style="font-size:10px;color:#92400e;margin-top:3px;">base 15°C</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Rainfall',           f"{totals['rain']:.0f} mm"),
+        ('Evapotranspiration', f"{totals['et']:.0f} mm"),
+        ('Water Balance',      f"{water_bal:+.0f} mm"),
+        ('GDD Bentgrass',      f"{totals['gdd_bent']:.0f} (base 10°C)"),
+        ('GDD Kikuyu',         f"{totals['gdd_kik']:.0f} (base 15°C)"),
+    ])}
   </td></tr>
 
   {m_sec3}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
-              border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#991b1b' if alert_days > 0 else '#065f46'};margin-bottom:8px;">
-                  Disease Alert Days</div>
-              <div style="font-size:44px;font-weight:700;
-                  color:{'#dc2626' if alert_days > 0 else '#15803d'};line-height:1;">
-                  {alert_days}</div>
-              <div style="font-size:12px;
-                  color:{'#991b1b' if alert_days > 0 else '#166534'};margin-top:6px;">
-                  {'days with HIGH or SEVERE risk' if alert_days > 0 else 'No high-risk days'}</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
-              border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#1d4ed8' if frost_days > 0 else '#065f46'};margin-bottom:8px;">
-                  Frost Days</div>
-              <div style="font-size:44px;font-weight:700;
-                  color:{'#2563eb' if frost_days > 0 else '#15803d'};line-height:1;">
-                  {frost_days}</div>
-              <div style="font-size:12px;
-                  color:{'#1e40af' if frost_days > 0 else '#166534'};margin-top:6px;">
-                  {'nights below 2°C' if frost_days > 0 else 'No frost this month'}</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Disease Alert Days', f"{alert_days} {'days with HIGH or SEVERE risk' if alert_days > 0 else '— no high-risk days'}"),
+        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '— no frost this month'}"),
+    ])}
   </td></tr>
 
   {m_sec4}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#1e40af;margin-bottom:8px;">Total Used</div>
-              <div style="font-size:44px;font-weight:700;color:#1d4ed8;line-height:1;">
-                  {totals['tank_used_l']/1000:.0f}</div>
-              <div style="font-size:12px;color:#3b82f6;margin-top:6px;">kL this month</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
-              style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:8px;">Daily Average</div>
-              <div style="font-size:44px;font-weight:700;color:#15803d;line-height:1;">
-                  {(totals['tank_used_l']/1000/max(len(history),1)):.1f}</div>
-              <div style="font-size:12px;color:#166534;margin-top:6px;">kL per day</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Total Used',    f"{totals['tank_used_l']/1000:.0f} kL this month"),
+        ('Daily Average', f"{(totals['tank_used_l']/1000/max(len(history),1)):.1f} kL per day"),
+    ])}
   </td></tr>
 
   {lake_section_html}
@@ -3085,72 +2663,15 @@ def build_yearly_html(history, year_label):
   </td></tr>
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td width="25%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">Annual Rain</div>
-              <div style="font-size:26px;font-weight:700;color:#1a4a2e;line-height:1;">
-                  {year_totals['rain']:.0f}</div>
-              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">mm</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;color:#065f46;margin-bottom:6px;">GDD Bentgrass</div>
-              <div style="font-size:26px;font-weight:700;color:#1a4a2e;line-height:1;">
-                  {year_totals['gdd_bent']:.0f}</div>
-              <div style="font-size:11px;color:#2d7a4e;margin-top:4px;">base 10°C</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:{'#fef2f2' if year_totals['alert_days'] > 0 else '#f0fdf4'};
-              border:1px solid {'#fca5a5' if year_totals['alert_days'] > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#991b1b' if year_totals['alert_days'] > 0 else '#065f46'};margin-bottom:6px;">
-                  Disease Days</div>
-              <div style="font-size:26px;font-weight:700;
-                  color:{'#dc2626' if year_totals['alert_days'] > 0 else '#15803d'};line-height:1;">
-                  {year_totals['alert_days']}</div>
-              <div style="font-size:11px;
-                  color:{'#991b1b' if year_totals['alert_days'] > 0 else '#166534'};margin-top:4px;">
-                  alert days</div>
-            </td></tr>
-          </table>
-        </td>
-        <td width="25%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
-              style="background:{'#eff6ff' if year_totals['frost_days'] > 0 else '#f0fdf4'};
-              border:1px solid {'#93c5fd' if year_totals['frost_days'] > 0 else '#86efac'};
-              border-radius:10px;text-align:center;">
-            <tr><td>
-              <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
-                  text-transform:uppercase;
-                  color:{'#1d4ed8' if year_totals['frost_days'] > 0 else '#065f46'};margin-bottom:6px;">
-                  Frost Days</div>
-              <div style="font-size:26px;font-weight:700;
-                  color:{'#2563eb' if year_totals['frost_days'] > 0 else '#15803d'};line-height:1;">
-                  {year_totals['frost_days']}</div>
-              <div style="font-size:11px;
-                  color:{'#1e40af' if year_totals['frost_days'] > 0 else '#166534'};margin-top:4px;">
-                  nights below 2°C</div>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    {_gk_kv_table([
+        ('Annual Rainfall',   f"{year_totals['rain']:.0f} mm"),
+        ('Annual ET',         f"{year_totals['et']:.0f} mm"),
+        ('Water Balance',     f"{(year_totals['rain'] - year_totals['et']):+.0f} mm"),
+        ('GDD Bentgrass',     f"{year_totals['gdd_bent']:.0f} (base 10°C)"),
+        ('GDD Kikuyu',        f"{year_totals['gdd_kik']:.0f} (base 15°C)"),
+        ('Disease Alert Days',f"{year_totals['alert_days']} alert days"),
+        ('Frost Days',        f"{year_totals['frost_days']} nights below 2°C"),
+    ])}
   </td></tr>
 
   {lake_section_html}
