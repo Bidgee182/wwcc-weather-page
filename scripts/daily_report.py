@@ -2141,7 +2141,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
         <td width="50%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:{soil_bg};border:1px solid {soil_bdr};border-radius:10px;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -2174,7 +2174,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -2193,7 +2193,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
           </table>
         </td>
         <td width="50%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -2489,7 +2489,7 @@ def build_weekly_html(history, week_end_date):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="25%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;
               text-align:center;">
             <tr><td>
@@ -2502,7 +2502,7 @@ def build_weekly_html(history, week_end_date):
           </table>
         </td>
         <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
               text-align:center;">
             <tr><td>
@@ -2515,7 +2515,7 @@ def build_weekly_html(history, week_end_date):
           </table>
         </td>
         <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:{'#e8f5ee' if water_bal >= 0 else '#fef2f2'};
               border:1px solid {'#a7f3d0' if water_bal >= 0 else '#fca5a5'};
               border-radius:10px;text-align:center;">
@@ -2533,7 +2533,7 @@ def build_weekly_html(history, week_end_date):
           </table>
         </td>
         <td width="25%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#fdf8ec;border:1px solid #fde68a;border-radius:10px;
               text-align:center;">
             <tr><td>
@@ -2548,7 +2548,7 @@ def build_weekly_html(history, week_end_date):
       </tr>
       <tr>
         <td colspan="4" style="padding-top:8px;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -2569,7 +2569,7 @@ def build_weekly_html(history, week_end_date):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
               border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
@@ -2588,7 +2588,7 @@ def build_weekly_html(history, week_end_date):
           </table>
         </td>
         <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
               border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
@@ -2826,7 +2826,7 @@ def build_monthly_html(history, month_label):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:{'#fef2f2' if alert_days > 0 else '#f0fdf4'};
               border:1px solid {'#fca5a5' if alert_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
@@ -2845,7 +2845,7 @@ def build_monthly_html(history, month_label):
           </table>
         </td>
         <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:{'#eff6ff' if frost_days > 0 else '#f0fdf4'};
               border:1px solid {'#93c5fd' if frost_days > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
@@ -2873,7 +2873,7 @@ def build_monthly_html(history, month_label):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="50%" style="padding-right:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -2885,7 +2885,7 @@ def build_monthly_html(history, month_label):
           </table>
         </td>
         <td width="50%" style="padding-left:6px;vertical-align:top;">
-          <table width="100%" cellpadding="16" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="16" cellspacing="0"
               style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
@@ -3088,7 +3088,7 @@ def build_yearly_html(history, year_label):
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td width="25%" style="padding-right:5px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
@@ -3100,7 +3100,7 @@ def build_yearly_html(history, year_label):
           </table>
         </td>
         <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:#e8f5ee;border:1px solid #a7f3d0;border-radius:10px;text-align:center;">
             <tr><td>
               <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;
@@ -3112,7 +3112,7 @@ def build_yearly_html(history, year_label):
           </table>
         </td>
         <td width="25%" style="padding:0 3px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:{'#fef2f2' if year_totals['alert_days'] > 0 else '#f0fdf4'};
               border:1px solid {'#fca5a5' if year_totals['alert_days'] > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
@@ -3131,7 +3131,7 @@ def build_yearly_html(history, year_label):
           </table>
         </td>
         <td width="25%" style="padding-left:5px;vertical-align:top;">
-          <table width="100%" cellpadding="14" cellspacing="0"
+          <table width="100%" height="100%" cellpadding="14" cellspacing="0"
               style="background:{'#eff6ff' if year_totals['frost_days'] > 0 else '#f0fdf4'};
               border:1px solid {'#93c5fd' if year_totals['frost_days'] > 0 else '#86efac'};
               border-radius:10px;text-align:center;">
