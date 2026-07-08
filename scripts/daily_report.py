@@ -948,6 +948,16 @@ def card(label, value, sub=''):
 # ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
 
 LAKE_BOTTOM_AHD = 189.362
+LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
+LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
+LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
+LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
+
+
+def _ahd_to_ml(ahd):
+    """Convert AHD to volume in ML. Identical to ahdToML() in lake-albert.html."""
+    return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+
 
 _LAKE_LEVELS = [
     # (min_ahd, level_num, name, rate_str, bg_hex, fg_hex, row_bg, accent)
@@ -1164,54 +1174,115 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
     depth = ahd - LAKE_BOTTOM_AHD
 
-    # Buffer distances
-    l3_thresh = 189.850
-    l1_thresh = 190.250
-    buf_to_l3 = ahd - l3_thresh
-    rise_to_l1 = l1_thresh - ahd
+    # Drop / rise distances
+    l3_thresh  = 189.850
+    l1_thresh  = 190.250
+    drop_to_l3 = ahd - l3_thresh    # positive = above L3, negative = below L3
+    rise_to_l1 = l1_thresh - ahd    # positive = below L1, negative = at/above L1
 
     # 7-day window
-    chart_end   = target_date
-    chart_start = target_date - timedelta(days=6)
+    chart_end      = target_date
+    chart_start    = target_date - timedelta(days=6)
     chart_readings = _readings_in_range(readings, chart_start, chart_end)
+
+    # Daily level change (target_date vs target_date-1)
+    prev_day      = target_date - timedelta(days=1)
+    today_rdgs    = [r for r in chart_readings if r['_date'] == target_date]
+    prev_rdgs     = [r for r in chart_readings if r['_date'] == prev_day]
+    today_ahd_r   = float(today_rdgs[-1].get('ahd', 0)) if today_rdgs else ahd
+    prev_ahd_r    = float(prev_rdgs[-1].get('ahd', 0))  if prev_rdgs  else None
+    daily_chg_ahd = (today_ahd_r - prev_ahd_r) if (prev_ahd_r and prev_ahd_r > 0 and today_ahd_r > 0) else None
+    daily_chg_ml  = (daily_chg_ahd * LAKE_SURFACE_M2 / 1000) if daily_chg_ahd is not None else None
+
+    # Volume
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100)
 
     # Yesterday's pumping
     yest_pump = next((p for p in pumping if p['date'] == target_date.strftime('%Y-%m-%d')), None)
     pump_ml   = float(yest_pump['ml']) if yest_pump else 0.0
     pump_note = yest_pump.get('note', '') if yest_pump else ''
 
+    # Evaporation = volume lost - extraction (positive when lake lost water to evaporation)
+    if daily_chg_ml is not None:
+        level_drop_ml = -daily_chg_ml        # positive when lake dropped
+        evap_ml = level_drop_ml - pump_ml    # may be negative if rainfall caused net inflow
+    else:
+        evap_ml = None
+
     # Chart
     chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
 
-    # Banner text colour adjust
     banner_text = '#111' if fg == '#111111' else 'white'
-    buf_text = f'{buf_to_l3:+.3f} m from Level 3 threshold' if buf_to_l3 >= 0 else f'{abs(buf_to_l3):.3f} m BELOW Level 3'
+    drop_text = f'{drop_to_l3:+.3f} m from Level 3 threshold' if drop_to_l3 >= 0 else f'{abs(drop_to_l3):.3f} m BELOW Level 3'
     rise_text = f'{rise_to_l1:.3f} m needed for Level 1' if rise_to_l1 > 0 else 'At or above Level 1'
+
+    # Daily change display
+    if daily_chg_ahd is not None:
+        chg_sign   = '+' if daily_chg_ahd >= 0 else ''
+        chg_str    = f'{chg_sign}{daily_chg_ahd:.3f} m'
+        chg_ml_str = f'{chg_sign}{daily_chg_ml:.1f} ML'
+        chg_sub    = f'{"rise" if daily_chg_ahd >= 0 else "fall"} &bull; {chg_ml_str}'
+    else:
+        chg_str = '--'
+        chg_sub = 'no prior reading'
+
+    # Evaporation display
+    if evap_ml is not None:
+        if evap_ml >= 0:
+            evap_str = f'{evap_ml:.1f} ML'
+            evap_sub = 'lost to evaporation'
+        else:
+            evap_str = '0.0 ML'
+            evap_sub = f'net inflow ({abs(evap_ml):.1f} ML gain)'
+    else:
+        evap_str = '--'
+        evap_sub = 'insufficient data'
 
     section_header = sec_header(section_num, 'Lake Albert — Current Level &amp; Licence Status',
                                  'Live FarmBot sensor &bull; Water licence level &bull; Current max pump rate')
 
-    # Metric cards row 1
+    # Row 1: AHD | Drop to L3 (L3 yellow) | Rise to L1 (L1 green)
     cards_r1 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
         <tr>
           <td width="33%" style="padding-right:5px;vertical-align:top;">
             {_metric_card('Lake Level (AHD)', f'{ahd:.3f}', 'metres AHD')}
           </td>
           <td width="33%" style="padding:0 3px;vertical-align:top;">
-            {_metric_card('Buffer to Level 3', f'{buf_to_l3:+.3f} m', f'above {l3_thresh:.3f} m AHD')}
+            {_metric_card('Drop to Level 3', f'{drop_to_l3:+.3f} m', f'above {l3_thresh:.3f} m AHD',
+                          bg='#FFDD00', border='#e6c800', label_col='#7a5c00', val_col='#111111', sub_col='#5a4400')}
           </td>
           <td width="33%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Rise to Level 1', f'{rise_to_l1:.3f} m', f'needed for {l1_thresh:.3f} m AHD')}
+            {_metric_card('Rise to Level 1', f'{rise_to_l1:.3f} m', f'for {l1_thresh:.3f} m AHD' if rise_to_l1 > 0 else 'Already at L1',
+                          bg='#00762A', border='#005c20', label_col='#a8e6bf', val_col='white', sub_col='rgba(255,255,255,0.75)')}
           </td>
         </tr>
       </table>"""
 
-    # Metric cards row 2
-    cards_r2 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    # Row 2: Volume | % Capacity | Daily Change
+    cards_r2 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
         <tr>
-          <td style="vertical-align:top;">
+          <td width="33%" style="padding-right:5px;vertical-align:top;">
+            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
+          </td>
+          <td width="33%" style="padding:0 3px;vertical-align:top;">
+            {_metric_card('Full Capacity', f'{LAKE_FULL_ML:.0f} ML', f'at {LAKE_FULL_AHD_V} m AHD')}
+          </td>
+          <td width="33%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Daily Level Change', chg_str, chg_sub)}
+          </td>
+        </tr>
+      </table>"""
+
+    # Row 3: Extraction | Evaporation
+    cards_r3 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="50%" style="padding-right:5px;vertical-align:top;">
             {_metric_card("Yesterday's Extraction", f'{pump_ml:.1f} ML', pump_note or '&nbsp;')}
+          </td>
+          <td width="50%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
           </td>
         </tr>
       </table>"""
@@ -1231,7 +1302,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
                   Level {level_num} &mdash; {level_name}</div>
                 <div style="font-size:12px;color:{banner_text};opacity:0.75;margin-top:3px;">
-                  {buf_text} &bull; {rise_text}
+                  {drop_text} &bull; {rise_text}
                 </div>
               </td>
               <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
@@ -1245,6 +1316,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
 
       {cards_r1}
       {cards_r2}
+      {cards_r3}
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
@@ -1281,24 +1353,37 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
 
     # 7-day window
-    chart_end   = week_end_date
-    chart_start = week_end_date - timedelta(days=6)
+    chart_end      = week_end_date
+    chart_start    = week_end_date - timedelta(days=6)
     chart_readings = _readings_in_range(readings, chart_start, chart_end)
     week_pumping   = _pumping_in_range(pumping, chart_start, chart_end)
 
     # First and last readings this week for change calc
     week_ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
-    first_ahd = week_ahd_vals[0]  if week_ahd_vals else ahd
-    last_ahd  = week_ahd_vals[-1] if week_ahd_vals else ahd
-    week_change = last_ahd - first_ahd
+    first_ahd    = week_ahd_vals[0]  if week_ahd_vals else ahd
+    last_ahd     = week_ahd_vals[-1] if week_ahd_vals else ahd
+    week_change  = last_ahd - first_ahd
+    week_chg_ml  = week_change * LAKE_SURFACE_M2 / 1000
 
     total_pump_ml = sum(float(p.get('ml', 0)) for p in week_pumping)
+
+    # Volume
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100)
+
+    # Evaporation for the week
+    level_drop_ml  = -week_chg_ml    # positive when lake dropped overall
+    week_evap_ml   = level_drop_ml - total_pump_ml
 
     chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
 
     banner_text = '#111' if fg == '#111111' else 'white'
     change_sign = '+' if week_change >= 0 else ''
+    chg_ml_sign = '+' if week_chg_ml >= 0 else ''
+
+    evap_str = f'{week_evap_ml:.1f} ML' if week_evap_ml >= 0 else '0.0 ML'
+    evap_sub = 'lost to evaporation' if week_evap_ml >= 0 else f'net inflow ({abs(week_evap_ml):.1f} ML gain)'
 
     # Daily breakdown table
     day_rows = ''
@@ -1307,31 +1392,41 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
         day_readings = [r for r in chart_readings if r['_date'] == d]
         day_ahd = float(day_readings[-1].get('ahd', 0)) if day_readings else None
         day_pump = next((p for p in week_pumping if p['_date'] == d), None)
-        pump_ml = float(day_pump['ml']) if day_pump else 0.0
-        pump_note = day_pump.get('note', '—') if day_pump else '—'
-        bg_row = '#f8fafc' if i % 2 == 0 else 'white'
-        ahd_str = f'{day_ahd:.3f} m' if day_ahd else '—'
+        pump_ml_d  = float(day_pump['ml']) if day_pump else 0.0
+        pump_note  = day_pump.get('note', '—') if day_pump else '—'
+        bg_row     = '#f8fafc' if i % 2 == 0 else 'white'
+        ahd_str    = f'{day_ahd:.3f} m' if day_ahd else '—'
         day_rows += f"""<tr>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{d.strftime('%a %-d %b')}</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#111827;font-weight:600;">{ahd_str}</td>
-          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{pump_ml:.1f} ML</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{pump_ml_d:.1f} ML</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#64748b;font-style:italic;">{pump_note}</td>
         </tr>"""
 
     section_header = sec_header(section_num, 'Lake Albert — Weekly Summary',
                                  'Lake level trend &bull; Weekly extraction &bull; Licence status')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
         <tr>
           <td width="33%" style="padding-right:5px;vertical-align:top;">
             {_metric_card('End Level', f'{ahd:.3f}', 'metres AHD')}
           </td>
           <td width="33%" style="padding:0 3px;vertical-align:top;">
             {_metric_card('Week Change', f'{change_sign}{week_change:.3f} m',
-                          'rise' if week_change >= 0 else 'fall')}
+                          f'{"rise" if week_change >= 0 else "fall"} &bull; {chg_ml_sign}{week_chg_ml:.1f} ML')}
           </td>
           <td width="33%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of {LAKE_FULL_ML:.0f} ML')}
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="50%" style="padding-right:5px;vertical-align:top;">
             {_metric_card("Week's Extraction", f'{total_pump_ml:.1f} ML', 'total pumped')}
+          </td>
+          <td width="50%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
           </td>
         </tr>
       </table>"""
@@ -1423,20 +1518,38 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     month_pumping  = _pumping_in_range(pumping, month_start, month_end)
 
     ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
-    high_ahd = max(ahd_vals) if ahd_vals else ahd
-    low_ahd  = min(ahd_vals) if ahd_vals else ahd
-    avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    high_ahd      = max(ahd_vals) if ahd_vals else ahd
+    low_ahd       = min(ahd_vals) if ahd_vals else ahd
+    avg_ahd       = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    first_ahd_m   = ahd_vals[0]  if ahd_vals else ahd
+    last_ahd_m    = ahd_vals[-1] if ahd_vals else ahd
+    month_change  = last_ahd_m - first_ahd_m
+    month_chg_ml  = month_change * LAKE_SURFACE_M2 / 1000
+
     total_pump_ml = sum(float(p.get('ml', 0)) for p in month_pumping)
+
+    # Volume
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100)
+
+    # Evaporation for the month
+    level_drop_ml  = -month_chg_ml
+    month_evap_ml  = level_drop_ml - total_pump_ml
 
     chart_b64 = _lake_chart_b64(chart_readings, month_start, month_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
 
-    banner_text = '#111' if fg == '#111111' else 'white'
+    banner_text  = '#111' if fg == '#111111' else 'white'
+    chg_sign     = '+' if month_change >= 0 else ''
+    chg_ml_sign  = '+' if month_chg_ml >= 0 else ''
+
+    evap_str = f'{month_evap_ml:.1f} ML' if month_evap_ml >= 0 else '0.0 ML'
+    evap_sub = 'lost to evaporation' if month_evap_ml >= 0 else f'net inflow ({abs(month_evap_ml):.1f} ML gain)'
 
     section_header = sec_header(section_num, 'Lake Albert — Monthly Summary',
                                  f'{month_label} &bull; Lake level range &bull; Extraction total')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
         <tr>
           <td width="25%" style="padding-right:4px;vertical-align:top;">
             {_metric_card('Month High', f'{high_ahd:.3f}', 'metres AHD')}
@@ -1448,7 +1561,21 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
             {_metric_card('Month Average', f'{avg_ahd:.3f}', 'metres AHD')}
           </td>
           <td width="25%" style="padding-left:4px;vertical-align:top;">
+            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="33%" style="padding-right:5px;vertical-align:top;">
+            {_metric_card('Month Change', f'{chg_sign}{month_change:.3f} m',
+                          f'{"rise" if month_change >= 0 else "fall"} &bull; {chg_ml_sign}{month_chg_ml:.1f} ML')}
+          </td>
+          <td width="33%" style="padding:0 3px;vertical-align:top;">
             {_metric_card('Total Extraction', f'{total_pump_ml:.1f} ML', f'Licence: {rate}')}
+          </td>
+          <td width="33%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
           </td>
         </tr>
       </table>"""
@@ -1526,15 +1653,33 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     year_pumping   = _pumping_in_range(pumping, year_start, year_end)
 
     ahd_vals = [float(r.get('ahd', 0)) for r in chart_readings if float(r.get('ahd', 0)) > 0]
-    high_ahd = max(ahd_vals) if ahd_vals else ahd
-    low_ahd  = min(ahd_vals) if ahd_vals else ahd
-    avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    high_ahd      = max(ahd_vals) if ahd_vals else ahd
+    low_ahd       = min(ahd_vals) if ahd_vals else ahd
+    avg_ahd       = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
+    first_ahd_y   = ahd_vals[0]  if ahd_vals else ahd
+    last_ahd_y    = ahd_vals[-1] if ahd_vals else ahd
+    year_change   = last_ahd_y - first_ahd_y
+    year_chg_ml   = year_change * LAKE_SURFACE_M2 / 1000
+
     total_pump_ml = sum(float(p.get('ml', 0)) for p in year_pumping)
+
+    # Volume
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100)
+
+    # Annual evaporation
+    level_drop_ml = -year_chg_ml
+    year_evap_ml  = level_drop_ml - total_pump_ml
 
     chart_b64 = _lake_chart_b64(chart_readings, year_start, year_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
 
     banner_text = '#111' if fg == '#111111' else 'white'
+    chg_sign    = '+' if year_change >= 0 else ''
+    chg_ml_sign = '+' if year_chg_ml >= 0 else ''
+
+    evap_str = f'{year_evap_ml:.1f} ML' if year_evap_ml >= 0 else '0.0 ML'
+    evap_sub = 'lost to evaporation' if year_evap_ml >= 0 else f'net inflow ({abs(year_evap_ml):.1f} ML gain)'
 
     # Monthly summary table
     from collections import defaultdict
@@ -1550,11 +1695,11 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
 
     month_rows = ''
     for mi in range(1, 13):
-        key = f'{year}-{mi:02d}'
+        key    = f'{year}-{mi:02d}'
         m_label = date(year, mi, 1).strftime('%B')
-        m_data = monthly.get(key, {'ahd_vals': [], 'pump_ml': 0.0})
+        m_data  = monthly.get(key, {'ahd_vals': [], 'pump_ml': 0.0})
         m_ahd_vals = m_data['ahd_vals']
-        m_avg = sum(m_ahd_vals) / len(m_ahd_vals) if m_ahd_vals else None
+        m_avg  = sum(m_ahd_vals) / len(m_ahd_vals) if m_ahd_vals else None
         m_high = max(m_ahd_vals) if m_ahd_vals else None
         m_low  = min(m_ahd_vals) if m_ahd_vals else None
         m_pump = m_data['pump_ml']
@@ -1583,7 +1728,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     section_header = sec_header(section_num, 'Lake Albert — Annual Summary',
                                  f'{year_label} &bull; Lake level range &bull; Annual extraction')
 
-    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
         <tr>
           <td width="25%" style="padding-right:4px;vertical-align:top;">
             {_metric_card('Year High', f'{high_ahd:.3f}', 'metres AHD')}
@@ -1595,7 +1740,21 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
             {_metric_card('Year Average', f'{avg_ahd:.3f}', 'metres AHD')}
           </td>
           <td width="25%" style="padding-left:4px;vertical-align:top;">
+            {_metric_card('Current Volume', f'{vol_ml:.0f} ML', f'{vol_pct:.1f}% of capacity')}
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td width="33%" style="padding-right:5px;vertical-align:top;">
+            {_metric_card('Year Change', f'{chg_sign}{year_change:.3f} m',
+                          f'{"rise" if year_change >= 0 else "fall"} &bull; {chg_ml_sign}{year_chg_ml:.1f} ML')}
+          </td>
+          <td width="33%" style="padding:0 3px;vertical-align:top;">
             {_metric_card('Annual Extraction', f'{total_pump_ml:.1f} ML', 'total for year')}
+          </td>
+          <td width="33%" style="padding-left:5px;vertical-align:top;">
+            {_metric_card('Evaporation (est.)', evap_str, evap_sub)}
           </td>
         </tr>
       </table>"""

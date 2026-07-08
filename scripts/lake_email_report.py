@@ -39,6 +39,18 @@ log = logging.getLogger(__name__)
 SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
 DATA_DIR    = Path(__file__).parent.parent / 'data'
 LAKE_BOTTOM = 189.362   # m AHD — lake bed elevation
+LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
+LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
+LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
+LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
+
+
+def _ahd_to_ml(ahd):
+    """Convert AHD to volume in ML. Identical to ahdToML() in lake-albert.html."""
+    if ahd is None:
+        return None
+    return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
@@ -59,6 +71,7 @@ def load_data():
         'latest':   load_json(DATA_DIR / 'farmbot_lake_latest.json'),
         'readings': load_json(DATA_DIR / 'farmbot_lake_readings.json') or [],
         'history':  load_json(DATA_DIR / 'davis_weather_history.json') or [],
+        'pumping':  load_json(DATA_DIR / 'pumping_usage.json') or [],
     }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,6 +117,19 @@ def history_in_range(history, start, end):
         except Exception:
             pass
     return out
+
+def pumping_in_range(pumping, start, end):
+    """Filter pumping records to [start, end] inclusive."""
+    from datetime import date as ddate
+    out = []
+    for p in pumping:
+        try:
+            d = ddate.fromisoformat(p['date'])
+            if start <= d <= end:
+                out.append({**p, '_date': d})
+        except Exception:
+            pass
+    return sorted(out, key=lambda x: x['_date'])
 
 def fmt_date(d):
     """Format a date with no leading zero on day (Linux strftime %-d)."""
@@ -271,11 +297,55 @@ def build_daily(data, now_syd):
                      if r['date'] == str(yesterday)), None)
 
     body  = _header('Lake Albert Daily Report', now_syd.strftime('%-d %B %Y'))
+    # Volume
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
+
+    # Daily level change — compare yesterday vs day before
+    pumping_data = data.get('pumping', [])
+    pump_today = next((p for p in pumping_data if p['date'] == str(yesterday)), None)
+    pump_ml_today = float(pump_today['ml']) if pump_today else 0.0
+
+    # Get level readings for yesterday and day before
+    prev_day   = yesterday - timedelta(days=1)
+    rdgs_today = [r for r in data['readings'] if r.get('_date') == yesterday]
+    rdgs_prev  = [r for r in data['readings'] if r.get('_date') == prev_day]
+
+    # Readings may not have _date populated yet — fall back to parsing
+    if not rdgs_today:
+        rdgs_today = [r for r in readings_in_range(data['readings'], yesterday, yesterday)]
+    if not rdgs_prev:
+        rdgs_prev  = [r for r in readings_in_range(data['readings'], prev_day, prev_day)]
+
+    today_ahd_r = float(rdgs_today[-1]['ahd']) if rdgs_today and rdgs_today[-1].get('ahd') else None
+    prev_ahd_r  = float(rdgs_prev[-1]['ahd'])  if rdgs_prev  and rdgs_prev[-1].get('ahd')  else None
+
+    daily_chg_ahd = (today_ahd_r - prev_ahd_r) if (today_ahd_r and prev_ahd_r) else None
+    daily_chg_ml  = (daily_chg_ahd * LAKE_SURFACE_M2 / 1000) if daily_chg_ahd is not None else None
+
+    if daily_chg_ahd is not None:
+        chg_sign = '+' if daily_chg_ahd >= 0 else ''
+        chg_str  = f'{chg_sign}{daily_chg_ahd:.3f}&nbsp;m ({chg_sign}{daily_chg_ml:.1f}&nbsp;ML)'
+    else:
+        chg_str = '&mdash;'
+
+    # Evaporation
+    if daily_chg_ml is not None:
+        evap_ml = max(0.0, -daily_chg_ml - pump_ml_today)
+        evap_str = f'{evap_ml:.1f}&nbsp;ML'
+    else:
+        evap_ml  = None
+        evap_str = '&mdash;'
+
     body += _section('LAKE LEVEL')
     body += _kv_table([
         ('Lake Level (AHD)',    fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Daily Level Change',  chg_str),
+        ('Extraction (yesterday)', f'{pump_ml_today:.1f}&nbsp;ML'),
+        ('Evaporation (est.)',  evap_str),
         ('Reading Time',        lake_ts),
         ('Sensor Battery',      f'{batt:.2f}&nbsp;V' if batt else '&mdash;'),
     ])
@@ -330,11 +400,38 @@ def build_weekly(data, now_syd):
     period = f"{week_start.strftime('%-d %b')} &ndash; {fmt_date(week_end)}"
     body  = _header('Lake Albert Weekly Report', period)
 
+    # Volume and weekly change
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
+
+    week_ahd_vals = [r['ahd'] for r in readings if r.get('ahd') is not None]
+    first_ahd_w = week_ahd_vals[0]  if week_ahd_vals else None
+    last_ahd_w  = week_ahd_vals[-1] if week_ahd_vals else None
+    week_chg    = (last_ahd_w - first_ahd_w) if (first_ahd_w and last_ahd_w) else None
+    week_chg_ml = (week_chg * LAKE_SURFACE_M2 / 1000) if week_chg is not None else None
+
+    week_pump_data = pumping_in_range(data.get('pumping', []), week_start, week_end)
+    total_pump_ml  = sum(float(p.get('ml', 0)) for p in week_pump_data)
+
+    if week_chg_ml is not None:
+        chg_sign = '+' if week_chg >= 0 else ''
+        ml_sign  = '+' if week_chg_ml >= 0 else ''
+        chg_str  = f'{chg_sign}{week_chg:.3f}&nbsp;m ({ml_sign}{week_chg_ml:.1f}&nbsp;ML)'
+        evap_ml  = max(0.0, -week_chg_ml - total_pump_ml)
+        evap_str = f'{evap_ml:.1f}&nbsp;ML'
+    else:
+        chg_str  = '&mdash;'
+        evap_str = '&mdash;'
+
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Week Level Change',   chg_str),
+        ('Week Extraction',     f'{total_pump_ml:.1f}&nbsp;ML'),
+        ('Evaporation (est.)',  evap_str),
     ])
 
     body += _section('DAILY LAKE LEVELS &mdash; PAST 7 DAYS')
@@ -394,11 +491,36 @@ def build_monthly(data, now_syd):
 
     body  = _header('Lake Albert Monthly Report', month_label)
 
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
+
+    first_ahd_m = ahd_vals[0]  if ahd_vals else None
+    last_ahd_m  = ahd_vals[-1] if ahd_vals else None
+    month_chg   = (last_ahd_m - first_ahd_m) if (first_ahd_m and last_ahd_m) else None
+    month_chg_ml = (month_chg * LAKE_SURFACE_M2 / 1000) if month_chg is not None else None
+
+    month_pump_data = pumping_in_range(data.get('pumping', []), month_start, month_end)
+    total_pump_ml   = sum(float(p.get('ml', 0)) for p in month_pump_data)
+
+    if month_chg_ml is not None:
+        chg_sign = '+' if month_chg >= 0 else ''
+        ml_sign  = '+' if month_chg_ml >= 0 else ''
+        chg_str  = f'{chg_sign}{month_chg:.3f}&nbsp;m ({ml_sign}{month_chg_ml:.1f}&nbsp;ML)'
+        evap_ml  = max(0.0, -month_chg_ml - total_pump_ml)
+        evap_str = f'{evap_ml:.1f}&nbsp;ML'
+    else:
+        chg_str  = '&mdash;'
+        evap_str = '&mdash;'
+
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Month Level Change',  chg_str),
+        ('Month Extraction',    f'{total_pump_ml:.1f}&nbsp;ML'),
+        ('Evaporation (est.)',  evap_str),
     ])
 
     body += _section(f'LAKE LEVELS &mdash; {month_label.upper()}')
@@ -470,11 +592,36 @@ def build_yearly(data, now_syd):
 
     body  = _header(f'Lake Albert Annual Report &mdash; {fy_label}', period)
 
+    vol_ml  = _ahd_to_ml(ahd)
+    vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
+
+    first_ahd_y = ahd_vals[0]  if ahd_vals else None
+    last_ahd_y  = ahd_vals[-1] if ahd_vals else None
+    year_chg    = (last_ahd_y - first_ahd_y) if (first_ahd_y and last_ahd_y) else None
+    year_chg_ml = (year_chg * LAKE_SURFACE_M2 / 1000) if year_chg is not None else None
+
+    year_pump_data = pumping_in_range(data.get('pumping', []), year_start, year_end)
+    total_pump_ml  = sum(float(p.get('ml', 0)) for p in year_pump_data)
+
+    if year_chg_ml is not None:
+        chg_sign = '+' if year_chg >= 0 else ''
+        ml_sign  = '+' if year_chg_ml >= 0 else ''
+        chg_str  = f'{chg_sign}{year_chg:.3f}&nbsp;m ({ml_sign}{year_chg_ml:.1f}&nbsp;ML)'
+        evap_ml  = max(0.0, -year_chg_ml - total_pump_ml)
+        evap_str = f'{evap_ml:.1f}&nbsp;ML'
+    else:
+        chg_str  = '&mdash;'
+        evap_str = '&mdash;'
+
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Year Level Change',   chg_str),
+        ('Annual Extraction',   f'{total_pump_ml:.1f}&nbsp;ML'),
+        ('Evaporation (est.)',  evap_str),
     ])
 
     body += _section(f'LAKE LEVEL SUMMARY &mdash; {fy_label}')
