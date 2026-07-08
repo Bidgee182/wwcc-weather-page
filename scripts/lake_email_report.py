@@ -53,10 +53,11 @@ def _ahd_to_ml(ahd):
 
 
 _WHITE_LOGO_B64_CACHE = None
+_WHITE_LOGO_DIMS = (160, 44)  # fallback (w, h)
 
 
 def _get_white_logo_b64():
-    global _WHITE_LOGO_B64_CACHE
+    global _WHITE_LOGO_B64_CACHE, _WHITE_LOGO_DIMS
     if _WHITE_LOGO_B64_CACHE is not None:
         return _WHITE_LOGO_B64_CACHE
     try:
@@ -69,6 +70,9 @@ def _get_white_logo_b64():
         )
         resp.raise_for_status()
         img = Image.open(_io.BytesIO(resp.content)).convert('RGBA')
+        target_h = 44
+        target_w = round(img.width * target_h / img.height)
+        img = img.resize((target_w, target_h), Image.LANCZOS)
         r, g, b, a = img.split()
         white = Image.new('L', img.size, 255)
         white_img = Image.merge('RGBA', (white, white, white, a))
@@ -76,6 +80,7 @@ def _get_white_logo_b64():
         white_img.save(buf, format='PNG')
         b64 = _b64.b64encode(buf.getvalue()).decode('ascii')
         _WHITE_LOGO_B64_CACHE = f'data:image/png;base64,{b64}'
+        _WHITE_LOGO_DIMS = (target_w, target_h)
         return _WHITE_LOGO_B64_CACHE
     except Exception as e:
         logging.warning(f'Could not generate white logo: {e}')
@@ -85,8 +90,9 @@ def _get_white_logo_b64():
 def _white_logo_html():
     src = _get_white_logo_b64()
     if src:
-        return (f'<img src="{src}" height="44" alt="Wagga Wagga Country Club"'
-                f' style="display:block;height:44px;width:auto;border:0;">')
+        w, h = _WHITE_LOGO_DIMS
+        return (f'<img src="{src}" width="{w}" height="{h}" alt="Wagga Wagga Country Club"'
+                f' style="display:block;border:0;">')
     return ''
 
 
@@ -210,7 +216,7 @@ def _header(title, subtitle=''):
                 font-family:Arial,sans-serif;">{title}</h1>
             {sub}
           </td>
-          <td align="right" valign="middle" style="padding-left:16px;white-space:nowrap;">
+          <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
             {_white_logo_html()}
           </td>
         </tr>
@@ -296,7 +302,12 @@ def _wrap(body):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-</head>
+  <style type="text/css">
+  @media only screen and (max-width:620px) {{
+    table[width="600"] {{ width:100% !important; max-width:100% !important; }}
+    .mob-logo img {{ height:32px !important; width:auto !important; }}
+  }}
+  </style>
 <body style="margin:0;padding:16px;background-color:{BODY_BG};">
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        bgcolor="{BODY_BG}" style="background-color:{BODY_BG};">

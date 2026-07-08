@@ -876,6 +876,7 @@ _EMAIL_MOBILE_STYLE = """<style type="text/css">
   td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
   .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
   .mob-full  { width:100% !important; }
+  .mob-logo img { height:32px !important; width:auto !important; }
 }
 </style>"""
 
@@ -960,10 +961,11 @@ def _ahd_to_ml(ahd):
 
 
 _WHITE_LOGO_B64_CACHE = None
+_WHITE_LOGO_DIMS = (160, 44)  # fallback (w, h)
 
 
 def _get_white_logo_b64():
-    global _WHITE_LOGO_B64_CACHE
+    global _WHITE_LOGO_B64_CACHE, _WHITE_LOGO_DIMS
     if _WHITE_LOGO_B64_CACHE is not None:
         return _WHITE_LOGO_B64_CACHE
     try:
@@ -976,6 +978,9 @@ def _get_white_logo_b64():
         )
         resp.raise_for_status()
         img = Image.open(_io.BytesIO(resp.content)).convert('RGBA')
+        target_h = 44
+        target_w = round(img.width * target_h / img.height)
+        img = img.resize((target_w, target_h), Image.LANCZOS)
         r, g, b, a = img.split()
         white = Image.new('L', img.size, 255)
         white_img = Image.merge('RGBA', (white, white, white, a))
@@ -983,6 +988,7 @@ def _get_white_logo_b64():
         white_img.save(buf, format='PNG')
         b64 = _b64.b64encode(buf.getvalue()).decode('ascii')
         _WHITE_LOGO_B64_CACHE = f'data:image/png;base64,{b64}'
+        _WHITE_LOGO_DIMS = (target_w, target_h)
         return _WHITE_LOGO_B64_CACHE
     except Exception as e:
         logging.warning(f'Could not generate white logo: {e}')
@@ -992,8 +998,9 @@ def _get_white_logo_b64():
 def _white_logo_html():
     src = _get_white_logo_b64()
     if src:
-        return (f'<img src="{src}" height="44" alt="Wagga Wagga Country Club"'
-                f' style="display:block;height:44px;width:auto;border:0;">')
+        w, h = _WHITE_LOGO_DIMS
+        return (f'<img src="{src}" width="{w}" height="{h}" alt="Wagga Wagga Country Club"'
+                f' style="display:block;border:0;">')
     return ''
 
 
@@ -1186,9 +1193,9 @@ def _lake_threshold_table(current_ahd):
 def _metric_card(label, value, sub='', bg='#f8fafc', border='#e2e8f0',
                  label_col='#94a3b8', val_col='#111827', sub_col='#64748b'):
     sub_html = f'<div style="font-size:12px;color:{sub_col};margin-top:4px;">{sub}</div>' if sub else ''
-    return f"""<table width="100%" cellpadding="14" cellspacing="0"
-        style="background:{bg};border:1px solid {border};border-radius:10px;">
-      <tr><td>
+    return f"""<table width="100%" height="100%" cellpadding="14" cellspacing="0"
+        style="height:100%;background:{bg};border:1px solid {border};border-radius:10px;">
+      <tr><td valign="top">
         <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
             color:{label_col};margin-bottom:6px;">{label}</div>
         <div style="font-size:22px;font-weight:700;color:{val_col};line-height:1.2;">{value}</div>
@@ -2074,7 +2081,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
         {_white_logo_html()}
       </td>
     </tr></table>
@@ -2427,7 +2434,7 @@ def build_weekly_html(history, week_end_date):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
         {_white_logo_html()}
       </td>
     </tr></table>
@@ -2696,7 +2703,7 @@ def build_monthly_html(history, month_label):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
         {_white_logo_html()}
       </td>
     </tr></table>
@@ -3011,7 +3018,7 @@ def build_yearly_html(history, year_label):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
         {_white_logo_html()}
       </td>
     </tr></table>
