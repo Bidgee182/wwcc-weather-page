@@ -1,0 +1,86 @@
+name: Lake Albert Email Reports
+
+on:
+  schedule:
+    # 7:00 AM AEST (UTC+10) — Apr to Oct
+    - cron: '0 21 * * *'
+    # 7:00 AM AEDT (UTC+11) — Oct to Apr
+    - cron: '0 20 * * *'
+
+  # Manual trigger for testing or resending
+  workflow_dispatch:
+    inputs:
+      report:
+        description: 'Report type (leave blank for automatic date-based selection)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - daily
+          - weekly
+          - monthly
+          - yearly
+      force_all:
+        description: 'Send all four report types'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      dry_run:
+        description: 'Build HTML preview only — do not send email'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  lake-report:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to commit dry-run previews to data/reports/
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Lake Albert email reports
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
+          EMAIL_LAKE_TO:    ${{ secrets.EMAIL_LAKE_TO }}
+          EMAIL_LAKE_CC:    ${{ secrets.EMAIL_LAKE_CC }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.report }}" ]; then
+            ARGS="$ARGS --report ${{ github.event.inputs.report }}"
+          fi
+          if [ "${{ github.event.inputs.force_all }}" = "true" ]; then
+            ARGS="$ARGS --force-all"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python scripts/lake_email_report.py $ARGS
+
+      - name: Commit dry-run previews (if any)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/reports/
+          git diff --staged --quiet || git commit -m "Lake report preview $(date -u +%Y-%m-%d)"
+          git push
