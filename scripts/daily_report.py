@@ -2036,10 +2036,14 @@ def build_daily_html(row, target_date, history, forecast_days=None):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:12px;">
-        <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-             height="56" alt="Wagga Wagga Country Club"
-             style="display:block;filter:grayscale(1) contrast(200) invert(1);height:56px;width:auto;opacity:0.9;">
+      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
+            <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+                 height="44" alt="Wagga Wagga Country Club"
+                 style="display:block;height:44px;width:auto;border:0;">
+          </td>
+        </tr></table>
       </td>
     </tr></table>
   </td></tr>
@@ -2391,10 +2395,14 @@ def build_weekly_html(history, week_end_date):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:12px;">
-        <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-             height="56" alt="Wagga Wagga Country Club"
-             style="display:block;filter:grayscale(1) contrast(200) invert(1);height:56px;width:auto;opacity:0.9;">
+      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
+            <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+                 height="44" alt="Wagga Wagga Country Club"
+                 style="display:block;height:44px;width:auto;border:0;">
+          </td>
+        </tr></table>
       </td>
     </tr></table>
   </td></tr>
@@ -2662,10 +2670,14 @@ def build_monthly_html(history, month_label):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:12px;">
-        <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-             height="56" alt="Wagga Wagga Country Club"
-             style="display:block;filter:grayscale(1) contrast(200) invert(1);height:56px;width:auto;opacity:0.9;">
+      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
+            <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+                 height="44" alt="Wagga Wagga Country Club"
+                 style="display:block;height:44px;width:auto;border:0;">
+          </td>
+        </tr></table>
       </td>
     </tr></table>
   </td></tr>
@@ -2979,10 +2991,14 @@ def build_yearly_html(history, year_label):
         <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
             text-transform:uppercase;">Wagga Wagga Country Club</div>
       </td>
-      <td align="right" valign="top" style="padding-left:12px;">
-        <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-             height="56" alt="Wagga Wagga Country Club"
-             style="display:block;filter:grayscale(1) contrast(200) invert(1);height:56px;width:auto;opacity:0.9;">
+      <td align="right" valign="top" style="padding-left:16px;white-space:nowrap;">
+        <table cellpadding="0" cellspacing="0"><tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
+            <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+                 height="44" alt="Wagga Wagga Country Club"
+                 style="display:block;height:44px;width:auto;border:0;">
+          </td>
+        </tr></table>
       </td>
     </tr></table>
   </td></tr>

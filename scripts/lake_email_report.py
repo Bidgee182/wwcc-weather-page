@@ -172,10 +172,14 @@ def _header(title, subtitle=''):
                 font-family:Arial,sans-serif;">{title}</h1>
             {sub}
           </td>
-          <td align="right" valign="middle" style="padding-left:12px;">
-            <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-                 height="50" alt="Wagga Wagga Country Club"
-                 style="display:block;filter:grayscale(1) contrast(200) invert(1);height:50px;width:auto;opacity:0.9;">
+          <td align="right" valign="middle" style="padding-left:16px;white-space:nowrap;">
+            <table cellpadding="0" cellspacing="0"><tr>
+              <td bgcolor="#ffffff" style="background-color:#ffffff;padding:6px 12px;border-radius:8px;">
+                <img src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+                     height="44" alt="Wagga Wagga Country Club"
+                     style="display:block;height:44px;width:auto;border:0;">
+              </td>
+            </tr></table>
           </td>
         </tr>
       </table>
