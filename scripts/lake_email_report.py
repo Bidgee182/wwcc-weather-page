@@ -59,7 +59,6 @@ def load_data():
         'latest':   load_json(DATA_DIR / 'farmbot_lake_latest.json'),
         'readings': load_json(DATA_DIR / 'farmbot_lake_readings.json') or [],
         'history':  load_json(DATA_DIR / 'davis_weather_history.json') or [],
-        'quality':  load_json(DATA_DIR / 'water_quality.json'),
     }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -78,12 +77,6 @@ def activity_status(ahd):
     if depth >= 0.70: return ('Powerboating OK',     '#1e8449', '#ffffff')
     if depth >= 0.50: return ('Small Vessels Only',  '#e67e22', '#ffffff')
     return                    ('No Boating',          '#c0392b', '#ffffff')
-
-def quality_colors(level):
-    if level == 'green': return ('#1e8449', '#ffffff')
-    if level == 'amber': return ('#e67e22', '#ffffff')
-    if level == 'red':   return ('#c0392b', '#ffffff')
-    return                       ('#888888', '#ffffff')
 
 def readings_in_range(readings, start, end):
     """Filter lake readings to Sydney date range [start, end] inclusive.
@@ -260,13 +253,6 @@ def build_daily(data, now_syd):
 
     act_lbl, act_bg, act_fg = activity_status(ahd)
 
-    quality  = data['quality'] or {}
-    q_level  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown')
-    q_tested = quality.get('last_tested', '&mdash;')
-    q_note   = quality.get('note', '')
-    q_bg, q_fg = quality_colors(q_level)
-
     yday_wx  = next((r for r in reversed(data['history'])
                      if r['date'] == str(yesterday)), None)
 
@@ -278,13 +264,6 @@ def build_daily(data, now_syd):
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
         ('Reading Time',        lake_ts),
         ('Sensor Battery',      f'{batt:.2f}&nbsp;V' if batt else '&mdash;'),
-    ])
-
-    body += _section('WATER QUALITY')
-    body += _kv_table([
-        ('Status',       _pill(q_label, q_bg, q_fg)),
-        ('Last Tested',  q_tested),
-        ('Notes',        q_note or '&mdash;'),
     ])
 
     if yday_wx:
@@ -329,11 +308,6 @@ def build_weekly(data, now_syd):
     ahd    = latest.get('lake_ahd')
     act_lbl, act_bg, act_fg = activity_status(ahd)
 
-    quality  = data['quality'] or {}
-    q_level  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown')
-    q_bg, q_fg = quality_colors(q_level)
-
     wx_tmax = max((r['tMax']    for r in wx_week if r.get('tMax')    is not None), default=None)
     wx_tmin = min((r['tMin']    for r in wx_week if r.get('tMin')    is not None), default=None)
     wx_rain = sum(r.get('rain', 0) or 0 for r in wx_week)
@@ -347,7 +321,6 @@ def build_weekly(data, now_syd):
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Water Quality',       _pill(q_label, q_bg, q_fg)),
     ])
 
     body += _section('DAILY LAKE LEVELS &mdash; PAST 7 DAYS')
@@ -396,13 +369,6 @@ def build_monthly(data, now_syd):
     ahd    = latest.get('lake_ahd')
     act_lbl, act_bg, act_fg = activity_status(ahd)
 
-    quality  = data['quality'] or {}
-    q_level  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown')
-    q_tested = quality.get('last_tested', '&mdash;')
-    q_note   = quality.get('note', '')
-    q_bg, q_fg = quality_colors(q_level)
-
     wx_tmax      = max((r['tMax']    for r in wx_month if r.get('tMax')    is not None), default=None)
     wx_tmin      = min((r['tMin']    for r in wx_month if r.get('tMin')    is not None), default=None)
     wx_rain      = sum(r.get('rain', 0) or 0 for r in wx_month)
@@ -419,8 +385,6 @@ def build_monthly(data, now_syd):
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Water Quality',       _pill(q_label, q_bg, q_fg)),
-        ('Water Quality Tested', q_tested),
     ])
 
     body += _section(f'LAKE LEVELS &mdash; {month_label.upper()}')
@@ -441,7 +405,6 @@ def build_monthly(data, now_syd):
     wx_rows.append(('Rain Days',       str(wx_rain_days)))
     if wx_wmax is not None: wx_rows.append(('Peak Wind Speed', f'{wx_wmax:.1f}&nbsp;km/h'))
     if wx_hot_days > 0:     wx_rows.append(('Days 35&deg;C+',  str(wx_hot_days)))
-    if q_note:              wx_rows.append(('Water Quality Note', q_note))
     body += _kv_table(wx_rows)
 
     body += _footer(now_syd)
@@ -480,12 +443,6 @@ def build_yearly(data, now_syd):
     ahd    = latest.get('lake_ahd')
     act_lbl, act_bg, act_fg = activity_status(ahd)
 
-    quality  = data['quality'] or {}
-    q_level  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown')
-    q_tested = quality.get('last_tested', '&mdash;')
-    q_bg, q_fg = quality_colors(q_level)
-
     wx_tmax       = max((r['tMax']    for r in wx_year if r.get('tMax')    is not None), default=None)
     wx_tmin       = min((r['tMin']    for r in wx_year if r.get('tMin')    is not None), default=None)
     wx_rain       = sum(r.get('rain', 0) or 0 for r in wx_year)
@@ -504,8 +461,6 @@ def build_yearly(data, now_syd):
         ('Current Level (AHD)', fmt_ahd(ahd)),
         ('Depth Above Bottom',  fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Water Quality',       _pill(q_label, q_bg, q_fg)),
-        ('Water Quality Tested', q_tested),
     ])
 
     body += _section(f'LAKE LEVEL SUMMARY &mdash; {fy_label}')

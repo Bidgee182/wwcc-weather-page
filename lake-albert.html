@@ -248,16 +248,6 @@
                 <div class="lake-pill-val" id="pill-trend">--</div>
             </div>
         </div>
-        <div class="lake-pill-row">
-            <a href="https://wagga.nsw.gov.au/parks-and-recreation/parks-beaches-lakes/lake-albert/lake-albert-water-quality-readings" target="_blank" rel="noopener" style="text-decoration:none;flex:1;min-width:130px">
-            <div class="lake-pill" id="pill-wq-wrap" style="cursor:pointer">
-                <div class="lake-pill-lbl">&#128167; Water Quality - WWCC Test</div>
-                <div class="lake-pill-val" id="pill-wq-status">--</div>
-                <div style="font-size:0.68em;color:#566573;margin-top:5px" id="pill-wq-tested"></div>
-            </div>
-            </a>
-        </div>
-
         <div style="font-size:0.72em;color:#566573;text-align:center;margin-top:8px" id="l-updated"></div>
     </div>
 
@@ -2485,58 +2475,6 @@ function updateFishingTab() {
     if (updEl) updEl.textContent = 'Updated: '+new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
 }
 
-// ── Water quality pill ────────────────────────────────────────────────────
-async function fetchWaterQuality() {
-    try {
-        const r = await fetch('data/water_quality.json?_='+Date.now());
-        if (!r.ok) return;
-        const wq = await r.json();
-
-        const wrap   = document.getElementById('pill-wq-wrap');
-        const statEl = document.getElementById('pill-wq-status');
-        const tstEl  = document.getElementById('pill-wq-tested');
-        if (!statEl) return;
-
-        const level = (wq.alert_level || 'unknown').toLowerCase();
-        const label = wq.alert_label || wq.alert_level || 'Unknown';
-
-        wrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
-        if (level === 'green') {
-            statEl.textContent  = '\u2713 ' + label;
-            statEl.style.color  = '#27ae60';
-            wrap.classList.add('lake-pill-glow-green');
-        } else if (level === 'amber' || level === 'yellow') {
-            statEl.textContent  = '\u26a0 ' + label;
-            statEl.style.color  = '#d4ac0d';
-        } else if (level === 'red') {
-            statEl.textContent  = '\u2717 ' + label;
-            statEl.style.color  = '#e74c3c';
-            wrap.classList.add('lake-pill-glow-red');
-        } else {
-            statEl.textContent  = label;
-            statEl.style.color  = '#7f8c8d';
-        }
-
-        if (tstEl) {
-            const parts = [];
-            if (wq.last_tested) {
-                const d = new Date(wq.last_tested);
-                parts.push('Last tested: ' + d.toLocaleDateString('en-AU', {day:'numeric', month:'short', year:'numeric'}));
-                // Staleness warning: amber if > 14 days old
-                const ageDays = (Date.now() - d.getTime()) / 86400000;
-                if (ageDays > 14) {
-                    parts.push('⚠ ' + Math.floor(ageDays) + ' days ago');
-                    tstEl.style.color = '#d4ac0d';
-                    if (wrap && !wrap.classList.contains('lake-pill-glow-red')) {
-                        wrap.style.borderColor = '#d4ac0d';
-                    }
-                }
-            }
-            tstEl.textContent = parts.join(' · ');
-        }
-    } catch(e) { /* silently ignore */ }
-}
-
 // ── Build Nautical Rose compasses ────────────────────────────────────────
 (function buildCompasses(){
     const NS='http://www.w3.org/2000/svg';
@@ -2578,11 +2516,9 @@ async function fetchWaterQuality() {
 // ── Init ──────────────────────────────────────────────────────────────────
 localStorage.removeItem('wxh_daily');   // clear old cached data - now file-based only
 fetchLevel();
-fetchWaterQuality();
 updateNavLights();
 fetchLakeForecast();
 setInterval(fetchLevel,5*60*1000);
-setInterval(fetchWaterQuality,30*60*1000);
 </script>
 </body>
 </html>

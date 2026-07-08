@@ -974,9 +974,7 @@ def _load_lake_data():
             readings = json.load(f)
         with open(base / 'pumping_usage.json') as f:
             pumping = json.load(f)
-        with open(base / 'water_quality.json') as f:
-            quality = json.load(f)
-        return {'latest': latest, 'readings': readings, 'pumping': pumping, 'quality': quality}
+        return {'latest': latest, 'readings': readings, 'pumping': pumping}
     except Exception as e:
         logging.warning(f'Lake data load failed: {e}')
         return None
@@ -1155,7 +1153,6 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     latest   = lake_data['latest']
     readings = lake_data['readings']
     pumping  = lake_data['pumping']
-    quality  = lake_data['quality']
 
     ahd = float(latest.get('lake_ahd', 0) or 0)
     if ahd <= 0:
@@ -1179,16 +1176,6 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     yest_pump = next((p for p in pumping if p['date'] == target_date.strftime('%Y-%m-%d')), None)
     pump_ml   = float(yest_pump['ml']) if yest_pump else 0.0
     pump_note = yest_pump.get('note', '') if yest_pump else ''
-
-    # Water quality
-    q_alert = quality.get('alert_level', 'unknown')
-    q_label = quality.get('alert_label', 'Unknown')
-    q_tested = quality.get('last_tested', '')
-    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
-    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
-    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
-    q_val_col = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
-    q_icon = '&#9679;'
 
     # Chart
     chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
@@ -1220,15 +1207,8 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     # Metric cards row 2
     cards_r2 = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
         <tr>
-          <td width="50%" style="padding-right:5px;vertical-align:top;">
+          <td style="vertical-align:top;">
             {_metric_card("Yesterday's Extraction", f'{pump_ml:.1f} ML', pump_note or '&nbsp;')}
-          </td>
-          <td width="50%" style="padding-left:5px;vertical-align:top;">
-            {_metric_card('Water Quality', f'{q_icon} {q_label.split("—")[0].strip()}',
-                          ('BGA &amp; Bacterial: Low' if q_alert == 'green' else '') +
-                          (f' &bull; Tested {q_tested}' if q_tested else ''),
-                          bg=q_bg, border=q_border, label_col=q_label_col,
-                          val_col=q_val_col, sub_col=q_label_col)}
           </td>
         </tr>
       </table>"""
@@ -1288,7 +1268,6 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     latest   = lake_data['latest']
     readings = lake_data['readings']
     pumping  = lake_data['pumping']
-    quality  = lake_data['quality']
 
     ahd = float(latest.get('lake_ahd', 0) or 0)
     if ahd <= 0:
@@ -1309,15 +1288,6 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     week_change = last_ahd - first_ahd
 
     total_pump_ml = sum(float(p.get('ml', 0)) for p in week_pumping)
-
-    # Water quality
-    q_alert  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
-    q_tested = quality.get('last_tested', '')
-    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
-    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
-    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
-    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
 
     chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
@@ -1348,20 +1318,15 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
 
     cards_html = f"""<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
         <tr>
-          <td width="25%" style="padding-right:4px;vertical-align:top;">
+          <td width="33%" style="padding-right:5px;vertical-align:top;">
             {_metric_card('End Level', f'{ahd:.3f}', 'metres AHD')}
           </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
+          <td width="33%" style="padding:0 3px;vertical-align:top;">
             {_metric_card('Week Change', f'{change_sign}{week_change:.3f} m',
                           'rise' if week_change >= 0 else 'fall')}
           </td>
-          <td width="25%" style="padding:0 2px;vertical-align:top;">
+          <td width="33%" style="padding-left:5px;vertical-align:top;">
             {_metric_card("Week's Extraction", f'{total_pump_ml:.1f} ML', 'total pumped')}
-          </td>
-          <td width="25%" style="padding-left:4px;vertical-align:top;">
-            {_metric_card('Water Quality', f'&#9679; {q_label}', f'Tested {q_tested}' if q_tested else '',
-                          bg=q_bg, border=q_border, label_col=q_label_col,
-                          val_col=q_val_col, sub_col=q_label_col)}
           </td>
         </tr>
       </table>"""
@@ -1430,7 +1395,6 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     latest   = lake_data['latest']
     readings = lake_data['readings']
     pumping  = lake_data['pumping']
-    quality  = lake_data['quality']
 
     ahd = float(latest.get('lake_ahd', 0) or 0)
     if ahd <= 0:
@@ -1456,14 +1420,6 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     low_ahd  = min(ahd_vals) if ahd_vals else ahd
     avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
     total_pump_ml = sum(float(p.get('ml', 0)) for p in month_pumping)
-
-    q_alert  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
-    q_tested = quality.get('last_tested', '')
-    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
-    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
-    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
-    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
 
     chart_b64 = _lake_chart_b64(chart_readings, month_start, month_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
@@ -1541,7 +1497,6 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     latest   = lake_data['latest']
     readings = lake_data['readings']
     pumping  = lake_data['pumping']
-    quality  = lake_data['quality']
 
     ahd = float(latest.get('lake_ahd', 0) or 0)
     if ahd <= 0:
@@ -1566,14 +1521,6 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     low_ahd  = min(ahd_vals) if ahd_vals else ahd
     avg_ahd  = sum(ahd_vals) / len(ahd_vals) if ahd_vals else ahd
     total_pump_ml = sum(float(p.get('ml', 0)) for p in year_pumping)
-
-    q_alert  = quality.get('alert_level', 'unknown')
-    q_label  = quality.get('alert_label', 'Unknown').split('—')[0].strip()
-    q_tested = quality.get('last_tested', '')
-    q_bg = '#f0fdf4' if q_alert == 'green' else ('#fef9c3' if q_alert == 'amber' else '#fef2f2')
-    q_border = '#bbf7d0' if q_alert == 'green' else ('#fde047' if q_alert == 'amber' else '#fecaca')
-    q_label_col = '#065f46' if q_alert == 'green' else ('#92400e' if q_alert == 'amber' else '#991b1b')
-    q_val_col   = '#1a4a2e' if q_alert == 'green' else ('#78350f' if q_alert == 'amber' else '#7f1d1d')
 
     chart_b64 = _lake_chart_b64(chart_readings, year_start, year_end)
     chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''

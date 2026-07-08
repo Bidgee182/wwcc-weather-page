@@ -56,11 +56,6 @@ LAKE_READINGS_JSON      = DATA_DIR / 'farmbot_lake_readings.json'
 LAKE_WEATHER_JSON        = DATA_DIR / 'farmbot_lake_weather.json'
 LAKE_RAIN_READINGS_JSON  = DATA_DIR / 'farmbot_lake_rain_readings.json'
 DAVIS_WEATHER_HISTORY_JSON = DATA_DIR / 'davis_weather_history.json'
-WATER_QUALITY_JSON         = DATA_DIR / 'water_quality.json'
-
-WATER_QUALITY_URL = ('https://wagga.nsw.gov.au/parks-and-recreation/'
-                     'parks-beaches-lakes/lake-albert/lake-albert-water-quality-readings')
-
 # Davis WeatherLink v2 (same station as the golf course dashboard)
 DAVIS_V2_API_KEY    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x'
 DAVIS_V2_API_SECRET = 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
@@ -281,72 +276,6 @@ def _process_davis_day(records):
     }
 
 
-def poll_water_quality():
-    """Scrape Wagga Council Lake Albert water quality page and update water_quality.json.
-    Preserves the existing JSON if the page is unavailable or parsing fails."""
-    import re
-    headers = {
-        'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                       'AppleWebKit/537.36 (KHTML, like Gecko) '
-                       'Chrome/124.0 Safari/537.36'),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    }
-    resp = requests.get(WATER_QUALITY_URL, headers=headers, timeout=30)
-    resp.raise_for_status()
-    html = resp.text
-
-    # Detect alert level from page text (green/amber/red keywords)
-    html_lower = html.lower()
-    if 'red alert' in html_lower or 'red level' in html_lower:
-        level, label = 'red', 'Red Alert — Avoid Contact'
-    elif 'amber alert' in html_lower or 'amber level' in html_lower or 'alert level' in html_lower:
-        level, label = 'amber', 'Amber Alert — Caution'
-    elif 'no alert' in html_lower or 'green' in html_lower:
-        level, label = 'green', 'No Alert'
-    else:
-        level, label = 'unknown', 'Check Council Website'
-
-    # Try to extract a date (looks for patterns like "11 February 2026" or "2026-02-11")
-    last_tested = None
-    date_match = re.search(
-        r'(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})',
-        html, re.IGNORECASE)
-    if date_match:
-        from datetime import date as _date
-        months = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,
-                  'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
-        d, m, y = int(date_match.group(1)), months[date_match.group(2).lower()], int(date_match.group(3))
-        try:
-            last_tested = _date(y, m, d).isoformat()
-        except ValueError:
-            pass
-    if not last_tested:
-        iso_match = re.search(r'(\d{4}-\d{2}-\d{2})', html)
-        if iso_match:
-            last_tested = iso_match.group(1)
-
-    # Load existing record to preserve fields we can't parse
-    existing = {}
-    if WATER_QUALITY_JSON.exists():
-        try:
-            existing = json.loads(WATER_QUALITY_JSON.read_text())
-        except Exception:
-            pass
-
-    record = {
-        'alert_level':  level,
-        'alert_label':  label,
-        'last_tested':  last_tested or existing.get('last_tested'),
-        'note':         existing.get('note', ''),
-        'source_url':   WATER_QUALITY_URL,
-        'updated_at':   datetime.now(tz=SYDNEY_TZ).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    }
-
-    DATA_DIR.mkdir(exist_ok=True)
-    WATER_QUALITY_JSON.write_text(json.dumps(record, indent=2))
-    log.info(f'Water quality: level={level}, last_tested={record["last_tested"]}')
-
-
 def poll_davis_history():
     """Fetch yesterday's and today's Davis data and update davis_weather_history.json."""
     log.info('Davis history update starting')
@@ -495,12 +424,6 @@ def poll():
         poll_davis_history()
     except Exception as e:
         log.error(f'Davis history update failed: {e}')
-
-    # Scrape council water quality page
-    try:
-        poll_water_quality()
-    except Exception as e:
-        log.error(f'Water quality update failed: {e}')
 
 # ── Lake level poll ───────────────────────────────────────────────────────────
 def poll_lake(token):
