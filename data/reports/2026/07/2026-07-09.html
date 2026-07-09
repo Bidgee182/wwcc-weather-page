@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style type="text/css">
+@media only screen and (max-width:620px) {
+  table[width="600"], table[width="640"] { width:100% !important; max-width:100% !important; }
+  td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
+  .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
+  .mob-full  { width:100% !important; }
+  .mob-logo img { height:40px !important; width:auto !important; }
+}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+
+  <!-- HEADER -->
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Daily Weather &amp; Course Snapshot</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">Thursday, 9 July 2026</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          <img src="data:image/png;base64,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" width="194" height="44" alt="Wagga Wagga Country Club" style="display:block;border:0;">
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="background:#0c1a2e;border-left:4px solid #60a5fa;padding:12px 24px;color:#93c5fd;font-size:13px;">&#10052; &nbsp;<strong style="color:#bfdbfe;">Frost recorded overnight</strong> - greens should be checked before early morning play.</td></tr>
+  
+  
+  
+
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">1</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  1
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Yesterday's Weather</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Key weather measurements for Thursday, 9 July 2026</td></tr>
+      </table>
+    </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+    style="border-collapse:collapse;border:1px solid #d1e7d8;border-radius:8px;overflow:hidden;">
+
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Max / Min Temp</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">15.2° / 0.1°C</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Mean Temp</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">6.2°C</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Relative Humidity</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">85.4%</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Rainfall</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0.2 mm</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">ET</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">1.4 mm &nbsp;&bull;&nbsp; Net +1.2 mm</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Wind Max</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">6.4 km/h</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Wind Mean</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">3.5 km/h</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Delta T</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">1.3°C</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Soil Moisture</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">Optimal</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">7-Day Balance</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">-3.0 mm</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">UV Index</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">3.5</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Pressure</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">1029.2 hPa</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Leaf Wet Hours</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">2 hrs</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Dew Point</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">3.7°C</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Solar Radiation</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">269.8 W/m²</td>
+  </tr>
+</table>
+  </td></tr>
+
+  
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">2</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  2
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Lake Albert — Current Level &amp; Licence Status</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Live FarmBot sensor &bull; Water licence level &bull; Current max pump rate</td></tr>
+      </table>
+    </td></tr>
+  <tr>
+    <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+      
+      <!-- Licence level banner -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        <tr>
+          <td bgcolor="#8AC63F" style="background-color:#8AC63F;padding:12px 18px;
+              border-radius:8px;border-left:5px solid #8AC63F;">
+            <table cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td valign="middle">
+                <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#111;
+                    text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
+                <div style="font-size:17px;font-weight:700;color:#111;line-height:1.2;">
+                  Level 2 &mdash; Increased Monitoring</div>
+                <div style="font-size:12px;color:#111;opacity:0.75;margin-top:3px;">
+                  +0.202 m from Level 3 threshold &bull; 0.198 m needed for Level 1
+                </div>
+              </td>
+              <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
+                <div style="font-size:26px;font-weight:700;color:#111;line-height:1;">1.00 ML/day</div>
+                <div style="font-size:11px;color:#111;opacity:0.75;text-align:right;margin-top:2px;">max pump rate</div>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-bottom:16px;"><table width="100%" cellpadding="0" cellspacing="0"
+    style="border-collapse:collapse;border:1px solid #d1e7d8;border-radius:8px;overflow:hidden;">
+
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Lake Level (AHD)</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">190.052 m AHD</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Drop to Level 3</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">+0.202 m from Level 3 threshold</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Rise to Level 1</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0.198 m needed for Level 1</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Volume</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">2346 ML (56.6% of capacity)</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Full Capacity</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">4148 ML at 191.551 m AHD</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Daily Level Change</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">+0.003 m &nbsp;&bull;&nbsp; rise &bull; +3.6 ML</td>
+  </tr>
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Yesterday's Extraction</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0.0 ML</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Evaporation (est.)</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0.0 ML &nbsp;&bull;&nbsp; net inflow (3.6 ML gain)</td>
+  </tr>
+</table></div>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+        <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAC+CAYAAADp5HFqAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjguMiwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy8g+/7EAAAACXBIWXMAAA9hAAAPYQGoP6dpAAAppUlEQVR4nO3daWwcaX7f8e9TfTfP5qFjdHDEQ9RBakbamZ1Zz87O2Mlu7HiROIm9QeAkdoAYQQIkeWEgrw3khWEgeRfADuAAQeLEDmI7Rrx2gsD27DEaaUZcaURRpERKI82IGl0Uu5t9H1WVF0012exmS80piU3q9wEaYldVt57+N6v46+d5qtp0HTjhIiIiIiKesba7ASIiIiK7jQKWiIiIiMcUsEREREQ8poAlIiIi4jH/djfgubEscDV/X0RERJ4jY8Bx6hbvzoBlWcT6B7a7FSIiIvISiD9eqgtZuzNgrfZcxR8vtWUvVigSoZDLbXczdhTVrHWqWetUs9apZlujurWuLWtmTKVDp0HW2J0B6wnXbcuABbRvu9qZatY61ax1qlnrVLOtUd1at4NqpknuIiIiIh5TwBIRERHxmAKWiIiIiMeazsEaHh+nf3AP4UiEi+fOkUmnAIj19zM0OoplLGzb5sbcLJl0GoBAIMjRiQki0QiO43Jjbo6VRLzuuS2fjxOnXqOzuxtjDOd+8EHN+r6BAY4cHccYyKTSzF+dwbZtr163iIiIyHPTtAdr6cFDLl/4hPy6Wft+v5/xiUnmZ2a4eP4ctxbmGZ88VV3/6tgYqWSSqbNnmb86w7HJSYwxdc/tOg53bt/myk9+Ut8on4+xEyeZ/fQSU2fPUiwUODw88lVep4iIiMgL0zRgrSTiFAuFmmXhaJRSqUQ2k1ndJkEoHKajqwuAwb17ubd4B4D0ygrFQoGeWKzuuV3XJRlfplwu1a3r6x8gnUqRy2YBuLd4h8F9+7bw8kRERERevJbnYOWyWQKBAF09PQD0DQ7i9/sJRyL4AwGMZVEqFqvb53M5QuFwS/9HKBKmkF/rNcvncgRDocrVUhswxuDz+dZulq/VlyUiIiLimZavg2WXy8xNX+bI2BiWz08qkSCTTuNu47UpDh0ZZmhkbQjRtm3mrlyhu7e+56wdGMsiFGotdL7sVLPWqWatU81ap5ptjerWup1Wsy1daDQZjzM9NQVUeo/eeu99suk05VIJ13UJBIPVXqxwJEIhn2/p+Qu5PL19/dX74UikMlS5SYi7c+sz7n5+e90SQ3dfX2VyfRtelCwUjVJYHf6UZ6OatU41a51q1jrVbGtUt9a1Zc2MITYw2HDVli7TEAgGqz8fHh4hubxcnQi/9OA++w8eAqCzu5tgKEQyXn8WYTPxx0t0dncTiUYB2H/wEI/u3990e9d1sW177ebobEMRERHZPk17sEaPH6dvYJBgMMjEmTPYts3U2Q8ZGhmlJxbDGMNKIsH87NXqY24tLDA+McEb77yD47hcn7lSHT4cGhmhUChwf3ERgDNvf4NAMIjP7+fr736LxPJy9XIMC7NXOfH6aYwxZNKVyzSIiIiI7ASm68CJ9htD+6pWu+ziS480RLhLqGatU81ap5q1TjXbGtWtdW1ZsyZ5Q1dyFxEREfGYApaIiIiIxxSwRERERDymgCUiIiLiMQUsEREREY8pYImIiIh4TAFLRERExGMKWCIiIiIeU8ASERER8ZgCloiIiIjHFLBEREREPKaAJSIiIuIxBSwRERERjylgiYiIiHhMAUtERETEYwpYIiIiIh5TwBIRERHxmAKWiIiIiMcUsEREREQ8poAlIiIi4jF/s5XD4+P0D+4hHIlw8dw5MukUALH+foZGR7GMhW3b3JibJZNOAxAIBDk6MUEkGsFxXG7MzbGSiDd8/r6BAY4cHccYyKTSzF+dwbZtAA6++ip797+C4zo4tsPN69dIr6x4+dpFREREnoumPVhLDx5y+cIn5HO56jK/38/4xCTzMzNcPH+OWwvzjE+eqq5/dWyMVDLJ1NmzzF+d4djkJMaY+v/Y52PsxElmP73E1NmzFAsFDg+PANDR2cX+g4e49MnHXDp/ni/v3GH02HGvXrOIiIjIc9U0YK0k4hQLhZpl4WiUUqlENpNZ3SZBKBymo6sLgMG9e7m3eAeA9MoKxUKBnlis7rn7+gdIp1LkslkA7i3eYXDfvtW1LsYy+Hw+APwBP4V8fuuvUkREROQFajpE2EgumyUQCNDV00MqmaRvcBC/3084EqGQz2Msi1KxWN0+n8sRCofrnicUCVPI52q2C4ZCYAyZdJq7n3/Bm998l3KphOM4TE9d2LRNxhgsa31WrO8xExEREXlRWg5YdrnM3PRljoyNYfn8pBIJMuk0rut61qhQOMLAnj1Mnf2QYqHA/kOHODZ5atOQdejIMEMjI2tttG3mrlyhu7e+56wdGMsiFKoPnbI51ax1qlnrVLPWqWZbo7q1bqfVrOWABZCMx5memgIqvUdvvfc+2XSacqmE67oEgsFqL9aTnq2NCrk8vX391fvhSKQyHOm6DOzdQyadrg5PPrj7JaPHjmOMaRjk7tz6jLuf3163xNDd11eZXO9h8PNKKBqlsDo0Ks9GNWudatY61ax1qtnWqG6ta8uaGUNsYLDhqi1dpiEQDFZ/Pjw8QnJ5uToRfunBffYfPARAZ3c3wVCIZLz+LML44yU6u7uJRKMA7D94iEf37wOV4cLu3l6s1TlYfYMDZDOZTXvJXNfFtu21m2Nv5WWJiIiIeKJpD9bo8eP0DQwSDAaZOHMG27aZOvshQyOj9MRiGGNYSSSYn71afcythQXGJyZ44513cByX6zNXqsFoaGSEQqHA/cVFbNtmYfYqJ14/jVmddzV/dQaAxw8f0tXdzem33sZxHBzb5vqV6edYBhERERHvmK4DJ9pvDO2rWu2yiy890hDhLqGatU41a51q1jrVbGtUt9a1Zc2a5A1dyV1ERETEYwpYIiIiIh5TwBIRERHxmAKWiIiIiMcUsEREREQ8poAlIiIi4jEFLBERERGPKWCJiIiIeEwBS0RERMRjClgiIiIiHlPAEhEREfGYApaIiIiIxxSwRERERDymgCUiIiLiMQUsEREREY8pYImIiIh4TAFLRERExGMKWCIiIiIeU8ASERER8ZgCloiIiIjH/M1WDo+P0z+4h3AkwsVz58ikUwDE+vsZGh3FMha2bXNjbpZMOg1AIBDk6MQEkWgEx3G5MTfHSiLe8Pn7BgY4cnQcYyCTSjN/dQbbtgEIhcOMHDtOJBoF1+Xe4h2+vHPHy9cuIiIi8lw0DVhLDx6yePs2r7359bUH+P2MT0wyPXWBbCZDd28v45OnuHjuIwBeHRsjlUxy9dJFOru7OfHa61z48Me4rlvz3JbPx9iJk0xPXSCXzTIyfozDwyPcWpgH4Phrr7N46xZLDx8AEAgGPX3hIiIiIs9L0yHClUScYqFQsywcjVIqlchmMqvbJAiFw3R0dQEwuHcv9xYrPU3plRWKhQI9sVjdc/f1D5BOpchlswDcW7zD4L59APT29eE6TjVcAZSKxa2+RhEREZEXqmkPViO5bJZAIEBXTw+pZJK+wUH8fj/hSIRCPo+xrJowlM/lCIXDdc8TioQp5HM12wVDITCGaEcnpWKRY5OTRKId5PM5bs3Pk8/l6p4HwBiDZa3PiqbVlyUiIiLimZYDll0uMzd9mSNjY1g+P6lEgkw6XTcE+FUYY+jp6+PyJx+TzWTYd/Agx06d4tOPP264/aEjwwyNjKy10baZu3KF7t76njOAf/gbFr/3G07NsslvGca/bnBsWFl2+eEfuJRqO+/wB+Hbv2rYc9gwd87lkz9be82T7xmOvmFwgekPHG5crCwfPATf+p6F5YcbP3G59BcuxrIIhdZCZ1c//MwvWwQj8OWCy9k/rjzv6W8bjr1lyFc6C/noTxwe3HqWCu4+G2smT6eatU41a51qtjWqW+t2Ws1aDlgAyXic6akpoBKG3nrvfbLpNOVSCdd1CQSD1V6sJz1bGxVyeXr7+qv3w5FIZTjSdSnk82RSqeow5MMv7zF67DjGmIZB7s6tz7j7+e11SwzdfX2VyfUNtnfsGCvx2on3n8/5Of/nZewSvPMLEY5+Hc7979oeM8sPH/6xn/5XfPQM+liJV4Y3Bw74GJro5L/8RhIM/OKvdzPzUYpizuXn/3kPf/rbSR7fs/nev+km+FGGVDxEYXVoFODd73Xy4f8qcGu6xM//s076D1V+LmQjnP9Th8s/2JD0XkKhaLSmZvJ0qlnrVLPWqWZbo7q1ri1rZgyxgcGGq7YUsNYHqMPDIySXl6vDd0sP7rP/4CG++Owmnd3dBEMhkvH6swjjj5cYOV45SzCXzbL/4CEe3b8PwPLSEq+OjREMhSgWCvQNDJDNZDbtJXNdt3r24ZMX3KrF+XL15/u3bYZfC9Rt45Th7kKZnkFfzfK+/T7u3Sxjrz7F0qLNqycD3F0oYflg6W6lbfMXihyZDDD9o9rnfWXEz5/9x8pZmNc+LjB8Ksit6VLLr0FEGvBZmEgQIiFMJIiJhCASxERDmHAQE11dFw7iC4cILq/gJjOrtyzO6s/ktU+KeC4UaLhfVn+OBKv3rS8ew19e2u4WP7OmAWv0+HH6BgYJBoNMnDmDbdtMnf2QoZFRemIxjDGsJBLMz16tPubWwgLjExO88c47OI7L9Zkr1WA0NDJCoVDg/uIitm2zMHuVE6+fxhhDJl25TAOA49jcmJvj5OnTgMEul7l2Zfr5VWGDEz8V4vonz95rtHTX5q3vRghGDMbAwfEA8Qc2nb0W6fjaUGQ64XDwaG3Jw52GfMat2aazd20+2ZlvR5j8Vpgvb5b58R9m6oYtRXYtYyoH2ZqDbggTDa4Go9UDcji0FpKebP/kYB0JYYKtfY70bbLcLZSqwctJZBuGsCf3sZ1NnkVklwj4Vz+4rO5nq/sp4Q3BKLrhg8267YkEMVZrl+P03XmIPX/3Ob0obzU98tyYmwPmGiyf3fQxpWKRmYsXG677/ObNmvvLjx6x/OhRw20Ty4+5dP5xs+Y9F6//TBhjYH7q2c9aXL5n8+lf5fnFX++mmHO591kJ14Pj6/SP8nz855WewXf/bpS3vxvlx3/UZt2jIhsZIBSshh3WHXxNJFh7AN5w0K05WIfb69IsJhTA7OmFPb2bhrAn3HSuErrWBTEnWRvK3GQGN50D76avijxdox7d6Op+t75HtyYIher3Z//T9gLvuY6Dm9s5vQxbGiLcrY6cCnDiGyH+579LtvzYKz8qcOVHlTf+r//jDhIP7UpvVGwtnXf2WqQTLuvPcsynXcIdpnabZCWdZVfWjrxXPyrw0/+go+V2ibQk6K8fQousfgpdF4xqgtDGkBQOYqz2OpPXtR0olHDzRdx8CQrFdT+XcHNF3EIJX9nF6Q5juiKYzgimK4LVFcF0tDax1nRG8HVG4MDT2+WurIatxMYQpiFKWWebenRfBLdYqtsXya/uo09+BqxLn+PcWdru5j6z9qv0Ntlz2Me3fqmDP/r3K1sahot0GXIpl9hei32v+vnL38vgOuA4lUnwj+/ZHH0zyF/+1wwQqnnsvVtljpwKcGu6xLG3QsyeqzSgo8eQSVZC1vBrQR5/aW/8b+VlZqh00wf9EPRDMFD92QT9mO4u/D63+sl0fVf9piHJ117fnuU6LhTXBaPVf91CEfKltQPw6kHZza8uXw1QlW1KUCo//T8DjG0o+hp0KfmsauCqvUUrAWzd/Vb+gBmfhYl1Qqzz6bXQEOXO4rMq+2fIv/pvoLpvEgxg9XQR8Lk7tkcXwC3b6/az9cFo4764unw1QK192Kn8jPP0blzTHSXwMP0CXpV3XsqAFYoa/ulv9Vbv//gPs0x8M0QwbPjb/7JywdQvb5T54PczdY/9lX/bS7TTYHww/maQP/jNFdIJh7/1L7oIRQ2lAvy//5yuDhF+8PsZfu7XOvEHDHPnCizdtQlFK71cV36Y58HnNh/+UZa/+WtdvP/3DV9cK3HrSuWT6jf/XgeDh3zgQvyBzV/81/r2SBvy+2oOpOtDT/19PyYYgJAfE/BXJnwG/JX7wUDTA/Sz/CGvP1XjxakNPE9+3iQg5dcOuGs9TCUoltpjCM12qgHmqUL+StBa3wPWFa0PZ52RlgKthig98ORDSajxvlXdH59p/1233cb9N+h/piG07foD7NrOWuBpFISeBKS6Xt/aDzsK8s2ZrgMndt/utXraZHzpUcPLNGy3tjzVtM195ZpZ5tkOnk8OuDUHz40H46cceFuctNlu3FK5Nhg1+MRZ06NUKK07MK8Gpmf8VNpugpv1YD0PBoiGN/SArQtjX2GI8ll5MUTpyfEs4KsPPsF1HzbWf+hoOfxseJ4dzHXcStCp2S83hqFNPrwUipBb/XBT2nmjIU96sArJle1uSq0meWNn/7bJ7mTAdIQxPR2VW28HVncnAeOsfUpcfyB9ltCzDRMyXxTXdqBUxi2VoWTjFstQKmOKNk6huGFOw5Peoyc/bxheK5T0qfRFcYFMHieTh/v1l7Kp0cZDlFbRJmDbjcPNs/YKtdmcPS+5pTIUy7hlu/Jvya7sn/lSZf/c2KO7fm5gzQeZIhTLL1eP4w6ngCUvTiiA6enA6olWg5NZ/dnqWfvZdEcbBqKd9svqFktQtHHL5ZoDq1ssQ3ktCD1ZXllnrwtLq+vWHZxrl1Wed7OeohfaGyPPV5sPUe64fbNs1++DxTKUN+6D9lpAWn9//b5cXba6TXHtPmV700Ck/XP322n7hbQbn1UJRKsByertWOt52hie2mCSpltqEG4aBZgGB8uNPUTrD7YbD8KUd14XvOwShTJuYQV3qTKUsulvYhsMUa7nOk5tgKkLNev219KGfbBBD5G7ITCt34d34vC17DwKWFKvwRCd6YmuBqV1PU09HVhdkefSBNdxcNN53FQWN5XDZIs45fpPjOsDz1owWv/pcn0Pkd2Wc/JEtkXLQ5ThhgHMFw3j2M33veo+WNzwAWZdr62GpmW32dUBa+AVH8Y0/oNaLrvE79fv0J0xi0jH5vMBinmX5FL943oGLILhzR+Xy7g1V3V/IrbPwu/f/HGZFafmelhPDBzwNf1GoFTcqblCPIAJBxgY78BaP5ejMwxdEazOKKYrTCrST7mru2aIzodNj0k1+F8KqzdIul3YGwYOApToMhuGNPJF3NWDupsp8PghOKk8bipXDVOhcpaOQLEmDAUcQ8mq3HddePygvjXRzsptXcMrt9UP33YZ4g0uodLZA+EmObFUgGSDvz89MQiE6pdXX2oO0g0uqRYbAF+TPS+brtw26t/b/Fug0snK/7meMZXHNZNchtKG6+r6/JV2NhNfovr1UE8EgtDT1/xxjx/U59xwpPI+bOaZ3/MNWn3PAw6ULL3n9RwgS/x+Fnux9gLQHX5Dx0DzDy5N3/No48e8qPf8iRf9npeSUMzVL2+f97yiXfbzjj0ufr+h1FU/faRd/p5vtKsD1t/5112b7hjL923+4Dfrz0Z482fDHH97873pi2slvv/b9UfCd38pyuFjm58UP3e+wAe/X3+mzd/4J5307dt8AvaF/5Pjwv+t/7LsX/hXXau/AKZyhpxlgW/1X8viw/n9zGf31wzRBcOG74X/fN2z5FdvieqSvyh+gy+d2vZ0mQzfDf1w0zbiuvzJw7eIx63VoJTDSecYCMf5ubceVLrjHWetWz4A9FZuv/t75bqd/tXThve/W9sGw9pUhmIR/tNv1V/X6MTXLN781uZzSpYfufyP36kfMHnjWxbHX9/8cXduunz/v9c/7t2f83FoZPOdcO5Thx/8af1O+J1f9NE3uPnjLvzIYeqH9Y/7hV/1E2wyyvqD79vMXdpwFksAfunXmu/m3/9vNnc+q31cd+zpj/uD3ykT3/BFDPsOGr77y81PKPjd36p/z48cq3/P13tR7/mT3zO95401es/3HISf/UfNH9fO7/kTL/o9v/QDh/M/rg+mO+E935b9/P0yxvbjOt1169vl7/lGu/oyDb7gclv2YK0/rblhD5ahchXergg5EyUX7KwbousfdLE6w5vOjci4EQobLmhqcIiZ5qe4ptwOSgRqhuisdJqecgI3U4BMHjdbwMnkcDOFyrJi6bl/ytlSD9YGO+WTrVe9GUHbUPK7u/6Trbc9WJXfs536nsOL783o8BsiX6UHaxO7fT8vJQ3JXH3ddsJ7vi09WPsi+JezlFL1O8q29mA1uUzDrg5Y7XgdLNMTJXR4H+WQr+Wz6LzgZgu4qSzOak9T7S279nO20Fa10xk3rVPNWqeatU412xrVrTW6DpY0FXh/ktCv/DWMZXl6hW23VMZdqQ1ITrpBaErlNJFURETkBVDAeoH8p0ee+SrfG8+i23hz1i2noC+BFRERaScKWC9Q8fufYPb0YPl82A2DU/sO0YmIiMizU8B6geyFL8n9h+9Xxt7d+jMlREREZHfY2d9KKyIiItKGFLBEREREPKaAJSIiIuIxBSwRERERjzWd5D48Pk7/4B7CkQgXz50jk658H12sv5+h0VEsY2HbNjfmZsmkK1dXDQSCHJ2YIBKN4DguN+bmWEk0/iLRvoEBjhwdxxjIpNLMX53Btmu/quDoyZPsfeUAH33wV9hlTQwXERGR9te0B2vpwUMuX/iEfG7tuvx+v5/xiUnmZ2a4eP4ctxbmGZ88VV3/6tgYqWSSqbNnmb86w7HJSUyD6/5bPh9jJ04y++klps6epVgocHh4pGab/j17cBxdqkBERER2lqYBayURp1go1CwLR6OUSiWymczqNglC4TAdXV0ADO7dy73FOwCkV1YoFgr0xGJ1z93XP0A6lSK3+p189xbvMLhvX3V9IBjk0JEj3Jq//hVenoiIiMiL1/IcrFw2SyAQoKun8o2NfYOD+P1+wpEI/kAAY1mUimvfKJnP5QiF67+QOBQJU1j3jZX5XI5gKFT9lsuxEye4Nb9QN2TYiDEGn8+3drOez/f4iYiIiDyLli80apfLzE1f5sjYGJbPTyqRIJNO43p41fG9Bw5QyOVJxpefaftDR4YZGlkbXrRtm7krV+jure8523ZFCwOEPP02wt3PACF9jWJLVLPWqWatU822RnVr0UoZEwgSivVtd0ue2Zau5J6Mx5memgIqvUdvvfc+2XSacqmE67oEgsFqL1Y4EqGQz9c9RyGXp7evv3o/HIlUhiNdl95YHz2xGH2Dg9X1Z97+BrOXPyWTStU9151bn3H389vrlhi6+/oqk+vb7OtmzIF+Xcl9C4K2oWi113vZ7lSz1qlmrVPNtkZ1a43pjhJ4mKaQXNnuptQyhtjAYMNVWwpY6wPU4eERksvL1YnwSw/us//gIb747Cad3d0EQyGS8fqzCOOPlxg5fpxINEoum2X/wUM8un8fgOszV2q2fffb3+Hi+XObnkXoum7tUGKDSfUiIiIiL0rTgDV6/Dh9A4MEg0EmzpzBtm2mzn7I0MgoPbEYxhhWEgnmZ69WH3NrYYHxiQneeOcdHMfl+syV6vDh0MgIhUKB+4uL2LbNwuxVTrx+GmMMmXTlMg0iIiIiO53pOnBi9/VRrnbZxZceaYhwlwjahqKvvd7LdqeatU41a51qtjWqW2vafYiwUd7QldxFREREPKaAJSIiIuIxBSwRERERjylgiYiIiHhMAUtERETEYwpYIiIiIh5TwBIRERHxmAKWiIiIiMcUsEREREQ8poAlIiIi4jEFLBERERGPKWCJiIiIeEwBS0RERMRjClgiIiIiHlPAEhEREfGYApaIiIiIxxSwRERERDymgCUiIiLiMQUsEREREY/5m60cHh+nf3AP4UiEi+fOkUmnAIj19zM0OoplLGzb5sbcLJl0GoBAIMjRiQki0QiO43Jjbo6VRLzh8/cNDHDk6DjGQCaVZv7qDLZtE+3sZPTYcQLBIK7rkkomuXltDsdxPH75IiIiIt5r2oO19OAhly98Qj6Xqy7z+/2MT0wyPzPDxfPnuLUwz/jkqer6V8fGSCWTTJ09y/zVGY5NTmKMqf+PfT7GTpxk9tNLTJ09S7FQ4PDwCACO43Dj2hw/+egsF899hM/n4+CrR7x6zSIiIiLPVdOAtZKIUywUapaFo1FKpRLZTGZ1mwShcJiOri4ABvfu5d7iHQDSKysUCwV6YrG65+7rHyCdSpHLZgG4t3iHwX37AMhns2RXe8QAUitJwpHwVl+jiIiIyAvV8hysXDZLIBCgq6cHgL7BQfx+P+FIBH8ggLEsSsVidft8LkcoXB+OQpEwhXyuZrtgKAQberssy8e+Awd5/PDRpm0yxuDz+dZulq/VlyUiIiLimaZzsBqxy2Xmpi9zZGwMy+cnlUiQSadxXdfzxhljOHbqFPHHSzx+9HDT7Q4dGWZoZGStjbbN3JUrdPfW95xtu6KFAUIEtrslO4oBQpqC1xLVrHWqWetUs61R3Vq0UsYEgoRifdvdkmfWcsACSMbjTE9NAZUQ9NZ775NNpymXSriuSyAYrPZihSMRCvl83XMUcnl6+/qr98ORSGU4cjWoPQlXxUKBz65fb9qeO7c+4+7nt9ctMXT39VUm1z+H4PdVmAP9BG1D0S1vd1N2lKBtKFrt9V62O9WsdapZ61SzrVHdWmO6owQepikkV7a7KbWMITYw2HDVli7TEAgGqz8fHh4hubxcnQi/9OA++w8eAqCzu5tgKEQyXn8WYfzxEp3d3USiUQD2HzzEo/v3qw0+NnmKcqnEjbnZp7bHdV1s2167OfZWXpaIiIiIJ5r2YI0eP07fwCDBYJCJM2ewbZupsx8yNDJKTyyGMYaVRIL52avVx9xaWGB8YoI33nkHx3G5PnOlOnw4NDJCoVDg/uIitm2zMHuVE6+fxhhDJl25TANUJsoP7N1LOpXi9NtvA5XJ9DevXXtedRARERHxjOk6cGL39VGudtnFlx5piHCXCNqGoq+93st2p5q1TjVrnWq2Napba9p9iLBR3tCV3EVEREQ8poAlIiIi4jEFLBERERGPKWCJiIiIeEwBS0RERMRjClgiIiIiHlPAEhEREfGYApaIiIiIxxSwRERERDymgCUiIiLiMQUsEREREY8pYImIiIh4TAFLRERExGMKWCIiIiIeU8ASERER8ZgCloiIiIjHFLBEREREPKaAJSIiIuIxBSwRERERjylgiYiIiHjM32zl8Pg4/YN7CEciXDx3jkw6BUCsv5+h0VEsY2HbNjfmZsmk0wAEAkGOTkwQiUZwHJcbc3OsJOINn79vYIAjR8cxBjKpNPNXZ7Bt+6nrRERERNpZ0x6spQcPuXzhE/K5XHWZ3+9nfGKS+ZkZLp4/x62FecYnT1XXvzo2RiqZZOrsWeavznBschJjTP1/7PMxduIks59eYursWYqFAoeHR566TkRERKTdNQ1YK4k4xUKhZlk4GqVUKpHNZFa3SRAKh+no6gJgcO9e7i3eASC9skKxUKAnFqt77r7+AdKpFLlsFoB7i3cY3LfvqetERERE2l3Lc7By2SyBQICunh4A+gYH8fv9hCMR/IEAxrIoFYvV7fO5HKFwuO55QpEwhXyuZrtgKATGNF3XiDEGn8+3drN8rb4sEREREc80nYPViF0uMzd9mSNjY1g+P6lEgkw6jeu6z6N9z+TQkWGGRtaGEG3bZu7KFbp763vOtl3RwgAhAtvdkh3FACFnu1uxs6hmrVPNWqeabY3q1qKVMiYQJBTr2+6WPLOWAxZAMh5nemoKqPQevfXe+2TTacqlEq7rEggGq71Y4UiEQj5f9xyFXJ7evv7q/XAkUhmOdN2m6xq5c+sz7n5+e90SQ3dfX2Vy/TYGv0bMgX6CtqHolre7KTtK0DYUrfZ6L9udatY61ax1qtnWqG6tMd1RAg/TFJIr292UWsYQGxhsuGpLl2kIBIPVnw8Pj5BcXq5OhF96cJ/9Bw8B0NndTTAUIhmvP4sw/niJzu5uItEoAPsPHuLR/ftPXdeI67rYtr12c3S2oYiIiGyfpj1Yo8eP0zcwSDAYZOLMGWzbZurshwyNjNITi2GMYSWRYH72avUxtxYWGJ+Y4I133sFxXK7PXKkOHw6NjFAoFLi/uIht2yzMXuXE66cxxpBJVy7FADRdJyIiItLuTNeBE7uvj3K1yy7+eKn9hgj392mIcAuCjrrTW6WatU41a51qtjWqW2tMd4TAowyFldR2N6WWMcT6B4gvParLG7szYFkWsf6B7W6FiIiIvATij5fAqT1rYUuT3Nue47Rl7xWAz/Lx1nvv8fEPf6i5Ys9INWudatY61ax1qtnWqG6ta+uaGVMXrmC3Bixo+GLbg4vP5wPctgyA7Uk1a51q1jrVrHWq2daobq1r45pt0h592bOIiIiIxxSwRERERDymgPWCOY7D5zdv4rTtEGb7Uc1ap5q1TjVrnWq2Napb63ZizXbnWYQiIiIi20g9WCIiIiIeU8ASERER8djuvUzDCzZx5gzBYAgXF7tsc/P6NTKp+ivO7tn/Cv179jB3+dOmzxcKhznz9jc494MPnlOL28feV17h6MkJZj+9xONHj+rW98RiDI+Pc+n8+ac+17vf/g4fffBX2OXdeaX8N7/5Lo7j4KxeB+bOrVssPXhQt51+z9YYYxg+Ok5soB/HdsikU1yfqf/qLdWswh8IMPm1r1XvW5aPSCTC+R/+gPKG/Ur7Zq3YwACvjoyCAWMsFm/f5uG9L+u2U93WxPr7GRodxTIWtm1zY26WTDpdt91OrJkClkfmpqerb2b/4B6Onpzg0vlz29yq9hcKh9l34CAricR2N2XHuDY9TSbdZl8X0caOjB0FYOrsWaD2y+qlXrlUqvkjdmBoiJ5YX124knrjE5NMT10gm04TCod546fe4fHDB9h2m10Ys034/f61mmUydPf2Mj55iovnPtrupnlCQ4QeWZ+UfX4/8PRzB3piMU6//Xb1frSjkze/+e7zaF7bGjtxkpvX5p75zJBQOMw33v/p6n3L5+Pdb3/neTVvV3iZf88sy8feAwe4fWOhuqxULD71cS9zzTba98oBHtxdfOp22jcB18XvDwCVvwOlUumpx7aXuW7haJRSqUQ2kwFgJZEgFA7T0dXV9HE7pWbqwfLQ0ZMT9Pb1ATBz6eI2t6b9HRgaYiWRIN1gKFU2Nz4xAUBqJcnthQVKpdI2t6h9haMRyqUSh44M09vfh2M7fPHZTRLLy9vdtB2hq6cHfyDA46Wl7W7KjnDtyjQnXnsN27bxBwLMXf4Ut92uOt5GctksgUCArp4eUskkfYOD+P1+wpFIwyk2O40Clofmr1bmdezZ/wpHxsa4eunSNreofUU7OhnYs5fpqQvb3ZQdZXrqAoV8HmMMQyOjHJ2Y0O9ZE8YYwpEI2Uya2zcW6OjqYvLM1/jJuY+eqSfrZbfvwAEe3Puy/b6apB0Zw6Ejw8xevsxKIk5ndzcnXz/NT859RFkfghqyy2Xmpi9zZGwMy+cnlUiQSad3TSjVEOFz8PDel/TE+vAHAk23c10Xg6net3wvz9vRE+slHInwxjvf5M1vvkt3Tw+jJ06y/+DBpo9zXbfyxZqrLOvlqRlAIZ8HKnW4+8XndPfGnvqYl/n3rJDP47ouD+/dAyCTSpHP5ejo7Gz6uJe5Zk9YPh8De/fx4O7dZ9r+Zd83O7u6CIZCrCTiAKRXVijk83Q+ZbjrZa9bMh5nemqKTz8+z2fz1wmGQmQbTHJfb6fUTD1YHvD5/fh8PoqFAgD9g4OUS6WnfmrJ53KEIhECgQClUok9+/e/iOa2hXuLi9xbXJvXMfm1N/jyi88bnkW4XrFYxADRjg6ymQx797/ynFvaPizLh7FMdb7fnn37n6kb/WX+PSuXSiSWHxMbGCC+tEQoHFnt0co0fdzLXLMnBvfuI5NKkctmn2n7l3nfhEqYD4ZCRDo6yGUyhCMRwtHoU+v3stctEAxWe5MPD4+QXF4mn8s1fcxOqZkClgf8fj/HT72GZVm4VCbRbjZsYyyDu3qKfbFQYPH2LV5/622KhQLxx5rn0IgxBsdenSjquty8fo0Tr5+mXCqx9LD+EgW7VTAU5Pip1zCrn9zyuRzXZ6403Fa/Z2tuzM0xduIkR0bHcIGFudnqh6H1VLNa+w4c4P5TJrdr31xTKha5MTfL8clTuIABbl6bq/Y6r6e6rRkaGaUnFsMYw0oiwfzs1Ybb7cSa6atyXrCRY8col0p8fvPmdjdlxzgw9CodnZ3VOW7ydPo9a51q1jrtm1ujurVuJ9ZMPVgviGVZvP71tyiVSlybnt7u5uwYp954A2P5mN+kp0Zq6fesdarZ1mjf3BrVrXU7tWbqwRIRERHxWHtOvRcRERHZwRSwRERERDymgCUiIiLiMQUsEREREY8pYImIiIh47P8DSlSBPhKJg9MAAAAASUVORK5CYII=" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">
+        </td></tr>
+      </table>
+
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+        color:#94a3b8;margin-bottom:8px;">WATER LICENCE — OPERATING LEVELS</div>
+      <table width="100%" cellpadding="0" cellspacing="0"
+          style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
+        <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Level</th>
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Threshold</th>
+          <th style="padding:9px 12px;text-align:left;color:white;font-size:11px;font-weight:700;">Status</th>
+          <th style="padding:9px 12px;text-align:right;color:white;font-size:11px;font-weight:700;">Max Rate</th>
+        </tr>
+        <tr>
+          <td bgcolor="#f0fdf4" style="background:#f0fdf4;padding:8px 12px;">
+            <span style="display:inline-block;background:#00762A;color:white;padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L1</span></td>
+          <td bgcolor="#f0fdf4" style="background:#f0fdf4;padding:8px 12px;color:#374151;">&ge; 190.250 m AHD</td>
+          <td bgcolor="#f0fdf4" style="background:#f0fdf4;padding:8px 12px;color:#065f46;font-weight:600;">Normal Operations</td>
+          <td bgcolor="#f0fdf4" style="background:#f0fdf4;padding:8px 12px;text-align:right;font-weight:700;color:#065f46;">1.50 ML/day</td>
+        </tr>
+        <tr>
+          <td bgcolor="#f7fee7" style="background:#f7fee7;padding:8px 12px;border-left:3px solid #8AC63F;">
+            <span style="display:inline-block;background:#8AC63F;color:#111;padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L2</span><span style="font-size:10px;color:#3a6b10;font-weight:700;margin-left:4px;">&#9654; NOW</span></td>
+          <td bgcolor="#f7fee7" style="background:#f7fee7;padding:8px 12px;color:#374151;border-left:3px solid #8AC63F;">&ge; 190.050 m AHD</td>
+          <td bgcolor="#f7fee7" style="background:#f7fee7;padding:8px 12px;color:#3a6b10;font-weight:600;border-left:3px solid #8AC63F;">Increased Monitoring</td>
+          <td bgcolor="#f7fee7" style="background:#f7fee7;padding:8px 12px;text-align:right;font-weight:700;color:#3a6b10;border-left:3px solid #8AC63F;">1.00 ML/day</td>
+        </tr>
+        <tr>
+          <td bgcolor="#fefce8" style="background:#fefce8;padding:8px 12px;">
+            <span style="display:inline-block;background:#FFDD00;color:#111;padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L3</span></td>
+          <td bgcolor="#fefce8" style="background:#fefce8;padding:8px 12px;color:#374151;">&ge; 189.850 m AHD</td>
+          <td bgcolor="#fefce8" style="background:#fefce8;padding:8px 12px;color:#854d0e;font-weight:600;">Water Conservation Planning</td>
+          <td bgcolor="#fefce8" style="background:#fefce8;padding:8px 12px;text-align:right;font-weight:700;color:#854d0e;">0.75 ML/day</td>
+        </tr>
+        <tr>
+          <td bgcolor="#fff7ed" style="background:#fff7ed;padding:8px 12px;">
+            <span style="display:inline-block;background:#F58E1E;color:#111;padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L4</span></td>
+          <td bgcolor="#fff7ed" style="background:#fff7ed;padding:8px 12px;color:#374151;">&ge; 189.650 m AHD</td>
+          <td bgcolor="#fff7ed" style="background:#fff7ed;padding:8px 12px;color:#9a3412;font-weight:600;">Critical Warning</td>
+          <td bgcolor="#fff7ed" style="background:#fff7ed;padding:8px 12px;text-align:right;font-weight:700;color:#9a3412;">0.50 ML/day</td>
+        </tr>
+        <tr>
+          <td bgcolor="#fef2f2" style="background:#fef2f2;padding:8px 12px;">
+            <span style="display:inline-block;background:#EB1E23;color:white;padding:2px 8px;
+                border-radius:4px;font-size:11px;font-weight:700;">L5</span></td>
+          <td bgcolor="#fef2f2" style="background:#fef2f2;padding:8px 12px;color:#374151;">&lt; 189.650 m AHD</td>
+          <td bgcolor="#fef2f2" style="background:#fef2f2;padding:8px 12px;color:#991b1b;font-weight:600;">Shutdown Verification</td>
+          <td bgcolor="#fef2f2" style="background:#fef2f2;padding:8px 12px;text-align:right;font-weight:700;color:#991b1b;">0 ML/day</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  
+
+  
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">4</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  4
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Today's 12-Hour Forecast</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Hourly conditions 6 AM – 6 PM &bull; Open-Meteo</td></tr>
+      </table>
+    </td></tr>
+  <tr><td style="background:white;padding:16px 24px 24px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <tr><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">6 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">4°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">11 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">7 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">4°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">11 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">8 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">4°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">11 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">9 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9925;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">6°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">11 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">10 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">9°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">8 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">11 AM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">11°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">7 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">12 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">13°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">6 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">1 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">14°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">0%</div>
+              <div style="font-size:10px;color:#64748b;">5 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">2 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#127783;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">14°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">1%</div>
+              <div style="font-size:10px;color:#64748b;">3 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">3 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#127783;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">14°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">3%</div>
+              <div style="font-size:10px;color:#64748b;">3 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">4 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">14°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">4%</div>
+              <div style="font-size:10px;color:#64748b;">4 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">5 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">12°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">3%</div>
+              <div style="font-size:10px;color:#64748b;">2 km/h</div>
+            </td><td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">6 PM</div>
+              <div style="font-size:20px;margin-bottom:4px;">&#9728;</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">10°</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;">1%</div>
+              <div style="font-size:10px;color:#64748b;">4 km/h</div>
+            </td></tr>
+    </table>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding-left:2px;">
+      Precipitation % is chance of rain. Wind in km/h.
+    </div>
+  </td></tr>
+
+  
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">5</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  5
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">5-Day Forecast</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Open-Meteo forecast for Wagga Wagga</td></tr>
+      </table>
+    </td></tr>
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td width="20%" style="padding-right:4px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              bgcolor="#eff6ff"
+              style="background-color:#eff6ff;border:2px solid #93c5fd;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:#1d4ed8;margin-bottom:2px;">Today</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">Fri 10 Jul</div>
+              <div style="font-size:28px;margin-bottom:6px;">&#127783;</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">14° / 4°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">0 mm</div>
+              <div style="margin-top:8px;"><span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;">Drizzle</span></div>
+            </td></tr>
+          </table>
+        </td><td width="20%" style="padding-right:4px;padding-left:4px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              bgcolor="#f8fafc"
+              style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:#64748b;margin-bottom:2px;">Sat</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">Sat 11 Jul</div>
+              <div style="font-size:28px;margin-bottom:6px;">&#127783;</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">14° / 4°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">2 mm</div>
+              <div style="margin-top:8px;"><span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;">Drizzle</span></div>
+            </td></tr>
+          </table>
+        </td><td width="20%" style="padding-right:4px;padding-left:4px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              bgcolor="#f8fafc"
+              style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:#64748b;margin-bottom:2px;">Sun</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">Sun 12 Jul</div>
+              <div style="font-size:28px;margin-bottom:6px;">&#9928;</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">12° / 6°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">7 mm</div>
+              <div style="margin-top:8px;"><span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;">Thunderstorm</span></div>
+            </td></tr>
+          </table>
+        </td><td width="20%" style="padding-right:4px;padding-left:4px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              bgcolor="#f8fafc"
+              style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:#64748b;margin-bottom:2px;">Mon</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">Mon 13 Jul</div>
+              <div style="font-size:28px;margin-bottom:6px;">&#127783;</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">13° / 6°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">0 mm</div>
+              <div style="margin-top:8px;"><span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;">Drizzle</span></div>
+            </td></tr>
+          </table>
+        </td><td width="20%" style="padding-left:4px;vertical-align:top;">
+          <table width="100%" cellpadding="12" cellspacing="0"
+              bgcolor="#f8fafc"
+              style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;">
+            <tr><td>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+                  color:#64748b;margin-bottom:2px;">Tue</div>
+              <div style="font-size:11px;color:#374151;margin-bottom:8px;">Tue 14 Jul</div>
+              <div style="font-size:28px;margin-bottom:6px;">&#127783;</div>
+              <div style="font-size:15px;font-weight:700;color:#111827;">13° / 7°</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">2 mm</div>
+              <div style="margin-top:8px;"><span style="background:#dbeafe;color:#1e3a8a;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;">Drizzle</span></div>
+            </td></tr>
+          </table>
+        </td></tr>
+    </table>
+  </td></tr>
+
+  
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">6</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  6
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Disease Risk</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Yesterday actuals + estimated outlook from forecast</td></tr>
+      </table>
+    </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
+    <div style="margin-bottom:14px;">
+      <span style="background:#d1fae5;border:1px solid #6ee7b7;color:#065f46;
+          padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
+          &#127807; Leaf wetness yesterday: 2 hrs</span>
+    </div>
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
+        <th style="padding:10px 14px;text-align:left;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:34%;">Disease</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:22%;">Yesterday</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;width:22%;">Today est.</th>
+        <th style="padding:10px 14px;text-align:center;color:white;font-size:11px;
+            font-weight:700;letter-spacing:0.5px;">Tomorrow est.</th>
+      </tr>
+      <tr style="background:#f0fdf4;">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Dollar Spot<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">0.0% probability</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+      </tr>
+      <tr style="background:#fff7ed;">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Fusarium Patch<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Score: 5</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">MODERATE</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">MODERATE</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">MODERATE</span></td>
+      </tr>
+      <tr style="background:#f0fdf4;">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;
+            border-bottom:1px solid #e2e8f0;">Brown Patch<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Night humidity model</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;border-bottom:1px solid #e2e8f0;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+      </tr>
+      <tr style="background:#f0fdf4;">
+        <td style="padding:11px 14px;font-size:13px;font-weight:600;color:#1f2937;">
+            Pythium Blight<br>
+            <span style="font-size:11px;color:#64748b;font-weight:400;">Night temp and wetness</span></td>
+        <td style="padding:11px 14px;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+        <td style="padding:11px 14px;text-align:center;">
+            <span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">LOW</span></td>
+      </tr>
+    </table>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding-left:2px;">
+        Today and tomorrow estimates are model projections based on forecast temperature and rainfall.
+    </div>
+  </td></tr>
+
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">6</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  6
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Spray Conditions</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Hours yesterday classified by Delta T and wind thresholds</td></tr>
+      </table>
+    </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td width="33%" style="padding-right:6px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#dcfce7;border:2px solid #86efac;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#15803d;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
+                  GO</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#15803d;
+                line-height:1;padding:8px 0;">6</td></tr>
+            <tr><td style="font-size:12px;color:#166534;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding:0 3px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#fef9c3;border:2px solid #fde047;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#a16207;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
+                  CAUTION</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#a16207;
+                line-height:1;padding:8px 0;">0</td></tr>
+            <tr><td style="font-size:12px;color:#92400e;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+        <td width="33%" style="padding-left:6px;text-align:center;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#fee2e2;border:2px solid #fca5a5;border-radius:12px;
+              text-align:center;padding:20px 8px;">
+            <tr><td style="padding-bottom:8px;">
+              <span style="background:#dc2626;color:white;padding:3px 10px;
+                  border-radius:20px;font-size:11px;font-weight:700;display:inline-block;">
+                  NO-GO</span></td></tr>
+            <tr><td style="font-size:44px;font-weight:700;color:#dc2626;
+                line-height:1;padding:8px 0;">18</td></tr>
+            <tr><td style="font-size:12px;color:#991b1b;font-weight:600;">hours</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td height="16" style="height:16px;font-size:0;line-height:0;background:white;mso-line-height-rule:exactly;">&nbsp;</td></tr>
+<tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;
+    border-radius:10px 10px 0 0;mso-border-top-left-radius:0;mso-border-top-right-radius:0;">
+      <table cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          <!--[if mso]><td width="44" valign="middle" style="width:44px;"><v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:32px;height:32px;" fillcolor="#2d7a4e" strokecolor="#2d7a4e"><v:textbox inset="0px,7px,0px,0px"><center style="font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:white;">7</center></v:textbox></v:oval></td><![endif]-->
+          <!--[if !mso]><!-->
+          <td width="44" valign="middle" style="width:44px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr><td width="32" height="32" bgcolor="#2d7a4e" align="center" valign="middle"
+                  style="width:32px;height:32px;background-color:#2d7a4e;border-radius:50%;
+                         color:white;font-size:16px;font-weight:700;text-align:center;
+                         line-height:32px;mso-line-height-rule:exactly;">
+                  7
+              </td></tr>
+            </table>
+          </td>
+          <!--<![endif]-->
+          <td valign="middle"
+              style="color:white;font-size:16px;font-weight:700;padding-left:2px;">Growing Degree Days</td>
+        </tr>
+        <tr><td colspan="2" style="padding:4px 0 0 0;color:#a8d8bc;font-size:12px;">Heat accumulation for grass growth &bull; Season from 1 September</td></tr>
+      </table>
+    </td></tr>
+
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <p style="margin:0 0 14px 0;font-size:13px;color:#374151;font-family:Arial,sans-serif;">
+      Growing Degree Days (GDD) measure heat accumulation &mdash; higher values mean faster
+      grass growth and increased disease pressure.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0"
+    style="border-collapse:collapse;border:1px solid #d1e7d8;border-radius:8px;overflow:hidden;">
+
+  <tr>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Bentgrass (base 10°C)</td>
+    <td bgcolor="#f0f7f2" style="background-color:#f0f7f2;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0 GDD today &nbsp;&middot;&nbsp; 2576 GDD this season</td>
+  </tr>
+  <tr>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;width:200px;
+        font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#1a4a2e;
+        border-bottom:1px solid #d1e7d8;">Warmseason (base 18°C)</td>
+    <td bgcolor="#ffffff" style="background-color:#ffffff;padding:9px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#111827;
+        border-bottom:1px solid #d1e7d8;">0 GDD today &nbsp;&middot;&nbsp; 1350 GDD this season</td>
+  </tr>
+</table>
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:14px;">Wagga Wagga Country Club - Automated Daily Report</div>
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://bidgee182.github.io/wwcc-weather-page/?gk=1" style="height:38px;v-text-anchor:middle;width:244px;" arcsize="50%" stroke="f" fillcolor="#4caf7d"><w:anchorlock/><center style="color:white;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:0.5px;">&#9971; Open Greenkeeper Dashboard</center></v:roundrect><![endif]--><!--[if !mso]><!-->
+    <a href="https://bidgee182.github.io/wwcc-weather-page/?gk=1"
+        style="display:inline-block;background:#4caf7d;color:white;text-decoration:none;
+        font-size:12px;font-weight:700;padding:10px 26px;border-radius:20px;
+        letter-spacing:0.5px;">&#9971; &nbsp;Open Greenkeeper Dashboard</a>
+    <!--<![endif]-->
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:12px;">
+        Davis WeatherLink - Open-Meteo archive and forecast</div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
