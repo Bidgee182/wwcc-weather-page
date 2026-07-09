@@ -130,10 +130,11 @@ def fmt_depth(ahd):
 
 def activity_status(ahd):
     if ahd is None: return ('Unknown', '#888888', '#ffffff')
-    depth = ahd - LAKE_BOTTOM
-    if depth >= 0.70: return ('Powerboating OK',     '#1e8449', '#ffffff')
-    if depth >= 0.50: return ('Small Vessels Only',  '#e67e22', '#ffffff')
-    return                    ('No Boating',          '#c0392b', '#ffffff')
+    depth = ahd - LAKE_VOL_BOTTOM
+    if depth >= 1.8: return ('All Vessels Permitted',                        '#1e8449', '#ffffff')
+    if depth >= 1.2: return ('No Water Skiing \u2014 Sailing & Leisure OK', '#e67e22', '#ffffff')
+    if depth >= 0.6: return ('Sailboats & Paddle Craft Only',                '#d4ac0d', '#1b2631')
+    return                   ('No Boating',                                   '#c0392b', '#ffffff')
 
 def readings_in_range(readings, start, end):
     """Filter lake readings to Sydney date range [start, end] inclusive.
@@ -210,7 +211,7 @@ def _header(title, subtitle=''):
           <td valign="middle">
             <p style="margin:0 0 6px 0;font-size:10px;color:#a9cce3;letter-spacing:2px;
                 text-transform:uppercase;font-family:Arial,sans-serif;font-weight:normal;">
-              Wagga Wagga City Council &nbsp;&bull;&nbsp; Lake Albert
+              Wagga Wagga Country Club &nbsp;&bull;&nbsp; Lake Albert
             </p>
             <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:bold;
                 font-family:Arial,sans-serif;line-height:1.2;">{title}</h1>
@@ -381,23 +382,40 @@ def build_daily(data, now_syd):
         evap_ml  = None
         evap_str = '&mdash;'
 
+    # Yesterday snapshot — volume/change/evap based on yesterday's last reading
+    yday_vol_ml  = _ahd_to_ml(today_ahd_r)
+    yday_vol_pct = (min(100.0, yday_vol_ml / LAKE_FULL_ML * 100)
+                    if yday_vol_ml is not None else None)
+
     body += _section('LAKE LEVEL')
     body += _kv_table([
-        ('Lake Level (AHD)',    fmt_ahd(ahd)),
-        ('Depth Above Bottom',  fmt_depth(ahd)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
-        ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Daily Level Change',  chg_str),
-        ('Extraction (yesterday)', f'{pump_ml_today:.1f}&nbsp;ML'),
-        ('Evaporation (est.)',  evap_str),
-        ('Reading Time',        lake_ts),
+        (f'Current Depth &nbsp;<span style="font-weight:normal;font-size:11px;'
+         f'color:#5d6d7e;">as at {lake_ts}</span>',
+         f'<strong style="font-size:16px;color:#1a5276;">{fmt_depth(ahd)}</strong>'),
+        ('Activity Status', _pill(act_lbl, act_bg, act_fg)),
+    ])
+
+    body += _section("YESTERDAY'S SNAPSHOT")
+    body += _kv_table([
+        ('Volume',             (f'{yday_vol_ml:.0f}&nbsp;ML'
+                                f' ({yday_vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)')
+                               if yday_vol_ml is not None else '&mdash;'),
+        ('Daily Level Change', chg_str),
+        ('Evaporation (est.)', evap_str),
+        ('Lake Level (AHD)',   fmt_ahd(today_ahd_r)),
     ])
 
     if yday_wx:
         body += _section(f"YESTERDAY'S WEATHER &mdash; {fmt_date(yesterday).upper()}")
         wx_rows = []
-        if yday_wx.get('tMax')      is not None: wx_rows.append(('Max Temperature', f"{yday_wx['tMax']:.1f}&nbsp;&deg;C"))
-        if yday_wx.get('tMin')      is not None: wx_rows.append(('Min Temperature', f"{yday_wx['tMin']:.1f}&nbsp;&deg;C"))
+        if yday_wx.get('tMax') is not None:
+            tmax_str = f"{yday_wx['tMax']:.1f}&nbsp;&deg;C"
+            if yday_wx.get('tMaxTime'): tmax_str += f"&nbsp;<span style='color:#5d6d7e;font-size:11px;'>({yday_wx['tMaxTime']})</span>"
+            wx_rows.append(('Max Temperature', tmax_str))
+        if yday_wx.get('tMin') is not None:
+            tmin_str = f"{yday_wx['tMin']:.1f}&nbsp;&deg;C"
+            if yday_wx.get('tMinTime'): tmin_str += f"&nbsp;<span style='color:#5d6d7e;font-size:11px;'>({yday_wx['tMinTime']})</span>"
+            wx_rows.append(('Min Temperature', tmin_str))
         if yday_wx.get('rain')      is not None: wx_rows.append(('Rainfall',        f"{yday_wx['rain']:.1f}&nbsp;mm"))
         if yday_wx.get('humidity')  is not None: wx_rows.append(('Humidity',        f"{yday_wx['humidity']:.0f}%"))
         if yday_wx.get('windMean')  is not None: wx_rows.append(('Mean Wind Speed', f"{yday_wx['windMean']:.1f}&nbsp;km/h"))
@@ -470,13 +488,12 @@ def build_weekly(data, now_syd):
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
-        ('Current Level (AHD)', fmt_ahd(ahd)),
-        ('Depth Above Bottom',  fmt_depth(ahd)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Week Level Change',   chg_str),
-        ('Week Extraction',     f'{total_pump_ml:.1f}&nbsp;ML'),
         ('Evaporation (est.)',  evap_str),
+        ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
     body += _section('DAILY LAKE LEVELS &mdash; PAST 7 DAYS')
@@ -559,13 +576,12 @@ def build_monthly(data, now_syd):
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
-        ('Current Level (AHD)', fmt_ahd(ahd)),
-        ('Depth Above Bottom',  fmt_depth(ahd)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Month Level Change',  chg_str),
-        ('Month Extraction',    f'{total_pump_ml:.1f}&nbsp;ML'),
         ('Evaporation (est.)',  evap_str),
+        ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
     body += _section(f'LAKE LEVELS &mdash; {month_label.upper()}')
@@ -660,13 +676,12 @@ def build_yearly(data, now_syd):
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
-        ('Current Level (AHD)', fmt_ahd(ahd)),
-        ('Depth Above Bottom',  fmt_depth(ahd)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
         ('Year Level Change',   chg_str),
-        ('Annual Extraction',   f'{total_pump_ml:.1f}&nbsp;ML'),
         ('Evaporation (est.)',  evap_str),
+        ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
     body += _section(f'LAKE LEVEL SUMMARY &mdash; {fy_label}')
