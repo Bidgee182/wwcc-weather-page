@@ -1976,7 +1976,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
               <div style="font-size:10px;color:#64748b;">{wind_str} km/h</div>
             </td>""")
         hourly_html = f"""
-  {sec_header('4', "Today's 12-Hour Forecast", 'Hourly conditions 6 AM \u2013 6 PM &bull; Open-Meteo')}
+  {sec_header('4', "Today's 12-Hour Forecast", 'Hourly conditions 6 AM – 6 PM &bull; Open-Meteo')}
   <tr><td style="background:white;padding:16px 24px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
