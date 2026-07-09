@@ -38,6 +38,14 @@ on:
         options:
           - 'false'
           - 'true'
+      test:
+        description: 'Send test email to andrew@bidgeepumps.com.au only'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   lake-report:
@@ -74,6 +82,9 @@ jobs:
           fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.test }}" = "true" ]; then
+            ARGS="$ARGS --test"
           fi
           python scripts/lake_email_report.py $ARGS
 

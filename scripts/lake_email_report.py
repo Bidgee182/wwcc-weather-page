@@ -440,16 +440,19 @@ def build_weekly(data, now_syd):
     readings = readings_in_range(data['readings'], week_start, week_end)
     wx_week  = history_in_range(data['history'], week_start, week_end)
 
-    # One row per day — find closest-to-midday reading
+    # One row per day — last reading of day
     day_range = [week_start + timedelta(days=i) for i in range(7)]
     daily_levels = []
     for d in day_range:
         day_rdgs = [r for r in readings if r.get('_date') == d]
-        if day_rdgs:
-            best = min(day_rdgs, key=lambda r: abs(r['_dt'].hour * 60 + r['_dt'].minute - 720))
-            daily_levels.append((d, best.get('ahd')))
-        else:
-            daily_levels.append((d, None))
+        level_ahd = float(day_rdgs[-1]['ahd']) if (day_rdgs and day_rdgs[-1].get('ahd')) else None
+        daily_levels.append((d, level_ahd))
+
+    # Get reading from day before week for first-day change calc
+    day_before_wk = week_start - timedelta(days=1)
+    rdgs_before_wk = readings_in_range(data['readings'], day_before_wk, day_before_wk)
+    prev_level_wk = (float(rdgs_before_wk[-1]['ahd'])
+                     if (rdgs_before_wk and rdgs_before_wk[-1].get('ahd')) else None)
 
     latest = data['latest'] or {}
     ahd    = latest.get('lake_ahd')
@@ -498,15 +501,27 @@ def build_weekly(data, now_syd):
 
     body += _section('DAILY LAKE LEVELS &mdash; PAST 7 DAYS')
     level_rows = []
+    prev_l = prev_level_wk
     for d, level_ahd in daily_levels:
+        chg_ahd = (level_ahd - prev_l) if (level_ahd is not None and prev_l is not None) else None
+        chg_ml  = (chg_ahd * LAKE_SURFACE_M2 / 1000) if chg_ahd is not None else None
+        pump_d  = next((p for p in week_pump_data if p['_date'] == d), None)
+        pump_ml = float(pump_d.get('ml', 0)) if pump_d else 0.0
+        evap_d  = max(0.0, -chg_ml - pump_ml) if chg_ml is not None else None
+        sign    = '+' if (chg_ahd or 0) >= 0 else ''
+        chg_s   = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '&mdash;'
+        evap_s  = f'{evap_d:.1f}' if evap_d is not None else '&mdash;'
         a_lbl, a_bg, _ = activity_status(level_ahd)
         level_rows.append((
             d.strftime('%a %-d %b'),
             fmt_ahd(level_ahd),
             fmt_depth(level_ahd),
+            chg_s,
+            evap_s,
             _pill(a_lbl, a_bg),
         ))
-    body += _data_table(['Date', 'Level (AHD)', 'Depth', 'Activity'], level_rows)
+        prev_l = level_ahd
+    body += _data_table(['Date', 'Level (AHD)', 'Depth', 'Change', 'Evap (ML)', 'Status'], level_rows)
 
     body += _section('WEEKLY WEATHER SUMMARY')
     wx_rows = []
@@ -594,6 +609,37 @@ def build_monthly(data, now_syd):
         ('Readings Recorded',   str(len(ahd_vals)) if ahd_vals else '&mdash;'),
     ])
 
+    # Per-day breakdown
+    body += _section(f'DAILY BREAKDOWN &mdash; {month_label.upper()}')
+    all_month_days = [month_start + timedelta(days=i)
+                      for i in range((month_end - month_start).days + 1)]
+    day_before_m    = month_start - timedelta(days=1)
+    rdgs_before_m   = readings_in_range(data['readings'], day_before_m, day_before_m)
+    prev_ahd_m      = (float(rdgs_before_m[-1]['ahd'])
+                       if (rdgs_before_m and rdgs_before_m[-1].get('ahd')) else None)
+    month_pump_data = pumping_in_range(data.get('pumping', []), month_start, month_end)
+    daily_rows = []
+    for d in all_month_days:
+        day_rdgs = [r for r in readings if r.get('_date') == d]
+        day_ahd  = float(day_rdgs[-1]['ahd']) if (day_rdgs and day_rdgs[-1].get('ahd')) else None
+        chg_ahd  = (day_ahd - prev_ahd_m) if (day_ahd is not None and prev_ahd_m is not None) else None
+        chg_ml   = (chg_ahd * LAKE_SURFACE_M2 / 1000) if chg_ahd is not None else None
+        pump_d   = next((p for p in month_pump_data if p['_date'] == d), None)
+        pump_ml  = float(pump_d.get('ml', 0)) if pump_d else 0.0
+        evap_d   = max(0.0, -chg_ml - pump_ml) if chg_ml is not None else None
+        sign     = '+' if (chg_ahd or 0) >= 0 else ''
+        chg_s    = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '&mdash;'
+        evap_s   = f'{evap_d:.1f}' if evap_d is not None else '&mdash;'
+        daily_rows.append((
+            d.strftime('%-d %b'),
+            fmt_ahd(day_ahd),
+            fmt_depth(day_ahd),
+            chg_s,
+            evap_s,
+        ))
+        prev_ahd_m = day_ahd
+    body += _data_table(['Date', 'Level (AHD)', 'Depth', 'Change', 'Evap (ML)'], daily_rows)
+
     body += _section(f'WEATHER SUMMARY &mdash; {month_label.upper()}')
     wx_rows = []
     if wx_tmax is not None: wx_rows.append(('Peak Max Temperature',  f'{wx_tmax:.1f}&nbsp;&deg;C'))
@@ -613,12 +659,10 @@ def build_monthly(data, now_syd):
 
 def build_yearly(data, now_syd):
     today      = now_syd.date()
-    # Financial year: 1 Jul → 30 Jun
-    # On 1 Jul, report covers the year that just ended (prev Jul 1 – yesterday Jun 30)
-    year_end   = today - timedelta(days=1)                # 30 Jun
-    year_start = year_end.replace(month=7, day=1)
-    if year_start > year_end:
-        year_start = year_start.replace(year=year_start.year - 1)
+    # Calendar year: 1 Jan → 31 Dec
+    # On 1 Jan, report covers the previous calendar year
+    year_end   = today - timedelta(days=1)                # 31 Dec of last year
+    year_start = year_end.replace(month=1, day=1)         # 1 Jan of last year
 
     readings = readings_in_range(data['readings'], year_start, year_end)
     wx_year  = history_in_range(data['history'], year_start, year_end)
@@ -648,10 +692,10 @@ def build_yearly(data, now_syd):
     wx_hot_days   = sum(1 for r in wx_year if (r.get('tMax') or 0) >= 35)
     wx_frost_days = sum(1 for r in wx_year if (r.get('tMin') or 0) < 0)
 
-    fy_label  = f"FY{year_start.year}/{str(year_end.year)[2:]}"
+    cy_label  = str(year_end.year)
     period    = f"{fmt_date(year_start)} &ndash; {fmt_date(year_end)}"
 
-    body  = _header(f'Lake Albert Annual Report &mdash; {fy_label}', period)
+    body  = _header(f'Lake Albert Annual Report &mdash; {cy_label}', period)
 
     vol_ml  = _ahd_to_ml(ahd)
     vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
@@ -684,7 +728,7 @@ def build_yearly(data, now_syd):
         ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
-    body += _section(f'LAKE LEVEL SUMMARY &mdash; {fy_label}')
+    body += _section(f'LAKE LEVEL SUMMARY &mdash; {cy_label}')
     body += _kv_table([
         ('Highest Level (AHD)', f"{fmt_ahd(ahd_max)}{(' &mdash; ' + peak_date) if peak_date else ''}"),
         ('Lowest Level (AHD)',  f"{fmt_ahd(ahd_min)}{(' &mdash; ' + low_date)  if low_date  else ''}"),
@@ -694,7 +738,7 @@ def build_yearly(data, now_syd):
         ('Total Readings',      str(len(ahd_vals)) if ahd_vals else '&mdash;'),
     ])
 
-    body += _section(f'WEATHER SUMMARY &mdash; {fy_label}')
+    body += _section(f'WEATHER SUMMARY &mdash; {cy_label}')
     wx_rows = []
     if wx_tmax is not None:  wx_rows.append(('Peak Max Temperature',   f'{wx_tmax:.1f}&nbsp;&deg;C'))
     if wx_tmin is not None:  wx_rows.append(('Lowest Min Temperature', f'{wx_tmin:.1f}&nbsp;&deg;C'))
@@ -706,21 +750,63 @@ def build_yearly(data, now_syd):
     wx_rows.append(('Weather Records', f'{len(wx_year)} days'))
     body += _kv_table(wx_rows)
 
+    # Per-month breakdown
+    body += _section(f'MONTHLY BREAKDOWN &mdash; {cy_label}')
+    monthly_rows = []
+    for month in range(1, 13):
+        m_start = ddate(year_end.year, month, 1)
+        if month < 12:
+            m_end = ddate(year_end.year, month + 1, 1) - timedelta(days=1)
+        else:
+            m_end = ddate(year_end.year, 12, 31)
+        if m_start > year_end:
+            break
+        m_end = min(m_end, year_end)
+
+        m_rdgs     = [r for r in readings if r.get('_date') and m_start <= r['_date'] <= m_end]
+        m_ahd_vals = [float(r['ahd']) for r in m_rdgs if r.get('ahd') is not None]
+        m_max      = max(m_ahd_vals, default=None)
+        m_min      = min(m_ahd_vals, default=None)
+        first_m    = m_ahd_vals[0]  if m_ahd_vals else None
+        last_m     = m_ahd_vals[-1] if m_ahd_vals else None
+        m_chg      = (last_m - first_m) if (first_m is not None and last_m is not None) else None
+        m_chg_ml   = (m_chg * LAKE_SURFACE_M2 / 1000) if m_chg is not None else None
+        m_pump     = pumping_in_range(data.get('pumping', []), m_start, m_end)
+        m_pump_ml  = sum(float(p.get('ml', 0)) for p in m_pump)
+        m_evap_ml  = max(0.0, -m_chg_ml - m_pump_ml) if m_chg_ml is not None else None
+        m_wx       = [r for r in wx_year if ddate.fromisoformat(r['date']).month == month]
+        m_rain     = sum(r.get('rain', 0) or 0 for r in m_wx)
+        sign_m     = '+' if (m_chg or 0) >= 0 else ''
+        chg_s      = f'{sign_m}{m_chg:.3f}m' if m_chg is not None else '&mdash;'
+        evap_s     = f'{m_evap_ml:.1f}' if m_evap_ml is not None else '&mdash;'
+        monthly_rows.append((
+            m_start.strftime('%B'),
+            fmt_depth(m_max) if m_max is not None else '&mdash;',
+            fmt_depth(m_min) if m_min is not None else '&mdash;',
+            chg_s,
+            evap_s,
+            f'{m_rain:.1f}',
+        ))
+    body += _data_table(
+        ['Month', 'High Depth', 'Low Depth', 'Change', 'Evap (ML)', 'Rain (mm)'],
+        monthly_rows
+    )
+
     body += _footer(now_syd)
-    subject = f"Lake Albert Annual Report \u2014 {fy_label}"
+    subject = f"Lake Albert Annual Report \u2014 {cy_label}"
     return _wrap(body), subject
 
 
 # ── Email sending ─────────────────────────────────────────────────────────────
 
-def send_email(subject, html_content):
+def send_email(subject, html_content, test_mode=False):
     if not SENDGRID_API_KEY:
         log.error('SENDGRID_API_KEY not set — cannot send')
         return False
     if not EMAIL_FROM:
         log.error('EMAIL_FROM not set — cannot send')
         return False
-    if not EMAIL_LAKE_TO:
+    if not test_mode and not EMAIL_LAKE_TO:
         log.error('EMAIL_LAKE_TO not set — cannot send')
         return False
 
@@ -731,8 +817,14 @@ def send_email(subject, html_content):
         log.error('sendgrid package not installed (pip install sendgrid)')
         return False
 
-    to_list = [e.strip() for e in EMAIL_LAKE_TO.split(',') if e.strip()]
-    cc_list = [e.strip() for e in EMAIL_LAKE_CC.split(',') if e.strip()] if EMAIL_LAKE_CC else []
+    if test_mode:
+        to_list = ['andrew@bidgeepumps.com.au']
+        cc_list = []
+        subject = f'[TEST] {subject}'
+        log.info(f'[TEST MODE] Sending only to {to_list[0]}')
+    else:
+        to_list = [e.strip() for e in EMAIL_LAKE_TO.split(',') if e.strip()]
+        cc_list = [e.strip() for e in EMAIL_LAKE_CC.split(',') if e.strip()] if EMAIL_LAKE_CC else []
 
     mail = Mail(
         from_email=Email(EMAIL_FROM),
@@ -772,6 +864,8 @@ def main():
                         help='Send all four report types regardless of date')
     parser.add_argument('--dry-run',   action='store_true',
                         help='Build HTML and save preview files, do not send email')
+    parser.add_argument('--test',      action='store_true',
+                        help='Send only to andrew@bidgeepumps.com.au with [TEST] subject prefix')
     args = parser.parse_args()
 
     now_syd = datetime.now(tz=SYDNEY_TZ)
@@ -789,7 +883,7 @@ def main():
         to_send = ['daily']
         if today.weekday() == 0:                     to_send.append('weekly')
         if today.day == 1:                           to_send.append('monthly')
-        if today.month == 7 and today.day == 1:      to_send.append('yearly')
+        if today.month == 1 and today.day == 1:      to_send.append('yearly')
 
     log.info(f'Reports scheduled: {to_send}')
 
@@ -835,8 +929,8 @@ def main():
             out.write_text(html, encoding='utf-8')
             log.info(f'[dry-run] {report_type}: saved preview to {out}')
         else:
-            ok = send_email(subject, html)
-            if ok:
+            ok = send_email(subject, html, test_mode=args.test)
+            if ok and not args.test:
                 already_sent = _mark_sent(report_type, already_sent)
 
 if __name__ == '__main__':
