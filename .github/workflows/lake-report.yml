@@ -2,9 +2,10 @@ name: Lake Albert Email Reports
 
 on:
   schedule:
-    # 7:00 AM AEST (UTC+10) — Apr to Oct
+    # 7:00 AM AEST (UTC+10) — Apr to Oct (winter)
     - cron: '0 21 * * *'
-    # 7:00 AM AEDT (UTC+11) — Oct to Apr
+    # 7:00 AM AEDT (UTC+11) — Oct to Apr (summer/DST)
+    # Both entries fire year-round; the script's duplicate-send guard skips the second run.
     - cron: '0 20 * * *'
 
   # Manual trigger for testing or resending

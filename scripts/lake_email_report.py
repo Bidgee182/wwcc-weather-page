@@ -126,7 +126,7 @@ def fmt_ahd(ahd):
 
 def fmt_depth(ahd):
     if ahd is None: return '&mdash;'
-    return f'{ahd - LAKE_BOTTOM:.2f}&nbsp;m'
+    return f'{ahd - LAKE_VOL_BOTTOM:.2f}&nbsp;m'
 
 def activity_status(ahd):
     if ahd is None: return ('Unknown', '#888888', '#ffffff')
@@ -198,25 +198,26 @@ def _pill(label, bg, fg='#ffffff'):
             f'font-family:Arial,sans-serif;">{label}</span>')
 
 def _header(title, subtitle=''):
-    sub = (f'<p style="margin:6px 0 0 0;font-size:13px;color:#a9cce3;'
-           f'font-family:Arial,sans-serif;">{subtitle}</p>') if subtitle else ''
+    sub = (f'<p style="margin:4px 0 0 0;font-size:12px;color:#a9cce3;'
+           f'font-family:Arial,sans-serif;font-weight:normal;">{subtitle}</p>') if subtitle else ''
     return f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
   <tr>
-    <td bgcolor="{HDR_BG}" style="background-color:{HDR_BG};padding:22px 20px 16px 20px;">
+    <td bgcolor="{HDR_BG}" style="background-color:{HDR_BG};padding:20px 24px 18px 24px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td valign="top">
-            <p style="margin:0;font-size:10px;color:#a9cce3;letter-spacing:1.5px;
-                text-transform:uppercase;font-family:Arial,sans-serif;">
-              WAGGA WAGGA CITY COUNCIL &nbsp;&bull;&nbsp; LAKE ALBERT
+          <td valign="middle">
+            <p style="margin:0 0 6px 0;font-size:10px;color:#a9cce3;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;font-weight:normal;">
+              Wagga Wagga City Council &nbsp;&bull;&nbsp; Lake Albert
             </p>
-            <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
-                font-family:Arial,sans-serif;">{title}</h1>
+            <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:bold;
+                font-family:Arial,sans-serif;line-height:1.2;">{title}</h1>
             {sub}
           </td>
-          <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          <td align="right" valign="middle" class="mob-logo"
+              style="padding-left:20px;white-space:nowrap;min-width:80px;">
             {_white_logo_html()}
           </td>
         </tr>
@@ -305,7 +306,7 @@ def _wrap(body):
   <style type="text/css">
   @media only screen and (max-width:620px) {{
     table[width="600"] {{ width:100% !important; max-width:100% !important; }}
-    .mob-logo img {{ height:32px !important; width:auto !important; }}
+    .mob-logo img {{ height:40px !important; width:auto !important; }}
   }}
   </style>
 <body style="margin:0;padding:16px;background-color:{BODY_BG};">
@@ -326,7 +327,6 @@ def build_daily(data, now_syd):
 
     latest = data['latest'] or {}
     ahd    = latest.get('lake_ahd')
-    batt   = latest.get('lake_battery_v')
     try:
         lake_dt  = datetime.fromisoformat(
             latest['lake_date'].replace('Z', '+00:00')
@@ -391,7 +391,6 @@ def build_daily(data, now_syd):
         ('Extraction (yesterday)', f'{pump_ml_today:.1f}&nbsp;ML'),
         ('Evaporation (est.)',  evap_str),
         ('Reading Time',        lake_ts),
-        ('Sensor Battery',      f'{batt:.2f}&nbsp;V' if batt else '&mdash;'),
     ])
 
     if yday_wx:
@@ -401,7 +400,9 @@ def build_daily(data, now_syd):
         if yday_wx.get('tMin')      is not None: wx_rows.append(('Min Temperature', f"{yday_wx['tMin']:.1f}&nbsp;&deg;C"))
         if yday_wx.get('rain')      is not None: wx_rows.append(('Rainfall',        f"{yday_wx['rain']:.1f}&nbsp;mm"))
         if yday_wx.get('humidity')  is not None: wx_rows.append(('Humidity',        f"{yday_wx['humidity']:.0f}%"))
+        if yday_wx.get('windMean')  is not None: wx_rows.append(('Mean Wind Speed', f"{yday_wx['windMean']:.1f}&nbsp;km/h"))
         if yday_wx.get('windMax')   is not None: wx_rows.append(('Max Wind Speed',  f"{yday_wx['windMax']:.1f}&nbsp;km/h"))
+        if yday_wx.get('windDir')   is not None: wx_rows.append(('Wind Direction',  f"{yday_wx['windDir']}"))
         if yday_wx.get('pressAvg')  is not None: wx_rows.append(('Avg Pressure',    f"{yday_wx['pressAvg']:.1f}&nbsp;hPa"))
         if wx_rows:
             body += _kv_table(wx_rows)
@@ -777,7 +778,39 @@ def main():
 
     log.info(f'Reports scheduled: {to_send}')
 
+    # ── Duplicate-send guard ──────────────────────────────────────────────────
+    SENT_MARKER = DATA_DIR / 'lake_sent_today.json'
+    today_str   = str(today)
+
+    def _load_sent():
+        try:
+            d = json.loads(SENT_MARKER.read_text(encoding='utf-8'))
+            if d.get('date') == today_str:
+                return d.get('sent', [])
+        except Exception:
+            pass
+        return []
+
+    def _mark_sent(report_type, already_sent):
+        updated = list(already_sent)
+        if report_type not in updated:
+            updated.append(report_type)
+        try:
+            SENT_MARKER.write_text(
+                json.dumps({'date': today_str, 'sent': updated}, indent=2),
+                encoding='utf-8'
+            )
+        except Exception as e:
+            log.warning(f'Could not write sent marker: {e}')
+        return updated
+
+    already_sent = _load_sent()
+
     for report_type in to_send:
+        if not args.dry_run and not args.force_all and report_type in already_sent:
+            log.info(f'[skip] {report_type} already sent today — skipping')
+            continue
+
         html, subject = BUILDERS[report_type](data, now_syd)
 
         if args.dry_run:
@@ -787,7 +820,9 @@ def main():
             out.write_text(html, encoding='utf-8')
             log.info(f'[dry-run] {report_type}: saved preview to {out}')
         else:
-            send_email(subject, html)
+            ok = send_email(subject, html)
+            if ok:
+                already_sent = _mark_sent(report_type, already_sent)
 
 if __name__ == '__main__':
     main()

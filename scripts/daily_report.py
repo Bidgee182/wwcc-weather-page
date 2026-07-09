@@ -688,13 +688,13 @@ _WMO_DESC = {
 }
 
 
-def fetch_4day_forecast(today_date):
+def fetch_5day_forecast(today_date):
     """
     Fetch daily max/min temp, precipitation sum and dominant weather code
-    for today + 3 days from Open-Meteo forecast API.
-    Returns a list of up to 4 dicts; empty list on failure.
+    for today + 4 days from Open-Meteo forecast API.
+    Returns a list of up to 5 dicts; empty list on failure.
     """
-    end_date = today_date + timedelta(days=3)
+    end_date = today_date + timedelta(days=4)
     url = 'https://api.open-meteo.com/v1/forecast'
     params = {
         'latitude':   CLUB_LAT,
@@ -737,6 +737,63 @@ def fetch_4day_forecast(today_date):
             'frost_risk': mn is not None and mn <= 2.0,
         })
     return days
+
+
+def fetch_hourly_forecast(today_date):
+    """
+    Fetch hourly weather for today from Open-Meteo forecast API.
+    Returns a list of dicts for hours 6–18 (6 AM to 6 PM), each:
+      {'hour': int, 'label': '6 AM', 'temp_c': float, 'precip_pct': int,
+       'wind_kmh': float, 'icon': str, 'desc': str}
+    Returns empty list on failure.
+    """
+    date_str = today_date.strftime('%Y-%m-%d')
+    url = 'https://api.open-meteo.com/v1/forecast'
+    params = {
+        'latitude':   CLUB_LAT,
+        'longitude':  CLUB_LON,
+        'hourly':     'temperature_2m,precipitation_probability,weather_code,wind_speed_10m',
+        'start_date': date_str,
+        'end_date':   date_str,
+        'timezone':   'Australia/Sydney',
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        log.warning(f'Hourly forecast error: {e}')
+        return []
+
+    hourly = data.get('hourly', {})
+    times     = hourly.get('time', [])
+    temps     = hourly.get('temperature_2m', [])
+    precip    = hourly.get('precipitation_probability', [])
+    codes     = hourly.get('weather_code', [])
+    winds     = hourly.get('wind_speed_10m', [])
+
+    results = []
+    for i, t_str in enumerate(times):
+        # t_str is like "2026-07-08T06:00"
+        try:
+            hour = int(t_str[11:13])
+        except Exception:
+            continue
+        if hour < 6 or hour > 18:
+            continue
+        code = int(codes[i]) if i < len(codes) and codes[i] is not None else 0
+        label_hour = hour % 12 or 12
+        am_pm = 'AM' if hour < 12 else 'PM'
+        results.append({
+            'hour':       hour,
+            'label':      f'{label_hour} {am_pm}',
+            'temp_c':     float(temps[i]) if i < len(temps) and temps[i] is not None else None,
+            'precip_pct': int(precip[i])  if i < len(precip) and precip[i] is not None else 0,
+            'wind_kmh':   float(winds[i]) if i < len(winds) and winds[i] is not None else None,
+            'icon':       _WMO_ICON.get(code, '&#9925;'),
+            'desc':       _WMO_DESC.get(code, 'Variable'),
+        })
+    return results
 
 
 def _disease_outlook(max_c, min_c, precip_mm):
@@ -876,7 +933,7 @@ _EMAIL_MOBILE_STYLE = """<style type="text/css">
   td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
   .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
   .mob-full  { width:100% !important; }
-  .mob-logo img { height:32px !important; width:auto !important; }
+  .mob-logo img { height:40px !important; width:auto !important; }
 }
 </style>"""
 
@@ -1770,7 +1827,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
 # ─────────────────────────── END LAKE ALBERT HELPERS ────────────────────────
 
 
-def build_daily_html(row, target_date, history, forecast_days=None):
+def build_daily_html(row, target_date, history, forecast_days=None, hourly_forecast=None):
     """Generate the HTML email body for the daily morning report (Demo 1 layout)."""
     yesterday_str = target_date.strftime('%A, %-d %B %Y')
     frost_flag = row['frost_flag'] == 'True' or row['frost_flag'] is True
@@ -1853,11 +1910,11 @@ def build_daily_html(row, target_date, history, forecast_days=None):
             '&#9889; &nbsp;<strong style="color:#fed7aa;">Thunderstorm forecast today</strong>'
             ' - monitor conditions and suspend play if lightning is detected.</td></tr>')
 
-    # 4-day forecast strip (Section 5)
+    # 5-day forecast strip (Section 5)
     forecast_html = ''
     if forecast_days:
         cols = []
-        for i, fd in enumerate(forecast_days[:4]):
+        for i, fd in enumerate(forecast_days[:5]):
             is_today  = (i == 0)
             bg_col    = '#eff6ff' if is_today else '#f8fafc'
             bdr_style = '2px solid #93c5fd' if is_today else '1px solid #e2e8f0'
@@ -1876,9 +1933,9 @@ def build_daily_html(row, target_date, history, forecast_days=None):
             else:
                 badge = ('<span style="background:#f1f5f9;color:#475569;padding:3px 8px;'
                          'border-radius:12px;font-size:10px;font-weight:700;">Fine</span>')
-            r_pad = 'padding-right:4px;' if i < 3 else ''
+            r_pad = 'padding-right:4px;' if i < 4 else ''
             l_pad = 'padding-left:4px;'  if i > 0 else ''
-            cols.append(f"""<td width="25%" style="{r_pad}{l_pad}vertical-align:top;">
+            cols.append(f"""<td width="20%" style="{r_pad}{l_pad}vertical-align:top;">
           <table width="100%" cellpadding="12" cellspacing="0"
               bgcolor="{bg_col}"
               style="background-color:{bg_col};border:{bdr_style};border-radius:10px;text-align:center;">
@@ -1895,14 +1952,42 @@ def build_daily_html(row, target_date, history, forecast_days=None):
         </td>""")
 
         forecast_html = f"""
-  {sec_header('5', '4-Day Forecast', 'Open-Meteo forecast for Wagga Wagga')}
+  {sec_header('5', '5-Day Forecast', 'Open-Meteo forecast for Wagga Wagga')}
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>{''.join(cols)}</tr>
     </table>
   </td></tr>"""
 
-    # Section 6: Water Tank (from FarmBot, if data available for yesterday)
+    # Section 4: 12-hour hourly forecast strip
+    hourly_html = ''
+    if hourly_forecast:
+        hour_cols = []
+        for hf in hourly_forecast:
+            temp_str  = f"{hf['temp_c']:.0f}°" if hf['temp_c'] is not None else '--°'
+            wind_str  = f"{hf['wind_kmh']:.0f}" if hf['wind_kmh'] is not None else '--'
+            precip_pct = hf['precip_pct']
+            precip_col = '#1d4ed8' if precip_pct >= 60 else ('#6b7280' if precip_pct >= 30 else '#94a3b8')
+            hour_cols.append(f"""<td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">{hf['label']}</div>
+              <div style="font-size:20px;margin-bottom:4px;">{hf['icon']}</div>
+              <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">{temp_str}</div>
+              <div style="font-size:11px;color:{precip_col};font-weight:600;margin-bottom:3px;">{precip_pct}%</div>
+              <div style="font-size:10px;color:#64748b;">{wind_str} km/h</div>
+            </td>""")
+        hourly_html = f"""
+  {sec_header('4', 'Today\'s 12-Hour Forecast', 'Hourly conditions 6 AM – 6 PM &bull; Open-Meteo')}
+  <tr><td style="background:white;padding:16px 24px 24px;border-radius:0 0 10px 10px;">
+    <table width="100%" cellpadding="0" cellspacing="0"
+        style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+      <tr>{''.join(hour_cols)}</tr>
+    </table>
+    <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding-left:2px;">
+      Precipitation % is chance of rain. Wind in km/h.
+    </div>
+  </td></tr>"""
+
+    # Section 3 (now renumbered 6): Water Tank (from FarmBot, if data available for yesterday)
     fb_snapshot = load_farmbot_snapshot()
     tank_pct    = safe_float(row.get('tank_pct'))
     tank_vol_l  = safe_float(row.get('tank_volume_l'))
@@ -1919,7 +2004,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
         refill_note  = '<span style="color:#15803d;font-weight:700;">&#x2713; Refill detected</span>' if tank_refill else ''
         live_note    = f' (live: {current_pct:.0f}%)' if current_pct is not None else ''
         tank_section_html = f"""
-  {sec_header('6', 'Water Tank', f'End-of-day level for yesterday{live_note}')}
+  {sec_header('3', 'Water Tank', f'End-of-day level for yesterday{live_note}')}
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
@@ -1951,79 +2036,25 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     </table>
   </td></tr>"""
 
+    # GDD season totals from history (season starts 1 Sep)
+    gdd_bent_season = 0.0
+    gdd_kik_season  = 0.0
+    season_year = target_date.year if target_date.month >= 9 else target_date.year - 1
+    season_start_str = f'{season_year}-09-01'
+    for h in history:
+        h_date = h.get('date', '')
+        if h_date >= season_start_str:
+            gdd_bent_season += safe_float(h.get('gdd_bent'), 0)
+            gdd_kik_season  += safe_float(h.get('gdd_kik'), 0)
+    gdd_bent_season += safe_float(row.get('gdd_bent'), 0)
+    gdd_kik_season  += safe_float(row.get('gdd_kik'), 0)
+
     lake_data = _load_lake_data()
-    lake_section_html = _build_lake_section_daily(lake_data, target_date)
+    lake_section_html = _build_lake_section_daily(lake_data, target_date, section_num=2)
 
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-{_EMAIL_MOBILE_STYLE}
-</head>
-<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0"
-    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;
-    box-shadow:0 4px 20px rgba(0,0,0,0.08);">
-
-  <!-- HEADER -->
-  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td valign="top">
-        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
-          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
-              padding:3px 10px;border-radius:20px;">
-            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
-                text-transform:uppercase;font-family:Arial,sans-serif;">Daily Briefing</span>
-          </td></tr></table>
-        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
-            margin-bottom:8px;">Morning Weather Briefing</div>
-        <div style="font-size:14px;color:#a8e6bf;font-weight:300;
-            margin-bottom:10px;">{yesterday_str}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
-            text-transform:uppercase;">Wagga Wagga Country Club</div>
-      </td>
-      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-        {_white_logo_html()}
-      </td>
-    </tr></table>
-  </td></tr>
-
-  {frost_banner}
-  {disease_banner}
-  {fog_banner}
-  {lightning_banner}
-
-  {sec_header('1', 'Yesterday at a Glance', f'Key weather measurements for {yesterday_str}')}
-
-  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
-    {_gk_kv_table([
-        ('Max / Min Temp',   f"{row['temp_max']}° / {row['temp_min']}°C"),
-        ('Mean Temp',        f"{row['temp_mean']}°C &nbsp;&bull;&nbsp; RH {row['rh_mean']}%"),
-        ('Overnight Low',    f"{night_min_str}°C"),
-        ('Rainfall',         f"{row['rain_mm']} mm"),
-        ('ET',               f"{row['et_mm']} mm &nbsp;&bull;&nbsp; Net {net_str} mm"),
-        ('Wind Max',         f"{row['wind_max_kmh']} km/h"),
-        ('Wind Mean',        f"{row['wind_mean_kmh']} km/h &nbsp;&bull;&nbsp; Delta T {row['delta_t_mean']}°C"),
-        ('Soil Moisture',    soil_zone_val),
-        ('7-Day Balance',    f"{soil_bal:+.1f} mm"),
-        ('UV Index',         str(uv_str)),
-        ('Pressure',         f"{pres_str} hPa &nbsp;&bull;&nbsp; Leaf Wet {row['leaf_wet_hours']} hrs"),
-    ])}
-  </td></tr>
-
-  {sec_header('2', 'Growing Degree Days', 'Heat accumulation for grass growth - base temperatures apply')}
-
-  <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
-    {_gk_kv_table([
-        ('Bentgrass (base 10°C)', f"{row['gdd_bent']} GDD &nbsp;&bull;&nbsp; 7-day: {row['gdd_bent_7d']} GDD"),
-        ('Kikuyu (base 15°C)',    f"{row['gdd_kik']} GDD &nbsp;&bull;&nbsp; 7-day: {row['gdd_kik_7d']} GDD"),
-    ])}
-  </td></tr>
-
-  {sec_header('3', 'Disease Risk', 'Yesterday actuals + estimated outlook from forecast')}
+    # Build disease+spray section as a variable (placed after forecast in the output)
+    disease_spray_html = f"""
+  {sec_header('6', 'Disease Risk', 'Yesterday actuals + estimated outlook from forecast')}
 
   <tr><td style="background:white;padding:20px 24px;border-radius:0 0 10px 10px;">
     <div style="margin-bottom:14px;">
@@ -2093,7 +2124,7 @@ def build_daily_html(row, target_date, history, forecast_days=None):
     </div>
   </td></tr>
 
-  {sec_header('4', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
+  {sec_header('6', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -2139,13 +2170,94 @@ def build_daily_html(row, target_date, history, forecast_days=None):
         </td>
       </tr>
     </table>
+  </td></tr>"""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+
+  <!-- HEADER -->
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Daily Weather &amp; Course Snapshot</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">{yesterday_str}</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
-  {forecast_html}
+  {frost_banner}
+  {disease_banner}
+  {fog_banner}
+  {lightning_banner}
+
+  {sec_header('1', 'Yesterday\'s Weather', f'Key weather measurements for {yesterday_str}')}
+
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([r for r in [
+        ('Max / Min Temp',   f"{row['temp_max']}° / {row['temp_min']}°C") if row.get('temp_max') is not None and row['temp_max'] not in ('', 'None') else None,
+        ('Mean Temp',        f"{row['temp_mean']}°C") if row.get('temp_mean') is not None and row['temp_mean'] not in ('', 'None') else None,
+        ('Relative Humidity', f"{row['rh_mean']}%") if row.get('rh_mean') is not None and row['rh_mean'] not in ('', 'None') else None,
+        ('Overnight Low',    f"{night_min_str}°C") if night_min_str != '--' else None,
+        ('Rainfall',         f"{row['rain_mm']} mm") if row.get('rain_mm') is not None and row['rain_mm'] not in ('', 'None') else None,
+        ('ET',               f"{row['et_mm']} mm &nbsp;&bull;&nbsp; Net {net_str} mm") if row.get('et_mm') is not None and row['et_mm'] not in ('', 'None') else None,
+        ('Wind Max',         f"{row['wind_max_kmh']} km/h") if row.get('wind_max_kmh') is not None and row['wind_max_kmh'] not in ('', 'None') else None,
+        ('Wind Mean',        f"{row['wind_mean_kmh']} km/h") if row.get('wind_mean_kmh') is not None and row['wind_mean_kmh'] not in ('', 'None') else None,
+        ('Delta T',          f"{row['delta_t_mean']}°C") if row.get('delta_t_mean') is not None and row['delta_t_mean'] not in ('', 'None') else None,
+        ('Soil Moisture',    soil_zone_val) if soil_zone_val and soil_zone_val not in ('', 'None') else None,
+        ('7-Day Balance',    f"{soil_bal:+.1f} mm"),
+        ('UV Index',         str(uv_str)) if uv_str != '--' else None,
+        ('Pressure',         f"{pres_str} hPa") if pres_str != '--' else None,
+        ('Leaf Wet Hours',   f"{row['leaf_wet_hours']} hrs") if row.get('leaf_wet_hours') is not None and row['leaf_wet_hours'] not in ('', 'None') else None,
+        ('Dew Point',        f"{row['dew_point_c']}°C") if row.get('dew_point_c') is not None and str(row.get('dew_point_c', '')).strip() not in ('', 'None') else None,
+        ('Solar Radiation',  f"{row['solar_rad_avg']} W/m²") if row.get('solar_rad_avg') is not None and str(row.get('solar_rad_avg', '')).strip() not in ('', 'None') else None,
+        ('Station Reception', f"{row['iss_reception']}%") if row.get('iss_reception') is not None and str(row.get('iss_reception', '')).strip() not in ('', 'None') else None,
+    ] if r is not None])}
+  </td></tr>
+
+  {lake_section_html}
 
   {tank_section_html}
 
-  {lake_section_html}
+  {hourly_html}
+
+  {forecast_html}
+
+  {disease_spray_html}
+
+  {sec_header('7', 'Growing Degree Days', 'Heat accumulation for grass growth &bull; Season from 1 September')}
+
+  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+    <p style="margin:0 0 14px 0;font-size:13px;color:#374151;font-family:Arial,sans-serif;">
+      Growing Degree Days (GDD) measure heat accumulation &mdash; higher values mean faster
+      grass growth and increased disease pressure.
+    </p>
+    {_gk_kv_table([
+        ('Bentgrass (base 10°C)', f"{row['gdd_bent']} GDD today &nbsp;&middot;&nbsp; {gdd_bent_season:.0f} GDD this season"),
+        ('Warmseason (base 18°C)', f"{row['gdd_kik']} GDD today &nbsp;&middot;&nbsp; {gdd_kik_season:.0f} GDD this season"),
+    ])}
+  </td></tr>
 
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
@@ -2227,25 +2339,24 @@ def build_weekly_html(history, week_end_date):
     style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td valign="top">
-        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
-          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
-              padding:3px 10px;border-radius:20px;">
-            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
-                text-transform:uppercase;font-family:Arial,sans-serif;">Weekly Summary</span>
-          </td></tr></table>
-        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
-            margin-bottom:8px;">Weekly Weather Summary</div>
-        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{date_str}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
-            text-transform:uppercase;">Wagga Wagga Country Club</div>
-      </td>
-      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-        {_white_logo_html()}
-      </td>
-    </tr></table>
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Weekly Weather &amp; Course Summary</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">{date_str}</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   {w_sec1}
@@ -2390,25 +2501,24 @@ def build_monthly_html(history, month_label):
     style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td valign="top">
-        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
-          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
-              padding:3px 10px;border-radius:20px;">
-            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
-                text-transform:uppercase;font-family:Arial,sans-serif;">Monthly Summary</span>
-          </td></tr></table>
-        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
-            margin-bottom:8px;">Monthly Weather Summary</div>
-        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{month_label}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
-            text-transform:uppercase;">Wagga Wagga Country Club</div>
-      </td>
-      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-        {_white_logo_html()}
-      </td>
-    </tr></table>
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Monthly Weather &amp; Course Report</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">{month_label}</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   {m_sec1}
@@ -2573,7 +2683,11 @@ def build_yearly_html(history, year_label):
 
     html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
+</head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
@@ -2581,25 +2695,24 @@ def build_yearly_html(history, year_label):
     style="max-width:660px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
-  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:36px 28px 30px;">
-    <table width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td valign="top">
-        <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;"><tr>
-          <td bgcolor="#3a2c08" style="background-color:#3a2c08;border:1px solid #6b540f;
-              padding:3px 10px;border-radius:20px;">
-            <span style="color:#f5d87a;font-size:10px;font-weight:700;letter-spacing:2px;
-                text-transform:uppercase;font-family:Arial,sans-serif;">Annual Summary</span>
-          </td></tr></table>
-        <div style="font-size:26px;font-weight:700;color:white;line-height:1.2;
-            margin-bottom:8px;">Annual Weather Summary</div>
-        <div style="font-size:14px;color:#a8e6bf;font-weight:300;margin-bottom:10px;">{year_label}</div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;
-            text-transform:uppercase;">Wagga Wagga Country Club</div>
-      </td>
-      <td align="right" valign="top" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-        {_white_logo_html()}
-      </td>
-    </tr></table>
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Annual Weather &amp; Course Report</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">{year_label}</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   <!-- SECTION 1: MONTHLY BREAKDOWN TABLE -->
@@ -3073,9 +3186,13 @@ def main():
     if lightning_forecast:
         log.info('Thunderstorm forecast detected for today.')
 
-    log.info('Fetching 4-day forecast...')
-    forecast_days = fetch_4day_forecast(today)
+    log.info('Fetching 5-day forecast...')
+    forecast_days = fetch_5day_forecast(today)
     log.info(f'  {len(forecast_days)} day(s) of forecast loaded')
+
+    log.info('Fetching hourly forecast...')
+    hourly_forecast = fetch_hourly_forecast(today)
+    log.info(f'  {len(hourly_forecast)} hour(s) of hourly forecast loaded')
 
     # ── 5. Build CSV row ───────────────────────────────────────────────────
     row = {
@@ -3146,8 +3263,8 @@ def main():
     report_dir = REPORTS_ROOT / str(yesterday.year) / f'{yesterday.month:02d}'
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f'{yesterday.isoformat()}.html'
-    history_for_report = read_csv_history(7)
-    daily_html = build_daily_html(row, yesterday, history_for_report, forecast_days=forecast_days)
+    history_for_report = read_csv_history(310)  # enough for full Sep-Jun season
+    daily_html = build_daily_html(row, yesterday, history_for_report, forecast_days=forecast_days, hourly_forecast=hourly_forecast)
     report_path.write_text(daily_html, encoding='utf-8')
     log.info(f'Report saved: {report_path}')
 
@@ -3260,9 +3377,10 @@ if __name__ == '__main__':
             log.warning(f'No CSV row found for {yesterday} — run normally first.')
             sys.exit(1)
         log.info(f'--resend: re-sending email for {yesterday} using existing CSV data.')
-        history = read_csv_history(7)
-        forecast_days = fetch_4day_forecast(now_sydney.date())
-        daily_html = build_daily_html(row, yesterday, history, forecast_days=forecast_days)
+        history = read_csv_history(310)
+        forecast_days = fetch_5day_forecast(now_sydney.date())
+        hourly_forecast = fetch_hourly_forecast(now_sydney.date())
+        daily_html = build_daily_html(row, yesterday, history, forecast_days=forecast_days, hourly_forecast=hourly_forecast)
         subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
