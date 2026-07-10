@@ -2234,7 +2234,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
     </p>
     {_gk_kv_table([
         ('Bentgrass (base 10°C)', f"{row['gdd_bent']} GDD today &nbsp;&middot;&nbsp; {gdd_bent_season:.0f} GDD this season"),
-        ('Warmseason (base 18°C)', f"{row['gdd_kik']} GDD today &nbsp;&middot;&nbsp; {gdd_kik_season:.0f} GDD this season"),
+        ('Warmseason (base 15°C)', f"{row['gdd_kik']} GDD today &nbsp;&middot;&nbsp; {gdd_kik_season:.0f} GDD this season"),
     ])}
   </td></tr>
 
@@ -3560,14 +3560,15 @@ def main():
         yearly_path.write_text(yearly_html, encoding='utf-8')
 
     # ── 12. Water meter reading reminder (last day of month) ──────────────
-    _, last_day_of_month = calendar.monthrange(yesterday.year, yesterday.month)
-    if yesterday.day == last_day_of_month:
+    today_date = now_sydney.date()
+    _, last_day_of_month = calendar.monthrange(today_date.year, today_date.month)
+    if today_date.day == last_day_of_month:
         log.info('Last day of month — sending water meter reading reminder...')
         meter_html, meter_subject = build_meter_reading_html(now_sydney)
         send_email(meter_subject, meter_html, EMAIL_RECIPIENTS_ALL)
 
     # ── 13. WaterNSW submission reminder (13th of month) ──────────────────
-    if yesterday.day == 13:
+    if today_date.day == 13:
         log.info('13th of month — sending WaterNSW submission reminder...')
         sub_html, sub_subject = build_meter_submission_html(now_sydney)
         send_email(sub_subject, sub_html, EMAIL_RECIPIENTS_ALL)
