@@ -1030,7 +1030,6 @@ def _gk_kv_table(rows):
 
 # ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
 
-LAKE_BOTTOM_AHD = 189.362
 LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
 LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
 LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
@@ -1250,7 +1249,6 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         return ''
 
     level_num, level_name, rate, bg, fg, row_bg, accent = _lake_level_info(ahd)
-    depth = ahd - LAKE_BOTTOM_AHD
 
     # Drop / rise distances
     l3_thresh  = 189.850
@@ -2102,7 +2100,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
     </div>
   </td></tr>
 
-  {sec_header('6', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
+  {sec_header('7', 'Spray Conditions', 'Hours yesterday classified by Delta T and wind thresholds')}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -2225,7 +2223,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
 
   {disease_spray_html}
 
-  {sec_header('7', 'Growing Degree Days', 'Heat accumulation for grass growth &bull; Season from 1 September')}
+  {sec_header('8', 'Growing Degree Days', 'Heat accumulation for grass growth &bull; Season from 1 September')}
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <p style="margin:0 0 14px 0;font-size:13px;color:#374151;font-family:Arial,sans-serif;">

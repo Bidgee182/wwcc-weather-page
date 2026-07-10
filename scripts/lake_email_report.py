@@ -9,7 +9,7 @@ Schedule (Sydney time):
   Daily   — every morning
   Weekly  — Monday only
   Monthly — 1st of each month
-  Yearly  — 1 July (end of financial year)
+  Yearly  — 1 January (calendar year)
 
 Usage:
     python scripts/lake_email_report.py                    # auto (date-based)
