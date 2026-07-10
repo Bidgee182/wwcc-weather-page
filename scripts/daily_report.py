@@ -2931,16 +2931,26 @@ def build_meter_reading_html(now_sydney):
         deadline = date(today.year, today.month + 1, 14)
     deadline_str = deadline.strftime('%-d %B %Y')
 
+    # Live lake level for permitted pump rate
+    lake_data = _load_lake_data()
+    if lake_data and lake_data['latest'].get('lake_ahd'):
+        ahd = float(lake_data['latest']['lake_ahd'])
+        _, _, rate, _, _, _, _ = _lake_level_info(ahd)
+        pump_rate_line = (f'The current permitted pumping rate is <strong>{rate}</strong> '
+                          f'based on the current lake level of <strong>{ahd:.3f}m AHD</strong>.')
+    else:
+        pump_rate_line = 'Please refer to your licence conditions for the current permitted pumping rate.'
+
     body_rows = _gk_alert_banner('URGENT - METER READING MUST BE TAKEN TODAY', '#c0392b')
-    body_rows += _gk_alert_section('STEPS TO COMPLETE TODAY', '#c0392b')
-    body_rows += f"""<tr><td style="background:white;padding:0 24px 8px;">
-  {_gk_kv_table([
-      ('Step 1', 'Travel to the 125mm centrifugal pump at Lake Albert, Plumpton Rd, Wagga Wagga NSW 2650'),
-      ('Step 2', 'Photograph the water meter display - keep photo on file for at least 5 years'),
-      ('Step 3', 'Note the meter reading - total cumulative volume (check unit on meter face)'),
-      ('Step 4', 'Record all required details in the logbook before leaving site'),
-      ('Step 5', f'Submit reading in iWAS by {deadline_str}'),
-  ])}
+    body_rows += f"""<tr><td style="background:white;padding:20px 24px 16px;">
+  <p style="margin:0 0 12px 0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    Today is the last day of the month. The WaterNSW water meter is due to be read today.
+    Please ensure the meter is photographed, the reading and pumping times are recorded in the
+    logbook, and the reading is submitted in iWAS no later than <strong>{deadline_str}</strong>.
+  </p>
+  <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    {pump_rate_line}
+  </p>
 </td></tr>"""
 
     body_rows += f"""
@@ -2951,7 +2961,6 @@ def build_meter_reading_html(now_sydney):
         ('Meter reading',           'Total cumulative volume shown on meter display'),
         ('Volume taken this period','Calculate: current reading minus last reading'),
         ('Start &amp; end time',    'Record pumping start and end times for the period'),
-        ('Pump capacity',           '125mm centrifugal pump - note rate (ML/day)'),
         ('Meter serial number',     'Check serial number on water meter'),
         ('WAL number',              '40AL413687'),
         ('Approval number',         '40CA413688'),
@@ -3013,18 +3022,30 @@ def build_meter_submission_html(now_sydney):
     prev_month_label = prev_month_end.strftime('%B %Y')
     deadline_str     = today.replace(day=14).strftime('%-d %B %Y')
 
+    # Live lake level for permitted pump rate
+    lake_data = _load_lake_data()
+    if lake_data and lake_data['latest'].get('lake_ahd'):
+        ahd = float(lake_data['latest']['lake_ahd'])
+        _, _, rate, _, _, _, _ = _lake_level_info(ahd)
+        pump_rate_line = (f'The current permitted pumping rate is <strong>{rate}</strong> '
+                          f'based on the current lake level of <strong>{ahd:.3f}m AHD</strong>.')
+    else:
+        pump_rate_line = 'Please refer to your licence conditions for the current permitted pumping rate.'
+
     body_rows  = _gk_alert_banner(
         f'REMINDER - {prev_month_label.upper()} READING MUST BE SUBMITTED BY TOMORROW {deadline_str.upper()}',
         '#e67e22'
     )
-    body_rows += _gk_alert_section('SUBMISSION DEADLINE', '#e67e22')
-    body_rows += f"""<tr><td style="background:white;padding:0 24px 8px;">
-  {_gk_kv_table([
-      ('Reading for',   prev_month_label),
-      ('Deadline',      f'{deadline_str} - tomorrow'),
-      ('Portal',        '<a href="https://iwas.waternsw.com.au" style="color:#1a4a2e;font-weight:bold;">iWAS - iwas.waternsw.com.au</a>'),
-      ('Action needed', 'Log in to iWAS and confirm your monthly reading has been submitted'),
-  ])}
+    body_rows += f"""<tr><td style="background:white;padding:20px 24px 16px;">
+  <p style="margin:0 0 12px 0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    The monthly water meter reading for <strong>{prev_month_label}</strong> is due to be submitted
+    to WaterNSW via iWAS by tomorrow, <strong>{deadline_str}</strong>. Please log in to iWAS and
+    confirm the reading has been submitted. If the reading has not yet been submitted, please do
+    so as soon as possible to avoid a compliance breach.
+  </p>
+  <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    {pump_rate_line}
+  </p>
 </td></tr>"""
 
     body_rows += f"""
