@@ -2945,7 +2945,7 @@ def build_meter_reading_html(now_sydney):
         ('Meter reading',           'Total cumulative volume shown on meter display'),
         ('Volume taken this period','Calculate: current reading minus last reading'),
         ('Start &amp; end time',    'Record pumping start and end times for the period'),
-        ('Meter serial number',     'Check serial number on water meter'),
+        ('Meter serial number',     '210323056'),
         ('WAL number',              '40AL413687'),
         ('Approval number',         '40CA413688'),
     ])}
@@ -2957,7 +2957,7 @@ def build_meter_reading_html(now_sydney):
         ('Licence holder',       'Wagga Wagga Country Club Ltd (ACN 001 045 156)'),
         ('Water Access Licence', '40AL413687 (WAL 33232)'),
         ('Work Approval',        '40CA413688'),
-        ('Meter serial number',  'Check serial number on water meter'),
+        ('Meter serial number',  '210323056'),
         ('Water source',         'Murrumbidgee Central (Burrinjuck to Gogeldrie)'),
         ('Water sharing plan',   'Murrumbidgee Unregulated River Water Sources 2012'),
         ('Annual volume limit',  '193 ML per water year (1 Jul - 30 Jun)'),
@@ -3038,7 +3038,7 @@ def build_meter_submission_html(now_sydney):
     {_gk_kv_table([
         ('Water Access Licence', '40AL413687'),
         ('Work Approval number', '40CA413688'),
-        ('Meter serial number',  'Check serial number on water meter'),
+        ('Meter serial number',  '210323056'),
         ('Water type',           'Unregulated river'),
         ('Reading period',       prev_month_label),
         ('Volume taken',         'Total ML taken during the month (from logbook / meter reading)'),
