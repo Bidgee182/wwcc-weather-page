@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 _LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 _HDR_BG   = '#1a5276'
 _SEC_BG   = '#2471a3'
-_BODY_BG  = '#d6e4f0'   # outer page background - content sits on white card
+_BODY_BG  = '#ffffff'
 _CARD_BG  = '#ffffff'
 _BORDER   = '#a9cce3'
 _ROW_A    = '#d6eaf8'
@@ -957,30 +957,35 @@ def build_html(now_syd):
             + projection_banner
             + _card_close()) if projection_banner else '')
 
-        # ── Lake section ───────────────────────────────────────────────────────
-        + _card_open('Lake Albert - Current Licence Level')
+        # ── Lake section (single card: current level + chart + licence table) ────
+        + _card_open('Lake Albert')
         + _lake_card_html
-        + _card_close()
-
-        # Lake chart
-        + _card_open('Lake Level - Past 7 Days')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
+  <tr>
+    <td bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">Lake Level - Past 7 Days</p>
+    </td>
+  </tr>
   <tr>
     <td style="background:#0d1b2a;padding:12px;">
       {chart_html if chart_html else
        '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
     </td>
   </tr>
-</table>"""
-        + _card_close()
-
-        # Licence levels reference table
-        + _card_open('Water Licence Levels')
-        + f"""
+</table>
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
+  <tr>
+    <td bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">Water Licence Levels</p>
+    </td>
+  </tr>
   <tr>
     <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid {_BORDER};
