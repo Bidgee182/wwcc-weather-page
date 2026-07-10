@@ -601,14 +601,6 @@ def build_html(now_syd):
     <td style="padding:0;border:1px solid #fca5a5;border-left:4px solid #b83c3c;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td colspan="2" bgcolor="#b83c3c" style="background-color:#b83c3c;padding:7px 16px;">
-            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-                color:#ffffff;text-transform:uppercase;letter-spacing:0.5px;">
-              Cease-to-Pump Projection - No future rainfall assumed
-            </p>
-          </td>
-        </tr>
-        <tr>
           <td width="50%" style="background:#fef2f2;padding:12px 16px;
               border-right:1px solid #fca5a5;vertical-align:top;">
             <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
@@ -709,7 +701,6 @@ def build_html(now_syd):
 </table>"""
 
         + next_banner
-        + projection_banner
 
         # Lake chart
         + _section('Lake Level - Past 7 Days')
@@ -741,6 +732,10 @@ def build_html(now_syd):
   </tr>
 {level_rows}
 </table>"""
+
+        # ── Cease-to-pump projection section ──────────────────────────────────
+        + ((_section('Cease-to-Pump Projection - No Future Rainfall Assumed')
+            + projection_banner) if projection_banner else '')
 
         # ── Weather section ────────────────────────────────────────────────────
         + _section('Weather - Past 7 Days')
