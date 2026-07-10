@@ -66,9 +66,10 @@ jobs:
           FARMBOT_TANK_CAPACITY_L: '250000'
           FARMBOT_LAKE_SID:       ${{ secrets.FARMBOT_LAKE_SID }}
           LAKE_AHD_OFFSET:        '189.3616'
-          SENDGRID_API_KEY:       ${{ secrets.SENDGRID_API_KEY }}
-          EMAIL_FROM:             ${{ secrets.EMAIL_FROM }}
-          EMAIL_GK_RECIPIENTS:    ${{ secrets.EMAIL_GK_RECIPIENTS }}
+          SENDGRID_API_KEY:           ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM:                 ${{ secrets.EMAIL_FROM }}
+          EMAIL_GK_RECIPIENTS:        ${{ secrets.EMAIL_GK_RECIPIENTS }}
+          EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
         run: |
           FROM="${{ github.event.inputs.backfill_from }}"
           FROM="${FROM:-2025-01-01}"
@@ -78,6 +79,7 @@ jobs:
             python scripts/farmbot_poll.py --backfill-lake --from "$FROM"
           else
             python scripts/farmbot_poll.py
+            python scripts/lake_level_alert.py
           fi
 
       - name: Commit updated data to repository

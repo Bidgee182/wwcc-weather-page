@@ -35,6 +35,7 @@ on:
           - annual
           - meter_reading
           - meter_submission
+          - lake_alert
           - all
 
 jobs:
@@ -71,6 +72,8 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend
+          elif [ "${{ github.event.inputs.test_email }}" = "lake_alert" ]; then
+            python scripts/lake_level_alert.py --test
           elif [ -n "${{ github.event.inputs.test_email }}" ]; then
             python scripts/daily_report.py --test ${{ github.event.inputs.test_email }}
           else
