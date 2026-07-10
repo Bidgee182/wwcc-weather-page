@@ -1214,66 +1214,9 @@ def _lake_chart_html(readings, start_date, end_date):
 
     cfg_json = _json.dumps(config, separators=(",", ":"))
     url = f"https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=190&c={_up.quote(cfg_json)}"
-    return (f"<img src="{url}" width="100%" alt="Lake level chart""
-            f" style="display:block;border-radius:6px;max-width:100%;">" )
+    return (f'<img src="{url}" width="100%" alt="Lake level chart"'
+            f' style="display:block;border-radius:6px;max-width:100%;">')
 
-    ymin, ymax = min(vals) - 0.05, max(vals) + 0.05
-    span = (end_date - start_date).days or 1
-
-    def xp(d): return round(PL + (d - start_date).days / span * PW, 1)
-    def yp(v): return round(PT + PH * (1 - (v - ymin) / (ymax - ymin)), 1)
-
-    svg.append(f'<clipPath id="lc"><rect x="{PL}" y="{PT}" width="{PW}" height="{PH}"/></clipPath>')
-
-    # Y grid + labels (5 ticks)
-    for i in range(5):
-        v = ymin + i * (ymax - ymin) / 4
-        y = yp(v)
-        svg.append(f'<line x1="{PL}" y1="{y}" x2="{PL+PW}" y2="{y}" stroke="{GC}" stroke-width="0.6"/>')
-        svg.append(f'<text x="{PL-4}" y="{y+3}" text-anchor="end" fill="{TC}" font-family="Arial,sans-serif" font-size="8">{v:.2f}</text>')
-
-    # Zone threshold dashed lines
-    for thr, col, lbl in THRESH:
-        if ymin - 0.05 <= thr <= ymax + 0.05:
-            y = yp(thr)
-            svg.append(f'<line x1="{PL}" y1="{y}" x2="{PL+PW}" y2="{y}" stroke="{col}" stroke-width="1" stroke-dasharray="6,4" opacity="0.85" clip-path="url(#lc)"/>')
-            svg.append(f'<text x="{PL+4}" y="{y-3}" fill="{col}" font-family="Arial,sans-serif" font-size="7" opacity="0.9">{lbl}</text>')
-
-    # Area fill + data line
-    pts = [(xp(d), yp(v)) for d, v in zip(dates, vals)]
-    if len(pts) >= 2:
-        bot = PT + PH
-        area = ' '.join(f'{x},{y}' for x, y in pts) + f' {pts[-1][0]},{bot} {pts[0][0]},{bot}'
-        svg.append(f'<polygon points="{area}" fill="{LC}" fill-opacity="0.15" clip-path="url(#lc)"/>')
-        line = ' '.join(f'{x},{y}' for x, y in pts)
-        svg.append(f'<polyline points="{line}" fill="none" stroke="{LC}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#lc)"/>')
-    elif pts:
-        svg.append(f'<circle cx="{pts[0][0]}" cy="{pts[0][1]}" r="3" fill="{LC}"/>')
-
-    # X-axis tick labels
-    n_days = (end_date - start_date).days
-    if n_days <= 10:
-        tick_offsets = list(range(total_days))
-        date_fmt = '%-d %b'
-    elif n_days <= 35:
-        tick_offsets = [i for i in range(total_days) if (start_date + timedelta(days=i)).weekday() == 0]
-        if not tick_offsets:
-            tick_offsets = [0, total_days - 1]
-        date_fmt = '%-d %b'
-    else:
-        tick_offsets = [i for i in range(total_days) if (start_date + timedelta(days=i)).day == 1]
-        if not tick_offsets:
-            tick_offsets = [0, total_days - 1]
-        date_fmt = '%b'
-
-    for i in tick_offsets:
-        d = start_date + timedelta(days=i)
-        x = xp(d)
-        svg.append(f'<line x1="{x}" y1="{PT+PH}" x2="{x}" y2="{PT+PH+3}" stroke="{TC}" stroke-width="0.6"/>')
-        svg.append(f'<text x="{x}" y="{H-4}" text-anchor="middle" fill="{TC}" font-family="Arial,sans-serif" font-size="8">{d.strftime(date_fmt)}</text>')
-
-    svg.append('</svg>')
-    return ''.join(svg)
 
 
 def _lake_threshold_table(current_ahd):
