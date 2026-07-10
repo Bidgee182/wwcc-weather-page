@@ -784,8 +784,8 @@ def build_html(now_syd):
                     f'font-size:9px;color:{_ft};">above</p>')
         elif _zn == lv_num:
             _bg = lv_bg; _ft = lv_txt; _brd = '2px solid #1b2631'; _fw = '700'
-            _sub = (f'<p style="margin:2px 0 0;font-family:Arial,sans-serif;'
-                    f'font-size:9px;font-weight:700;color:{_ft};">&darr;&nbsp;current</p>')
+            _sub = (f'<p style="margin:4px 0 0;font-family:Arial,sans-serif;'
+                    f'font-size:18px;line-height:1;color:{_ft};">&#9660;</p>')
         elif _zn == 5:
             _bg = '#fef2f2'; _ft = '#991b1b'; _brd = '1px solid #fca5a5'; _fw = '400'
             _sub = (f'<p style="margin:1px 0 0;font-family:Arial,sans-serif;'
@@ -884,6 +884,9 @@ def build_html(now_syd):
           font-weight:700;color:#1b2631;">{lv_pump:.2f}&nbsp;ML/day</p>
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#475569;">
         {lv_pump * 1000:.0f}&nbsp;kL/day maximum extraction
+      </p>
+      <p style="margin:6px 0 0;font-family:Arial,sans-serif;font-size:11px;color:#475569;">
+        {ahd:.3f}&nbsp;m&nbsp;AHD current reading
       </p>
     </td>
     <td width="50%" style="background-color:{_wbg};padding:14px 16px;vertical-align:top;
