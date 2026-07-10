@@ -3593,46 +3593,33 @@ if __name__ == '__main__':
     args = sys.argv[1:]
 
     if '--backfill' in args:
-        # ── Backfill missing historical dates in the CSV ───────────────────
-        # Usage:
+        # Usage (local/CLI only — not exposed in workflow):
         #   python daily_report.py --backfill
-        #       → fills from 1 Sep of the current/previous season to yesterday
-        #   python daily_report.py --backfill --from 2025-09-01 --to 2026-06-28
-        #       → fills the specified date range
+        #   python daily_report.py --backfill --from 2025-09-01 --to 2026-06-28 --force
         now_sydney = datetime.now(tz=TZ)
-
-        # Parse --from
         from_str = None
         if '--from' in args:
             idx = args.index('--from')
             if idx + 1 < len(args):
                 from_str = args[idx + 1]
-
-        # Parse --to
         to_str = None
         if '--to' in args:
             idx = args.index('--to')
             if idx + 1 < len(args):
                 to_str = args[idx + 1]
-
-        # Default from_date: 1 Sep of current season
         if from_str:
             from_date = date.fromisoformat(from_str)
         else:
             y = now_sydney.year
             from_date = date(y if now_sydney.month >= 9 else y - 1, 9, 1)
-
-        # Default to_date: yesterday
         to_date = date.fromisoformat(to_str) if to_str else (now_sydney - timedelta(days=1)).date()
-
         force = '--force' in args
         log.info(f'--backfill: processing {from_date} → {to_date}' + (' (force)' if force else ''))
         backfill_history(from_date, to_date, force=force)
         log.info('Backfill complete.')
 
     elif '--diagnose' in args:
-        # Print all unique field names returned by Davis v2 API for yesterday.
-        # Use: python daily_report.py --diagnose
+        # Usage (local/CLI only): python daily_report.py --diagnose
         now_sydney = datetime.now(tz=TZ)
         target = (now_sydney - timedelta(days=1)).date()
         log.info(f'--diagnose: fetching Davis v2 records for {target}')
@@ -3645,7 +3632,7 @@ if __name__ == '__main__':
             log.info(f'    {k}: {sample}')
 
     elif '--resend' in args:
-        # Re-send the email for the most recent CSV row without re-fetching or re-writing data.
+        # Re-send yesterday's daily email from existing CSV — no re-fetch or CSV changes.
         now_sydney = datetime.now(tz=TZ)
         yesterday  = (now_sydney - timedelta(days=1)).date()
         rows = read_csv_history(3)
@@ -3653,33 +3640,77 @@ if __name__ == '__main__':
         if row is None:
             log.warning(f'No CSV row found for {yesterday} — run normally first.')
             sys.exit(1)
-        log.info(f'--resend: re-sending email for {yesterday} using existing CSV data.')
-        history = read_csv_history(310)
-        forecast_days = fetch_5day_forecast(now_sydney.date())
+        log.info(f'--resend: re-sending daily email for {yesterday}.')
+        history         = read_csv_history(310)
+        forecast_days   = fetch_5day_forecast(now_sydney.date())
         hourly_forecast = fetch_hourly_forecast(now_sydney.date())
-        daily_html = build_daily_html(row, yesterday, history, forecast_days=forecast_days, hourly_forecast=hourly_forecast)
-        subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
+        daily_html = build_daily_html(row, yesterday, history,
+                                      forecast_days=forecast_days,
+                                      hourly_forecast=hourly_forecast)
+        subject = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
 
-    elif '--test-meter' in args:
-        # Send test meter emails to andrew@bidgeepumps.com.au only.
+    elif '--test' in args:
+        # Send test email(s) to andrew@bidgeepumps.com.au with [TEST] subject prefix.
         # Usage:
-        #   python daily_report.py --test-meter              → sends both meter emails
-        #   python daily_report.py --test-meter reading      → meter reading only
-        #   python daily_report.py --test-meter submission   → submission reminder only
+        #   python daily_report.py --test daily
+        #   python daily_report.py --test weekly
+        #   python daily_report.py --test monthly
+        #   python daily_report.py --test annual
+        #   python daily_report.py --test meter_reading
+        #   python daily_report.py --test meter_submission
+        #   python daily_report.py --test all
         now_sydney  = datetime.now(tz=TZ)
+        yesterday   = (now_sydney - timedelta(days=1)).date()
         test_addr   = ['andrew@bidgeepumps.com.au']
-        idx         = args.index('--test-meter')
+        idx         = args.index('--test')
         which       = args[idx + 1] if idx + 1 < len(args) and not args[idx + 1].startswith('--') else 'all'
-        if which in ('reading', 'all'):
+        valid = ('daily', 'weekly', 'monthly', 'annual', 'meter_reading', 'meter_submission', 'all')
+        if which not in valid:
+            log.error(f'Unknown test report "{which}". Choose from: {", ".join(valid)}')
+            sys.exit(1)
+
+        def _test_send(html, subj):
+            send_email(f'[TEST] {subj}', html, test_addr)
+            log.info(f'  Sent [TEST] "{subj}" to {test_addr[0]}')
+
+        if which in ('daily', 'all'):
+            rows = read_csv_history(3)
+            row  = next((r for r in reversed(rows) if r.get('date') == yesterday.isoformat()), None)
+            if row is None:
+                log.warning('No CSV row for yesterday — skipping daily test.')
+            else:
+                history         = read_csv_history(310)
+                forecast_days   = fetch_5day_forecast(now_sydney.date())
+                hourly_forecast = fetch_hourly_forecast(now_sydney.date())
+                html = build_daily_html(row, yesterday, history,
+                                        forecast_days=forecast_days,
+                                        hourly_forecast=hourly_forecast)
+                _test_send(html, f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}')
+
+        if which in ('weekly', 'all'):
+            html = build_weekly_html(read_csv_history(7), yesterday)
+            _test_send(html, f'WWCC Weekly Weather Summary — {yesterday.strftime("%-d %B %Y")}')
+
+        if which in ('monthly', 'all'):
+            month_name = (yesterday - timedelta(days=1)).strftime('%B %Y')
+            html = build_monthly_html(read_csv_history(31), month_name)
+            _test_send(html, f'WWCC Monthly Weather Summary — {month_name}')
+
+        if which in ('annual', 'all'):
+            year_label = f'Full Year {yesterday.year - 1}'
+            html = build_yearly_html(read_csv_history(366), year_label)
+            _test_send(html, f'WWCC Annual Weather Summary — {yesterday.year - 1}')
+
+        if which in ('meter_reading', 'all'):
             html, subj = build_meter_reading_html(now_sydney)
-            send_email(f'[TEST] {subj}', html, test_addr)
-            log.info(f'Test meter reading email sent to {test_addr[0]}')
-        if which in ('submission', 'all'):
+            _test_send(html, subj)
+
+        if which in ('meter_submission', 'all'):
             html, subj = build_meter_submission_html(now_sydney)
-            send_email(f'[TEST] {subj}', html, test_addr)
-            log.info(f'Test meter submission email sent to {test_addr[0]}')
+            _test_send(html, subj)
+
         log.info('Done.')
 
     else:

@@ -11,59 +11,31 @@ on:
     - cron: '10 19 * * *'   # 5:10 AM AEST (target delivery 6:00 AM)
     - cron: '10 18 * * *'   # 5:10 AM AEDT (target delivery 6:00 AM)
 
-  # Allow manual trigger from GitHub Actions tab for testing/backfill
+  # Manual trigger — resend or test emails
   workflow_dispatch:
     inputs:
-      diagnose:
-        description: 'Print all Davis v2 API field names for yesterday (no CSV changes)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
       resend:
-        description: 'Resend email for today using existing CSV data (skip re-fetch)'
+        description: 'Resend yesterday''s daily email using existing CSV data (no re-fetch)'
         required: false
         default: 'false'
         type: choice
         options:
           - 'false'
           - 'true'
-      backfill:
-        description: 'Backfill missing historical dates into the CSV (no email sent)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      backfill_from:
-        description: 'Backfill start date (YYYY-MM-DD). Leave blank to use 1 Sep of current season.'
-        required: false
-        default: ''
-      backfill_to:
-        description: 'Backfill end date (YYYY-MM-DD). Leave blank to use yesterday.'
-        required: false
-        default: ''
-      backfill_force:
-        description: 'Force reprocess ALL dates (use after CSV schema changes)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      test_meter:
-        description: 'Send test meter reminder email(s) to andrew@bidgeepumps.com.au (reading, submission, or all)'
+      test_email:
+        description: 'Send test email to andrew@bidgeepumps.com.au with [TEST] prefix'
         required: false
         default: ''
         type: choice
         options:
           - ''
+          - daily
+          - weekly
+          - monthly
+          - annual
+          - meter_reading
+          - meter_submission
           - all
-          - reading
-          - submission
 
 jobs:
   daily-report:
@@ -97,24 +69,10 @@ jobs:
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
           EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
         run: |
-          if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
-            ARGS="--backfill"
-            if [ -n "${{ github.event.inputs.backfill_from }}" ]; then
-              ARGS="$ARGS --from ${{ github.event.inputs.backfill_from }}"
-            fi
-            if [ -n "${{ github.event.inputs.backfill_to }}" ]; then
-              ARGS="$ARGS --to ${{ github.event.inputs.backfill_to }}"
-            fi
-            if [ "${{ github.event.inputs.backfill_force }}" = "true" ]; then
-              ARGS="$ARGS --force"
-            fi
-            python scripts/daily_report.py $ARGS
-          elif [ "${{ github.event.inputs.diagnose }}" = "true" ]; then
-            python scripts/daily_report.py --diagnose
-          elif [ "${{ github.event.inputs.resend }}" = "true" ]; then
+          if [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend
-          elif [ -n "${{ github.event.inputs.test_meter }}" ]; then
-            python scripts/daily_report.py --test-meter ${{ github.event.inputs.test_meter }}
+          elif [ -n "${{ github.event.inputs.test_email }}" ]; then
+            python scripts/daily_report.py --test ${{ github.event.inputs.test_email }}
           else
             python scripts/daily_report.py
           fi
