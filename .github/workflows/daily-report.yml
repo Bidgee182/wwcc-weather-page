@@ -54,6 +54,16 @@ on:
         options:
           - 'false'
           - 'true'
+      test_meter:
+        description: 'Send test meter reminder email(s) to andrew@bidgeepumps.com.au (reading, submission, or all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - all
+          - reading
+          - submission
 
 jobs:
   daily-report:
@@ -103,6 +113,8 @@ jobs:
             python scripts/daily_report.py --diagnose
           elif [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend
+          elif [ -n "${{ github.event.inputs.test_meter }}" ]; then
+            python scripts/daily_report.py --test-meter ${{ github.event.inputs.test_meter }}
           else
             python scripts/daily_report.py
           fi

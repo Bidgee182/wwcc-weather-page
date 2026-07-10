@@ -19,6 +19,7 @@ import math
 import json
 import time
 import logging
+import calendar
 import requests
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
@@ -2824,6 +2825,253 @@ def build_yearly_html(history, year_label):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# WATER METER REMINDER EMAILS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _gk_data_table(headers, rows):
+    """GK-styled data table with green header row."""
+    hcells = ''.join(
+        f'<td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:8px 12px;'
+        f'font-family:Arial,sans-serif;font-size:12px;color:#ffffff;font-weight:bold;'
+        f'border-right:1px solid {_GK_BORDER};border-bottom:1px solid {_GK_BORDER};">{h}</td>'
+        for h in headers
+    )
+    drows = ''
+    for i, row in enumerate(rows):
+        bg = _GK_ROW_A if i % 2 == 0 else _GK_ROW_B
+        drows += '<tr>' + ''.join(
+            f'<td bgcolor="{bg}" style="background-color:{bg};padding:7px 12px;'
+            f'font-family:Arial,sans-serif;font-size:12px;color:{_GK_VAL_COL};'
+            f'border-bottom:1px solid {_GK_BORDER};border-right:1px solid {_GK_BORDER};">{c}</td>'
+            for c in row
+        ) + '</tr>'
+    return f"""<table width="100%" cellpadding="0" cellspacing="0"
+    style="border-collapse:collapse;border:1px solid {_GK_BORDER};">
+  <tr>{hcells}</tr>
+  {drows}
+</table>"""
+
+
+def _gk_alert_banner(text, bg='#c0392b'):
+    return f"""<tr><td bgcolor="{bg}" style="background-color:{bg};padding:12px 20px;text-align:center;">
+  <p style="margin:0;font-size:14px;color:#ffffff;font-weight:bold;
+      letter-spacing:1px;font-family:Arial,sans-serif;">&#9888;&nbsp; {text} &nbsp;&#9888;</p>
+</td></tr>"""
+
+
+def _gk_alert_section(text, bg='#c0392b'):
+    return f"""<tr><td bgcolor="{bg}" style="background-color:{bg};padding:7px 20px;margin-top:14px;">
+  <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
+      letter-spacing:0.5px;font-family:Arial,sans-serif;">{text}</p>
+</td></tr>"""
+
+
+def _gk_meter_wrap(title, subtitle, body_rows, now_sydney):
+    """Wrap meter email content in GK email shell."""
+    now_str = now_sydney.strftime('%-d %b %Y %H:%M')
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{_EMAIL_MOBILE_STYLE}
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+
+  <!-- HEADER -->
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">
+            WAGGA WAGGA COUNTRY CLUB
+          </p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">{title}</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
+              font-family:Arial,sans-serif;">{subtitle}</p>
+        </td>
+        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  {body_rows}
+
+  <!-- FOOTER -->
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 28px;text-align:center;">
+    <div style="font-size:10px;color:#6ee7b7;letter-spacing:2px;text-transform:uppercase;
+        margin-bottom:8px;">Wagga Wagga Country Club - Automated Reminder</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);">
+        Generated {now_str} AEST - do not reply to this email.</div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+
+def build_meter_reading_html(now_sydney):
+    """Build the end-of-month water meter reading reminder email (GK style)."""
+    today       = now_sydney.date()
+    month_label = today.strftime('%B %Y')
+    if today.month == 12:
+        deadline = date(today.year + 1, 1, 14)
+    else:
+        deadline = date(today.year, today.month + 1, 14)
+    deadline_str = deadline.strftime('%-d %B %Y')
+
+    body_rows = _gk_alert_banner('URGENT - METER READING MUST BE TAKEN TODAY', '#c0392b')
+    body_rows += _gk_alert_section('STEPS TO COMPLETE TODAY', '#c0392b')
+    body_rows += f"""<tr><td style="background:white;padding:0 24px 8px;">
+  {_gk_kv_table([
+      ('Step 1', 'Travel to the 125mm centrifugal pump at Lake Albert, Plumpton Rd, Wagga Wagga NSW 2650'),
+      ('Step 2', 'Photograph the water meter display - keep photo on file for at least 5 years'),
+      ('Step 3', 'Note the meter reading - total cumulative volume (check unit on meter face)'),
+      ('Step 4', 'Record all required details in the logbook before leaving site'),
+      ('Step 5', f'Submit reading in iWAS by {deadline_str}'),
+  ])}
+</td></tr>"""
+
+    body_rows += f"""
+  {sec_header('1', 'Logbook - What to Record at the Meter')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Date',                    today.strftime('%-d %B %Y')),
+        ('Meter reading',           'Total cumulative volume shown on meter display'),
+        ('Volume taken this period','Calculate: current reading minus last reading'),
+        ('Start &amp; end time',    'Record pumping start and end times for the period'),
+        ('Pump capacity',           '125mm centrifugal pump - note rate (ML/day)'),
+        ('Meter serial number',     'Check serial number on water meter'),
+        ('WAL number',              '40AL413687'),
+        ('Approval number',         '40CA413688'),
+    ])}
+  </td></tr>
+
+  {sec_header('2', 'Licence Details')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Licence holder',       'Wagga Wagga Country Club Ltd (ACN 001 045 156)'),
+        ('Water Access Licence', '40AL413687 (WAL 33232)'),
+        ('Work Approval',        '40CA413688'),
+        ('Meter serial number',  'Check serial number on water meter'),
+        ('Water source',         'Murrumbidgee Central (Burrinjuck to Gogeldrie)'),
+        ('Water sharing plan',   'Murrumbidgee Unregulated River Water Sources 2012'),
+        ('Annual volume limit',  '193 ML per water year (1 Jul - 30 Jun)'),
+        ('Approval expiry',      '22 June 2027'),
+    ])}
+  </td></tr>
+
+  {sec_header('3', 'Current Pump Rate Limits')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_data_table(
+        ['Lake Level (AHD)', 'Maximum Pump Rate'],
+        [
+            ('Below 189.65m AHD',           'CEASE TO PUMP - do not extract'),
+            ('189.65m to 189.85m AHD',      '0.50 ML/day'),
+            ('189.85m to 190.05m AHD',      '0.75 ML/day'),
+            ('190.05m to 190.25m AHD',      '1.00 ML/day'),
+            ('Above 190.25m AHD (to full)', '1.50 ML/day'),
+        ]
+    )}
+  </td></tr>
+
+  {sec_header('4', 'Submit Your Reading to WaterNSW')}
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Portal',              '<a href="https://iwas.waternsw.com.au" style="color:#1a4a2e;font-weight:bold;">iWAS - iwas.waternsw.com.au</a>'),
+        ('Submission deadline', f'{deadline_str} (14th of next month)'),
+        ('WaterNSW helpline',   '1300 662 077 (Mon-Fri 8am-5pm)'),
+        ('Email',               'Customer.Helpdesk@waternsw.com.au'),
+    ])}
+  </td></tr>"""
+
+    subject = f'URGENT - Water Meter Reading Required - {month_label}'
+    html    = _gk_meter_wrap(
+        'Water Meter Reading Required',
+        f'Last day of {month_label} - Action required today',
+        body_rows,
+        now_sydney,
+    )
+    return html, subject
+
+
+def build_meter_submission_html(now_sydney):
+    """Build the 13th-of-month WaterNSW submission reminder email (GK style)."""
+    today            = now_sydney.date()
+    prev_month_end   = today.replace(day=1) - timedelta(days=1)
+    prev_month_label = prev_month_end.strftime('%B %Y')
+    deadline_str     = today.replace(day=14).strftime('%-d %B %Y')
+
+    body_rows  = _gk_alert_banner(
+        f'REMINDER - {prev_month_label.upper()} READING MUST BE SUBMITTED BY TOMORROW {deadline_str.upper()}',
+        '#e67e22'
+    )
+    body_rows += _gk_alert_section('SUBMISSION DEADLINE', '#e67e22')
+    body_rows += f"""<tr><td style="background:white;padding:0 24px 8px;">
+  {_gk_kv_table([
+      ('Reading for',   prev_month_label),
+      ('Deadline',      f'{deadline_str} - tomorrow'),
+      ('Portal',        '<a href="https://iwas.waternsw.com.au" style="color:#1a4a2e;font-weight:bold;">iWAS - iwas.waternsw.com.au</a>'),
+      ('Action needed', 'Log in to iWAS and confirm your monthly reading has been submitted'),
+  ])}
+</td></tr>"""
+
+    body_rows += f"""
+  {sec_header('1', 'Details to Enter in iWAS')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Water Access Licence', '40AL413687'),
+        ('Work Approval number', '40CA413688'),
+        ('Meter serial number',  'Check serial number on water meter'),
+        ('Water type',           'Unregulated river'),
+        ('Reading period',       prev_month_label),
+        ('Volume taken',         'Total ML taken during the month (from logbook / meter reading)'),
+        ('Declaration',          'Confirm accuracy and submit'),
+    ])}
+  </td></tr>
+
+  {sec_header('2', 'Telemetry Status Reminder')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('S91i fault report', 'If telemetry is still not repaired, check your S91i extension is current'),
+        ('Extension form',    '<a href="https://www.waternsw.com.au/customer-services/metering/s91i-extension" style="color:#1a4a2e;">waternsw.com.au - S91i Extension Form</a>'),
+        ('Repair requirement','Meters must be repaired within 21 days of fault report (or extension granted)'),
+        ('Reporting breach',  'Email: water.enquiries@dpi.nsw.gov.au or call 1800 353 104'),
+    ])}
+  </td></tr>
+
+  {sec_header('3', 'Need Help?')}
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('WaterNSW helpline', '1300 662 077 (Mon-Fri 8am-5pm)'),
+        ('Email',             'Customer.Helpdesk@waternsw.com.au'),
+        ('iWAS portal',       '<a href="https://iwas.waternsw.com.au" style="color:#1a4a2e;">iwas.waternsw.com.au</a>'),
+        ('Recording guide',   '<a href="https://www.waternsw.com.au/customer-services/metering/recording-and-reporting" style="color:#1a4a2e;">waternsw.com.au - Recording and Reporting</a>'),
+    ])}
+  </td></tr>"""
+
+    subject = f'URGENT REMINDER - WaterNSW Meter Reading Due Tomorrow - {prev_month_label}'
+    html    = _gk_meter_wrap(
+        'WaterNSW Submission Due Tomorrow',
+        f'Monthly meter reading for {prev_month_label}',
+        body_rows,
+        now_sydney,
+    )
+    return html, subject
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # EMAIL SENDING
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -3324,6 +3572,19 @@ def main():
         yearly_path   = report_dir / f'{prev_year}-annual.html'
         yearly_path.write_text(yearly_html, encoding='utf-8')
 
+    # ── 12. Water meter reading reminder (last day of month) ──────────────
+    _, last_day_of_month = calendar.monthrange(yesterday.year, yesterday.month)
+    if yesterday.day == last_day_of_month:
+        log.info('Last day of month — sending water meter reading reminder...')
+        meter_html, meter_subject = build_meter_reading_html(now_sydney)
+        send_email(meter_subject, meter_html, EMAIL_RECIPIENTS_ALL)
+
+    # ── 13. WaterNSW submission reminder (13th of month) ──────────────────
+    if yesterday.day == 13:
+        log.info('13th of month — sending WaterNSW submission reminder...')
+        sub_html, sub_subject = build_meter_submission_html(now_sydney)
+        send_email(sub_subject, sub_html, EMAIL_RECIPIENTS_ALL)
+
     log.info('Done.')
 
 
@@ -3399,6 +3660,26 @@ if __name__ == '__main__':
         daily_html = build_daily_html(row, yesterday, history, forecast_days=forecast_days, hourly_forecast=hourly_forecast)
         subject    = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
+        log.info('Done.')
+
+    elif '--test-meter' in args:
+        # Send test meter emails to andrew@bidgeepumps.com.au only.
+        # Usage:
+        #   python daily_report.py --test-meter              → sends both meter emails
+        #   python daily_report.py --test-meter reading      → meter reading only
+        #   python daily_report.py --test-meter submission   → submission reminder only
+        now_sydney  = datetime.now(tz=TZ)
+        test_addr   = ['andrew@bidgeepumps.com.au']
+        idx         = args.index('--test-meter')
+        which       = args[idx + 1] if idx + 1 < len(args) and not args[idx + 1].startswith('--') else 'all'
+        if which in ('reading', 'all'):
+            html, subj = build_meter_reading_html(now_sydney)
+            send_email(f'[TEST] {subj}', html, test_addr)
+            log.info(f'Test meter reading email sent to {test_addr[0]}')
+        if which in ('submission', 'all'):
+            html, subj = build_meter_submission_html(now_sydney)
+            send_email(f'[TEST] {subj}', html, test_addr)
+            log.info(f'Test meter submission email sent to {test_addr[0]}')
         log.info('Done.')
 
     else:
