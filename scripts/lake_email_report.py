@@ -24,7 +24,7 @@ Secrets required:
     EMAIL_LAKE_CC      — comma-separated CC addresses (optional)
 """
 
-import json, os, sys, logging, argparse
+import json, os, sys, logging, argparse, calendar
 from datetime import datetime, timedelta, date as ddate
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -233,6 +233,30 @@ def _section(text):
        style="border-collapse:collapse;margin-top:14px;">
   <tr>
     <td bgcolor="{SEC_BG}" style="background-color:{SEC_BG};padding:7px 20px;">
+      <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
+          letter-spacing:0.5px;font-family:Arial,sans-serif;">{text}</p>
+    </td>
+  </tr>
+</table>"""
+
+def _alert_banner(text, bg='#c0392b'):
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:0;">
+  <tr>
+    <td bgcolor="{bg}" style="background-color:{bg};padding:12px 20px;text-align:center;">
+      <p style="margin:0;font-size:14px;color:#ffffff;font-weight:bold;
+          letter-spacing:1px;font-family:Arial,sans-serif;">&#9888;&nbsp; {text} &nbsp;&#9888;</p>
+    </td>
+  </tr>
+</table>"""
+
+def _alert_section(text, bg='#c0392b'):
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:14px;">
+  <tr>
+    <td bgcolor="{bg}" style="background-color:{bg};padding:7px 20px;">
       <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
           letter-spacing:0.5px;font-family:Arial,sans-serif;">{text}</p>
     </td>
@@ -797,6 +821,140 @@ def build_yearly(data, now_syd):
     return _wrap(body), subject
 
 
+# ── Report: Water Meter Reading Reminder (last day of month) ─────────────────
+
+def build_meter_reading(data, now_syd):
+    today       = now_syd.date()
+    month_label = today.strftime('%B %Y')
+    if today.month == 12:
+        deadline = ddate(today.year + 1, 1, 14)
+    else:
+        deadline = ddate(today.year, today.month + 1, 14)
+    deadline_str = deadline.strftime('%-d %B %Y')
+
+    body  = _header('Water Meter Reading Required',
+                    f'Last day of {month_label} - Action required today')
+    body += _alert_banner('URGENT - METER READING MUST BE TAKEN TODAY', '#c0392b')
+
+    body += _alert_section('STEPS TO COMPLETE TODAY', '#c0392b')
+    body += _kv_table([
+        ('Step 1', 'Travel to the 125mm centrifugal pump at Lake Albert,'
+                   ' Plumpton Rd, Wagga Wagga NSW 2650'),
+        ('Step 2', 'Photograph the water meter display - keep photo on file for at least 5 years'),
+        ('Step 3', 'Note the meter reading - total cumulative volume (check unit on meter face)'),
+        ('Step 4', 'Record all required details in the logbook before leaving site'),
+        ('Step 5', f'Submit reading in iWAS by {deadline_str}'),
+    ])
+
+    body += _section('LOGBOOK - WHAT TO RECORD AT THE METER')
+    body += _kv_table([
+        ('Date', today.strftime('%-d %B %Y')),
+        ('Meter reading', 'Total cumulative volume shown on meter display'),
+        ('Volume taken this period', 'Calculate: current reading minus last reading'),
+        ('Start &amp; end time', 'Record pumping start and end times for the period'),
+        ('Pump capacity', '125mm centrifugal pump - note rate (ML/day)'),
+        ('Meter serial number', 'Check serial number on water meter'),
+        ('WAL number', '40AL413687'),
+        ('Approval number', '40CA413688'),
+    ])
+
+    body += _section('LICENCE DETAILS')
+    body += _kv_table([
+        ('Licence holder',      'Wagga Wagga Country Club Ltd (ACN 001 045 156)'),
+        ('Water Access Licence','40AL413687 (WAL 33232)'),
+        ('Work Approval',       '40CA413688'),
+        ('Meter serial number', 'Check serial number on water meter'),
+        ('Water source',        'Murrumbidgee Central (Burrinjuck to Gogeldrie)'),
+        ('Water sharing plan',  'Murrumbidgee Unregulated River Water Sources 2012'),
+        ('Annual volume limit', '193 ML per water year (1 Jul - 30 Jun)'),
+        ('Approval expiry',     '22 June 2027'),
+    ])
+
+    body += _section('CURRENT PUMP RATE LIMITS')
+    body += _data_table(
+        ['Lake Level (AHD)', 'Maximum Pump Rate'],
+        [
+            ('Below 189.65m AHD',          'CEASE TO PUMP - do not extract'),
+            ('189.65m to 189.85m AHD',     '0.50 ML/day'),
+            ('189.85m to 190.05m AHD',     '0.75 ML/day'),
+            ('190.05m to 190.25m AHD',     '1.00 ML/day'),
+            ('Above 190.25m AHD (to full)','1.50 ML/day'),
+        ]
+    )
+
+    body += _section('SUBMIT YOUR READING TO WATERNSW')
+    body += _kv_table([
+        ('Portal',              '<a href="https://iwas.waternsw.com.au" style="color:#1a5276;'
+                                'font-weight:bold;">iWAS - iwas.waternsw.com.au</a>'),
+        ('Submission deadline', f'{deadline_str} (14th of next month)'),
+        ('WaterNSW helpline',   '1300 662 077 (Mon-Fri 8am-5pm)'),
+        ('Email',               'Customer.Helpdesk@waternsw.com.au'),
+    ])
+
+    body += _footer(now_syd)
+    subject = f'URGENT - Water Meter Reading Required - {month_label}'
+    return _wrap(body), subject
+
+
+# ── Report: WaterNSW Submission Reminder (13th of month) ─────────────────────
+
+def build_meter_submission(data, now_syd):
+    today           = now_syd.date()
+    prev_month_end  = today.replace(day=1) - timedelta(days=1)
+    prev_month_label = prev_month_end.strftime('%B %Y')
+    deadline_str    = today.replace(day=14).strftime('%-d %B %Y')  # tomorrow
+
+    body  = _header('WaterNSW Submission Due Tomorrow',
+                    f'Monthly meter reading for {prev_month_label}')
+    body += _alert_banner(
+        f'REMINDER - {prev_month_label.upper()} READING MUST BE SUBMITTED BY TOMORROW {deadline_str.upper()}',
+        '#e67e22'
+    )
+
+    body += _alert_section('SUBMISSION DEADLINE', '#e67e22')
+    body += _kv_table([
+        ('Reading for',   prev_month_label),
+        ('Deadline',      f'{deadline_str} - tomorrow'),
+        ('Portal',        '<a href="https://iwas.waternsw.com.au" style="color:#1a5276;'
+                          'font-weight:bold;">iWAS - iwas.waternsw.com.au</a>'),
+        ('Action needed', 'Log in to iWAS and confirm your monthly reading has been submitted'),
+    ])
+
+    body += _section('DETAILS TO ENTER IN iWAS')
+    body += _kv_table([
+        ('Water Access Licence', '40AL413687'),
+        ('Work Approval number', '40CA413688'),
+        ('Meter serial number',  'Check serial number on water meter'),
+        ('Water type',           'Unregulated river'),
+        ('Reading period',       prev_month_label),
+        ('Volume taken',         'Total ML taken during the month (from logbook / meter reading)'),
+        ('Declaration',          'Confirm accuracy and submit'),
+    ])
+
+    body += _section('TELEMETRY STATUS REMINDER')
+    body += _kv_table([
+        ('S91i fault report',   'If telemetry is still not repaired, check your S91i extension is current'),
+        ('Extension form',      '<a href="https://www.waternsw.com.au/customer-services/metering/s91i-extension"'
+                                ' style="color:#1a5276;">waternsw.com.au - S91i Extension Form</a>'),
+        ('Repair requirement',  'Meters must be repaired within 21 days of fault report (or extension granted)'),
+        ('Reporting breach',    'Email: water.enquiries@dpi.nsw.gov.au or call 1800 353 104'),
+    ])
+
+    body += _section('NEED HELP?')
+    body += _kv_table([
+        ('WaterNSW helpline', '1300 662 077 (Mon-Fri 8am-5pm)'),
+        ('Email',             'Customer.Helpdesk@waternsw.com.au'),
+        ('iWAS portal',       '<a href="https://iwas.waternsw.com.au" style="color:#1a5276;">'
+                              'iwas.waternsw.com.au</a>'),
+        ('Recording guide',   '<a href="https://www.waternsw.com.au/customer-services/metering/recording-and-reporting"'
+                              ' style="color:#1a5276;">waternsw.com.au - Recording and Reporting</a>'),
+    ])
+
+    body += _footer(now_syd)
+    subject = f'URGENT REMINDER - WaterNSW Meter Reading Due Tomorrow - {prev_month_label}'
+    return _wrap(body), subject
+
+
 # ── Email sending ─────────────────────────────────────────────────────────────
 
 def send_email(subject, html_content, test_mode=False):
@@ -850,10 +1008,12 @@ def send_email(subject, html_content, test_mode=False):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 BUILDERS = {
-    'daily':   build_daily,
-    'weekly':  build_weekly,
-    'monthly': build_monthly,
-    'yearly':  build_yearly,
+    'daily':              build_daily,
+    'weekly':             build_weekly,
+    'monthly':            build_monthly,
+    'yearly':             build_yearly,
+    'meter_reading':      build_meter_reading,
+    'meter_submission':   build_meter_submission,
 }
 
 def main():
@@ -881,9 +1041,12 @@ def main():
         to_send = [args.report]
     else:
         to_send = ['daily']
-        if today.weekday() == 0:                     to_send.append('weekly')
-        if today.day == 1:                           to_send.append('monthly')
-        if today.month == 1 and today.day == 1:      to_send.append('yearly')
+        if today.weekday() == 0:                          to_send.append('weekly')
+        if today.day == 1:                                to_send.append('monthly')
+        if today.month == 1 and today.day == 1:           to_send.append('yearly')
+        _, last_day = calendar.monthrange(today.year, today.month)
+        if today.day == last_day:                         to_send.append('meter_reading')
+        if today.day == 13:                               to_send.append('meter_submission')
 
     log.info(f'Reports scheduled: {to_send}')
 
