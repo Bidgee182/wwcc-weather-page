@@ -567,9 +567,9 @@ def build_html(now_syd):
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
             _pb_cost_sub  = f'{_cease_str} to 31 Mar {_end_yr}'
 
-        # Rainfall breakdown - three plain-English sub-sections
+        # Rainfall, evaporation and ET - always shown when a cease date is known
         _rain_row = ''
-        if rain_7 >= 2.0 and cease_date is not None:
+        if cease_date is not None:
             _lk_area_km2    = lu.lake_area_m2(ahd) / 1_000_000
             _pan_day        = float(lu.get_config()['evaporation']['monthly_pan_mm_day'][str(month)])
             _evap_mm_day    = _pan_day * lu.get_config()['evaporation']['pan_factor']
@@ -591,41 +591,70 @@ def build_html(now_syd):
                 _pump_total_kl = float(irrig_kl.get(str(month), 0)) * 7
                 _pump_saved_kl = irrig_saved_ml * 1000
                 _pump_still_kl = _pump_total_kl - _pump_saved_kl
-                _course_html   = (
-                    f'The grass needed <strong>{et_7:.1f}&nbsp;mm</strong> of water this week '
-                    f'(evapotranspiration - what turf uses through sun, wind and growth).'
-                    f'<br>Rain provided <strong>{rain_7:.1f}&nbsp;mm</strong>, '
-                    f'covering <strong>{_et_pct:.0f}%</strong> of that demand.'
-                    f'<br>The remaining <strong>{max(0,et_7-rain_7):.1f}&nbsp;mm</strong> '
-                    f'was pumped from the lake (approx. '
-                    f'<strong>{_pump_still_kl:,.0f}&nbsp;kL</strong>). '
-                    f'Rain saved ~<strong>{_pump_saved_kl:.0f}&nbsp;kL</strong> of lake water.'
-                    f'{_et_note}'
-                )
+                if rain_7 >= 0.2:
+                    _course_html = (
+                        f'The grass needed <strong>{et_7:.1f}&nbsp;mm</strong> of water this week '
+                        f'(evapotranspiration - what turf uses through sun, wind and growth).'
+                        f'<br>Rain provided <strong>{rain_7:.1f}&nbsp;mm</strong>, '
+                        f'covering <strong>{_et_pct:.0f}%</strong> of that demand.'
+                        f'<br>The remaining <strong>{max(0,et_7-rain_7):.1f}&nbsp;mm</strong> '
+                        f'was pumped from the lake (approx. '
+                        f'<strong>{_pump_still_kl:,.0f}&nbsp;kL</strong>). '
+                        f'Rain saved ~<strong>{_pump_saved_kl:.0f}&nbsp;kL</strong> of lake water.'
+                        f'{_et_note}'
+                    )
+                else:
+                    _course_html = (
+                        f'No meaningful rainfall this week. '
+                        f'The grass needed <strong>{et_7:.1f}&nbsp;mm</strong> of water '
+                        f'(evapotranspiration - what turf uses through sun, wind and growth).'
+                        f'<br>The full demand was pumped from the lake '
+                        f'(approx. <strong>{_pump_still_kl:,.0f}&nbsp;kL</strong> this week).'
+                        f'{_et_note}'
+                    )
             else:
                 _course_html = (
                     f'No irrigation is running this month (June-August - winter off-season).'
-                    f'<br>Rain received: <strong>{rain_7:.1f}&nbsp;mm</strong>. '
+                    f'<br>Rainfall this week: <strong>{rain_7:.1f}&nbsp;mm</strong>. '
                     f'Winter rain builds up lake reserves for the spring irrigation season, '
                     f'but does not replace irrigation pumping directly.'
                     f'{_et_note}'
                 )
 
+            # Boundary month rates - always computed so both rain and no-rain cases can use them
             _bm_month_name = cease_date.strftime('%B')
             _bm_kl_day     = float(irrig_kl.get(str(cease_date.month), 347))
             _bm_day_cost   = _bm_kl_day * cost_per_kl
-            _sav_str       = f'~${rainfall_savings:,.0f}' if rainfall_savings is not None else '-'
-            _days_str      = f'{rain_days_saved:.1f}&nbsp;days' if rain_days_saved is not None else '-'
-            _irrig_extra   = (f', plus {irrig_saved_ml:.2f}&nbsp;ML saved by not irrigating,'
-                              if irrig_saved_ml > 0.01 else '')
-            _fin_html = (
-                f'The <strong>{rain_on_lake_ml:.1f}&nbsp;ML</strong> added to the lake by this '
-                f'week\'s rainfall{_irrig_extra} extends the projected cease date by approximately '
-                f'<strong>{_days_str}</strong>.'
-                f'<br>At the {_bm_month_name} town water rate of '
-                f'<strong>${_bm_day_cost:,.0f}/day</strong>, '
-                f'this saves the club an estimated <strong>{_sav_str}</strong> in future costs.'
-            )
+            _bm_evap_ml    = lu.evap_ml_day(ahd, cease_date.month)
+            _bm_pump_ml    = float(irrig_kl.get(str(cease_date.month), 0)) / 1000.0
+            _bm_draw       = _bm_evap_ml + _bm_pump_ml
+
+            if rainfall_savings is not None and rain_days_saved is not None and rain_days_saved > 0.05:
+                _sav_str     = f'~${rainfall_savings:,.0f}'
+                _days_str    = f'{rain_days_saved:.1f}&nbsp;days'
+                _irrig_extra = (f', plus {irrig_saved_ml:.2f}&nbsp;ML saved by not irrigating,'
+                                if irrig_saved_ml > 0.01 else '')
+                _fin_html = (
+                    f'The <strong>{rain_on_lake_ml:.1f}&nbsp;ML</strong> added to the lake by this '
+                    f'week\'s rainfall{_irrig_extra} extends the projected cease date by approximately '
+                    f'<strong>{_days_str}</strong>.'
+                    f'<br>At the {_bm_month_name} town water rate of '
+                    f'<strong>${_bm_day_cost:,.0f}/day</strong>, '
+                    f'this saves the club an estimated <strong>{_sav_str}</strong> in future costs.'
+                )
+            else:
+                _evap_days   = (_weekly_evap_ml / _bm_draw) if _bm_draw > 0 else 0
+                _week_cost   = _evap_days * _bm_day_cost
+                _fin_html = (
+                    f'No rainfall offset this week. Evaporation removed '
+                    f'<strong>{_weekly_evap_ml:.1f}&nbsp;ML</strong> from the lake, '
+                    f'advancing the projected cease date by approximately '
+                    f'<strong>{_evap_days:.1f}&nbsp;days</strong> this week alone.'
+                    f'<br>At the {_bm_month_name} town water rate of '
+                    f'<strong>${_bm_day_cost:,.0f}/day</strong>, each week without rain '
+                    f'increases the club\'s future cost exposure by approximately '
+                    f'<strong>~${_week_cost:,.0f}</strong>.'
+                )
 
             _rain_row = f"""
       <tr>
