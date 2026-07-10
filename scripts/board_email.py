@@ -421,7 +421,7 @@ def build_html(now_syd):
     <td style="background:#fff8e1;padding:12px 20px;border-left:4px solid #F58E1E;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#78350f;">
         <strong>Next level: Level&nbsp;{nxt['zone']} &mdash; {nxt['name']}</strong>
-        &nbsp;&bull;&nbsp; Threshold: {nxt['min_ahd']:.3f}&nbsp;m AHD
+        &nbsp;&bull;&nbsp; Entry threshold: {level['min_ahd']:.3f}&nbsp;m AHD
         &nbsp;&bull;&nbsp; Max extraction drops to
         <strong>{nxt['max_pump_ml_day']:.2f}&nbsp;ML/day</strong>
       </p>

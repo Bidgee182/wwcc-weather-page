@@ -115,7 +115,9 @@ def days_to_next_zone(ahd, month):
     if nxt is None:
         return None, None
 
-    threshold   = nxt['min_ahd']
+    # Threshold is the BOTTOM of the current zone (where you exit it), not the
+    # bottom of the next zone — those differ by one full zone's depth.
+    threshold   = current_zone_info(ahd)['min_ahd']
     vol_ml      = vol_between_ml(threshold, ahd)
     pump_ml     = current_zone_info(ahd)['max_pump_ml_day']
     evap_ml     = evap_ml_day(ahd, month)
