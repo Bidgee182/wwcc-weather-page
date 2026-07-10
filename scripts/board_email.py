@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-board_email.py — Weekly Board Weather and Water Update email.
+board_email.py - Weekly Board Weather and Water Update email.
 
 Sends Monday 7 AM AEST. Shows lake level, licence level, extraction rate,
 days to next level, 7-day weather table, rainfall totals, and tank status.
 
 Environment variables:
-    SENDGRID_API_KEY   — SendGrid API key
-    EMAIL_FROM         — sender address
-    EMAIL_BOARD_TO     — comma-separated To recipients
-    EMAIL_BOARD_CC     — comma-separated CC recipients (optional)
-    EMAIL_BOARD_BCC    — comma-separated BCC recipients (optional)
+    SENDGRID_API_KEY   - SendGrid API key
+    EMAIL_FROM         - sender address
+    EMAIL_BOARD_TO     - comma-separated To recipients
+    EMAIL_BOARD_CC     - comma-separated CC recipients (optional)
+    EMAIL_BOARD_BCC    - comma-separated BCC recipients (optional)
 """
 
 import csv
@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 _LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 _HDR_BG   = '#1a5276'
 _SEC_BG   = '#2471a3'
-_BODY_BG  = '#d6e4f0'   # outer page background — content sits on white card
+_BODY_BG  = '#d6e4f0'   # outer page background - content sits on white card
 _CARD_BG  = '#ffffff'
 _BORDER   = '#a9cce3'
 _ROW_A    = '#d6eaf8'
@@ -143,7 +143,7 @@ def _section(text):
 
 
 def _stat_cell(width_pct, bg, label, value_html, sub, accent=None):
-    """Single stat box — white card with coloured top accent, full border."""
+    """Single stat box - white card with coloured top accent, full border."""
     top_col = accent or _SEC_BG
     return (
         f'<td class="mob-stat" width="{width_pct}%" bgcolor="#ffffff" '
@@ -162,13 +162,13 @@ def _stat_cell(width_pct, bg, label, value_html, sub, accent=None):
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _v(val, fmt='.1f', suffix=''):
-    """Format an optional numeric value; returns '—' if missing or blank."""
+    """Format an optional numeric value; returns '-' if missing or blank."""
     if val is None or str(val).strip() == '':
-        return '&mdash;'
+        return '-'
     try:
         return f'{float(val):{fmt}}{suffix}'
     except Exception:
-        return '&mdash;'
+        return '-'
 
 
 def _deg_to_compass(deg):
@@ -183,7 +183,7 @@ def _deg_to_compass(deg):
 # ── Charts ─────────────────────────────────────────────────────────────────────
 
 def _seven_day_chart(readings):
-    """QuickChart.io PNG — daily average AHD for past 7 days."""
+    """QuickChart.io PNG - daily average AHD for past 7 days."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     by_day = defaultdict(list)
     for r in readings:
@@ -235,12 +235,12 @@ def _seven_day_chart(readings):
     }
     cfg_json = json.dumps(config, separators=(',', ':'))
     url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=200&c={_up.quote(cfg_json)}'
-    return (f'<img src="{url}" width="100%" alt="Lake level — past 7 days"'
+    return (f'<img src="{url}" width="100%" alt="Lake level - past 7 days"'
             f' style="display:block;border-radius:6px;max-width:100%;">')
 
 
 def _tank_chart_html(readings):
-    """QuickChart.io PNG — daily average tank fill % for past 7 days."""
+    """QuickChart.io PNG - daily average tank fill % for past 7 days."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     by_day = defaultdict(list)
     for r in readings:
@@ -294,7 +294,7 @@ def _tank_chart_html(readings):
     cfg_str = cfg_str.replace('"callback":"|function(v){return v+\\"%\\"}"',
                                '"callback":function(v){return v+"%"}')
     url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=180&c={_up.quote(cfg_str)}'
-    return (f'<img src="{url}" width="100%" alt="Tank level — past 7 days"'
+    return (f'<img src="{url}" width="100%" alt="Tank level - past 7 days"'
             f' style="display:block;border-radius:6px;max-width:100%;">')
 
 
@@ -348,12 +348,12 @@ def build_html(now_syd):
 
     # ── Days display ───────────────────────────────────────────────────────────
     if days is None:
-        days_display = '&mdash;'
-        days_sub     = 'No lower level &mdash; cease to pump'
+        days_display = '-'
+        days_sub     = 'No lower level - cease to pump'
         days_col     = '#EB1E23'
     elif days == float('inf'):
         days_display = 'Rising'
-        days_sub     = 'Net lake gain &mdash; level increasing'
+        days_sub     = 'Net lake gain - level increasing'
         days_col     = '#00762A'
     else:
         days_int     = int(days)
@@ -406,7 +406,7 @@ def build_html(now_syd):
     temps_max = [float(r['temp_max']) for r in wx_7 if r.get('temp_max')]
     temps_min = [float(r['temp_min']) for r in wx_7 if r.get('temp_min')]
     week_temp = (f'{min(temps_min):.1f} to {max(temps_max):.1f}&nbsp;&deg;C'
-                 if temps_max and temps_min else '&mdash;')
+                 if temps_max and temps_min else '-')
 
     # ── Tank ──────────────────────────────────────────────────────────────────
     tank_pct    = tank.get('tank_pct')
@@ -415,9 +415,9 @@ def build_html(now_syd):
     tank_status = tank.get('tank_status', '')
     tank_chart  = _tank_chart_html(tank_readings)
 
-    tank_pct_str = f'{tank_pct:.1f}%' if tank_pct is not None else '&mdash;'
+    tank_pct_str = f'{tank_pct:.1f}%' if tank_pct is not None else '-'
     tank_vol_str = (f'{tank_vol_l:,.0f}&nbsp;L&nbsp;({tank_vol_l/1000:.1f}&nbsp;kL)'
-                    if tank_vol_l is not None else '&mdash;')
+                    if tank_vol_l is not None else '-')
     tank_cap_str = f'{tank_cap_l:,.0f}&nbsp;L&nbsp;({tank_cap_l/1000:.0f}&nbsp;kL)'
 
     # Weekly tank change: net volume difference over past 7 days
@@ -438,7 +438,7 @@ def build_html(now_syd):
             tank_week_sub  = f'net gain ({tank_change_l/1000:.1f}&nbsp;kL)'
             tank_week_col  = '#00762A'
     else:
-        tank_week_str = '&mdash;'
+        tank_week_str = '-'
         tank_week_sub = 'insufficient data'
         tank_week_col = '#64748b'
 
@@ -478,7 +478,7 @@ def build_html(now_syd):
   <tr>
     <td style="background:#fff8e1;padding:12px 20px;border-left:4px solid #F58E1E;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#78350f;">
-        <strong>Next level: Level&nbsp;{nxt['zone']} &mdash; {nxt['name']}</strong>
+        <strong>Next level: Level&nbsp;{nxt['zone']} - {nxt['name']}</strong>
         &nbsp;&bull;&nbsp; Entry threshold: {level['min_ahd']:.3f}&nbsp;m AHD
         &nbsp;&bull;&nbsp; Max extraction drops to
         <strong>{nxt['max_pump_ml_day']:.2f}&nbsp;ML/day</strong>
@@ -501,7 +501,7 @@ def build_html(now_syd):
         if wind_spd:
             wind_str = f'{float(wind_spd):.0f}&nbsp;km/h&nbsp;{wind_dir}'.strip()
         else:
-            wind_str = wind_dir if wind_dir else '&mdash;'
+            wind_str = wind_dir if wind_dir else '-'
 
         td = (f'style="background-color:{bg};padding:6px 7px;'
               f'font-family:Arial,sans-serif;font-size:11px;color:#1b2631;'
@@ -529,7 +529,7 @@ def build_html(now_syd):
         _header(f'Week ending {date_str}')
 
         # ── Lake section ───────────────────────────────────────────────────────
-        + _section('Lake Albert &mdash; Current Licence Level')
+        + _section('Lake Albert - Current Licence Level')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
@@ -547,7 +547,7 @@ def build_html(now_syd):
   </tr>
 </table>"""
 
-        # Stats row — full border on every cell (border-collapse merges shared edges)
+        # Stats row - full border on every cell (border-collapse merges shared edges)
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:8px;">
@@ -566,7 +566,7 @@ def build_html(now_syd):
         + next_banner
 
         # Lake chart
-        + _section('Lake Level &mdash; Past 7 Days')
+        + _section('Lake Level - Past 7 Days')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:8px;">
@@ -597,7 +597,7 @@ def build_html(now_syd):
 </table>"""
 
         # ── Weather section ────────────────────────────────────────────────────
-        + _section('Weather &mdash; Past 7 Days')
+        + _section('Weather - Past 7 Days')
 
         # Row 1: rainfall totals + temp
         + f"""
@@ -724,7 +724,7 @@ def build_html(now_syd):
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;
           line-height:1.7;">
         <strong>Projection methodology:</strong> Days-to-next-level assumes pumping at the
-        maximum current licence rate ({lv_pump:.2f}&nbsp;ML/day) with <em>no rainfall</em> &mdash;
+        maximum current licence rate ({lv_pump:.2f}&nbsp;ML/day) with <em>no rainfall</em> -
         a conservative planning figure. {mth_name} open-water evaporation based on
         BOM Wagga Wagga Airport long-term average
         ({pan_mm:.2f}&nbsp;mm/day pan &times;&nbsp;0.70&nbsp;lake factor
@@ -778,14 +778,14 @@ def send_email(subject, html_content, test_mode=False):
         cc_list  = []
         bcc_list = []
         subject  = f'[TEST] {subject}'
-        log.info(f'TEST MODE — sending only to {to_list[0]}')
+        log.info(f'TEST MODE - sending only to {to_list[0]}')
     else:
         to_list  = [e.strip() for e in EMAIL_BOARD_TO.split(',')  if e.strip()]
         cc_list  = [e.strip() for e in EMAIL_BOARD_CC.split(',')  if e.strip()] if EMAIL_BOARD_CC  else []
         bcc_list = [e.strip() for e in EMAIL_BOARD_BCC.split(',') if e.strip()] if EMAIL_BOARD_BCC else []
 
     if not to_list:
-        log.error('No To recipients — cannot send')
+        log.error('No To recipients - cannot send')
         return False
 
     mail = Mail(from_email=Email(EMAIL_FROM), subject=subject, html_content=html_content)
@@ -797,7 +797,7 @@ def send_email(subject, html_content, test_mode=False):
 
     try:
         resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
-        log.info(f'Sent "{subject}" — status {resp.status_code} — to: {", ".join(to_list)}')
+        log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
         return True
     except Exception as e:
         log.error(f'SendGrid error: {e}')
@@ -818,21 +818,21 @@ def main():
 
     if not args.dry_run and not args.test and not args.force:
         if _already_sent_this_week(now_syd):
-            log.info('Board email already sent this week — skipping (use --force to override)')
+            log.info('Board email already sent this week - skipping (use --force to override)')
             return
 
-    subject = f'Weekly Board Weather and Water Update — {now_syd.day} {now_syd.strftime("%B %Y")}'
+    subject = f'Weekly Board Weather and Water Update - {now_syd.day} {now_syd.strftime("%B %Y")}'
     html    = build_html(now_syd)
 
     if html is None:
-        log.error('Could not build email — no lake data')
+        log.error('Could not build email - no lake data')
         return
 
     if args.dry_run:
         out = _DATA_DIR / 'reports' / f'board_preview_{now_syd.strftime("%Y-%m-%d")}.html'
         out.parent.mkdir(exist_ok=True)
         out.write_text(html, encoding='utf-8')
-        log.info(f'Dry run — saved to {out}')
+        log.info(f'Dry run - saved to {out}')
         return
 
     sent = send_email(subject, html, test_mode=args.test)

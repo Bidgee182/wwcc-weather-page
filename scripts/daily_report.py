@@ -35,7 +35,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONFIGURATION — loaded from GitHub Secrets (environment variables)
+# CONFIGURATION - loaded from GitHub Secrets (environment variables)
 # ─────────────────────────────────────────────────────────────────────────────
 
 DAVIS_DID        = os.environ.get('DAVIS_DID',        '001D0A00AB84')
@@ -140,7 +140,7 @@ def f_to_c(f):
 
 
 def is_cart_wet(temp_c, rh, wind_ms, rain_mm):
-    """CART leaf wetness model — matches dashboard logic exactly."""
+    """CART leaf wetness model - matches dashboard logic exactly."""
     if rain_mm and rain_mm > 0:
         return True
     if temp_c is None or rh is None:
@@ -227,7 +227,7 @@ def dollar_spot_risk(wet_hours, temp_mean, sk_pct):
 
 
 def fusarium_risk(wet_hours, consec_rh90, rain_days_6, temp_mean):
-    """Fusarium Patch scoring — matches dashboard exactly."""
+    """Fusarium Patch scoring - matches dashboard exactly."""
     if temp_mean is None or not (0 <= temp_mean <= 21):
         return 0, 'LOW'
     score = 0
@@ -367,7 +367,7 @@ def process_davis_records(records):
         # Rain
         rain_mm = float(rec.get('rainfall_mm') or rec.get('rain_mm') or 0)
 
-        # Peak rain rate — Davis returns mm/hr directly as rain_rate_hi_mm
+        # Peak rain rate - Davis returns mm/hr directly as rain_rate_hi_mm
         rr_mm = rec.get('rain_rate_hi_mm')
         if rr_mm is not None and float(rr_mm) > 0:
             rain_rate_hi_vals.append(float(rr_mm))
@@ -531,7 +531,7 @@ def process_davis_records(records):
     # True overnight minimum (8 PM–8 AM only); falls back to daily minimum if no night data
     night_min       = round(min(night_temps), 1) if night_temps else temp_min
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
-    consec_rh90     = rh90_hours  # conservative — full consecutive calc needs ordering
+    consec_rh90     = rh90_hours  # conservative - full consecutive calc needs ordering
 
     # Spray condition hours
     spray_counts = {'GO': 0, 'CAUTION': 0, 'NO-GO': 0}
@@ -650,8 +650,8 @@ def fetch_openmeteo_forecast(target_date):
     """
     Fetch today's hourly weather_code forecast from Open-Meteo.
     Returns (fog_flag, lightning_flag):
-      fog_flag       — fog forecast during morning hours (5–10 AM)
-      lightning_flag — thunderstorm forecast during daytime hours (6 AM–8 PM)
+      fog_flag       - fog forecast during morning hours (5–10 AM)
+      lightning_flag - thunderstorm forecast during daytime hours (6 AM–8 PM)
     """
     date_str = target_date.strftime('%Y-%m-%d')
     url = 'https://api.open-meteo.com/v1/forecast'
@@ -935,7 +935,7 @@ RISK_ROW_BG = {
 }
 
 # Shared inline style fragments
-# Note: linear-gradient is stripped by most email clients — use solid background-color
+# Note: linear-gradient is stripped by most email clients - use solid background-color
 # and the bgcolor HTML attribute (Outlook reads the attribute, not the CSS property).
 _EMAIL_MOBILE_STYLE = """<style type="text/css">
 @media only screen and (max-width:620px) {
@@ -1028,9 +1028,9 @@ def _gk_kv_table(rows):
 
 # ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
 
-LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
-LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
-LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
+LAKE_SURFACE_M2 = 1_202_046      # m² - matches lake-albert.html
+LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD - matches lake-albert.html
+LAKE_FULL_AHD_V = 191.551        # full supply level AHD - matches lake-albert.html
 LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
 
 
@@ -1109,7 +1109,7 @@ def _pumping_in_range(pumping, start_date, end_date):
 
 
 def _lake_chart_html(readings, start_date, end_date):
-    """Return an <img> pointing to a QuickChart.io PNG — renders on iOS Mail, Outlook, Gmail."""
+    """Return an <img> pointing to a QuickChart.io PNG - renders on iOS Mail, Outlook, Gmail."""
     import json as _json
     import urllib.parse as _up
     from collections import defaultdict as _dd
@@ -1247,7 +1247,7 @@ def _lake_threshold_table(current_ahd):
         </tr>"""
 
     return f"""<div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-        color:#94a3b8;margin-bottom:8px;">WATER LICENCE — OPERATING LEVELS</div>
+        color:#94a3b8;margin-bottom:8px;">WATER LICENCE - OPERATING LEVELS</div>
       <table width="100%" cellpadding="0" cellspacing="0"
           style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px;">
         <tr bgcolor="#1a4a2e" style="background-color:#1a4a2e;">
@@ -1339,7 +1339,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         evap_str = '--'
         evap_sub = 'insufficient data'
 
-    section_header = sec_header(section_num, 'Lake Albert — Current Level &amp; Licence Status',
+    section_header = sec_header(section_num, 'Lake Albert - Current Level &amp; Licence Status',
                                  'Live FarmBot sensor &bull; Water licence level &bull; Current max pump rate')
 
     threshold_tbl = _lake_threshold_table(ahd)
@@ -1351,7 +1351,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         ('Volume',                  f'{vol_ml:.0f} ML ({vol_pct:.1f}% of capacity)'),
         ('Full Capacity',           f'{LAKE_FULL_ML:.0f} ML at {LAKE_FULL_AHD_V} m AHD'),
         ('Daily Level Change',      f'{chg_str} &nbsp;&bull;&nbsp; {chg_sub}'),
-        ("Yesterday's Extraction",  f'{pump_ml:.1f} ML{(" — " + pump_note) if pump_note else ""}'),
+        ("Yesterday's Extraction",  f'{pump_ml:.1f} ML{(" - " + pump_note) if pump_note else ""}'),
         ('Evaporation (est.)',       f'{evap_str} &nbsp;&bull;&nbsp; {evap_sub}'),
     ])
 
@@ -1383,7 +1383,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
       <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL - PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
           {chart_html}
@@ -1456,9 +1456,9 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
         day_ahd = float(day_readings[-1].get('ahd', 0)) if day_readings else None
         day_pump = next((p for p in week_pumping if p['_date'] == d), None)
         pump_ml_d  = float(day_pump['ml']) if day_pump else 0.0
-        pump_note  = day_pump.get('note', '—') if day_pump else '—'
+        pump_note  = day_pump.get('note', '-') if day_pump else '-'
         bg_row     = '#f8fafc' if i % 2 == 0 else 'white'
-        ahd_str    = f'{day_ahd:.3f} m' if day_ahd else '—'
+        ahd_str    = f'{day_ahd:.3f} m' if day_ahd else '-'
         day_rows += f"""<tr>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{d.strftime('%a %-d %b')}</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#111827;font-weight:600;">{ahd_str}</td>
@@ -1466,7 +1466,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#64748b;font-style:italic;">{pump_note}</td>
         </tr>"""
 
-    section_header = sec_header(section_num, 'Lake Albert — Weekly Summary',
+    section_header = sec_header(section_num, 'Lake Albert - Weekly Summary',
                                  'Lake level trend &bull; Weekly extraction &bull; Licence status')
 
     threshold_tbl = _lake_threshold_table(ahd)
@@ -1504,7 +1504,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
       <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL - PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
           {chart_html}
@@ -1591,7 +1591,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     evap_str = f'{month_evap_ml:.1f} ML' if month_evap_ml >= 0 else '0.0 ML'
     evap_sub = 'lost to evaporation' if month_evap_ml >= 0 else f'net inflow ({abs(month_evap_ml):.1f} ML gain)'
 
-    section_header = sec_header(section_num, 'Lake Albert — Monthly Summary',
+    section_header = sec_header(section_num, 'Lake Albert - Monthly Summary',
                                  f'{month_label} &bull; Lake level range &bull; Extraction total')
 
     threshold_tbl = _lake_threshold_table(ahd)
@@ -1631,7 +1631,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
       <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL - {month_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
           {chart_html}
@@ -1732,11 +1732,11 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
             lnum2, lname2, lrate2, lbg2, lfg2, _, _ = _lake_level_info(m_avg)
             badge = f'<span style="display:inline-block;background:{lbg2};color:{lfg2};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">L{lnum2}</span>'
         else:
-            badge = '—'
+            badge = '-'
 
-        avg_str  = f'{m_avg:.3f} m'  if m_avg  else '—'
-        high_str = f'{m_high:.3f} m' if m_high else '—'
-        low_str  = f'{m_low:.3f} m'  if m_low  else '—'
+        avg_str  = f'{m_avg:.3f} m'  if m_avg  else '-'
+        high_str = f'{m_high:.3f} m' if m_high else '-'
+        low_str  = f'{m_low:.3f} m'  if m_low  else '-'
         pump_str = f'{m_pump:.1f} ML'
 
         month_rows += f"""<tr>
@@ -1748,7 +1748,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;">{badge}</td>
         </tr>"""
 
-    section_header = sec_header(section_num, 'Lake Albert — Annual Summary',
+    section_header = sec_header(section_num, 'Lake Albert - Annual Summary',
                                  f'{year_label} &bull; Lake level range &bull; Annual extraction')
 
     threshold_tbl = _lake_threshold_table(ahd)
@@ -1788,7 +1788,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
       <div style="margin-bottom:16px;">{lake_kv}</div>
 
       <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
+          color:#94a3b8;margin-bottom:8px;">LAKE LEVEL - {year_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
           {chart_html}
@@ -2415,8 +2415,8 @@ def build_weekly_html(history, week_end_date):
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([
-        ('Disease Alert Days', f"{alert_days} {'HIGH or SEVERE risk days' if alert_days > 0 else '— no high-risk days'}"),
-        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '— no frost this week'}"),
+        ('Disease Alert Days', f"{alert_days} {'HIGH or SEVERE risk days' if alert_days > 0 else '- no high-risk days'}"),
+        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '- no frost this week'}"),
     ])}
   </td></tr>
 
@@ -2571,8 +2571,8 @@ def build_monthly_html(history, month_label):
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([
-        ('Disease Alert Days', f"{alert_days} {'days with HIGH or SEVERE risk' if alert_days > 0 else '— no high-risk days'}"),
-        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '— no frost this month'}"),
+        ('Disease Alert Days', f"{alert_days} {'days with HIGH or SEVERE risk' if alert_days > 0 else '- no high-risk days'}"),
+        ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '- no frost this month'}"),
     ])}
   </td></tr>
 
@@ -2610,7 +2610,7 @@ def build_monthly_html(history, month_label):
 
 
 def build_yearly_html(history, year_label):
-    """Generate styled HTML for the annual summary email — monthly aggregates."""
+    """Generate styled HTML for the annual summary email - monthly aggregates."""
     from collections import defaultdict
     months = defaultdict(lambda: {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0,
                                    'gdd_kik': 0.0, 'alert_days': 0, 'frost_days': 0,
@@ -3083,7 +3083,7 @@ def build_meter_submission_html(now_sydney):
 def send_email(subject, html_body, recipients):
     """Send HTML email via SendGrid."""
     if not SENDGRID_API_KEY:
-        log.warning('No SendGrid API key — skipping email send.')
+        log.warning('No SendGrid API key - skipping email send.')
         return
     if not recipients or recipients == ['']:
         log.warning('No email recipients configured.')
@@ -3106,7 +3106,7 @@ def send_email(subject, html_body, recipients):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# BACKFILL — populate missing historical dates in the CSV
+# BACKFILL - populate missing historical dates in the CSV
 # ─────────────────────────────────────────────────────────────────────────────
 
 def backfill_history(from_date, to_date, force=False):
@@ -3116,7 +3116,7 @@ def backfill_history(from_date, to_date, force=False):
     For each missing date:
       1. Fetch Davis WeatherLink v2 historic data (exact station readings).
       2. Fill any gaps (temp, ET, rain) from Open-Meteo archive API.
-      3. Calculate GDD, disease models, soil balance, spray hours — identical
+      3. Calculate GDD, disease models, soil balance, spray hours - identical
          logic to the nightly main() run.
       4. Append the row to the in-memory store.
 
@@ -3142,13 +3142,13 @@ def backfill_history(from_date, to_date, force=False):
     missing = sorted(d for d in all_dates if force or d.isoformat() not in existing)
 
     if not missing:
-        log.info('Backfill: no missing dates found — CSV is already complete.')
+        log.info('Backfill: no missing dates found - CSV is already complete.')
         return
 
     log.info(f'Backfill: {len(missing)} dates to process ({missing[0]} → {missing[-1]})')
 
     # ── Pre-fetch UV for entire date range in one Open-Meteo call ─────────
-    # Much faster than one call per date — avoids rate-limit timeouts.
+    # Much faster than one call per date - avoids rate-limit timeouts.
     uv_by_date = {}  # date_str -> uv_index_max float or None
     try:
         url = 'https://historical-forecast-api.open-meteo.com/v1/forecast'
@@ -3168,7 +3168,7 @@ def backfill_history(from_date, to_date, force=False):
         uv_by_date = {d: v for d, v in zip(dates_list, uv_list)}
         log.info(f'  Open-Meteo UV pre-fetch: {len(uv_by_date)} dates loaded')
     except Exception as e:
-        log.warning(f'  Open-Meteo UV pre-fetch failed: {e} — UV will be None for this run')
+        log.warning(f'  Open-Meteo UV pre-fetch failed: {e} - UV will be None for this run')
 
     # ── Process each missing date in chronological order ──────────────────
     for i, target_date in enumerate(missing, start=1):
@@ -3182,7 +3182,7 @@ def backfill_history(from_date, to_date, force=False):
         if davis_records:
             d = process_davis_records(davis_records)
         else:
-            log.warning(f'  No Davis data — using Open-Meteo fallback for {target_date}')
+            log.warning(f'  No Davis data - using Open-Meteo fallback for {target_date}')
             d = {k: None for k in [
                 'temp_max', 'temp_min', 'temp_mean', 'rh_mean',
                 'wind_max_kmh', 'wind_mean_kmh', 'rain_mm', 'et_mm',
@@ -3261,7 +3261,7 @@ def backfill_history(from_date, to_date, force=False):
                             for r in [ds_risk, fus_lvl, bp_risk, pyt_risk])
         frost_flag    = (d['night_min'] is not None and d['night_min'] < 2)
 
-        # 7. Build row (no fog/lightning — cannot backfill forecast data)
+        # 7. Build row (no fog/lightning - cannot backfill forecast data)
         row = {
             'date':                target_date.isoformat(),
             'temp_max':            d['temp_max'],
@@ -3354,11 +3354,11 @@ def main():
     yesterday  = (now_sydney - timedelta(days=1)).date()
     log.info(f'Running daily report for {yesterday} (Sydney time)')
 
-    # Guard against duplicate runs (two cron entries cover AEST and AEDT —
+    # Guard against duplicate runs (two cron entries cover AEST and AEDT -
     # on DST transition days both fire within an hour of each other).
     existing = read_csv_history(3)
     if any(r.get('date') == yesterday.isoformat() for r in existing):
-        log.info(f'Report for {yesterday} already exists in CSV — skipping duplicate run.')
+        log.info(f'Report for {yesterday} already exists in CSV - skipping duplicate run.')
         return
 
     # ── 1. Fetch data ──────────────────────────────────────────────────────
@@ -3373,7 +3373,7 @@ def main():
     if davis_records:
         d = process_davis_records(davis_records)
     else:
-        log.warning('No Davis records — using Open-Meteo fallback for basic stats')
+        log.warning('No Davis records - using Open-Meteo fallback for basic stats')
         d = {k: None for k in ['temp_max','temp_min','temp_mean','rh_mean',
                                 'wind_max_kmh','wind_mean_kmh','rain_mm','et_mm',
                                 'pressure_mean','delta_t_mean','wet_hours',
@@ -3400,7 +3400,7 @@ def main():
             d['rain_mm'] = daily['precipitation_sum'][0] or 0.0
         if d['et_mm'] == 0 and daily.get('et0_fao_evapotranspiration'):
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
-    # UV: archive API (ERA5) doesn't have UV — always use historical-forecast API
+    # UV: archive API (ERA5) doesn't have UV - always use historical-forecast API
     if uv_max is None:
         uv_max = fetch_openmeteo_uv(yesterday)
 
@@ -3538,16 +3538,16 @@ def main():
     log.info(f'Report saved: {report_path}')
 
     # ── 8. Send daily email to greenkeeper ────────────────────────────────
-    subject = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
+    subject = f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}'
     log.info(f'Sending daily email: {subject}')
     send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
 
     # ── 9. Weekly summary (Monday only) ───────────────────────────────────
     if now_sydney.weekday() == 0:  # Monday
-        log.info('Monday detected — sending weekly summary...')
+        log.info('Monday detected - sending weekly summary...')
         week_history = read_csv_history(7)
         weekly_html  = build_weekly_html(week_history, yesterday)
-        week_subject = f'WWCC Weekly Weather Summary — {yesterday.strftime("%-d %B %Y")}'
+        week_subject = f'WWCC Weekly Weather Summary - {yesterday.strftime("%-d %B %Y")}'
         send_email(week_subject, weekly_html, EMAIL_RECIPIENTS_ALL)
 
         # Save weekly report
@@ -3556,23 +3556,23 @@ def main():
 
     # ── 10. Monthly summary (1st of month only) ───────────────────────────
     if yesterday.day == 1:
-        log.info('1st of month — sending monthly summary...')
+        log.info('1st of month - sending monthly summary...')
         month_history = read_csv_history(31)
         month_name    = (yesterday - timedelta(days=1)).strftime('%B %Y')
         monthly_html  = build_monthly_html(month_history, month_name)
-        month_subject = f'WWCC Monthly Weather Summary — {month_name}'
+        month_subject = f'WWCC Monthly Weather Summary - {month_name}'
         send_email(month_subject, monthly_html, EMAIL_RECIPIENTS_ALL)
         monthly_path  = report_dir / f'{yesterday.isoformat()}-monthly.html'
         monthly_path.write_text(monthly_html, encoding='utf-8')
 
     # ── 11. Annual summary (1st January only) ─────────────────────────────
     if yesterday.month == 1 and yesterday.day == 1:
-        log.info('1st January — sending annual summary...')
+        log.info('1st January - sending annual summary...')
         prev_year     = yesterday.year - 1
         year_history  = read_csv_history(366)
         year_label    = f'Full Year {prev_year}'
         yearly_html   = build_yearly_html(year_history, year_label)
-        year_subject  = f'WWCC Annual Weather Summary — {prev_year}'
+        year_subject  = f'WWCC Annual Weather Summary - {prev_year}'
         send_email(year_subject, yearly_html, EMAIL_RECIPIENTS_ALL)
         yearly_path   = report_dir / f'{prev_year}-annual.html'
         yearly_path.write_text(yearly_html, encoding='utf-8')
@@ -3581,13 +3581,13 @@ def main():
     today_date = now_sydney.date()
     _, last_day_of_month = calendar.monthrange(today_date.year, today_date.month)
     if today_date.day == last_day_of_month:
-        log.info('Last day of month — sending water meter reading reminder...')
+        log.info('Last day of month - sending water meter reading reminder...')
         meter_html, meter_subject = build_meter_reading_html(now_sydney)
         send_email(meter_subject, meter_html, EMAIL_RECIPIENTS_ALL)
 
     # ── 13. WaterNSW submission reminder (13th of month) ──────────────────
     if today_date.day == 13:
-        log.info('13th of month — sending WaterNSW submission reminder...')
+        log.info('13th of month - sending WaterNSW submission reminder...')
         sub_html, sub_subject = build_meter_submission_html(now_sydney)
         send_email(sub_subject, sub_html, EMAIL_RECIPIENTS_ALL)
 
@@ -3599,7 +3599,7 @@ if __name__ == '__main__':
     args = sys.argv[1:]
 
     if '--backfill' in args:
-        # Usage (local/CLI only — not exposed in workflow):
+        # Usage (local/CLI only - not exposed in workflow):
         #   python daily_report.py --backfill
         #   python daily_report.py --backfill --from 2025-09-01 --to 2026-06-28 --force
         now_sydney = datetime.now(tz=TZ)
@@ -3638,13 +3638,13 @@ if __name__ == '__main__':
             log.info(f'    {k}: {sample}')
 
     elif '--resend' in args:
-        # Re-send yesterday's daily email from existing CSV — no re-fetch or CSV changes.
+        # Re-send yesterday's daily email from existing CSV - no re-fetch or CSV changes.
         now_sydney = datetime.now(tz=TZ)
         yesterday  = (now_sydney - timedelta(days=1)).date()
         rows = read_csv_history(3)
         row  = next((r for r in reversed(rows) if r.get('date') == yesterday.isoformat()), None)
         if row is None:
-            log.warning(f'No CSV row found for {yesterday} — run normally first.')
+            log.warning(f'No CSV row found for {yesterday} - run normally first.')
             sys.exit(1)
         log.info(f'--resend: re-sending daily email for {yesterday}.')
         history         = read_csv_history(310)
@@ -3653,7 +3653,7 @@ if __name__ == '__main__':
         daily_html = build_daily_html(row, yesterday, history,
                                       forecast_days=forecast_days,
                                       hourly_forecast=hourly_forecast)
-        subject = f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}'
+        subject = f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
 
@@ -3685,7 +3685,7 @@ if __name__ == '__main__':
             rows = read_csv_history(3)
             row  = next((r for r in reversed(rows) if r.get('date') == yesterday.isoformat()), None)
             if row is None:
-                log.warning('No CSV row for yesterday — skipping daily test.')
+                log.warning('No CSV row for yesterday - skipping daily test.')
             else:
                 history         = read_csv_history(310)
                 forecast_days   = fetch_5day_forecast(now_sydney.date())
@@ -3693,21 +3693,21 @@ if __name__ == '__main__':
                 html = build_daily_html(row, yesterday, history,
                                         forecast_days=forecast_days,
                                         hourly_forecast=hourly_forecast)
-                _test_send(html, f'WWCC Morning Briefing — {yesterday.strftime("%-d %B %Y")}')
+                _test_send(html, f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}')
 
         if which in ('weekly', 'all'):
             html = build_weekly_html(read_csv_history(7), yesterday)
-            _test_send(html, f'WWCC Weekly Weather Summary — {yesterday.strftime("%-d %B %Y")}')
+            _test_send(html, f'WWCC Weekly Weather Summary - {yesterday.strftime("%-d %B %Y")}')
 
         if which in ('monthly', 'all'):
             month_name = (yesterday - timedelta(days=1)).strftime('%B %Y')
             html = build_monthly_html(read_csv_history(31), month_name)
-            _test_send(html, f'WWCC Monthly Weather Summary — {month_name}')
+            _test_send(html, f'WWCC Monthly Weather Summary - {month_name}')
 
         if which in ('annual', 'all'):
             year_label = f'Full Year {yesterday.year - 1}'
             html = build_yearly_html(read_csv_history(366), year_label)
-            _test_send(html, f'WWCC Annual Weather Summary — {yesterday.year - 1}')
+            _test_send(html, f'WWCC Annual Weather Summary - {yesterday.year - 1}')
 
         if which in ('meter_reading', 'all'):
             html, subj = build_meter_reading_html(now_sydney)

@@ -30,7 +30,7 @@ FARMBOT_TANK_SID      = os.environ.get('FARMBOT_TANK_SID',     '')
 FARMBOT_LAKE_SID      = os.environ.get('FARMBOT_LAKE_SID',     '')
 TANK_CAPACITY_L       = int(os.environ.get('FARMBOT_TANK_CAPACITY_L', '250000'))
 
-# Internal battery/voltage sensors (fixed SIDs — not user-configurable)
+# Internal battery/voltage sensors (fixed SIDs - not user-configurable)
 TANK_BATTERY_SID = '17e2aaaf-dc10-4aa6-9f02-41b969f7b437'   # port 14, tank monitor (~3.6V Li)
 LAKE_BATTERY_SID = '783eabbf-eda5-4d5d-bc36-bd0e8a6b7547'   # port 124, lake/weather monitor (~7.2V)
 
@@ -62,7 +62,7 @@ DAVIS_V2_API_SECRET = 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
 DAVIS_V2_STATION_ID = 10489
 DAVIS_V2_BASE       = 'https://api.weatherlink.com/v2'
 
-# Lake weather station sensor SIDs (hardcoded — fixed hardware)
+# Lake weather station sensor SIDs (hardcoded - fixed hardware)
 LAKE_WEATHER_SIDS = {
     'wind':      '20ecfbd1-e73b-422b-b1a0-fdecaa4306a8',  # kph + deg (multiDimValues)
     'temp':      '7555efcf-ef68-4057-9a79-5e2610854648',  # °C
@@ -72,7 +72,7 @@ LAKE_WEATHER_SIDS = {
     'delta_t':   'bf5d68bf-c894-40d4-9f3f-328405d808eb',  # °C
 }
 
-# Alert thresholds — email fires when tank DROPS INTO each band
+# Alert thresholds - email fires when tank DROPS INTO each band
 ALERT_LEVELS = [
     ('critical', 10,  '🔴 URGENT: Water tank critically low'),
     ('low',      20,  '🔴 Water tank LOW alert'),
@@ -144,18 +144,18 @@ STATE_ORDER = {'unknown': -1, 'ok': 0, 'warning': 1, 'low': 2, 'critical': 3}
 # ── Alert email ───────────────────────────────────────────────────────────────
 def send_alert(pct, volume_l, state):
     if not SENDGRID_API_KEY or not EMAIL_GK_RECIPIENTS:
-        log.warning('SendGrid not configured — skipping alert email')
+        log.warning('SendGrid not configured - skipping alert email')
         return
     from sendgrid import SendGridAPIClient
     from sendgrid.helpers.mail import Mail, To, Email
 
     volume_kl = (volume_l or 0) / 1000
     color     = '#dc2626' if state in ('critical', 'low') else '#d97706'
-    urgency   = 'URGENT — ' if state == 'critical' else ''
-    subject   = f'{urgency}Water tank {state} alert: {pct:.0f}% — Wagga CC'
+    urgency   = 'URGENT - ' if state == 'critical' else ''
+    subject   = f'{urgency}Water tank {state} alert: {pct:.0f}% - Wagga CC'
 
     action_note = {
-        'critical': 'The water tank is critically low. Immediate action required — check supply lines and arrange emergency top-up.',
+        'critical': 'The water tank is critically low. Immediate action required - check supply lines and arrange emergency top-up.',
         'low':      'The water tank level is low. Schedule a top-up soon to avoid disruption to irrigation.',
         'warning':  'The water tank is below 40%. Monitor closely and plan a top-up.',
     }.get(state, '')
@@ -186,7 +186,7 @@ def send_alert(pct, volume_l, state):
   </td></tr>
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:16px 24px;text-align:center;">
     <div style="font-size:11px;color:rgba(255,255,255,0.5);">
-      Wagga Wagga Country Club — Automated FarmBot Alert</div>
+      Wagga Wagga Country Club - Automated FarmBot Alert</div>
   </td></tr>
 </table></td></tr></table>
 </body></html>"""
@@ -218,7 +218,7 @@ def fetch_graph_samples(token, total_height, hours=24):
             except Exception:
                 continue
             if ts < cutoff:
-                # All older records from here — stop
+                # All older records from here - stop
                 return sorted(graph, key=lambda x: x['date'])
             p = calc_pct(s.get('rwValue'), total_height)
             if p is not None:
@@ -301,7 +301,7 @@ def poll_davis_history():
 
         # Skip yesterday if already cached
         if days_ago == 1 and date_str in all_days:
-            log.info(f'Davis: {date_str} already cached — skipping')
+            log.info(f'Davis: {date_str} already cached - skipping')
             continue
 
         try:
@@ -332,7 +332,7 @@ def poll():
     sensor       = fb_get(token, f'sensor/{FARMBOT_TANK_SID}')
     total_height = sensor.get('config', {}).get('totalHeight') or 170
     if not sensor.get('config', {}).get('totalHeight'):
-        log.warning(f'totalHeight missing from sensor config — defaulting to 170cm (check FarmBot sensor settings)')
+        log.warning(f'totalHeight missing from sensor config - defaulting to 170cm (check FarmBot sensor settings)')
     log.info(f'Sensor: {sensor.get("name")} | totalHeight={total_height}cm')
 
     # Latest reading
@@ -413,7 +413,7 @@ def poll():
         except Exception as e:
             log.error(f'Lake poll failed: {e}')
 
-    # Poll lake weather station (always — SIDs are hardcoded)
+    # Poll lake weather station (always - SIDs are hardcoded)
     try:
         poll_lake_weather(token)
     except Exception as e:
@@ -516,7 +516,7 @@ def poll_lake_weather(token):
     log.info('FarmBot lake weather poll starting')
     out = {'updated_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
 
-    # Wind — multiDimValues: dim[0]=speed kph, dim[1]=direction deg
+    # Wind - multiDimValues: dim[0]=speed kph, dim[1]=direction deg
     try:
         resp   = fb_get(token, f'sensor/{LAKE_WEATHER_SIDS["wind"]}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
         latest = (resp.get('data') or [None])[0]
@@ -544,7 +544,7 @@ def poll_lake_weather(token):
         except Exception as e:
             log.warning(f'{key} fetch failed: {e}')
 
-    # Rain gauge — pulse counter, store delta between readings
+    # Rain gauge - pulse counter, store delta between readings
     try:
         resp     = fb_get(token, f'sensor/{LAKE_WEATHER_SIDS["rain"]}/sample', {'pageSize': 10, 'order': 'DESC', 'page': 1})
         latest   = (resp.get('data') or [None])[0]
@@ -552,7 +552,7 @@ def poll_lake_weather(token):
             raw_value = latest.get('rwValue')
             rain_date = latest.get('date')
             if raw_value is None:
-                log.warning('Rain sensor rwValue is None — sensor may be offline; skipping rain update')
+                log.warning('Rain sensor rwValue is None - sensor may be offline; skipping rain update')
             else:
                 raw_now = float(raw_value)
                 rain_readings = []
@@ -565,7 +565,7 @@ def poll_lake_weather(token):
                 prev_raw  = rain_readings[-1].get('raw_mm', 0) if rain_readings else 0
                 last_date = rain_readings[-1].get('date')       if rain_readings else None
 
-                # Delta — if counter reset (raw_now < prev_raw), treat current as delta
+                # Delta - if counter reset (raw_now < prev_raw), treat current as delta
                 delta = round(max(0, raw_now - prev_raw) if raw_now >= prev_raw else raw_now, 2)
 
                 out['rain_mm_raw']   = raw_now
@@ -598,7 +598,7 @@ def backfill(from_date='2025-01-01'):
     sensor       = fb_get(token, f'sensor/{FARMBOT_TANK_SID}')
     total_height = sensor.get('config', {}).get('totalHeight') or 170
     if not sensor.get('config', {}).get('totalHeight'):
-        log.warning(f'totalHeight missing from sensor config — defaulting to 170cm (check FarmBot sensor settings)')
+        log.warning(f'totalHeight missing from sensor config - defaulting to 170cm (check FarmBot sensor settings)')
 
     cutoff_date = from_date  # e.g. '2025-01-01'
 
@@ -611,12 +611,12 @@ def backfill(from_date='2025-01-01'):
         data = resp.get('data', [])
         all_samples.extend(data)
         total_pages = resp.get('totalPages', 1)
-        log.info(f'  Page {page}/{total_pages} — {len(all_samples)} samples total')
+        log.info(f'  Page {page}/{total_pages} - {len(all_samples)} samples total')
         if page >= total_pages:
             break
         page += 1
 
-    log.info(f'Fetched {len(all_samples)} samples — grouping by day (Sydney time)')
+    log.info(f'Fetched {len(all_samples)} samples - grouping by day (Sydney time)')
 
     # Group by Sydney date
     by_date = {}
@@ -670,7 +670,7 @@ def backfill_lake(from_date='2025-01-01'):
         data = resp.get('data', [])
         all_samples.extend(data)
         total_pages = resp.get('totalPages', 1)
-        log.info(f'  Page {page}/{total_pages} — {len(all_samples)} samples so far')
+        log.info(f'  Page {page}/{total_pages} - {len(all_samples)} samples so far')
         if page >= total_pages:
             break
         page += 1
