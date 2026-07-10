@@ -567,30 +567,139 @@ def build_html(now_syd):
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
             _pb_cost_sub  = f'{_cease_str} to 31 Mar {_end_yr}'
 
-        # Rainfall row - only shown if meaningful rain fell this week
+        # Rainfall breakdown - three plain-English sub-sections
         _rain_row = ''
         if rain_7 >= 2.0 and cease_date is not None:
-            _net_mm      = max(0.0, rain_7 - et_7)
-            _irrig_label = (f'Irrigation saved: ~{irrig_saved_ml * 1000:.0f}&nbsp;kL'
-                            if month in active_m and irrig_saved_ml > 0
-                            else 'Off-season (no irrigation saving)')
-            _sav_str     = (f'~${rainfall_savings:,.0f}' if rainfall_savings is not None else '-')
-            _days_str    = (f'~{rain_days_saved:.1f}&nbsp;days' if rain_days_saved is not None else '-')
+            _lk_area_km2    = lu.lake_area_m2(ahd) / 1_000_000
+            _pan_day        = float(lu.get_config()['evaporation']['monthly_pan_mm_day'][str(month)])
+            _evap_mm_day    = _pan_day * lu.get_config()['evaporation']['pan_factor']
+            _weekly_evap_ml = lu.evap_ml_day(ahd, month) * 7
+            _net_lake_ml    = rain_on_lake_ml - _weekly_evap_ml
+            _net_lake_str   = (f'+{_net_lake_ml:.1f}&nbsp;ML added to the lake this week'
+                               if _net_lake_ml >= 0
+                               else f'{abs(_net_lake_ml):.1f}&nbsp;ML net loss (evaporation outweighed rain)')
+
+            # Flag potential sensor anomaly if any single day ET > 2.5x BOM monthly pan
+            _et_max_day = max((float(r.get('et_mm') or 0) for r in wx_7), default=0)
+            _et_note    = ('<br><em style="color:#64748b;font-size:10px;">Note: one day recorded unusually '
+                           'high ET - station sensor may include an anomaly in this figure.</em>'
+                           if _et_max_day > 2.5 * _pan_day else '')
+
+            if month in active_m and et_7 > 0:
+                _rain_cov_mm   = min(rain_7, et_7)
+                _et_pct        = _rain_cov_mm / et_7 * 100
+                _pump_total_kl = float(irrig_kl.get(str(month), 0)) * 7
+                _pump_saved_kl = irrig_saved_ml * 1000
+                _pump_still_kl = _pump_total_kl - _pump_saved_kl
+                _course_html   = (
+                    f'The grass needed <strong>{et_7:.1f}&nbsp;mm</strong> of water this week '
+                    f'(evapotranspiration - what turf uses through sun, wind and growth).'
+                    f'<br>Rain provided <strong>{rain_7:.1f}&nbsp;mm</strong>, '
+                    f'covering <strong>{_et_pct:.0f}%</strong> of that demand.'
+                    f'<br>The remaining <strong>{max(0,et_7-rain_7):.1f}&nbsp;mm</strong> '
+                    f'was pumped from the lake (approx. '
+                    f'<strong>{_pump_still_kl:,.0f}&nbsp;kL</strong>). '
+                    f'Rain saved ~<strong>{_pump_saved_kl:.0f}&nbsp;kL</strong> of lake water.'
+                    f'{_et_note}'
+                )
+            else:
+                _course_html = (
+                    f'No irrigation is running this month (June-August - winter off-season).'
+                    f'<br>Rain received: <strong>{rain_7:.1f}&nbsp;mm</strong>. '
+                    f'Winter rain builds up lake reserves for the spring irrigation season, '
+                    f'but does not replace irrigation pumping directly.'
+                    f'{_et_note}'
+                )
+
+            _bm_month_name = cease_date.strftime('%B')
+            _bm_kl_day     = float(irrig_kl.get(str(cease_date.month), 347))
+            _bm_day_cost   = _bm_kl_day * cost_per_kl
+            _sav_str       = f'~${rainfall_savings:,.0f}' if rainfall_savings is not None else '-'
+            _days_str      = f'{rain_days_saved:.1f}&nbsp;days' if rain_days_saved is not None else '-'
+            _irrig_extra   = (f', plus {irrig_saved_ml:.2f}&nbsp;ML saved by not irrigating,'
+                              if irrig_saved_ml > 0.01 else '')
+            _fin_html = (
+                f'The <strong>{rain_on_lake_ml:.1f}&nbsp;ML</strong> added to the lake by this '
+                f'week\'s rainfall{_irrig_extra} extends the projected cease date by approximately '
+                f'<strong>{_days_str}</strong>.'
+                f'<br>At the {_bm_month_name} town water rate of '
+                f'<strong>${_bm_day_cost:,.0f}/day</strong>, '
+                f'this saves the club an estimated <strong>{_sav_str}</strong> in future costs.'
+            )
+
             _rain_row = f"""
       <tr>
-        <td colspan="2" style="padding:10px 16px 12px 16px;border-top:1px solid #fca5a5;
-            background:#fff5f5;">
-          <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
-              color:#7f1d1d;line-height:1.8;">
-            <strong>This week's rainfall impact</strong><br>
-            Rain: {rain_7:.1f}&nbsp;mm &nbsp;&bull;&nbsp;
-            ET: {et_7:.1f}&nbsp;mm &nbsp;&bull;&nbsp;
-            Net effective benefit: {_net_mm:.1f}&nbsp;mm<br>
-            Lake rain gain: ~{rain_on_lake_ml:.1f}&nbsp;ML &nbsp;&bull;&nbsp;
-            {_irrig_label}<br>
-            <strong>Est. cost saving from rainfall this week: {_sav_str}</strong>
-            &nbsp;(cease date {_days_str} later than without this rain)
-          </p>
+        <td colspan="2" style="padding:0;border-top:1px solid #fca5a5;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
+                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                  Impact on the Lake This Week
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" style="background:#fef2f2;padding:10px 16px;
+                  border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;vertical-align:top;">
+                <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;">Rainfall Added to Lake</p>
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#1b2631;line-height:1.6;">
+                  {rain_7:.1f}&nbsp;mm rain &times; {_lk_area_km2:.2f}&nbsp;km&sup2; lake<br>
+                  <strong>= {rain_on_lake_ml:.1f}&nbsp;ML added</strong>
+                </p>
+              </td>
+              <td width="50%" style="background:#fef2f2;padding:10px 16px;
+                  border-bottom:1px solid #fca5a5;vertical-align:top;">
+                <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;">Evaporation Lost from Lake</p>
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#1b2631;line-height:1.6;">
+                  {_evap_mm_day:.2f}&nbsp;mm/day (sun &amp; wind) &times; 7&nbsp;days<br>
+                  <strong>= {_weekly_evap_ml:.1f}&nbsp;ML lost</strong> (always occurs)
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="background:#fff5f5;padding:8px 16px;
+                  border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#7f1d1d;">
+                  <strong>Net: {_net_lake_str}</strong>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
+                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                  Impact on Course Irrigation This Week
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="background:#fff5f5;padding:10px 16px;
+                  border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
+                    color:#1b2631;line-height:1.7;">{_course_html}</p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
+                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                  What This Means for the Club
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="background:#fff5f5;padding:10px 16px;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
+                    color:#1b2631;line-height:1.7;">{_fin_html}</p>
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>"""
 
@@ -665,6 +774,10 @@ def build_html(now_syd):
     body = (
         _header(f'Week ending {date_str}')
 
+        # ── Cease-to-pump projection (top priority for board) ─────────────────
+        + ((_section('Cease-to-Pump Projection - No Future Rainfall Assumed')
+            + projection_banner) if projection_banner else '')
+
         # ── Lake section ───────────────────────────────────────────────────────
         + _section('Lake Albert - Current Licence Level')
         + f"""
@@ -733,9 +846,36 @@ def build_html(now_syd):
 {level_rows}
 </table>"""
 
-        # ── Cease-to-pump projection section ──────────────────────────────────
-        + ((_section('Cease-to-Pump Projection - No Future Rainfall Assumed')
-            + projection_banner) if projection_banner else '')
+        # ── Tank section ───────────────────────────────────────────────────────
+        + _section('Water Tank')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:8px;">
+  <tr>
+    {_stat_cell(25, _ROW_A, 'Tank Level',
+        tank_pct_str, tank_status)}
+    {_stat_cell(25, _ROW_B, 'Water Available',
+        f'<span style="font-size:14px;">{tank_vol_str}</span>',
+        'in tank now')}
+    {_stat_cell(25, _ROW_A, 'This Week',
+        f'<span style="color:{tank_week_col};">{tank_week_str}</span>',
+        tank_week_sub)}
+    {_stat_cell(25, _ROW_B, 'Total Capacity',
+        f'<span style="font-size:14px;">{tank_cap_str}</span>',
+        'tank capacity')}
+  </tr>
+</table>"""
+
+        # Tank chart
+        + (f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:8px;">
+  <tr>
+    <td style="background:#0d1b2a;padding:12px;">
+      {tank_chart}
+    </td>
+  </tr>
+</table>""" if tank_chart else '')
 
         # ── Weather section ────────────────────────────────────────────────────
         + _section('Weather - Past 7 Days')
@@ -824,37 +964,6 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>"""
-
-        # ── Tank section ───────────────────────────────────────────────────────
-        + _section('Water Tank')
-        + f"""
-<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
-  <tr>
-    {_stat_cell(25, _ROW_A, 'Tank Level',
-        tank_pct_str, tank_status)}
-    {_stat_cell(25, _ROW_B, 'Water Available',
-        f'<span style="font-size:14px;">{tank_vol_str}</span>',
-        'in tank now')}
-    {_stat_cell(25, _ROW_A, 'This Week',
-        f'<span style="color:{tank_week_col};">{tank_week_str}</span>',
-        tank_week_sub)}
-    {_stat_cell(25, _ROW_B, 'Total Capacity',
-        f'<span style="font-size:14px;">{tank_cap_str}</span>',
-        'tank capacity')}
-  </tr>
-</table>"""
-
-        # Tank chart
-        + (f"""
-<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
-  <tr>
-    <td style="background:#0d1b2a;padding:12px;">
-      {tank_chart}
-    </td>
-  </tr>
-</table>""" if tank_chart else '')
 
         # ── Disclaimer ─────────────────────────────────────────────────────────
         + f"""
