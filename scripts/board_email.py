@@ -145,15 +145,31 @@ def _header(subtitle):
 </table>"""
 
 
-def _section(text):
-    """Blue section header bar with generous top spacing."""
+def _card_open(title):
+    """Open a section card: border wrapper + dark title bar + content cell."""
     return f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:28px;">
+       style="border-collapse:collapse;margin-top:20px;">
   <tr>
-    <td bgcolor="{_SEC_BG}" style="background-color:{_SEC_BG};padding:8px 20px;">
-      <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
-          letter-spacing:0.5px;font-family:Arial,sans-serif;">{text}</p>
+    <td style="border:1px solid #cbd5e1;padding:0;background-color:#ffffff;" bgcolor="#ffffff">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border-collapse:collapse;">
+        <tr>
+          <td bgcolor="{_SEC_BG}" style="background-color:{_SEC_BG};padding:8px 20px;">
+            <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
+                letter-spacing:0.5px;font-family:Arial,sans-serif;">{title}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0;" bgcolor="#ffffff">"""
+
+
+def _card_close():
+    """Close a section card."""
+    return """
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 </table>"""
@@ -937,18 +953,20 @@ def build_html(now_syd):
         _header(f'Week ending {date_str}')
 
         # ── Cease-to-pump projection (top priority for board) ─────────────────
-        + ((_section('Cease-to-Pump Projection - No Future Rainfall Assumed')
-            + projection_banner) if projection_banner else '')
+        + ((_card_open('Cease-to-Pump Projection - No Future Rainfall Assumed')
+            + projection_banner
+            + _card_close()) if projection_banner else '')
 
         # ── Lake section ───────────────────────────────────────────────────────
-        + _section('Lake Albert - Current Licence Level')
+        + _card_open('Lake Albert - Current Licence Level')
         + _lake_card_html
+        + _card_close()
 
         # Lake chart
-        + _section('Lake Level - Past 7 Days')
+        + _card_open('Lake Level - Past 7 Days')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
+       style="border-collapse:collapse;">
   <tr>
     <td style="background:#0d1b2a;padding:12px;">
       {chart_html if chart_html else
@@ -956,12 +974,13 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>"""
+        + _card_close()
 
         # Licence levels reference table
-        + _section('Water Licence Levels')
+        + _card_open('Water Licence Levels')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
+       style="border-collapse:collapse;">
   <tr>
     <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid {_BORDER};
@@ -974,12 +993,13 @@ def build_html(now_syd):
   </tr>
 {level_rows}
 </table>"""
+        + _card_close()
 
         # ── Tank section ───────────────────────────────────────────────────────
-        + _section('Water Tank')
+        + _card_open('Water Tank')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
+       style="border-collapse:collapse;">
   <tr>
     {_stat_cell(25, _ROW_A, 'Tank Level',
         tank_pct_str, tank_status)}
@@ -994,8 +1014,6 @@ def build_html(now_syd):
         'tank capacity')}
   </tr>
 </table>"""
-
-        # Tank chart
         + (f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:8px;">
@@ -1005,9 +1023,10 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>""" if tank_chart else '')
+        + _card_close()
 
         # ── Weather section ────────────────────────────────────────────────────
-        + _section('Weather - Past 7 Days')
+        + _card_open('Weather - Past 7 Days')
 
         # Row 1: rainfall totals + temp
         + f"""
@@ -1093,6 +1112,7 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>"""
+        + _card_close()
 
         # ── Disclaimer ─────────────────────────────────────────────────────────
         + f"""
