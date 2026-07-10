@@ -56,7 +56,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests sendgrid
+        run: pip install requests sendgrid Pillow
 
       - name: Run FarmBot poll / backfill
         env:

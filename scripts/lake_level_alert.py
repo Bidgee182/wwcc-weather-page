@@ -13,7 +13,7 @@ Zone state file: data/lake_pump_zone.json
 On first run (no zone file) the current zone is recorded and no email is sent.
 """
 
-import json, os, sys, logging
+import json, os, sys, logging, io, base64
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -28,6 +28,41 @@ log = logging.getLogger(__name__)
 SYDNEY_TZ = ZoneInfo('Australia/Sydney')
 DATA_DIR  = Path(__file__).parent.parent / 'data'
 ZONE_FILE = DATA_DIR / 'lake_pump_zone.json'
+
+_LOGO_CACHE = None
+_LOGO_DIMS  = (160, 44)
+
+def _white_logo_html():
+    """Fetch the club logo, convert to white, return an <img> tag (or empty string on failure)."""
+    global _LOGO_CACHE, _LOGO_DIMS
+    if _LOGO_CACHE is None:
+        try:
+            import requests
+            from PIL import Image
+            resp = requests.get(
+                'https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png',
+                headers={'User-Agent': 'Mozilla/5.0'},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            img = Image.open(io.BytesIO(resp.content)).convert('RGBA')
+            target_h = 44
+            target_w = round(img.width * target_h / img.height)
+            img = img.resize((target_w, target_h), Image.LANCZOS)
+            r, g, b, a = img.split()
+            white = Image.new('L', img.size, 255)
+            white_img = Image.merge('RGBA', (white, white, white, a))
+            buf = io.BytesIO()
+            white_img.save(buf, format='PNG')
+            b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+            _LOGO_CACHE = f'data:image/png;base64,{b64}'
+            _LOGO_DIMS  = (target_w, target_h)
+        except Exception as e:
+            log.warning(f'Could not load white logo: {e}')
+            return ''
+    w, h = _LOGO_DIMS
+    return (f'<img src="{_LOGO_CACHE}" width="{w}" height="{h}" alt="Wagga Wagga Country Club"'
+            f' style="display:block;border:0;">')
 
 SENDGRID_API_KEY          = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM                = os.environ.get('EMAIL_FROM', '')
@@ -171,12 +206,21 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
 
   <!-- HEADER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
-    <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
-        text-transform:uppercase;font-family:Arial,sans-serif;">WAGGA WAGGA COUNTRY CLUB</p>
-    <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
-        font-family:Arial,sans-serif;">Lake Level Alert</h1>
-    <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;font-family:Arial,sans-serif;">
-      Pumping rate change &nbsp;&bull;&nbsp; {now_str} AEST</p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td valign="top">
+          <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
+              text-transform:uppercase;font-family:Arial,sans-serif;">WAGGA WAGGA COUNTRY CLUB</p>
+          <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
+              font-family:Arial,sans-serif;">Lake Level Alert</h1>
+          <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;font-family:Arial,sans-serif;">
+            Pumping rate change &nbsp;&bull;&nbsp; {now_str} AEST</p>
+        </td>
+        <td align="right" valign="middle" style="padding-left:16px;white-space:nowrap;">
+          {_white_logo_html()}
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   <!-- ZONE COLOUR BANNER -->
