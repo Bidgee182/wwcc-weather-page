@@ -26,8 +26,6 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, To, Email
-import base64
-import io
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1110,24 +1108,16 @@ def _pumping_in_range(pumping, start_date, end_date):
     return sorted(result, key=lambda x: x['_date'])
 
 
-def _lake_chart_b64(readings, start_date, end_date, title=''):
-    """Generate a dark-theme lake level chart as base64 PNG using matplotlib."""
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import matplotlib.dates as mdates
-    from matplotlib.transforms import blended_transform_factory
-
-    # Build date→ahd dict; one reading per day (latest per day)
+def _lake_chart_svg(readings, start_date, end_date):
+    """Inline SVG lake level chart — renders on iOS Mail, Apple Mail, Outlook; no data URIs."""
     day_ahd = {}
     for r in readings:
         d = r['_date']
-        ahd = float(r.get('ahd', 0) or 0)
-        if ahd > 0:
-            day_ahd[d] = ahd
+        v = float(r.get('ahd', 0) or 0)
+        if v > 0:
+            day_ahd[d] = v
 
-    # Build ordered lists over the range
-    total_days = (end_date - start_date).days + 1
+    total_days = max((end_date - start_date).days + 1, 1)
     dates, vals = [], []
     for i in range(total_days):
         d = start_date + timedelta(days=i)
@@ -1135,64 +1125,82 @@ def _lake_chart_b64(readings, start_date, end_date, title=''):
             dates.append(d)
             vals.append(day_ahd[d])
 
-    fig, ax = plt.subplots(figsize=(6, 1.9), dpi=100)
-    fig.patch.set_facecolor('#0d1b2a')
-    ax.set_facecolor('#0d1b2a')
+    W, H, PL, PR, PT, PB = 560, 190, 56, 12, 12, 28
+    PW, PH = W - PL - PR, H - PT - PB
+    BG, LC, GC, TC = '#0d1b2a', '#1abc9c', '#1e3040', '#4a6070'
+    THRESH = [
+        (190.250, '#00762A', 'L1 190.25'),
+        (190.050, '#8AC63F', 'L2 190.05'),
+        (189.850, '#FFDD00', 'L3 189.85'),
+        (189.650, '#EB1E23', 'L5 189.65'),
+    ]
 
-    if dates and vals:
-        import matplotlib.dates as mdates
-        date_nums = mdates.date2num(dates)
-        ax.plot(date_nums, vals, color='#1abc9c', linewidth=2.2, solid_capstyle='round')
-        ax.fill_between(date_nums, vals,
-                         color='#1abc9c', alpha=0.15)
+    svg = [
+        f'<svg viewBox="0 0 {W} {H}" width="100%" style="display:block;border-radius:6px;" xmlns="http://www.w3.org/2000/svg">',
+        f'<rect width="{W}" height="{H}" fill="{BG}" rx="6"/>',
+    ]
+    if not vals:
+        svg.append(f'<text x="{W//2}" y="{H//2+4}" text-anchor="middle" fill="{TC}" font-family="Arial,sans-serif" font-size="12">No data available</text>')
+        svg.append('</svg>')
+        return ''.join(svg)
 
-        # Threshold lines
-        thresholds = [
-            (190.250, '#00762A', 'L1 190.25'),
-            (190.050, '#8AC63F', 'L2 190.05'),
-            (189.850, '#FFDD00', 'L3 189.85'),
-            (189.650, '#EB1E23', 'L5 189.65'),
-        ]
-        trans = blended_transform_factory(ax.transAxes, ax.transData)
-        ymin = min(vals) - 0.05
-        ymax = max(vals) + 0.05
-        for thr, col, lbl in thresholds:
-            if ymin - 0.1 <= thr <= ymax + 0.1:
-                ax.axhline(thr, color=col, linewidth=1.0, linestyle=(0, (6, 4)), alpha=0.85)
-                ax.text(0.01, thr + 0.003, lbl, transform=trans,
-                        color=col, fontsize=7, va='bottom', alpha=0.9)
+    ymin, ymax = min(vals) - 0.05, max(vals) + 0.05
+    span = (end_date - start_date).days or 1
 
-        ax.set_xlim(date_nums[0] - 0.5, date_nums[-1] + 0.5)
-        ax.set_ylim(ymin, ymax)
+    def xp(d): return round(PL + (d - start_date).days / span * PW, 1)
+    def yp(v): return round(PT + PH * (1 - (v - ymin) / (ymax - ymin)), 1)
 
-        # X-axis date formatting
-        n_days = (end_date - start_date).days
-        if n_days <= 10:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%-d %b'))
-            ax.xaxis.set_major_locator(mdates.DayLocator())
-        elif n_days <= 35:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%-d %b'))
-            ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=0))
-        else:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
-            ax.xaxis.set_major_locator(mdates.MonthLocator())
+    svg.append(f'<clipPath id="lc"><rect x="{PL}" y="{PT}" width="{PW}" height="{PH}"/></clipPath>')
 
-        ax.xaxis.set_tick_params(colors='#4a6070', labelsize=8)
-        ax.yaxis.set_tick_params(colors='#4a6070', labelsize=8)
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f'{v:.2f}'))
+    # Y grid + labels (5 ticks)
+    for i in range(5):
+        v = ymin + i * (ymax - ymin) / 4
+        y = yp(v)
+        svg.append(f'<line x1="{PL}" y1="{y}" x2="{PL+PW}" y2="{y}" stroke="{GC}" stroke-width="0.6"/>')
+        svg.append(f'<text x="{PL-4}" y="{y+3}" text-anchor="end" fill="{TC}" font-family="Arial,sans-serif" font-size="8">{v:.2f}</text>')
 
-    for spine in ax.spines.values():
-        spine.set_color('rgba(255,255,255,0.08)' if False else '#1e3040')
-    ax.tick_params(colors='#4a6070')
-    ax.grid(axis='y', color='#1e3040', linewidth=0.6)
-    ax.grid(axis='x', color='#1a2d3d', linewidth=0.4)
+    # Zone threshold dashed lines
+    for thr, col, lbl in THRESH:
+        if ymin - 0.05 <= thr <= ymax + 0.05:
+            y = yp(thr)
+            svg.append(f'<line x1="{PL}" y1="{y}" x2="{PL+PW}" y2="{y}" stroke="{col}" stroke-width="1" stroke-dasharray="6,4" opacity="0.85" clip-path="url(#lc)"/>')
+            svg.append(f'<text x="{PL+4}" y="{y-3}" fill="{col}" font-family="Arial,sans-serif" font-size="7" opacity="0.9">{lbl}</text>')
 
-    plt.tight_layout(pad=0.4)
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', facecolor='#0d1b2a', dpi=100)
-    plt.close(fig)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode('ascii')
+    # Area fill + data line
+    pts = [(xp(d), yp(v)) for d, v in zip(dates, vals)]
+    if len(pts) >= 2:
+        bot = PT + PH
+        area = ' '.join(f'{x},{y}' for x, y in pts) + f' {pts[-1][0]},{bot} {pts[0][0]},{bot}'
+        svg.append(f'<polygon points="{area}" fill="{LC}" fill-opacity="0.15" clip-path="url(#lc)"/>')
+        line = ' '.join(f'{x},{y}' for x, y in pts)
+        svg.append(f'<polyline points="{line}" fill="none" stroke="{LC}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#lc)"/>')
+    elif pts:
+        svg.append(f'<circle cx="{pts[0][0]}" cy="{pts[0][1]}" r="3" fill="{LC}"/>')
+
+    # X-axis tick labels
+    n_days = (end_date - start_date).days
+    if n_days <= 10:
+        tick_offsets = list(range(total_days))
+        date_fmt = '%-d %b'
+    elif n_days <= 35:
+        tick_offsets = [i for i in range(total_days) if (start_date + timedelta(days=i)).weekday() == 0]
+        if not tick_offsets:
+            tick_offsets = [0, total_days - 1]
+        date_fmt = '%-d %b'
+    else:
+        tick_offsets = [i for i in range(total_days) if (start_date + timedelta(days=i)).day == 1]
+        if not tick_offsets:
+            tick_offsets = [0, total_days - 1]
+        date_fmt = '%b'
+
+    for i in tick_offsets:
+        d = start_date + timedelta(days=i)
+        x = xp(d)
+        svg.append(f'<line x1="{x}" y1="{PT+PH}" x2="{x}" y2="{PT+PH+3}" stroke="{TC}" stroke-width="0.6"/>')
+        svg.append(f'<text x="{x}" y="{H-4}" text-anchor="middle" fill="{TC}" font-family="Arial,sans-serif" font-size="8">{d.strftime(date_fmt)}</text>')
+
+    svg.append('</svg>')
+    return ''.join(svg)
 
 
 def _lake_threshold_table(current_ahd):
@@ -1287,8 +1295,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         evap_ml = None
 
     # Chart
-    chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
-    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+    chart_svg = _lake_chart_svg(chart_readings, chart_start, chart_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     drop_text = f'{drop_to_l3:+.3f} m from Level 3 threshold' if drop_to_l3 >= 0 else f'{abs(drop_to_l3):.3f} m BELOW Level 3'
@@ -1363,7 +1370,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_img}
+          {chart_svg}
         </td></tr>
       </table>
 
@@ -1416,8 +1423,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     level_drop_ml  = -week_chg_ml    # positive when lake dropped overall
     week_evap_ml   = level_drop_ml - total_pump_ml
 
-    chart_b64 = _lake_chart_b64(chart_readings, chart_start, chart_end)
-    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+    chart_svg = _lake_chart_svg(chart_readings, chart_start, chart_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     change_sign = '+' if week_change >= 0 else ''
@@ -1485,7 +1491,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_img}
+          {chart_svg}
         </td></tr>
       </table>
 
@@ -1560,8 +1566,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     level_drop_ml  = -month_chg_ml
     month_evap_ml  = level_drop_ml - total_pump_ml
 
-    chart_b64 = _lake_chart_b64(chart_readings, month_start, month_end)
-    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+    chart_svg = _lake_chart_svg(chart_readings, month_start, month_end)
 
     banner_text  = '#111' if fg == '#111111' else 'white'
     chg_sign     = '+' if month_change >= 0 else ''
@@ -1613,7 +1618,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_img}
+          {chart_svg}
         </td></tr>
       </table>
 
@@ -1674,8 +1679,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     level_drop_ml = -year_chg_ml
     year_evap_ml  = level_drop_ml - total_pump_ml
 
-    chart_b64 = _lake_chart_b64(chart_readings, year_start, year_end)
-    chart_img = f'<img src="data:image/png;base64,{chart_b64}" width="100%" style="display:block;border-radius:6px;" alt="Lake level chart">' if chart_b64 else ''
+    chart_svg = _lake_chart_svg(chart_readings, year_start, year_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     chg_sign    = '+' if year_change >= 0 else ''
@@ -1771,7 +1775,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_img}
+          {chart_svg}
         </td></tr>
       </table>
 
