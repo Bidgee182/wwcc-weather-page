@@ -1,0 +1,46 @@
+{
+  "_note": "Lake Albert water resource configuration. Edit values here — all board email calculations update automatically.",
+
+  "lake_geometry": {
+    "_note": "Linear area model fitted between calibration_ahd and full_supply_ahd. Change calibration_area_m2 if a new survey is done.",
+    "physical_bottom_ahd":  188.1,
+    "sensor_zero_ahd":      189.3616,
+    "full_supply_ahd":      191.551,
+    "full_supply_ml":       4148.3,
+    "full_area_m2":         1202045.97,
+    "calibration_ahd":      190.047,
+    "calibration_area_m2":  1105748.28
+  },
+
+  "zone_thresholds": [
+    { "zone": 1, "min_ahd": 190.250, "name": "Normal Operations",           "max_pump_ml_day": 1.50, "color_bg": "#00762A", "color_text": "#ffffff" },
+    { "zone": 2, "min_ahd": 190.050, "name": "Increased Monitoring",        "max_pump_ml_day": 1.00, "color_bg": "#8AC63F", "color_text": "#111111" },
+    { "zone": 3, "min_ahd": 189.850, "name": "Water Conservation Planning", "max_pump_ml_day": 0.75, "color_bg": "#FFDD00", "color_text": "#111111" },
+    { "zone": 4, "min_ahd": 189.650, "name": "Critical Warning",            "max_pump_ml_day": 0.50, "color_bg": "#F58E1E", "color_text": "#111111" },
+    { "zone": 5, "min_ahd": null,    "name": "Cease to Pump",               "max_pump_ml_day": 0.00, "color_bg": "#EB1E23", "color_text": "#ffffff" }
+  ],
+
+  "evaporation": {
+    "_note": "BOM Class A pan evaporation long-term monthly means for Wagga Wagga Airport (stn 072150), converted to mm/day. Update if BOM releases revised normals.",
+    "pan_factor": 0.70,
+    "monthly_pan_mm_day": {
+      "1":  8.97,
+      "2":  7.79,
+      "3":  5.84,
+      "4":  3.70,
+      "5":  2.16,
+      "6":  1.63,
+      "7":  1.97,
+      "8":  2.94,
+      "9":  4.37,
+      "10": 6.23,
+      "11": 8.03,
+      "12": 9.10
+    }
+  },
+
+  "town_water": {
+    "_note": "Context only — not displayed in emails. Used for internal budgeting awareness.",
+    "cost_per_kl": 1.77
+  }
+}
