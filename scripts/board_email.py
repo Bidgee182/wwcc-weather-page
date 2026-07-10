@@ -770,6 +770,129 @@ def build_html(now_syd):
       <td {td}>{_v(r.get('dew_point_c'))}&deg;</td>
     </tr>"""
 
+    # ── Lake status card (5-dot scale) ───────────────────────────────────────
+    _muted_bg = {1: '#d4edda', 2: '#e8f5d0', 3: '#fef9c3', 4: '#ffedd5', 5: '#fef2f2'}
+    _muted_tx = {1: '#155724', 2: '#4a7215', 3: '#713f12', 4: '#9a3412', 5: '#991b1b'}
+    _scale_cells = ''
+    for _z in cfg['zone_thresholds']:
+        _zn = _z['zone']
+        _pump_lbl = (f'{_z["max_pump_ml_day"]:.2f}&nbsp;ML/day'
+                     if _z['max_pump_ml_day'] > 0 else 'Cease')
+        if _zn < lv_num:
+            _bg = _muted_bg[_zn]; _ft = _muted_tx[_zn]; _brd = 'none'; _fw = '400'
+            _sub = (f'<p style="margin:1px 0 0;font-family:Arial,sans-serif;'
+                    f'font-size:9px;color:{_ft};">above</p>')
+        elif _zn == lv_num:
+            _bg = lv_bg; _ft = lv_txt; _brd = '2px solid #1b2631'; _fw = '700'
+            _sub = (f'<p style="margin:2px 0 0;font-family:Arial,sans-serif;'
+                    f'font-size:9px;font-weight:700;color:{_ft};">&darr;&nbsp;current</p>')
+        elif _zn == 5:
+            _bg = '#fef2f2'; _ft = '#991b1b'; _brd = '1px solid #fca5a5'; _fw = '400'
+            _sub = (f'<p style="margin:1px 0 0;font-family:Arial,sans-serif;'
+                    f'font-size:9px;color:{_ft};">cease</p>')
+        else:
+            _bg = '#f1f5f9'; _ft = '#94a3b8'; _brd = 'none'; _fw = '400'
+            _sub = ''
+        _scale_cells += (
+            f'<td width="20%" style="background-color:{_bg};padding:10px 4px 8px 4px;'
+            f'border:{_brd};text-align:center;vertical-align:top;">'
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;'
+            f'font-weight:{_fw};color:{_ft};">Level&nbsp;{_zn}</p>'
+            f'<p style="margin:2px 0 0;font-family:Arial,sans-serif;font-size:9px;'
+            f'color:{_ft};">{_pump_lbl}</p>{_sub}</td>'
+        )
+
+    if nxt and days not in (None, float('inf')):
+        _dv = int(days)
+        if _dv <= 7:
+            _wbg = '#fef2f2'; _wbord = '4px solid #b83c3c'; _wtxt = '#991b1b'; _wico = '&nbsp;&#9888;'
+        elif _dv <= 30:
+            _wbg = '#fff7ed'; _wbord = '4px solid #F58E1E'; _wtxt = '#9a3412'; _wico = '&nbsp;&#9888;'
+        else:
+            _wbg = _ROW_B; _wbord = f'1px solid {_BORDER}'; _wtxt = '#1b2631'; _wico = ''
+        _warn_html = (
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;'
+            f'color:{_wtxt};text-transform:uppercase;">Days to Next Restriction{_wico}</p>'
+            f'<p style="margin:4px 0 2px;font-family:Arial,sans-serif;font-size:22px;'
+            f'font-weight:700;color:{_wtxt};">{days_display}</p>'
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:{_wtxt};">'
+            f'Pump limit drops to <strong>{nxt["max_pump_ml_day"]:.2f}&nbsp;ML/day</strong>'
+            f' at Level&nbsp;{nxt["zone"]}</p>'
+        )
+    elif days == float('inf'):
+        _wbg = '#f0fdf4'; _wbord = '1px solid #bbf7d0'; _wtxt = '#15803d'
+        _warn_html = (
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;'
+            f'color:{_wtxt};text-transform:uppercase;">Lake Status</p>'
+            f'<p style="margin:4px 0 2px;font-family:Arial,sans-serif;font-size:22px;'
+            f'font-weight:700;color:{_wtxt};">Rising</p>'
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:{_wtxt};">'
+            f'Net lake gain this month</p>'
+        )
+    else:
+        _wbg = _ROW_B; _wbord = f'1px solid {_BORDER}'; _wtxt = '#1b2631'
+        _warn_html = (
+            f'<p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;'
+            f'color:{_wtxt};text-transform:uppercase;">Restriction Status</p>'
+            f'<p style="margin:4px 0;font-family:Arial,sans-serif;font-size:20px;'
+            f'font-weight:700;color:{_wtxt};">-</p>'
+        )
+
+    _lake_card_html = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td colspan="2" bgcolor="{lv_bg}" style="background-color:{lv_bg};padding:14px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="vertical-align:middle;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                color:{lv_txt};letter-spacing:1.5px;text-transform:uppercase;">Lake Level</p>
+            <p style="margin:4px 0 0;font-family:Arial,sans-serif;font-size:24px;
+                font-weight:700;color:{lv_txt};">Level&nbsp;{lv_num}</p>
+          </td>
+          <td style="vertical-align:middle;text-align:right;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:16px;font-weight:700;
+                color:{lv_txt};">{ahd:.3f}&nbsp;m&nbsp;AHD</p>
+            <p style="margin:4px 0 0;font-family:Arial,sans-serif;font-size:12px;
+                color:{lv_txt};">{trend_str if trend_str else 'No change this week'}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" bgcolor="#f8fafc" style="background:#f8fafc;padding:12px 16px 8px 16px;">
+      <table width="100%" cellpadding="0" cellspacing="3" border="0"
+             style="border-collapse:separate;border-spacing:3px;">
+        <tr>{_scale_cells}
+        </tr>
+      </table>
+      <p style="margin:6px 0 0;font-family:Arial,sans-serif;font-size:10px;
+          color:#64748b;text-align:center;">
+        Level 1 = full operations &nbsp;&bull;&nbsp; Level 5 = cease to pump
+        &nbsp;&bull;&nbsp; Intermediate levels reduce the daily pump limit
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" bgcolor="{_ROW_A}" style="background-color:{_ROW_A};padding:14px 16px;
+        vertical-align:top;border-top:1px solid {_BORDER};">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+          color:#1b2631;text-transform:uppercase;">Current Pump Limit</p>
+      <p style="margin:4px 0 2px;font-family:Arial,sans-serif;font-size:22px;
+          font-weight:700;color:#1b2631;">{lv_pump:.2f}&nbsp;ML/day</p>
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#475569;">
+        {lv_pump * 1000:.0f}&nbsp;kL/day maximum extraction
+      </p>
+    </td>
+    <td width="50%" style="background-color:{_wbg};padding:14px 16px;vertical-align:top;
+        border-top:1px solid {_BORDER};border-left:{_wbord};">
+      {_warn_html}
+    </td>
+  </tr>
+</table>"""
+
     # ── Assemble body ──────────────────────────────────────────────────────────
     body = (
         _header(f'Week ending {date_str}')
@@ -780,40 +903,7 @@ def build_html(now_syd):
 
         # ── Lake section ───────────────────────────────────────────────────────
         + _section('Lake Albert - Current Licence Level')
-        + f"""
-<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;">
-  <tr>
-    <td bgcolor="{lv_bg}" style="background-color:{lv_bg};padding:18px 24px;text-align:center;">
-      <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:{lv_txt};letter-spacing:1.5px;text-transform:uppercase;opacity:0.75;">
-          Licence Level</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;
-          color:{lv_txt};">Level&nbsp;{lv_num}</p>
-      <p style="margin:6px 0 0 0;font-family:Arial,sans-serif;font-size:14px;
-          color:{lv_txt};opacity:0.9;">{ahd:.3f}&nbsp;m&nbsp;AHD
-          {"&nbsp;&nbsp;" + trend_str if trend_str else ""}</p>
-    </td>
-  </tr>
-</table>"""
-
-        # Stats row - full border on every cell (border-collapse merges shared edges)
-        + f"""
-<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:8px;">
-  <tr>
-    {_stat_cell(50, _ROW_A,
-        'Max Extraction Rate',
-        f'{lv_pump:.2f}&nbsp;ML/day',
-        f'{lv_pump * 1000:.0f}&nbsp;kL/day under current licence')}
-    {_stat_cell(50, _ROW_B,
-        'Days to Next Level',
-        f'<span style="color:{days_col};">{days_display}</span>',
-        days_sub)}
-  </tr>
-</table>"""
-
-        + next_banner
+        + _lake_card_html
 
         # Lake chart
         + _section('Lake Level - Past 7 Days')
