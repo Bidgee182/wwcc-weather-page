@@ -807,6 +807,11 @@ def build_html(now_syd):
         _zn = _z['zone']
         _pump_lbl = (f'{_z["max_pump_ml_day"]:.2f}&nbsp;ML/day'
                      if _z['max_pump_ml_day'] > 0 else 'Cease')
+        if _z['min_ahd'] is not None:
+            _ahd_lbl = f'&ge;{_z["min_ahd"]:.3f}m'
+        else:
+            _prev_ahd = next((z['min_ahd'] for z in cfg['zone_thresholds'] if z['zone'] == _zn - 1), None)
+            _ahd_lbl  = f'&lt;{_prev_ahd:.3f}m' if _prev_ahd else ''
         if _zn < lv_num:
             _bg = _muted_bg[_zn]; _ft = _muted_tx[_zn]; _brd = 'none'; _fw = '400'
             _sub = (f'<p style="margin:1px 0 0;font-family:Arial,sans-serif;'
@@ -828,7 +833,9 @@ def build_html(now_syd):
             f'<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;'
             f'font-weight:{_fw};color:{_ft};">Level&nbsp;{_zn}</p>'
             f'<p style="margin:2px 0 0;font-family:Arial,sans-serif;font-size:9px;'
-            f'color:{_ft};">{_pump_lbl}</p>{_sub}</td>'
+            f'color:{_ft};">{_pump_lbl}</p>'
+            f'<p style="margin:1px 0 0;font-family:Arial,sans-serif;font-size:8px;'
+            f'color:{_ft};opacity:0.8;">{_ahd_lbl}</p>{_sub}</td>'
         )
 
     if nxt and days not in (None, float('inf')):
