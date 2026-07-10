@@ -166,6 +166,9 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
 <style type="text/css">
 @media only screen and (max-width:620px) {{
   table[width="600"] {{ width:100% !important; max-width:100% !important; }}
+  .mob-logo-cell {{ display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }}
+  .mob-logo-cell img {{ height:44px !important; width:auto !important; max-width:100% !important; }}
+  .mob-text-cell {{ display:block !important; width:100% !important; }}
 }}
 </style>
 </head>
@@ -180,16 +183,16 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">WAGGA WAGGA COUNTRY CLUB</p>
           <h1 style="margin:8px 0 0 0;font-size:22px;color:#ffffff;font-weight:bold;
               font-family:Arial,sans-serif;">Lake Level Alert</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;font-family:Arial,sans-serif;">
             Pumping rate change &nbsp;&bull;&nbsp; {now_str} AEST</p>
-        </td>
-        <td align="right" valign="middle" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>

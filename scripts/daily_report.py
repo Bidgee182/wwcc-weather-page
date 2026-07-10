@@ -945,7 +945,9 @@ _EMAIL_MOBILE_STYLE = """<style type="text/css">
   td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
   .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
   .mob-full  { width:100% !important; }
-  .mob-logo img { height:40px !important; width:auto !important; }
+  .mob-logo-cell { display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }
+  .mob-logo-cell img { height:44px !important; width:auto !important; max-width:100% !important; }
+  .mob-text-cell { display:block !important; width:100% !important; }
 }
 </style>"""
 
@@ -2166,7 +2168,10 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">
             WAGGA WAGGA COUNTRY CLUB
@@ -2175,9 +2180,6 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
               font-family:Arial,sans-serif;">Daily Weather &amp; Course Snapshot</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
               font-family:Arial,sans-serif;">{yesterday_str}</p>
-        </td>
-        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>
@@ -2319,7 +2321,10 @@ def build_weekly_html(history, week_end_date):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">
             WAGGA WAGGA COUNTRY CLUB
@@ -2328,9 +2333,6 @@ def build_weekly_html(history, week_end_date):
               font-family:Arial,sans-serif;">Weekly Weather &amp; Course Summary</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
               font-family:Arial,sans-serif;">{date_str}</p>
-        </td>
-        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>
@@ -2481,7 +2483,10 @@ def build_monthly_html(history, month_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">
             WAGGA WAGGA COUNTRY CLUB
@@ -2490,9 +2495,6 @@ def build_monthly_html(history, month_label):
               font-family:Arial,sans-serif;">Monthly Weather &amp; Course Report</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
               font-family:Arial,sans-serif;">{month_label}</p>
-        </td>
-        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>
@@ -2675,7 +2677,10 @@ def build_yearly_html(history, year_label):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">
             WAGGA WAGGA COUNTRY CLUB
@@ -2684,9 +2689,6 @@ def build_yearly_html(history, year_label):
               font-family:Arial,sans-serif;">Annual Weather &amp; Course Report</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
               font-family:Arial,sans-serif;">{year_label}</p>
-        </td>
-        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>
@@ -2851,7 +2853,10 @@ def _gk_meter_wrap(title, subtitle, body_rows, now_sydney):
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td valign="top">
+        <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+          {_white_logo_html()}
+        </td>
+        <td valign="top" class="mob-text-cell">
           <p style="margin:0;font-size:10px;color:#a8d8bc;letter-spacing:1.5px;
               text-transform:uppercase;font-family:Arial,sans-serif;">
             WAGGA WAGGA COUNTRY CLUB
@@ -2860,9 +2865,6 @@ def _gk_meter_wrap(title, subtitle, body_rows, now_sydney):
               font-family:Arial,sans-serif;">{title}</h1>
           <p style="margin:6px 0 0 0;font-size:13px;color:#a8d8bc;
               font-family:Arial,sans-serif;">{subtitle}</p>
-        </td>
-        <td align="right" valign="middle" class="mob-logo" style="padding-left:16px;white-space:nowrap;">
-          {_white_logo_html()}
         </td>
       </tr>
     </table>

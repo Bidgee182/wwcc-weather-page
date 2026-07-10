@@ -208,7 +208,10 @@ def _header(title, subtitle=''):
     <td bgcolor="{HDR_BG}" style="background-color:{HDR_BG};padding:20px 24px 18px 24px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td valign="middle">
+          <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+            {_white_logo_html()}
+          </td>
+          <td valign="middle" class="mob-text-cell">
             <p style="margin:0 0 6px 0;font-size:10px;color:#a9cce3;letter-spacing:2px;
                 text-transform:uppercase;font-family:Arial,sans-serif;font-weight:normal;">
               Wagga Wagga Country Club &nbsp;&bull;&nbsp; Lake Albert
@@ -216,10 +219,6 @@ def _header(title, subtitle=''):
             <h1 style="margin:0;font-size:24px;color:#ffffff;font-weight:bold;
                 font-family:Arial,sans-serif;line-height:1.2;">{title}</h1>
             {sub}
-          </td>
-          <td align="right" valign="middle" class="mob-logo"
-              style="padding-left:20px;white-space:nowrap;min-width:80px;">
-            {_white_logo_html()}
           </td>
         </tr>
       </table>
@@ -307,7 +306,9 @@ def _wrap(body):
   <style type="text/css">
   @media only screen and (max-width:620px) {{
     table[width="600"] {{ width:100% !important; max-width:100% !important; }}
-    .mob-logo img {{ height:40px !important; width:auto !important; }}
+    .mob-logo-cell {{ display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }}
+    .mob-logo-cell img {{ height:44px !important; width:auto !important; max-width:100% !important; }}
+    .mob-text-cell {{ display:block !important; width:100% !important; }}
   }}
   </style>
 <body style="margin:0;padding:16px;background-color:{BODY_BG};">
