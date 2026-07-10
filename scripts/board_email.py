@@ -38,7 +38,8 @@ log = logging.getLogger(__name__)
 _LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 _HDR_BG   = '#1a5276'
 _SEC_BG   = '#2471a3'
-_BODY_BG  = '#f0f4f8'
+_BODY_BG  = '#d6e4f0'   # outer page background — content sits on white card
+_CARD_BG  = '#ffffff'
 _BORDER   = '#a9cce3'
 _ROW_A    = '#d6eaf8'
 _ROW_B    = '#eaf4fb'
@@ -72,6 +73,7 @@ def _mark_sent_this_week(now_syd):
 # ── HTML helpers ───────────────────────────────────────────────────────────────
 
 def _wrap(body):
+    """Outer page shell: grey body background, white content card."""
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -83,13 +85,13 @@ def _wrap(body):
     .mob-logo-cell {{ display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }}
     .mob-logo-cell img {{ height:44px !important; width:auto !important; max-width:100% !important; }}
     .mob-text-cell {{ display:block !important; width:100% !important; }}
-    .mob-stat {{ width:100% !important; display:block !important; margin-bottom:10px !important; }}
+    .mob-stat {{ width:100% !important; display:block !important; border-top:none !important; }}
   }}
   </style>
 </head>
-<body style="margin:0;padding:16px;background-color:{_BODY_BG};">
+<body style="margin:0;padding:20px 8px;background-color:{_BODY_BG};">
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       bgcolor="{_BODY_BG}" style="background-color:{_BODY_BG};">
+       bgcolor="{_CARD_BG}" style="background-color:{_CARD_BG};">
   <tr><td>
 {body}
   </td></tr>
@@ -127,16 +129,34 @@ def _header(subtitle):
 
 
 def _section(text):
+    """Blue section header bar with generous top spacing."""
     return f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:14px;">
+       style="border-collapse:collapse;margin-top:28px;">
   <tr>
-    <td bgcolor="{_SEC_BG}" style="background-color:{_SEC_BG};padding:7px 20px;">
+    <td bgcolor="{_SEC_BG}" style="background-color:{_SEC_BG};padding:8px 20px;">
       <p style="margin:0;font-size:13px;color:#ffffff;font-weight:bold;
           letter-spacing:0.5px;font-family:Arial,sans-serif;">{text}</p>
     </td>
   </tr>
 </table>"""
+
+
+def _stat_cell(width_pct, bg, label, value_html, sub, accent=None):
+    """Single stat box — white card with coloured top accent, full border."""
+    top_col = accent or _SEC_BG
+    return (
+        f'<td class="mob-stat" width="{width_pct}%" bgcolor="#ffffff" '
+        f'style="background-color:#ffffff;padding:14px 18px;'
+        f'border:1px solid {_BORDER};border-top:3px solid {top_col};vertical-align:top;">'
+        f'<p style="margin:0 0 5px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;'
+        f'color:#64748b;letter-spacing:0.7px;text-transform:uppercase;">{label}</p>'
+        f'<p style="margin:0;font-family:Arial,sans-serif;font-size:20px;font-weight:700;'
+        f'color:{_HDR_BG};">{value_html}</p>'
+        f'<p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:11px;'
+        f'color:#64748b;">{sub}</p>'
+        f'</td>'
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -160,7 +180,7 @@ def _deg_to_compass(deg):
     return dirs[round(float(deg) / 22.5) % 16]
 
 
-# ── Chart ──────────────────────────────────────────────────────────────────────
+# ── Charts ─────────────────────────────────────────────────────────────────────
 
 def _seven_day_chart(readings):
     """QuickChart.io PNG — daily average AHD for past 7 days."""
@@ -270,9 +290,9 @@ def _tank_chart_html(readings):
             },
         },
     }
-    cfg_str  = json.dumps(config, separators=(',', ':'))
-    cfg_str  = cfg_str.replace('"callback":"|function(v){return v+\\"%\\"}"',
-                                '"callback":function(v){return v+"%"}')
+    cfg_str = json.dumps(config, separators=(',', ':'))
+    cfg_str = cfg_str.replace('"callback":"|function(v){return v+\\"%\\"}"',
+                               '"callback":function(v){return v+"%"}')
     url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=180&c={_up.quote(cfg_str)}'
     return (f'<img src="{url}" width="100%" alt="Tank level — past 7 days"'
             f' style="display:block;border-radius:6px;max-width:100%;">')
@@ -308,8 +328,8 @@ def build_html(now_syd):
     lv_bg    = level['color_bg']
     lv_txt   = level['color_text']
 
-    nxt        = lu.next_zone_below(ahd)
-    days, _    = lu.days_to_next_zone(ahd, month)
+    nxt     = lu.next_zone_below(ahd)
+    days, _ = lu.days_to_next_zone(ahd, month)
 
     cutoff_dt = datetime.now(timezone.utc) - timedelta(days=7)
     recent_lake = sorted(
@@ -320,10 +340,10 @@ def build_html(now_syd):
     )
     week_change = (ahd - float(recent_lake[0]['ahd'])) if recent_lake else None
 
-    cfg     = lu.get_config()
-    pan_mm  = cfg['evaporation']['monthly_pan_mm_day'][str(month)]
-    lake_mm = pan_mm * cfg['evaporation']['pan_factor']
-    evap_ml = lu.evap_ml_day(ahd, month)
+    cfg      = lu.get_config()
+    pan_mm   = cfg['evaporation']['monthly_pan_mm_day'][str(month)]
+    lake_mm  = pan_mm * cfg['evaporation']['pan_factor']
+    evap_ml  = lu.evap_ml_day(ahd, month)
     mth_name = now_syd.strftime('%B')
 
     # ── Days display ───────────────────────────────────────────────────────────
@@ -352,12 +372,11 @@ def build_html(now_syd):
     chart_html = _seven_day_chart(readings)
 
     # ── Weather calculations ───────────────────────────────────────────────────
-    today_str  = now_syd.date().isoformat()
+    today_str   = now_syd.date().isoformat()
     month_start = now_syd.date().replace(day=1).isoformat()
     year_start  = f'{now_syd.year}-01-01'
     cutoff_7    = (now_syd.date() - timedelta(days=7)).isoformat()
 
-    # Exclude today (may be incomplete); last 7 complete days
     wx_7   = [r for r in wx_rows if cutoff_7 <= r['date'] < today_str]
     wx_mtd = [r for r in wx_rows if month_start <= r['date'] < today_str]
     wx_ytd = [r for r in wx_rows if year_start  <= r['date'] < today_str]
@@ -366,6 +385,23 @@ def build_html(now_syd):
     rain_mtd = sum(float(r.get('rain_mm') or 0) for r in wx_mtd)
     rain_ytd = sum(float(r.get('rain_mm') or 0) for r in wx_ytd)
     rain_days_7 = sum(1 for r in wx_7 if float(r.get('rain_mm') or 0) >= 0.2)
+
+    et_7   = sum(float(r.get('et_mm') or 0) for r in wx_7)
+    et_mtd = sum(float(r.get('et_mm') or 0) for r in wx_mtd)
+
+    # Water balance: ET − rain (positive = deficit, negative = surplus)
+    bal_7   = et_7   - rain_7
+    bal_mtd = et_mtd - rain_mtd
+
+    def _bal_str(val):
+        if val > 0:
+            return f'{val:.1f}&nbsp;mm deficit'
+        elif val < 0:
+            return f'{abs(val):.1f}&nbsp;mm surplus'
+        return 'balanced'
+
+    def _bal_col(val):
+        return '#EB1E23' if val > 10 else ('#F58E1E' if val > 0 else '#00762A')
 
     temps_max = [float(r['temp_max']) for r in wx_7 if r.get('temp_max')]
     temps_min = [float(r['temp_min']) for r in wx_7 if r.get('temp_min')]
@@ -384,7 +420,29 @@ def build_html(now_syd):
                     if tank_vol_l is not None else '&mdash;')
     tank_cap_str = f'{tank_cap_l:,.0f}&nbsp;L&nbsp;({tank_cap_l/1000:.0f}&nbsp;kL)'
 
-    # ── Level reference table rows ─────────────────────────────────────────────
+    # Weekly tank change: net volume difference over past 7 days
+    tank_cutoff = (now_syd.date() - timedelta(days=7)).isoformat()
+    tank_week_readings = [
+        r for r in tank_readings
+        if r.get('date', '') >= tank_cutoff and r.get('volume_l') is not None
+    ]
+    if len(tank_week_readings) >= 2:
+        tank_week_readings.sort(key=lambda r: r['date'])
+        tank_change_l = float(tank_week_readings[-1]['volume_l']) - float(tank_week_readings[0]['volume_l'])
+        if tank_change_l < 0:
+            tank_week_str  = f'{abs(tank_change_l):,.0f}&nbsp;L used'
+            tank_week_sub  = f'net drawdown ({abs(tank_change_l)/1000:.1f}&nbsp;kL)'
+            tank_week_col  = _HDR_BG
+        else:
+            tank_week_str  = f'+{tank_change_l:,.0f}&nbsp;L'
+            tank_week_sub  = f'net gain ({tank_change_l/1000:.1f}&nbsp;kL)'
+            tank_week_col  = '#00762A'
+    else:
+        tank_week_str = '&mdash;'
+        tank_week_sub = 'insufficient data'
+        tank_week_col = '#64748b'
+
+    # ── Licence level reference table rows ────────────────────────────────────
     level_rows = ''
     for z in cfg['zone_thresholds']:
         is_cur = (z['zone'] == lv_num)
@@ -416,7 +474,7 @@ def build_html(now_syd):
     if nxt and days not in (None, float('inf')):
         next_banner = f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:10px;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
     <td style="background:#fff8e1;padding:12px 20px;border-left:4px solid #F58E1E;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#78350f;">
@@ -431,10 +489,7 @@ def build_html(now_syd):
 
     # ── Daily weather table rows ───────────────────────────────────────────────
     daily_rows = ''
-    th_style = (f'bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:6px 7px;'
-                f'font-family:Arial,sans-serif;font-size:11px;color:#ffffff;font-weight:700;'
-                f'border-right:1px solid {_BORDER};white-space:nowrap;"')
-    for i, r in enumerate(reversed(wx_7)):   # most recent first
+    for i, r in enumerate(reversed(wx_7)):
         bg = _ROW_A if i % 2 == 0 else _ROW_B
         try:
             _dt = datetime.fromisoformat(r['date'])
@@ -443,7 +498,7 @@ def build_html(now_syd):
             d_label = r['date']
         wind_dir = _deg_to_compass(r.get('wind_dir_deg'))
         wind_spd = r.get('wind_max_kmh', '').strip()
-        if wind_spd and wind_spd != '':
+        if wind_spd:
             wind_str = f'{float(wind_spd):.0f}&nbsp;km/h&nbsp;{wind_dir}'.strip()
         else:
             wind_str = wind_dir if wind_dir else '&mdash;'
@@ -473,7 +528,7 @@ def build_html(now_syd):
     body = (
         _header(f'Week ending {date_str}')
 
-        # ── Lake level badge ───────────────────────────────────────────────────
+        # ── Lake section ───────────────────────────────────────────────────────
         + _section('Lake Albert &mdash; Current Licence Level')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
@@ -483,8 +538,8 @@ def build_html(now_syd):
       <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
           color:{lv_txt};letter-spacing:1.5px;text-transform:uppercase;opacity:0.75;">
           Licence Level</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:21px;font-weight:700;
-          color:{lv_txt};">Level&nbsp;{lv_num} &mdash; {lv_name}</p>
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;
+          color:{lv_txt};">Level&nbsp;{lv_num}</p>
       <p style="margin:6px 0 0 0;font-family:Arial,sans-serif;font-size:14px;
           color:{lv_txt};opacity:0.9;">{ahd:.3f}&nbsp;m&nbsp;AHD
           {"&nbsp;&nbsp;" + trend_str if trend_str else ""}</p>
@@ -492,60 +547,50 @@ def build_html(now_syd):
   </tr>
 </table>"""
 
-        # ── Stats row ──────────────────────────────────────────────────────────
+        # Stats row — full border on every cell (border-collapse merges shared edges)
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:2px;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
-    <td class="mob-stat" width="50%" bgcolor="{_ROW_A}"
-        style="background-color:{_ROW_A};padding:16px 20px;border:1px solid {_BORDER};vertical-align:top;">
-      <p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">Max Extraction Rate</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:26px;font-weight:700;
-          color:{_HDR_BG};">{lv_pump:.2f}&nbsp;ML/day</p>
-      <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:12px;
-          color:#64748b;">{lv_pump * 1000:.0f}&nbsp;kL/day under current licence</p>
-    </td>
-    <td class="mob-stat" width="50%" bgcolor="{_ROW_B}"
-        style="background-color:{_ROW_B};padding:16px 20px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">Days to Next Level</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:26px;font-weight:700;
-          color:{days_col};">{days_display}</p>
-      <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:12px;
-          color:#64748b;">{days_sub}</p>
-    </td>
+    {_stat_cell(50, _ROW_A,
+        'Max Extraction Rate',
+        f'{lv_pump:.2f}&nbsp;ML/day',
+        f'{lv_pump * 1000:.0f}&nbsp;kL/day under current licence')}
+    {_stat_cell(50, _ROW_B,
+        'Days to Next Level',
+        f'<span style="color:{days_col};">{days_display}</span>',
+        days_sub)}
   </tr>
 </table>"""
 
         + next_banner
 
-        # ── Lake chart ─────────────────────────────────────────────────────────
+        # Lake chart
         + _section('Lake Level &mdash; Past 7 Days')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
     <td style="background:#0d1b2a;padding:12px;">
-      {chart_html if chart_html else '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
+      {chart_html if chart_html else
+       '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
     </td>
   </tr>
 </table>"""
 
-        # ── Water Licence Levels table ─────────────────────────────────────────
+        # Licence levels reference table
         + _section('Water Licence Levels')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
-    <th {th_style} style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid {_BORDER};
         text-align:left;">Level</th>
-    <th {th_style} style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid {_BORDER};
         text-align:left;">Threshold</th>
-    <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Max Extraction</th>
   </tr>
 {level_rows}
@@ -554,88 +599,81 @@ def build_html(now_syd):
         # ── Weather section ────────────────────────────────────────────────────
         + _section('Weather &mdash; Past 7 Days')
 
-        # 4-stat rainfall summary
+        # Row 1: rainfall totals + temp
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:2px;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
-    <td class="mob-stat" width="25%" bgcolor="{_ROW_A}"
-        style="background-color:{_ROW_A};padding:14px 16px;border:1px solid {_BORDER};vertical-align:top;">
-      <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.6px;text-transform:uppercase;">Week Rain</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:20px;font-weight:700;
-          color:{_HDR_BG};">{rain_7:.1f}&nbsp;mm</p>
-      <p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:11px;
-          color:#64748b;">{rain_days_7} rain day{'s' if rain_days_7 != 1 else ''}</p>
-    </td>
-    <td class="mob-stat" width="25%" bgcolor="{_ROW_B}"
-        style="background-color:{_ROW_B};padding:14px 16px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.6px;text-transform:uppercase;">Month to Date</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:20px;font-weight:700;
-          color:{_HDR_BG};">{rain_mtd:.1f}&nbsp;mm</p>
-      <p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:11px;
-          color:#64748b;">{mth_name}</p>
-    </td>
-    <td class="mob-stat" width="25%" bgcolor="{_ROW_A}"
-        style="background-color:{_ROW_A};padding:14px 16px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.6px;text-transform:uppercase;">Year to Date</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:20px;font-weight:700;
-          color:{_HDR_BG};">{rain_ytd:.1f}&nbsp;mm</p>
-      <p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:11px;
-          color:#64748b;">{now_syd.year}</p>
-    </td>
-    <td class="mob-stat" width="25%" bgcolor="{_ROW_B}"
-        style="background-color:{_ROW_B};padding:14px 16px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.6px;text-transform:uppercase;">Temp Range</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;font-weight:700;
-          color:{_HDR_BG};">{week_temp}</p>
-      <p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:11px;
-          color:#64748b;">past 7 days</p>
-    </td>
+    {_stat_cell(34, _ROW_A,
+        'Week Rainfall',
+        f'{rain_7:.1f}&nbsp;mm',
+        f'{rain_days_7} rain day{"s" if rain_days_7 != 1 else ""}')}
+    {_stat_cell(33, _ROW_B,
+        'Month to Date',
+        f'{rain_mtd:.1f}&nbsp;mm',
+        mth_name)}
+    {_stat_cell(33, _ROW_A,
+        'Year to Date',
+        f'{rain_ytd:.1f}&nbsp;mm',
+        str(now_syd.year))}
   </tr>
 </table>"""
 
-        # Daily weather table (scrollable on mobile)
+        # Row 2: temperature + water balance
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:2px;">
+       style="border-collapse:collapse;margin-top:0;">
   <tr>
-    <td style="padding:0;">
+    {_stat_cell(34, _ROW_B,
+        'Temp Range',
+        f'<span style="font-size:14px;">{week_temp}</span>',
+        'past 7 days')}
+    {_stat_cell(33, _ROW_A,
+        'Water Balance (Week)',
+        f'<span style="color:{_bal_col(bal_7)};">{_bal_str(bal_7)}</span>',
+        f'ET {et_7:.1f} mm &minus; Rain {rain_7:.1f} mm')}
+    {_stat_cell(33, _ROW_B,
+        f'Water Balance ({mth_name[:3]})',
+        f'<span style="color:{_bal_col(bal_mtd)};">{_bal_str(bal_mtd)}</span>',
+        f'ET {et_mtd:.1f} mm &minus; Rain {rain_mtd:.1f} mm')}
+  </tr>
+</table>"""
+
+        # Daily weather table
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:12px;">
+  <tr>
+    <td style="padding:0;border:1px solid {_BORDER};">
       <div style="overflow-x:auto;">
       <table cellpadding="0" cellspacing="0" border="0"
              style="border-collapse:collapse;min-width:560px;width:100%;">
         <tr>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:left;
               border-right:1px solid {_BORDER};white-space:nowrap;">Date</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">High</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">Low</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">Rain</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">Hum</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">ET</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">UV</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">Wind (Max)</th>
-          <th style="background-color:{_HDR_BG};padding:6px 7px;font-family:Arial,sans-serif;
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               white-space:nowrap;">Dew Pt</th>
         </tr>
@@ -650,44 +688,26 @@ def build_html(now_syd):
         + _section('Water Tank')
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:2px;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
-    <td class="mob-stat" width="33%" bgcolor="{_ROW_A}"
-        style="background-color:{_ROW_A};padding:16px 20px;border:1px solid {_BORDER};vertical-align:top;">
-      <p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">Tank Level</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:26px;font-weight:700;
-          color:{_HDR_BG};">{tank_pct_str}</p>
-      <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:12px;
-          color:#64748b;">{tank_status}</p>
-    </td>
-    <td class="mob-stat" width="33%" bgcolor="{_ROW_B}"
-        style="background-color:{_ROW_B};padding:16px 20px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">Water Available</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:16px;font-weight:700;
-          color:{_HDR_BG};">{tank_vol_str}</p>
-      <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:12px;
-          color:#64748b;">in tank now</p>
-    </td>
-    <td class="mob-stat" width="34%" bgcolor="{_ROW_A}"
-        style="background-color:{_ROW_A};padding:16px 20px;border:1px solid {_BORDER};
-               border-left:none;vertical-align:top;">
-      <p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-          color:#64748b;letter-spacing:0.8px;text-transform:uppercase;">Total Capacity</p>
-      <p style="margin:0;font-family:Arial,sans-serif;font-size:16px;font-weight:700;
-          color:{_HDR_BG};">{tank_cap_str}</p>
-      <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:12px;
-          color:#64748b;">tank capacity</p>
-    </td>
+    {_stat_cell(25, _ROW_A, 'Tank Level',
+        tank_pct_str, tank_status)}
+    {_stat_cell(25, _ROW_B, 'Water Available',
+        f'<span style="font-size:14px;">{tank_vol_str}</span>',
+        'in tank now')}
+    {_stat_cell(25, _ROW_A, 'This Week',
+        f'<span style="color:{tank_week_col};">{tank_week_str}</span>',
+        tank_week_sub)}
+    {_stat_cell(25, _ROW_B, 'Total Capacity',
+        f'<span style="font-size:14px;">{tank_cap_str}</span>',
+        'tank capacity')}
   </tr>
 </table>"""
 
         # Tank chart
         + (f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:2px;">
+       style="border-collapse:collapse;margin-top:8px;">
   <tr>
     <td style="background:#0d1b2a;padding:12px;">
       {tank_chart}
@@ -698,11 +718,11 @@ def build_html(now_syd):
         # ── Disclaimer ─────────────────────────────────────────────────────────
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:14px;">
+       style="border-collapse:collapse;margin-top:24px;">
   <tr>
-    <td style="padding:12px 20px;">
+    <td style="padding:14px 20px;border-top:1px solid {_BORDER};">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;
-          line-height:1.6;">
+          line-height:1.7;">
         <strong>Projection methodology:</strong> Days-to-next-level assumes pumping at the
         maximum current licence rate ({lv_pump:.2f}&nbsp;ML/day) with <em>no rainfall</em> &mdash;
         a conservative planning figure. {mth_name} open-water evaporation based on
@@ -710,6 +730,8 @@ def build_html(now_syd):
         ({pan_mm:.2f}&nbsp;mm/day pan &times;&nbsp;0.70&nbsp;lake factor
         = {lake_mm:.2f}&nbsp;mm/day = {evap_ml:.2f}&nbsp;ML/day at current lake area).
         Lake surface area adjusts as level changes. All figures are estimates only.
+        <strong>Water balance</strong> = ET &minus; rainfall; positive = irrigation demand
+        exceeds rainfall (deficit), negative = rainfall exceeds ET (surplus).
         Weather data from on-site Davis weather station.
       </p>
     </td>
@@ -719,9 +741,9 @@ def build_html(now_syd):
         # ── Footer ─────────────────────────────────────────────────────────────
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
-       style="border-collapse:collapse;margin-top:4px;">
+       style="border-collapse:collapse;margin-top:0;">
   <tr>
-    <td bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:14px 24px;text-align:center;">
+    <td bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:16px 24px;text-align:center;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
           color:rgba(255,255,255,0.45);">Wagga Wagga Country Club &middot; Lake Albert Irrigation System</p>
       <p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:10px;
