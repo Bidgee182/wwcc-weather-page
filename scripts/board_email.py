@@ -65,9 +65,26 @@ def _already_sent_this_week(now_syd):
         return False
 
 
-def _mark_sent_this_week(now_syd):
+def _get_last_week_projection():
+    """Return last week's stored projection data, or None if unavailable."""
+    try:
+        data = json.loads(_SENT_FILE.read_text())
+        if 'cease_date' in data and 'cost' in data:
+            return {
+                'cease_date': data['cease_date'],
+                'cost':       float(data['cost']),
+            }
+    except Exception:
+        pass
+    return None
+
+
+def _mark_sent_this_week(now_syd, proj=None):
     iso_week = now_syd.strftime('%G-W%V')
-    _SENT_FILE.write_text(json.dumps({'sent_week': iso_week}))
+    payload  = {'sent_week': iso_week}
+    if proj:
+        payload.update(proj)
+    _SENT_FILE.write_text(json.dumps(payload))
 
 
 # ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -318,7 +335,7 @@ def build_html(now_syd):
     ahd = lake_latest.get('lake_ahd')
     if ahd is None:
         log.error('No lake_ahd in farmbot_lake_latest.json')
-        return None
+        return None, None
 
     month    = now_syd.month
     level    = lu.current_zone_info(ahd)
@@ -389,9 +406,54 @@ def build_html(now_syd):
     et_7   = sum(float(r.get('et_mm') or 0) for r in wx_7)
     et_mtd = sum(float(r.get('et_mm') or 0) for r in wx_mtd)
 
-    # Water balance: ET − rain (positive = deficit, negative = surplus)
+    # Water balance: ET - rain (positive = deficit, negative = surplus)
     bal_7   = et_7   - rain_7
     bal_mtd = et_mtd - rain_mtd
+
+    # ── Cease-to-pump projection ───────────────────────────────────────────────
+    cease_date    = lu.project_to_cease(ahd, now_syd.date())
+    cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
+    last_proj     = _get_last_week_projection()
+
+    # Rainfall savings (two-component method — see town-water-cost-report.html)
+    cfg_tw      = lu.get_config()['town_water']
+    irrig_kl    = cfg_tw['daily_kl_by_month']
+    cost_per_kl = cfg_tw['cost_per_kl']
+    active_m    = set(lu.get_config()['irrigation_season']['active_months'])
+
+    # Component 1: rain falling directly on lake surface (ML)
+    rain_on_lake_ml = rain_7 * lu.lake_area_m2(ahd) / 1_000_000
+
+    # Component 2: irrigation not pumped because rain covered ET demand (ML)
+    # Only applies in active irrigation months; uses ET not BOM evaporation
+    if month in active_m and et_7 > 0:
+        et_covered_frac = min(rain_7, et_7) / et_7  # fraction of ET met by rain
+        irrig_saved_ml  = et_covered_frac * float(irrig_kl.get(str(month), 0)) / 1000.0
+    else:
+        irrig_saved_ml  = 0.0
+
+    total_rain_ml = rain_on_lake_ml + irrig_saved_ml
+
+    # Convert ML benefit to cost savings using the boundary month rates
+    rainfall_savings = None
+    rain_days_saved  = None
+    if cease_date and total_rain_ml > 0:
+        bm        = cease_date.month   # boundary month
+        bm_evap   = lu.evap_ml_day(ahd, bm)
+        bm_pump   = float(irrig_kl.get(str(bm), 0)) / 1000.0
+        bm_draw   = bm_evap + bm_pump
+        bm_tw_day = float(irrig_kl.get(str(bm), 0)) * cost_per_kl
+        if bm_draw > 0:
+            rain_days_saved  = total_rain_ml / bm_draw
+            rainfall_savings = rain_days_saved * bm_tw_day
+
+    # Projection data to persist for next week's comparison
+    proj_data = None
+    if cease_date and cost_to_march is not None:
+        proj_data = {
+            'cease_date': cease_date.isoformat(),
+            'cost':       round(cost_to_march, 2),
+        }
 
     def _bal_str(val):
         if val > 0:
@@ -487,6 +549,89 @@ def build_html(now_syd):
   </tr>
 </table>"""
 
+    # ── Cease-to-pump projection banner ───────────────────────────────────────
+    projection_banner = ''
+    if lv_num >= 2:  # show when not at Normal Operations (Level 1)
+        if cease_date is None:
+            # Already at or below cease level
+            _pb_date_html = '<span style="color:#b83c3c;">CEASE LEVEL REACHED</span>'
+            _pb_days_html = 'extraction must stop now'
+            _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march else '-')
+            _pb_cost_sub  = f'today to 31 Mar {now_syd.year + 1}'
+        else:
+            _cease_str    = f'{cease_date.day} {cease_date.strftime("%b %Y")}'
+            _days_away    = (cease_date - now_syd.date()).days
+            _pb_date_html = _cease_str
+            _pb_days_html = f'{_days_away:,} days from today'
+            _end_yr       = cease_date.year + (1 if cease_date.month > 3 else 0)
+            _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
+            _pb_cost_sub  = f'{_cease_str} to 31 Mar {_end_yr}'
+
+        # Rainfall row - only shown if meaningful rain fell this week
+        _rain_row = ''
+        if rain_7 >= 2.0 and cease_date is not None:
+            _net_mm      = max(0.0, rain_7 - et_7)
+            _irrig_label = (f'Irrigation saved: ~{irrig_saved_ml * 1000:.0f}&nbsp;kL'
+                            if month in active_m and irrig_saved_ml > 0
+                            else 'Off-season (no irrigation saving)')
+            _sav_str     = (f'~${rainfall_savings:,.0f}' if rainfall_savings is not None else '-')
+            _days_str    = (f'~{rain_days_saved:.1f}&nbsp;days' if rain_days_saved is not None else '-')
+            _rain_row = f"""
+      <tr>
+        <td colspan="2" style="padding:10px 16px 12px 16px;border-top:1px solid #fca5a5;
+            background:#fff5f5;">
+          <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
+              color:#7f1d1d;line-height:1.8;">
+            <strong>This week's rainfall impact</strong><br>
+            Rain: {rain_7:.1f}&nbsp;mm &nbsp;&bull;&nbsp;
+            ET: {et_7:.1f}&nbsp;mm &nbsp;&bull;&nbsp;
+            Net effective benefit: {_net_mm:.1f}&nbsp;mm<br>
+            Lake rain gain: ~{rain_on_lake_ml:.1f}&nbsp;ML &nbsp;&bull;&nbsp;
+            {_irrig_label}<br>
+            <strong>Est. cost saving from rainfall this week: {_sav_str}</strong>
+            &nbsp;(cease date {_days_str} later than without this rain)
+          </p>
+        </td>
+      </tr>"""
+
+        projection_banner = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:8px;">
+  <tr>
+    <td style="padding:0;border:1px solid #fca5a5;border-left:4px solid #b83c3c;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td colspan="2" bgcolor="#b83c3c" style="background-color:#b83c3c;padding:7px 16px;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+                color:#ffffff;text-transform:uppercase;letter-spacing:0.5px;">
+              Cease-to-Pump Projection - No future rainfall assumed
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td width="50%" style="background:#fef2f2;padding:12px 16px;
+              border-right:1px solid #fca5a5;vertical-align:top;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">Projected Cease Date</p>
+            <p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:20px;
+                font-weight:700;color:#b83c3c;">{_pb_date_html}</p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
+                color:#991b1b;">{_pb_days_html}</p>
+          </td>
+          <td width="50%" style="background:#fef2f2;padding:12px 16px;vertical-align:top;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">Est. Town Water Cost</p>
+            <p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:20px;
+                font-weight:700;color:#b83c3c;">{_pb_cost_str}</p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
+                color:#991b1b;">{_pb_cost_sub}</p>
+          </td>
+        </tr>{_rain_row}
+      </table>
+    </td>
+  </tr>
+</table>"""
+
     # ── Daily weather table rows ───────────────────────────────────────────────
     daily_rows = ''
     for i, r in enumerate(reversed(wx_7)):
@@ -564,6 +709,7 @@ def build_html(now_syd):
 </table>"""
 
         + next_banner
+        + projection_banner
 
         # Lake chart
         + _section('Lake Level - Past 7 Days')
@@ -753,7 +899,7 @@ def build_html(now_syd):
 </table>"""
     )
 
-    return _wrap(body)
+    return _wrap(body), proj_data
 
 
 # ── Send ───────────────────────────────────────────────────────────────────────
@@ -821,8 +967,8 @@ def main():
             log.info('Board email already sent this week - skipping (use --force to override)')
             return
 
-    subject = f'Weekly Board Weather and Water Update - {now_syd.day} {now_syd.strftime("%B %Y")}'
-    html    = build_html(now_syd)
+    subject   = f'Weekly Board Weather and Water Update - {now_syd.day} {now_syd.strftime("%B %Y")}'
+    html, proj = build_html(now_syd)
 
     if html is None:
         log.error('Could not build email - no lake data')
@@ -838,7 +984,7 @@ def main():
     sent = send_email(subject, html, test_mode=args.test)
 
     if sent and not args.test:
-        _mark_sent_this_week(now_syd)
+        _mark_sent_this_week(now_syd, proj)
         log.info('Sent-this-week guard updated')
 
 

@@ -127,3 +127,90 @@ def days_to_next_zone(ahd, month):
         return float('inf'), nxt
 
     return vol_ml / total_loss, nxt
+
+
+# ── Cease-to-pump projection ───────────────────────────────────────────────────
+
+def project_to_cease(ahd, start_date):
+    """Day-by-day simulation: date AHD hits the cease-to-pump threshold.
+
+    No future rainfall assumed. Each day deducts:
+      - Lake surface evaporation: BOM pan × pan_factor × lake_area (ML)
+      - Irrigation pumping (ML): from daily_kl_by_month in lake_config.json,
+        only in active_months (no irrigation Jun/Jul/Aug).
+
+    The cease threshold is derived from the lowest numeric min_ahd in
+    zone_thresholds (Level 4 boundary = 189.650 m AHD).
+
+    Returns:
+        datetime.date  projected cease date
+        None           if ahd is already at or below cease level
+    """
+    from datetime import timedelta
+
+    cfg       = get_config()
+    pan_rates = cfg['evaporation']['monthly_pan_mm_day']
+    pf        = cfg['evaporation']['pan_factor']
+    irrig_kl  = cfg['town_water']['daily_kl_by_month']
+    active_m  = set(cfg['irrigation_season']['active_months'])
+    cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds'] if z['min_ahd'] is not None)
+
+    cur_ahd  = float(ahd)
+    cur_date = start_date
+
+    if cur_ahd <= cease_ahd:
+        return None
+
+    for _ in range(1095):  # 3-year cap
+        m    = cur_date.month
+        area = lake_area_m2(cur_ahd)
+
+        # BOM open-water evaporation (ML/day)
+        evap_ml  = float(pan_rates[str(m)]) * pf * area / 1_000_000
+
+        # Irrigation pumped from lake (ML/day) - zero in off-season months
+        irrig_ml = float(irrig_kl.get(str(m), 0)) / 1000.0 if m in active_m else 0.0
+
+        # AHD drop: volume_m3 = ML × 1000; depth = volume_m3 / area_m2
+        cur_ahd  -= (evap_ml + irrig_ml) * 1000.0 / area
+        cur_date += timedelta(days=1)
+
+        if cur_ahd <= cease_ahd:
+            return cur_date
+
+    return None
+
+
+def town_water_cost_projection(cease_date, end_date=None):
+    """Estimated town water cost from cease_date to end_date.
+
+    Counts only days in active irrigation months (daily_kl_by_month from
+    lake_config.json) at cost_per_kl. No fixed service charges included.
+
+    Args:
+        cease_date: datetime.date extraction ceases
+        end_date:   datetime.date to stop counting
+                    (defaults to 31 March of next calendar year)
+
+    Returns:
+        float  total estimated cost in dollars
+    """
+    from datetime import date, timedelta
+
+    cfg      = get_config()
+    cost_kl  = cfg['town_water']['cost_per_kl']
+    irrig_kl = cfg['town_water']['daily_kl_by_month']
+    active_m = set(cfg['irrigation_season']['active_months'])
+
+    if end_date is None:
+        yr       = cease_date.year + (1 if cease_date.month > 3 else 0)
+        end_date = date(yr, 3, 31)
+
+    total = 0.0
+    cur   = cease_date
+    while cur <= end_date:
+        if cur.month in active_m:
+            total += float(irrig_kl.get(str(cur.month), 0)) * cost_kl
+        cur += timedelta(days=1)
+
+    return total

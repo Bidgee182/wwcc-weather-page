@@ -40,7 +40,17 @@
   },
 
   "town_water": {
-    "_note": "Context only — not displayed in emails. Used for internal budgeting awareness.",
-    "cost_per_kl": 1.77
+    "_note": "cost_per_kl = volume charge only (no fixed service fee). daily_kl_by_month derived from FarmBot tank delta-method Feb/Mar 2026, scaled by BOM pan for other months. Jun/Jul/Aug = 0 (no irrigation).",
+    "cost_per_kl": 1.77,
+    "daily_kl_by_month": {
+      "1": 387, "2": 336, "3": 197, "4": 160, "5": 93,
+      "6": 0,   "7": 0,   "8": 0,
+      "9": 189, "10": 269, "11": 347, "12": 393
+    }
+  },
+
+  "irrigation_season": {
+    "_note": "Months in which the course irrigates (no irrigation Jun/Jul/Aug). Used by cease-to-pump projection and town water cost calculation.",
+    "active_months": [1, 2, 3, 4, 9, 10, 11, 12]
   }
 }
