@@ -121,18 +121,18 @@ def load_data():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def fmt_ahd(ahd):
-    if ahd is None: return '&mdash;'
+    if ahd is None: return '-'
     return f'{ahd:.3f}&nbsp;m&nbsp;AHD'
 
 def fmt_depth(ahd):
-    if ahd is None: return '&mdash;'
+    if ahd is None: return '-'
     return f'{ahd - LAKE_VOL_BOTTOM:.2f}&nbsp;m'
 
 def activity_status(ahd):
     if ahd is None: return ('Unknown', '#888888', '#ffffff')
     depth = ahd - LAKE_VOL_BOTTOM
     if depth >= 1.8: return ('All Vessels Permitted',                        '#1e8449', '#ffffff')
-    if depth >= 1.2: return ('No Water Skiing \u2014 Sailing & Leisure OK', '#e67e22', '#ffffff')
+    if depth >= 1.2: return ('No Water Skiing - Sailing & Leisure OK', '#e67e22', '#ffffff')
     if depth >= 0.6: return ('Sailboats & Paddle Craft Only',                '#d4ac0d', '#1b2631')
     return                   ('No Boating',                                   '#c0392b', '#ffffff')
 
@@ -292,7 +292,7 @@ def _footer(now_syd):
           font-family:Arial,sans-serif;">
         Generated {now_syd.strftime('%-d %b %Y %H:%M')} AEST &nbsp;&bull;&nbsp;
         Lake Albert, Wagga Wagga NSW &nbsp;&bull;&nbsp;
-        Auto-generated &mdash; do not reply to this email.
+        Auto-generated - do not reply to this email.
       </p>
     </td>
   </tr>
@@ -334,7 +334,7 @@ def build_daily(data, now_syd):
         ).astimezone(SYDNEY_TZ)
         lake_ts  = lake_dt.strftime('%-d %b %Y %H:%M')
     except Exception:
-        lake_ts = '&mdash;'
+        lake_ts = '-'
 
     act_lbl, act_bg, act_fg = activity_status(ahd)
 
@@ -372,7 +372,7 @@ def build_daily(data, now_syd):
         chg_sign = '+' if daily_chg_ahd >= 0 else ''
         chg_str  = f'{chg_sign}{daily_chg_ahd:.3f}&nbsp;m ({chg_sign}{daily_chg_ml:.1f}&nbsp;ML)'
     else:
-        chg_str = '&mdash;'
+        chg_str = '-'
 
     # Evaporation
     if daily_chg_ml is not None:
@@ -380,7 +380,7 @@ def build_daily(data, now_syd):
         evap_str = f'{evap_ml:.1f}&nbsp;ML'
     else:
         evap_ml  = None
-        evap_str = '&mdash;'
+        evap_str = '-'
 
     # Yesterday snapshot — volume/change/evap based on yesterday's last reading
     yday_vol_ml  = _ahd_to_ml(today_ahd_r)
@@ -399,14 +399,14 @@ def build_daily(data, now_syd):
     body += _kv_table([
         ('Volume',             (f'{yday_vol_ml:.0f}&nbsp;ML'
                                 f' ({yday_vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)')
-                               if yday_vol_ml is not None else '&mdash;'),
+                               if yday_vol_ml is not None else '-'),
         ('Daily Level Change', chg_str),
         ('Evaporation (est.)', evap_str),
         ('Lake Level (AHD)',   fmt_ahd(today_ahd_r)),
     ])
 
     if yday_wx:
-        body += _section(f"YESTERDAY'S WEATHER &mdash; {fmt_date(yesterday).upper()}")
+        body += _section(f"YESTERDAY'S WEATHER - {fmt_date(yesterday).upper()}")
         wx_rows = []
         if yday_wx.get('tMax') is not None:
             tmax_str = f"{yday_wx['tMax']:.1f}&nbsp;&deg;C"
@@ -426,7 +426,7 @@ def build_daily(data, now_syd):
             body += _kv_table(wx_rows)
 
     body += _footer(now_syd)
-    subject = f"Lake Albert Daily Report \u2014 {now_syd.strftime('%-d %b %Y')}"
+    subject = f"Lake Albert Daily Report - {now_syd.strftime('%-d %b %Y')}"
     return _wrap(body), subject
 
 
@@ -486,20 +486,20 @@ def build_weekly(data, now_syd):
         evap_ml  = max(0.0, -week_chg_ml - total_pump_ml)
         evap_str = f'{evap_ml:.1f}&nbsp;ML'
     else:
-        chg_str  = '&mdash;'
-        evap_str = '&mdash;'
+        chg_str  = '-'
+        evap_str = '-'
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '-'),
         ('Week Level Change',   chg_str),
         ('Evaporation (est.)',  evap_str),
         ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
-    body += _section('DAILY LAKE LEVELS &mdash; PAST 7 DAYS')
+    body += _section('DAILY LAKE LEVELS - PAST 7 DAYS')
     level_rows = []
     prev_l = prev_level_wk
     for d, level_ahd in daily_levels:
@@ -509,8 +509,8 @@ def build_weekly(data, now_syd):
         pump_ml = float(pump_d.get('ml', 0)) if pump_d else 0.0
         evap_d  = max(0.0, -chg_ml - pump_ml) if chg_ml is not None else None
         sign    = '+' if (chg_ahd or 0) >= 0 else ''
-        chg_s   = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '&mdash;'
-        evap_s  = f'{evap_d:.1f}' if evap_d is not None else '&mdash;'
+        chg_s   = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '-'
+        evap_s  = f'{evap_d:.1f}' if evap_d is not None else '-'
         a_lbl, a_bg, _ = activity_status(level_ahd)
         level_rows.append((
             d.strftime('%a %-d %b'),
@@ -532,7 +532,7 @@ def build_weekly(data, now_syd):
     body += _kv_table(wx_rows)
 
     body += _footer(now_syd)
-    subject = (f"Lake Albert Weekly Report \u2014 "
+    subject = (f"Lake Albert Weekly Report - "
                f"{week_start.strftime('%-d %b')}\u2013{fmt_date(week_end)}")
     return _wrap(body), subject
 
@@ -586,31 +586,31 @@ def build_monthly(data, now_syd):
         evap_ml  = max(0.0, -month_chg_ml - total_pump_ml)
         evap_str = f'{evap_ml:.1f}&nbsp;ML'
     else:
-        chg_str  = '&mdash;'
-        evap_str = '&mdash;'
+        chg_str  = '-'
+        evap_str = '-'
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '-'),
         ('Month Level Change',  chg_str),
         ('Evaporation (est.)',  evap_str),
         ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
-    body += _section(f'LAKE LEVELS &mdash; {month_label.upper()}')
+    body += _section(f'LAKE LEVELS - {month_label.upper()}')
     body += _kv_table([
         ('Highest Level (AHD)', fmt_ahd(ahd_max)),
         ('Lowest Level (AHD)',  fmt_ahd(ahd_min)),
         ('Average Level (AHD)', fmt_ahd(ahd_avg)),
         ('Highest Depth',       fmt_depth(ahd_max)),
         ('Lowest Depth',        fmt_depth(ahd_min)),
-        ('Readings Recorded',   str(len(ahd_vals)) if ahd_vals else '&mdash;'),
+        ('Readings Recorded',   str(len(ahd_vals)) if ahd_vals else '-'),
     ])
 
     # Per-day breakdown
-    body += _section(f'DAILY BREAKDOWN &mdash; {month_label.upper()}')
+    body += _section(f'DAILY BREAKDOWN - {month_label.upper()}')
     all_month_days = [month_start + timedelta(days=i)
                       for i in range((month_end - month_start).days + 1)]
     day_before_m    = month_start - timedelta(days=1)
@@ -628,8 +628,8 @@ def build_monthly(data, now_syd):
         pump_ml  = float(pump_d.get('ml', 0)) if pump_d else 0.0
         evap_d   = max(0.0, -chg_ml - pump_ml) if chg_ml is not None else None
         sign     = '+' if (chg_ahd or 0) >= 0 else ''
-        chg_s    = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '&mdash;'
-        evap_s   = f'{evap_d:.1f}' if evap_d is not None else '&mdash;'
+        chg_s    = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '-'
+        evap_s   = f'{evap_d:.1f}' if evap_d is not None else '-'
         daily_rows.append((
             d.strftime('%-d %b'),
             fmt_ahd(day_ahd),
@@ -640,7 +640,7 @@ def build_monthly(data, now_syd):
         prev_ahd_m = day_ahd
     body += _data_table(['Date', 'Level (AHD)', 'Depth', 'Change', 'Evap (ML)'], daily_rows)
 
-    body += _section(f'WEATHER SUMMARY &mdash; {month_label.upper()}')
+    body += _section(f'WEATHER SUMMARY - {month_label.upper()}')
     wx_rows = []
     if wx_tmax is not None: wx_rows.append(('Peak Max Temperature',  f'{wx_tmax:.1f}&nbsp;&deg;C'))
     if wx_tmin is not None: wx_rows.append(('Lowest Min Temperature', f'{wx_tmin:.1f}&nbsp;&deg;C'))
@@ -651,7 +651,7 @@ def build_monthly(data, now_syd):
     body += _kv_table(wx_rows)
 
     body += _footer(now_syd)
-    subject = f"Lake Albert Monthly Report \u2014 {month_label}"
+    subject = f"Lake Albert Monthly Report - {month_label}"
     return _wrap(body), subject
 
 
@@ -695,7 +695,7 @@ def build_yearly(data, now_syd):
     cy_label  = str(year_end.year)
     period    = f"{fmt_date(year_start)} &ndash; {fmt_date(year_end)}"
 
-    body  = _header(f'Lake Albert Annual Report &mdash; {cy_label}', period)
+    body  = _header(f'Lake Albert Annual Report - {cy_label}', period)
 
     vol_ml  = _ahd_to_ml(ahd)
     vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
@@ -715,30 +715,30 @@ def build_yearly(data, now_syd):
         evap_ml  = max(0.0, -year_chg_ml - total_pump_ml)
         evap_str = f'{evap_ml:.1f}&nbsp;ML'
     else:
-        chg_str  = '&mdash;'
-        evap_str = '&mdash;'
+        chg_str  = '-'
+        evap_str = '-'
 
     body += _section('CURRENT LAKE STATUS')
     body += _kv_table([
         ('Current Depth',       fmt_depth(ahd)),
         ('Activity Status',     _pill(act_lbl, act_bg, act_fg)),
-        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '&mdash;'),
+        ('Volume',              f'{vol_ml:.0f}&nbsp;ML ({vol_pct:.1f}% of {LAKE_FULL_ML:.0f}&nbsp;ML)' if vol_ml is not None else '-'),
         ('Year Level Change',   chg_str),
         ('Evaporation (est.)',  evap_str),
         ('Current Level (AHD)', fmt_ahd(ahd)),
     ])
 
-    body += _section(f'LAKE LEVEL SUMMARY &mdash; {cy_label}')
+    body += _section(f'LAKE LEVEL SUMMARY - {cy_label}')
     body += _kv_table([
-        ('Highest Level (AHD)', f"{fmt_ahd(ahd_max)}{(' &mdash; ' + peak_date) if peak_date else ''}"),
-        ('Lowest Level (AHD)',  f"{fmt_ahd(ahd_min)}{(' &mdash; ' + low_date)  if low_date  else ''}"),
+        ('Highest Level (AHD)', f"{fmt_ahd(ahd_max)}{(' - ' + peak_date) if peak_date else ''}"),
+        ('Lowest Level (AHD)',  f"{fmt_ahd(ahd_min)}{(' - ' + low_date)  if low_date  else ''}"),
         ('Average Level (AHD)', fmt_ahd(ahd_avg)),
         ('Highest Depth',       fmt_depth(ahd_max)),
         ('Lowest Depth',        fmt_depth(ahd_min)),
-        ('Total Readings',      str(len(ahd_vals)) if ahd_vals else '&mdash;'),
+        ('Total Readings',      str(len(ahd_vals)) if ahd_vals else '-'),
     ])
 
-    body += _section(f'WEATHER SUMMARY &mdash; {cy_label}')
+    body += _section(f'WEATHER SUMMARY - {cy_label}')
     wx_rows = []
     if wx_tmax is not None:  wx_rows.append(('Peak Max Temperature',   f'{wx_tmax:.1f}&nbsp;&deg;C'))
     if wx_tmin is not None:  wx_rows.append(('Lowest Min Temperature', f'{wx_tmin:.1f}&nbsp;&deg;C'))
@@ -751,7 +751,7 @@ def build_yearly(data, now_syd):
     body += _kv_table(wx_rows)
 
     # Per-month breakdown
-    body += _section(f'MONTHLY BREAKDOWN &mdash; {cy_label}')
+    body += _section(f'MONTHLY BREAKDOWN - {cy_label}')
     monthly_rows = []
     for month in range(1, 13):
         m_start = ddate(year_end.year, month, 1)
@@ -777,12 +777,12 @@ def build_yearly(data, now_syd):
         m_wx       = [r for r in wx_year if ddate.fromisoformat(r['date']).month == month]
         m_rain     = sum(r.get('rain', 0) or 0 for r in m_wx)
         sign_m     = '+' if (m_chg or 0) >= 0 else ''
-        chg_s      = f'{sign_m}{m_chg:.3f}m' if m_chg is not None else '&mdash;'
-        evap_s     = f'{m_evap_ml:.1f}' if m_evap_ml is not None else '&mdash;'
+        chg_s      = f'{sign_m}{m_chg:.3f}m' if m_chg is not None else '-'
+        evap_s     = f'{m_evap_ml:.1f}' if m_evap_ml is not None else '-'
         monthly_rows.append((
             m_start.strftime('%B'),
-            fmt_depth(m_max) if m_max is not None else '&mdash;',
-            fmt_depth(m_min) if m_min is not None else '&mdash;',
+            fmt_depth(m_max) if m_max is not None else '-',
+            fmt_depth(m_min) if m_min is not None else '-',
             chg_s,
             evap_s,
             f'{m_rain:.1f}',
@@ -793,7 +793,7 @@ def build_yearly(data, now_syd):
     )
 
     body += _footer(now_syd)
-    subject = f"Lake Albert Annual Report \u2014 {cy_label}"
+    subject = f"Lake Albert Annual Report - {cy_label}"
     return _wrap(body), subject
 
 

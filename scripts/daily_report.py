@@ -72,7 +72,7 @@ REPORTS_ROOT = Path('data/reports')
 
 CSV_HEADERS = [
     'date',
-    'temp_max', 'temp_min', 'temp_mean',
+    'temp_max', 'temp_min', 'temp_max_time', 'temp_min_time', 'temp_mean',
     'rh_mean',
     'wind_max_kmh', 'wind_mean_kmh', 'wind_dir_deg', 'wind_run_km',
     'rain_mm', 'et_mm', 'rain_rate_max_mmhr',
@@ -313,6 +313,7 @@ def process_davis_records(records):
     Returns dict of processed values.
     """
     temps_c, night_temps, rh_vals, wind_kmh_vals, rain_total, et_total = [], [], [], [], 0.0, 0.0
+    temps_ct = []  # (temp_c, rec_dt) pairs for tracking time of max/min
     pressures   = []
     uv_vals     = []   # uv_index_hi (daily max)
     uv_avg_vals = []   # uv_index_avg
@@ -456,7 +457,9 @@ def process_davis_records(records):
         if bar_in:
             pressures.append(float(bar_in) * 33.8639)
 
-        if t_c is not None: temps_c.append(t_c)
+        if t_c is not None:
+            temps_c.append(t_c)
+            temps_ct.append((t_c, rec_dt))
         if rh   is not None: rh_vals.append(rh)
         if ws_kmh is not None: wind_kmh_vals.append(ws_kmh)
         rain_total += rain_mm
@@ -479,6 +482,12 @@ def process_davis_records(records):
     # ── Daily summaries ────────────────────────────────────────────────────
     temp_max  = round(max(temps_c), 1)               if temps_c        else None
     temp_min  = round(min(temps_c), 1)               if temps_c        else None
+    if temps_ct:
+        temp_max_time = max(temps_ct, key=lambda x: x[0])[1].strftime('%-I:%M %p')
+        temp_min_time = min(temps_ct, key=lambda x: x[0])[1].strftime('%-I:%M %p')
+    else:
+        temp_max_time = None
+        temp_min_time = None
     temp_mean = round(sum(temps_c)/len(temps_c), 1)  if temps_c        else None
     rh_mean   = round(sum(rh_vals)/len(rh_vals), 1)  if rh_vals        else None
     wind_max  = round(max(wind_kmh_vals), 1)          if wind_kmh_vals  else None
@@ -545,6 +554,8 @@ def process_davis_records(records):
     return {
         'temp_max':          temp_max,
         'temp_min':          temp_min,
+        'temp_max_time':     temp_max_time,
+        'temp_min_time':     temp_min_time,
         'temp_mean':         temp_mean,
         'rh_mean':           rh_mean,
         'wind_max_kmh':      wind_max,
@@ -1367,7 +1378,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
                 <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:{banner_text};
                     text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
-                  Level {level_num} &mdash; {level_name}</div>
+                  Level {level_num} - {level_name}</div>
                 <div style="font-size:12px;color:{banner_text};opacity:0.75;margin-top:3px;">
                   {drop_text} &bull; {rise_text}
                 </div>
@@ -1492,7 +1503,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
                 <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
-                  Level {level_num} &mdash; {level_name}</div>
+                  Level {level_num} - {level_name}</div>
               </td>
               <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
                 <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
@@ -1620,7 +1631,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
                 <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
-                  Level {level_num} &mdash; {level_name}</div>
+                  Level {level_num} - {level_name}</div>
               </td>
               <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
                 <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
@@ -1778,7 +1789,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
                 <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;
                     color:{banner_text};text-transform:uppercase;opacity:0.7;margin-bottom:3px;">CURRENT LICENCE LEVEL</div>
                 <div style="font-size:17px;font-weight:700;color:{banner_text};line-height:1.2;">
-                  Level {level_num} &mdash; {level_name}</div>
+                  Level {level_num} - {level_name}</div>
               </td>
               <td valign="middle" align="right" style="padding-left:16px;white-space:nowrap;">
                 <div style="font-size:26px;font-weight:700;color:{banner_text};line-height:1;">{rate}</div>
@@ -2216,7 +2227,8 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
 
   <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([r for r in [
-        ('Max / Min Temp',   f"{row['temp_max']}° / {row['temp_min']}°C") if row.get('temp_max') is not None and row['temp_max'] not in ('', 'None') else None,
+        ('Max Temp',  f"{row['temp_max']}°C" + (f" <span style='color:#64748b;font-size:11px;'>({row['temp_max_time']})</span>" if row.get('temp_max_time') and str(row.get('temp_max_time','')) not in ('','None') else '')) if row.get('temp_max') is not None and row['temp_max'] not in ('', 'None') else None,
+        ('Min Temp',  f"{row['temp_min']}°C" + (f" <span style='color:#64748b;font-size:11px;'>({row['temp_min_time']})</span>" if row.get('temp_min_time') and str(row.get('temp_min_time','')) not in ('','None') else '')) if row.get('temp_min') is not None and row['temp_min'] not in ('', 'None') else None,
         ('Mean Temp',        f"{row['temp_mean']}°C") if row.get('temp_mean') is not None and row['temp_mean'] not in ('', 'None') else None,
         ('Relative Humidity', f"{row['rh_mean']}%") if row.get('rh_mean') is not None and row['rh_mean'] not in ('', 'None') else None,
         ('Overnight Low',    f"{night_min_str}°C") if night_min_str != '--' else None,
@@ -2250,7 +2262,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
 
   <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
     <p style="margin:0 0 14px 0;font-size:13px;color:#374151;font-family:Arial,sans-serif;">
-      Growing Degree Days (GDD) measure heat accumulation &mdash; higher values mean faster
+      Growing Degree Days (GDD) measure heat accumulation - higher values mean faster
       grass growth and increased disease pressure.
     </p>
     {_gk_kv_table([
