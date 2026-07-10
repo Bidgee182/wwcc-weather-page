@@ -1040,48 +1040,12 @@ def _ahd_to_ml(ahd):
     return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
 
 
-_WHITE_LOGO_B64_CACHE = None
-_WHITE_LOGO_DIMS = (160, 44)  # fallback (w, h)
-
-
-def _get_white_logo_b64():
-    global _WHITE_LOGO_B64_CACHE, _WHITE_LOGO_DIMS
-    if _WHITE_LOGO_B64_CACHE is not None:
-        return _WHITE_LOGO_B64_CACHE
-    try:
-        import io as _io, base64 as _b64
-        from PIL import Image
-        resp = requests.get(
-            'https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png',
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'},
-            timeout=10
-        )
-        resp.raise_for_status()
-        img = Image.open(_io.BytesIO(resp.content)).convert('RGBA')
-        target_h = 44
-        target_w = round(img.width * target_h / img.height)
-        img = img.resize((target_w, target_h), Image.LANCZOS)
-        r, g, b, a = img.split()
-        white = Image.new('L', img.size, 255)
-        white_img = Image.merge('RGBA', (white, white, white, a))
-        buf = _io.BytesIO()
-        white_img.save(buf, format='PNG')
-        b64 = _b64.b64encode(buf.getvalue()).decode('ascii')
-        _WHITE_LOGO_B64_CACHE = f'data:image/png;base64,{b64}'
-        _WHITE_LOGO_DIMS = (target_w, target_h)
-        return _WHITE_LOGO_B64_CACHE
-    except Exception as e:
-        logging.warning(f'Could not generate white logo: {e}')
-        return None
+_WHITE_LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 
 
 def _white_logo_html():
-    src = _get_white_logo_b64()
-    if src:
-        w, h = _WHITE_LOGO_DIMS
-        return (f'<img src="{src}" width="{w}" height="{h}" alt="Wagga Wagga Country Club"'
-                f' style="display:block;border:0;">')
-    return ''
+    return (f'<img src="{_WHITE_LOGO_URL}" width="194" height="44" alt="Wagga Wagga Country Club"'
+            f' style="display:block;border:0;">')
 
 
 _LAKE_LEVELS = [
