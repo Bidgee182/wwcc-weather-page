@@ -1108,41 +1108,114 @@ def _pumping_in_range(pumping, start_date, end_date):
     return sorted(result, key=lambda x: x['_date'])
 
 
-def _lake_chart_svg(readings, start_date, end_date):
-    """Inline SVG lake level chart — renders on iOS Mail, Apple Mail, Outlook; no data URIs."""
+def _lake_chart_html(readings, start_date, end_date):
+    """Return an <img> pointing to a QuickChart.io PNG — renders on iOS Mail, Outlook, Gmail."""
+    import json as _json
+    import urllib.parse as _up
+    from collections import defaultdict as _dd
+
     day_ahd = {}
     for r in readings:
-        d = r['_date']
-        v = float(r.get('ahd', 0) or 0)
+        d = r["_date"]
+        v = float(r.get("ahd", 0) or 0)
         if v > 0:
             day_ahd[d] = v
 
     total_days = max((end_date - start_date).days + 1, 1)
-    dates, vals = [], []
-    for i in range(total_days):
-        d = start_date + timedelta(days=i)
-        if d in day_ahd:
-            dates.append(d)
-            vals.append(day_ahd[d])
+    n_days     = (end_date - start_date).days
 
-    W, H, PL, PR, PT, PB = 560, 190, 56, 12, 12, 28
-    PW, PH = W - PL - PR, H - PT - PB
-    BG, LC, GC, TC = '#0d1b2a', '#1abc9c', '#1e3040', '#4a6070'
-    THRESH = [
-        (190.250, '#00762A', 'L1 190.25'),
-        (190.050, '#8AC63F', 'L2 190.05'),
-        (189.850, '#FFDD00', 'L3 189.85'),
-        (189.650, '#EB1E23', 'L5 189.65'),
-    ]
+    if n_days > 60:
+        # Annual: downsample to monthly averages
+        month_vals = _dd(list)
+        for i in range(total_days):
+            d = start_date + timedelta(days=i)
+            if d in day_ahd:
+                month_vals[(d.year, d.month)].append(day_ahd[d])
+        dates, vals = [], []
+        cur = start_date.replace(day=1)
+        while cur <= end_date:
+            k = (cur.year, cur.month)
+            if k in month_vals:
+                dates.append(cur)
+                vals.append(round(sum(month_vals[k]) / len(month_vals[k]), 3))
+            cur = cur.replace(year=cur.year + 1, month=1) if cur.month == 12 else cur.replace(month=cur.month + 1)
+        date_fmt = "%b"
+    elif n_days > 10:
+        # Monthly: ~12 evenly-spaced samples
+        step = max(1, total_days // 12)
+        dates, vals = [], []
+        for i in range(0, total_days, step):
+            d = start_date + timedelta(days=i)
+            if d in day_ahd:
+                dates.append(d)
+                vals.append(day_ahd[d])
+        if end_date in day_ahd and (not dates or dates[-1] != end_date):
+            dates.append(end_date)
+            vals.append(day_ahd[end_date])
+        date_fmt = "%-d %b"
+    else:
+        # Weekly: every data point
+        dates, vals = [], []
+        for i in range(total_days):
+            d = start_date + timedelta(days=i)
+            if d in day_ahd:
+                dates.append(d)
+                vals.append(day_ahd[d])
+        date_fmt = "%-d %b"
 
-    svg = [
-        f'<svg viewBox="0 0 {W} {H}" width="100%" style="display:block;border-radius:6px;" xmlns="http://www.w3.org/2000/svg">',
-        f'<rect width="{W}" height="{H}" fill="{BG}" rx="6"/>',
-    ]
     if not vals:
-        svg.append(f'<text x="{W//2}" y="{H//2+4}" text-anchor="middle" fill="{TC}" font-family="Arial,sans-serif" font-size="12">No data available</text>')
-        svg.append('</svg>')
-        return ''.join(svg)
+        return ""
+
+    labels = [d.strftime(date_fmt) for d in dates]
+    ymin   = round(min(vals) - 0.05, 3)
+    ymax   = round(max(vals) + 0.05, 3)
+
+    THRESH = [
+        (190.250, "#00762A"),
+        (190.050, "#8AC63F"),
+        (189.850, "#FFDD00"),
+        (189.650, "#EB1E23"),
+    ]
+    datasets = [{
+        "label":           "Lake Level",
+        "data":            vals,
+        "borderColor":     "#1abc9c",
+        "backgroundColor": "rgba(26,188,156,0.12)",
+        "fill":            True,
+        "lineTension":     0.3,
+        "pointRadius":     0,
+        "borderWidth":     2,
+    }]
+    for thr, col in THRESH:
+        if ymin - 0.1 <= thr <= ymax + 0.1:
+            datasets.append({
+                "data":        [thr] * len(dates),
+                "borderColor": col,
+                "borderWidth": 1,
+                "borderDash":  [5, 4],
+                "fill":        False,
+                "pointRadius": 0,
+                "lineTension": 0,
+            })
+
+    config = {
+        "type": "line",
+        "data": {"labels": labels, "datasets": datasets},
+        "options": {
+            "legend": {"display": False},
+            "scales": {
+                "xAxes": [{"gridLines": {"color": "#1e3040"},
+                           "ticks": {"fontColor": "#4a6070", "maxRotation": 0}}],
+                "yAxes": [{"gridLines": {"color": "#1e3040"},
+                           "ticks": {"fontColor": "#4a6070", "min": ymin, "max": ymax}}],
+            },
+        },
+    }
+
+    cfg_json = _json.dumps(config, separators=(",", ":"))
+    url = f"https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=190&c={_up.quote(cfg_json)}"
+    return (f"<img src="{url}" width="100%" alt="Lake level chart""
+            f" style="display:block;border-radius:6px;max-width:100%;">" )
 
     ymin, ymax = min(vals) - 0.05, max(vals) + 0.05
     span = (end_date - start_date).days or 1
@@ -1295,7 +1368,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
         evap_ml = None
 
     # Chart
-    chart_svg = _lake_chart_svg(chart_readings, chart_start, chart_end)
+    chart_html = _lake_chart_html(chart_readings, chart_start, chart_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     drop_text = f'{drop_to_l3:+.3f} m from Level 3 threshold' if drop_to_l3 >= 0 else f'{abs(drop_to_l3):.3f} m BELOW Level 3'
@@ -1370,7 +1443,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_svg}
+          {chart_html}
         </td></tr>
       </table>
 
@@ -1423,7 +1496,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     level_drop_ml  = -week_chg_ml    # positive when lake dropped overall
     week_evap_ml   = level_drop_ml - total_pump_ml
 
-    chart_svg = _lake_chart_svg(chart_readings, chart_start, chart_end)
+    chart_html = _lake_chart_html(chart_readings, chart_start, chart_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     change_sign = '+' if week_change >= 0 else ''
@@ -1491,7 +1564,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — PAST 7 DAYS</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_svg}
+          {chart_html}
         </td></tr>
       </table>
 
@@ -1566,7 +1639,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     level_drop_ml  = -month_chg_ml
     month_evap_ml  = level_drop_ml - total_pump_ml
 
-    chart_svg = _lake_chart_svg(chart_readings, month_start, month_end)
+    chart_html = _lake_chart_html(chart_readings, month_start, month_end)
 
     banner_text  = '#111' if fg == '#111111' else 'white'
     chg_sign     = '+' if month_change >= 0 else ''
@@ -1618,7 +1691,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {month_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_svg}
+          {chart_html}
         </td></tr>
       </table>
 
@@ -1679,7 +1752,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     level_drop_ml = -year_chg_ml
     year_evap_ml  = level_drop_ml - total_pump_ml
 
-    chart_svg = _lake_chart_svg(chart_readings, year_start, year_end)
+    chart_html = _lake_chart_html(chart_readings, year_start, year_end)
 
     banner_text = '#111' if fg == '#111111' else 'white'
     chg_sign    = '+' if year_change >= 0 else ''
@@ -1775,7 +1848,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
           color:#94a3b8;margin-bottom:8px;">LAKE LEVEL — {year_label.upper()}</div>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
         <tr><td bgcolor="#0d1b2a" style="background-color:#0d1b2a;padding:16px;border-radius:10px;">
-          {chart_svg}
+          {chart_html}
         </td></tr>
       </table>
 
