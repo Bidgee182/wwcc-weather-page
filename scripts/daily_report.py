@@ -3425,10 +3425,10 @@ def main():
         rain_days_6 += 1
 
     # Smith-Kerns 5-day average
-    mean_temps_5 = [safe_float(r.get('temp_mean')) for r in history_5 if r.get('temp_mean')]
-    mean_rh_5    = [safe_float(r.get('rh_mean')) for r in history_5 if r.get('rh_mean')]
-    if d['temp_mean']: mean_temps_5.append(d['temp_mean'])
-    if d['rh_mean']:   mean_rh_5.append(d['rh_mean'])
+    mean_temps_5 = [v for r in history_5 if (v := safe_float(r.get('temp_mean'))) is not None]
+    mean_rh_5    = [v for r in history_5 if (v := safe_float(r.get('rh_mean'))) is not None]
+    if d['temp_mean'] is not None: mean_temps_5.append(d['temp_mean'])
+    if d['rh_mean']   is not None: mean_rh_5.append(d['rh_mean'])
     sk_mean_t  = sum(mean_temps_5) / len(mean_temps_5) if mean_temps_5 else None
     sk_mean_rh = sum(mean_rh_5) / len(mean_rh_5) if mean_rh_5 else None
 
