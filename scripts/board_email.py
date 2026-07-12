@@ -1184,9 +1184,9 @@ def send_email(subject, html_content, test_mode=False):
         subject  = f'[TEST] {subject}'
         log.info(f'TEST MODE - sending only to {to_list[0]}')
     else:
-        to_list  = [e.strip() for e in EMAIL_BOARD_TO.split(',')  if e.strip()]
-        cc_list  = [e.strip() for e in EMAIL_BOARD_CC.split(',')  if e.strip()] if EMAIL_BOARD_CC  else []
-        bcc_list = [e.strip() for e in EMAIL_BOARD_BCC.split(',') if e.strip()] if EMAIL_BOARD_BCC else []
+        to_list  = [e.strip() for e in EMAIL_BOARD_TO.split(',')  if e.strip() and '@' in e]
+        cc_list  = [e.strip() for e in EMAIL_BOARD_CC.split(',')  if e.strip() and '@' in e] if EMAIL_BOARD_CC  else []
+        bcc_list = [e.strip() for e in EMAIL_BOARD_BCC.split(',') if e.strip() and '@' in e] if EMAIL_BOARD_BCC else []
 
     if not to_list:
         log.error('No To recipients - cannot send')
@@ -1205,6 +1205,10 @@ def send_email(subject, html_content, test_mode=False):
         return True
     except Exception as e:
         log.error(f'SendGrid error: {e}')
+        try:
+            log.error(f'SendGrid response body: {e.body}')
+        except AttributeError:
+            pass
         return False
 
 
