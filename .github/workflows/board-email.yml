@@ -2,10 +2,10 @@ name: Board Lake Update Email
 
 on:
   schedule:
-    # 7:00 AM AEST (UTC+10) — AEDT off (Apr–Oct)
-    - cron: '0 21 * * 1'
-    # 7:00 AM AEDT (UTC+11) — AEDT on (Oct–Apr)
-    - cron: '0 20 * * 1'
+    # 7:00 AM AEST (UTC+10) — AEDT off (Apr–Oct): Sunday 21:00 UTC = Monday 07:00 AEST
+    - cron: '0 21 * * 0'
+    # 7:00 AM AEDT (UTC+11) — AEDT on (Oct–Apr): Sunday 20:00 UTC = Monday 07:00 AEDT
+    - cron: '0 20 * * 0'
     # Both fire year-round; the sent-this-week guard skips the second run.
 
   workflow_dispatch:
@@ -34,6 +34,10 @@ on:
         options:
           - 'false'
           - 'true'
+
+concurrency:
+  group: board-email
+  cancel-in-progress: false   # let the current run finish; skip the queued one
 
 jobs:
   board-email:

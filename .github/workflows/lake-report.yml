@@ -47,6 +47,10 @@ on:
           - 'false'
           - 'true'
 
+concurrency:
+  group: lake-report
+  cancel-in-progress: false   # let the current run finish; skip the queued one
+
 jobs:
   lake-report:
     runs-on: ubuntu-latest
@@ -99,7 +103,9 @@ jobs:
           else
             git pull --rebase -X theirs origin main
             git commit -m "Lake email sent guard $(date -u +%Y-%m-%d)"
-            git push
+            for i in 1 2 3; do
+              git push && break || (echo "Push attempt $i failed — pulling and retrying"; git pull --rebase -X theirs origin main)
+            done
           fi
 
       - name: Commit dry-run previews (if any)
