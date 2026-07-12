@@ -3,9 +3,9 @@ name: Board Lake Update Email
 on:
   schedule:
     # 7:00 AM AEST (UTC+10) — AEDT off (Apr–Oct)
-    - cron: '0 21 * * 0'
+    - cron: '0 21 * * 1'
     # 7:00 AM AEDT (UTC+11) — AEDT on (Oct–Apr)
-    - cron: '0 20 * * 0'
+    - cron: '0 20 * * 1'
     # Both fire year-round; the sent-this-week guard skips the second run.
 
   workflow_dispatch:
