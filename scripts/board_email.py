@@ -333,19 +333,36 @@ def _tank_chart_html(readings):
 
 # ── Email body ─────────────────────────────────────────────────────────────────
 
+def _load_json(path):
+    """Load a JSON file, returning None and logging a warning on any failure."""
+    try:
+        return json.loads(Path(path).read_text())
+    except Exception as e:
+        log.error(f'Failed to load {path}: {e}')
+        return None
+
+
 def build_html(now_syd):
     # ── Load data ──────────────────────────────────────────────────────────────
-    lake_latest   = json.loads((_DATA_DIR / 'farmbot_lake_latest.json').read_text())
-    readings      = json.loads((_DATA_DIR / 'farmbot_lake_readings.json').read_text())
-    tank          = json.loads((_DATA_DIR / 'farmbot_latest.json').read_text())
-    tank_readings = json.loads((_DATA_DIR / 'farmbot_readings.json').read_text())
+    lake_latest   = _load_json(_DATA_DIR / 'farmbot_lake_latest.json')
+    readings      = _load_json(_DATA_DIR / 'farmbot_lake_readings.json')
+    tank          = _load_json(_DATA_DIR / 'farmbot_latest.json')
+    tank_readings = _load_json(_DATA_DIR / 'farmbot_readings.json')
+
+    if any(v is None for v in (lake_latest, readings, tank, tank_readings)):
+        log.error('One or more required data files could not be loaded — aborting email build')
+        return None, None
 
     wx_rows = []
-    with open(_DATA_DIR / 'daily_log.csv', encoding='utf-8') as f:
-        for r in csv.DictReader(f):
-            if r.get('date'):
-                wx_rows.append(r)
-    wx_rows.sort(key=lambda r: r['date'])
+    try:
+        with open(_DATA_DIR / 'daily_log.csv', encoding='utf-8') as f:
+            for r in csv.DictReader(f):
+                if r.get('date'):
+                    wx_rows.append(r)
+        wx_rows.sort(key=lambda r: r['date'])
+    except Exception as e:
+        log.error(f'Failed to load daily_log.csv: {e}')
+        return None, None
 
     # ── Lake calculations ──────────────────────────────────────────────────────
     ahd = lake_latest.get('lake_ahd')
