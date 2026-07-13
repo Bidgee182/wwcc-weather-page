@@ -883,8 +883,8 @@ def safe_float(val, default=None):
 # FARMBOT TANK HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-FARMBOT_LATEST_JSON  = Path('data/farmbot_latest.json')
-FARMBOT_HISTORY_JSON = Path('data/farmbot_history.json')
+FARMBOT_LATEST_JSON   = Path('data/farmbot_latest.json')
+FARMBOT_READINGS_JSON = Path('data/farmbot_readings.json')
 
 def load_farmbot_snapshot():
     """Return the latest farmbot_latest.json dict, or {} if unavailable."""
@@ -896,16 +896,42 @@ def load_farmbot_snapshot():
     return {}
 
 def load_farmbot_history_day(target_date_iso):
-    """Return the farmbot_history.json entry for the given date string, or {}."""
+    """Derive daily tank summary for target_date_iso (YYYY-MM-DD) from farmbot_readings.json."""
+    target = date.fromisoformat(target_date_iso)
     try:
-        if FARMBOT_HISTORY_JSON.exists():
-            history = json.loads(FARMBOT_HISTORY_JSON.read_text())
-            for entry in history:
-                if entry.get('date') == target_date_iso:
-                    return entry
+        if not FARMBOT_READINGS_JSON.exists():
+            log.warning('farmbot_readings.json not found')
+            return {}
+        readings = json.loads(FARMBOT_READINGS_JSON.read_text())
+        day_readings = []
+        for r in readings:
+            ts = datetime.fromisoformat(r['date'].replace('Z', '+00:00')).astimezone(TZ)
+            if ts.date() == target and r.get('pct') is not None:
+                day_readings.append((ts, r['pct']))
+        if not day_readings:
+            log.warning(f'No farmbot readings found for {target_date_iso}')
+            return {}
+        day_readings.sort(key=lambda x: x[0])
+        pcts        = [p for _, p in day_readings]
+        morning_pct = pcts[0]
+        evening_pct = pcts[-1]
+        used_pct    = max(0.0, morning_pct - evening_pct)
+        used_l      = round(used_pct / 100 * 250000)
+        refill      = evening_pct > morning_pct + 2
+        return {
+            'date':        target_date_iso,
+            'morning_pct': morning_pct,
+            'evening_pct': evening_pct,
+            'min_pct':     round(min(pcts), 1),
+            'max_pct':     round(max(pcts), 1),
+            'used_l':      used_l,
+            'used_pct':    round(used_pct, 1),
+            'refill':      refill,
+            'readings':    len(day_readings),
+        }
     except Exception as e:
-        log.warning(f'Could not load farmbot_history.json: {e}')
-    return {}
+        log.warning(f'Could not compute farmbot day summary: {e}')
+        return {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
