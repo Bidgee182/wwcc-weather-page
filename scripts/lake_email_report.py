@@ -140,9 +140,16 @@ def pumping_in_range(pumping, start, end):
             pass
     return sorted(out, key=lambda x: x['_date'])
 
+def _fmt_d(dt, fmt):
+    """Cross-platform strftime: %-d → no-pad day, %-I → no-pad 12-hour."""
+    s = fmt.replace('%-d', str(dt.day))
+    if '%-I' in s and hasattr(dt, 'hour'):
+        s = s.replace('%-I', str(dt.hour % 12 or 12))
+    return dt.strftime(s)
+
 def fmt_date(d):
-    """Format a date with no leading zero on day (Linux strftime %-d)."""
-    return d.strftime('%-d %b %Y')
+    """Format a date with no leading zero on day, cross-platform."""
+    return f"{d.day} {d.strftime('%b %Y')}"
 
 def fmt_month(d):
     return d.strftime('%B %Y')
@@ -253,7 +260,7 @@ def _footer(now_syd):
     <td bgcolor="{HDR_BG}" style="background-color:{HDR_BG};padding:12px 20px;">
       <p style="margin:0;font-size:10px;color:#a9cce3;text-align:center;
           font-family:Arial,sans-serif;">
-        Generated {now_syd.strftime('%-d %b %Y %H:%M')} AEST &nbsp;&bull;&nbsp;
+        Generated {_fmt_d(now_syd, '%-d %b %Y %H:%M')} AEST &nbsp;&bull;&nbsp;
         Lake Albert, Wagga Wagga NSW &nbsp;&bull;&nbsp;
         Auto-generated - do not reply to this email.
       </p>
@@ -297,7 +304,7 @@ def build_daily(data, now_syd):
         lake_dt  = datetime.fromisoformat(
             latest['lake_date'].replace('Z', '+00:00')
         ).astimezone(SYDNEY_TZ)
-        lake_ts  = lake_dt.strftime('%-d %b %Y %H:%M')
+        lake_ts  = _fmt_d(lake_dt, '%-d %b %Y %H:%M')
     except Exception:
         lake_ts = '-'
 
@@ -306,7 +313,7 @@ def build_daily(data, now_syd):
     yday_wx  = next((r for r in reversed(data['history'])
                      if r['date'] == str(yesterday)), None)
 
-    body  = _header('Lake Albert Daily Report', now_syd.strftime('%-d %B %Y'))
+    body  = _header('Lake Albert Daily Report', _fmt_d(now_syd, '%-d %B %Y'))
     # Volume
     vol_ml  = _ahd_to_ml(ahd)
     vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
@@ -391,7 +398,7 @@ def build_daily(data, now_syd):
             body += _kv_table(wx_rows)
 
     body += _footer(now_syd)
-    subject = f"Lake Albert Daily Report - {now_syd.strftime('%-d %b %Y')}"
+    subject = f"Lake Albert Daily Report - {fmt_date(now_syd.date())}"
     return _wrap(body), subject
 
 
@@ -428,7 +435,7 @@ def build_weekly(data, now_syd):
     wx_rain = sum(r.get('rain', 0) or 0 for r in wx_week)
     wx_wmax = max((r['windMax'] for r in wx_week if r.get('windMax') is not None), default=None)
 
-    period = f"{week_start.strftime('%-d %b')} &ndash; {fmt_date(week_end)}"
+    period = f"{week_start.day} {week_start.strftime('%b')} &ndash; {fmt_date(week_end)}"
     body  = _header('Lake Albert Weekly Report', period)
 
     # Volume and weekly change
@@ -478,7 +485,7 @@ def build_weekly(data, now_syd):
         evap_s  = f'{evap_d:.1f}' if evap_d is not None else '-'
         a_lbl, a_bg, _ = activity_status(level_ahd)
         level_rows.append((
-            d.strftime('%a %-d %b'),
+            _fmt_d(d, '%a %-d %b'),
             fmt_ahd(level_ahd),
             fmt_depth(level_ahd),
             chg_s,
@@ -498,7 +505,7 @@ def build_weekly(data, now_syd):
 
     body += _footer(now_syd)
     subject = (f"Lake Albert Weekly Report - "
-               f"{week_start.strftime('%-d %b')}\u2013{fmt_date(week_end)}")
+               f"{week_start.day} {week_start.strftime('%b')}\u2013{fmt_date(week_end)}")
     return _wrap(body), subject
 
 
@@ -596,7 +603,7 @@ def build_monthly(data, now_syd):
         chg_s    = f'{sign}{chg_ahd:.3f}m' if chg_ahd is not None else '-'
         evap_s   = f'{evap_d:.1f}' if evap_d is not None else '-'
         daily_rows.append((
-            d.strftime('%-d %b'),
+            _fmt_d(d, '%-d %b'),
             fmt_ahd(day_ahd),
             fmt_depth(day_ahd),
             chg_s,
