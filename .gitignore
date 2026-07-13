@@ -1,0 +1,28 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Claude Code tool directory
+.claude/
+
+# Generated email preview files (rebuilt via --dry-run, not source files)
+demo-*.html
+
+# Standalone analysis/report HTML files (generated separately)
+projection-report.html
+town-water-cost-report.html
+
+# Test assets in repo root
+logo-white-preview.png
+Screenshot*.png
+
+# Old board email test/preview files at wrong path (new ones go in data/reports/YYYY/MM/)
+data/reports/board_preview_*.html
+data/reports/board_test.html
+
+# Water licence documents (confidential, local reference only)
+licence_details/
+
+# Raw Davis WeatherLink export CSV files (large source data, not auto-updated)
+Bidgee_Pumps__Irrigation_-_LAKE_ALBERT_*.csv
+0-4295727*.csv

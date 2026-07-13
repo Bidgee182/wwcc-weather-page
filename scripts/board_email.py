@@ -1254,8 +1254,10 @@ def main():
         return
 
     if args.dry_run:
-        out = _DATA_DIR / 'reports' / f'board_preview_{now_syd.strftime("%Y-%m-%d")}.html'
-        out.parent.mkdir(exist_ok=True)
+        out = (_DATA_DIR / 'reports'
+               / now_syd.strftime('%Y') / now_syd.strftime('%m')
+               / f'board_preview_{now_syd.strftime("%Y-%m-%d")}.html')
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(html, encoding='utf-8')
         log.info(f'Dry run - saved to {out}')
         return
