@@ -23,6 +23,6 @@ data/reports/board_test.html
 # Water licence documents (confidential, local reference only)
 licence_details/
 
-# Raw Davis WeatherLink export CSV files (large source data, not auto-updated)
-Bidgee_Pumps__Irrigation_-_LAKE_ALBERT_*.csv
-0-4295727*.csv
+# CSV archive folder - large year-long Davis exports are gitignored (21-23 MB each)
+# Small reference files (water tank, short exports) are committed
+csv-archive/Bidgee_Pumps__Irrigation_-_LAKE_ALBERT_*_Year_*.csv
