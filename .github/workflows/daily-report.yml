@@ -38,6 +38,10 @@ on:
           - lake_alert
           - all
 
+concurrency:
+  group: daily-report
+  cancel-in-progress: false   # let the current run finish; script guards duplicate CSV rows on DST days
+
 jobs:
   daily-report:
     runs-on: ubuntu-latest
