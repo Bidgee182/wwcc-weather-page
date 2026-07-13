@@ -12,7 +12,7 @@ Runs every 15 minutes via GitHub Actions.
 
 import os, sys, json, logging, argparse
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -202,7 +202,7 @@ def send_alert(pct, volume_l, state):
 # ── Fetch graph samples ────────────────────────────────────────────────────────
 def fetch_graph_samples(token, total_height, hours=24):
     """Fetch the most recent pages of samples and filter to the last N hours."""
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours)
     graph = []
     # Fetch DESC (newest first) so we can stop early once we pass the cutoff
     for page in range(1, 20):
@@ -423,7 +423,7 @@ def poll():
         'tank_battery':      battery,
         'tank_battery_v':    tank_battery_v,
         'tank_graph':        graph,
-        'updated_at':        datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'updated_at':        datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     }
     LATEST_JSON.write_text(json.dumps(out, indent=2))
     log.info(f'Wrote {LATEST_JSON}')
@@ -467,7 +467,7 @@ def poll_lake(token):
         log.info(f'Lake: rwValue={cm}cm | AHD={ahd}m | {sample_date}')
 
     # Fetch 24h graph samples
-    cutoff = datetime.utcnow() - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
     graph  = []
     for page in range(1, 20):
         r    = fb_get(token, f'sensor/{FARMBOT_LAKE_SID}/sample', {'pageSize': 10, 'order': 'DESC', 'page': page})
@@ -480,8 +480,7 @@ def poll_lake(token):
             except Exception:
                 continue
             if ts < cutoff:
-                graph.sort(key=lambda x: x['date'])
-                break
+                break   # outer loop will sort after exit
             rw = s.get('rwValue')
             if rw is not None:
                 graph.append({
@@ -526,7 +525,7 @@ def poll_lake(token):
         'lake_battery_v':   lake_battery_v,
         'lake_graph':       graph,
         'lake_ahd_offset':  LAKE_AHD_OFFSET,
-        'updated_at':       datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'updated_at':       datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     }
     LAKE_LATEST_JSON.write_text(json.dumps(out, indent=2))
     log.info(f'Wrote {LAKE_LATEST_JSON}')
@@ -536,7 +535,7 @@ def poll_lake_weather(token):
     """Fetch all lake weather station sensors → farmbot_lake_weather.json.
     Also appends rain deltas to farmbot_lake_rain_readings.json."""
     log.info('FarmBot lake weather poll starting')
-    out = {'updated_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
+    out = {'updated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
 
     # Wind - multiDimValues: dim[0]=speed kph, dim[1]=direction deg
     try:

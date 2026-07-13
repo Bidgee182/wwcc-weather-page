@@ -131,7 +131,7 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
             f'effective immediately. Please ensure pumping operations are adjusted accordingly.'
         )
 
-    now_str = now_syd.strftime('%-d %b %Y %H:%M')
+    now_str = f"{now_syd.day} {now_syd.strftime('%b %Y %H:%M')}"
 
     BORDER = '#e2e8e4'
     ROW_A  = '#f8f8f8'

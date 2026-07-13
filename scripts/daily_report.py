@@ -65,6 +65,13 @@ CLUB_LAT = -35.1082
 CLUB_LON =  147.3598
 TZ       = ZoneInfo('Australia/Sydney')
 
+def _fmt_d(dt, fmt):
+    """Cross-platform strftime: %-d → no-pad day, %-I → no-pad 12-hour (Linux % modifier not supported on Windows)."""
+    s = fmt.replace('%-d', str(dt.day))
+    if '%-I' in s and hasattr(dt, 'hour'):
+        s = s.replace('%-I', str(dt.hour % 12 or 12))
+    return dt.strftime(s)
+
 # Paths (relative to repo root, where the script runs from)
 CSV_PATH     = Path('data/daily_log.csv')
 REPORTS_ROOT = Path('data/reports')
@@ -482,8 +489,8 @@ def process_davis_records(records):
     temp_max  = round(max(temps_c), 1)               if temps_c        else None
     temp_min  = round(min(temps_c), 1)               if temps_c        else None
     if temps_ct:
-        temp_max_time = max(temps_ct, key=lambda x: x[0])[1].strftime('%-I:%M %p')
-        temp_min_time = min(temps_ct, key=lambda x: x[0])[1].strftime('%-I:%M %p')
+        temp_max_time = _fmt_d(max(temps_ct, key=lambda x: x[0])[1], '%-I:%M %p')
+        temp_min_time = _fmt_d(min(temps_ct, key=lambda x: x[0])[1], '%-I:%M %p')
     else:
         temp_max_time = None
         temp_min_time = None
@@ -738,7 +745,7 @@ def fetch_5day_forecast(today_date):
         dt   = datetime.strptime(d_str, '%Y-%m-%d').date()
         days.append({
             'date':       dt,
-            'label':      dt.strftime('%a %-d %b'),
+            'label':      _fmt_d(dt, '%a %-d %b'),
             'max_c':      round(mx, 0) if mx is not None else None,
             'min_c':      round(mn, 0) if mn is not None else None,
             'precip_mm':  round(pr, 1),
@@ -1192,7 +1199,7 @@ def _lake_chart_html(readings, start_date, end_date):
     if not vals:
         return ""
 
-    labels = [d.strftime(date_fmt) for d in dates]
+    labels = [_fmt_d(d, date_fmt) for d in dates]
     ymin   = round(min(vals) - 0.05, 3)
     ymax   = round(max(vals) + 0.05, 3)
 
@@ -1486,7 +1493,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
         bg_row     = '#f8fafc' if i % 2 == 0 else 'white'
         ahd_str    = f'{day_ahd:.3f} m' if day_ahd else '-'
         day_rows += f"""<tr>
-          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{d.strftime('%a %-d %b')}</td>
+          <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{_fmt_d(d, '%a %-d %b')}</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#111827;font-weight:600;">{ahd_str}</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#374151;">{pump_ml_d:.1f} ML</td>
           <td bgcolor="{bg_row}" style="background:{bg_row};padding:7px 10px;font-size:12px;color:#64748b;font-style:italic;">{pump_note}</td>
@@ -1851,7 +1858,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
 
 def build_daily_html(row, target_date, history, forecast_days=None, hourly_forecast=None):
     """Generate the HTML email body for the daily morning report (Demo 1 layout)."""
-    yesterday_str = target_date.strftime('%A, %-d %B %Y')
+    yesterday_str = _fmt_d(target_date, '%A, %-d %B %Y')
     frost_flag = row['frost_flag'] == 'True' or row['frost_flag'] is True
     da_flag    = row['disease_alert'] == 'True' or row['disease_alert'] is True
 
@@ -2202,6 +2209,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
 {_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_EMAIL_MOBILE_STYLE}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -2306,7 +2314,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
 
 def build_weekly_html(history, week_end_date):
     """Generate styled HTML for the weekly summary email."""
-    date_str    = week_end_date.strftime('Week ending %A, %-d %B %Y')
+    date_str    = _fmt_d(week_end_date, 'Week ending %A, %-d %B %Y')
     totals      = {'rain': 0.0, 'et': 0.0, 'gdd_bent': 0.0, 'gdd_kik': 0.0, 'tank_used_l': 0.0}
     alert_days  = 0
     frost_days  = 0
@@ -2356,6 +2364,7 @@ def build_weekly_html(history, week_end_date):
 {_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_EMAIL_MOBILE_STYLE}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -2518,6 +2527,7 @@ def build_monthly_html(history, month_label):
 {_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_EMAIL_MOBILE_STYLE}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -2712,6 +2722,7 @@ def build_yearly_html(history, year_label):
 {_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_EMAIL_MOBILE_STYLE}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -2878,7 +2889,7 @@ def _gk_alert_section(text, bg='#c0392b'):
 
 def _gk_meter_wrap(title, subtitle, body_rows, now_sydney):
     """Wrap meter email content in GK email shell."""
-    now_str = now_sydney.strftime('%-d %b %Y %H:%M')
+    now_str = _fmt_d(now_sydney, '%-d %b %Y %H:%M')
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -2887,6 +2898,7 @@ def _gk_meter_wrap(title, subtitle, body_rows, now_sydney):
 {_EMAIL_MOBILE_STYLE}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_EMAIL_MOBILE_STYLE}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -2939,7 +2951,7 @@ def build_meter_reading_html(now_sydney):
         deadline = date(today.year + 1, 1, 14)
     else:
         deadline = date(today.year, today.month + 1, 14)
-    deadline_str = deadline.strftime('%-d %B %Y')
+    deadline_str = _fmt_d(deadline, '%-d %B %Y')
 
     # Live lake level for permitted pump rate
     lake_data = _load_lake_data()
@@ -2967,7 +2979,7 @@ def build_meter_reading_html(now_sydney):
   {sec_header('1', 'Logbook - What to Record at the Meter')}
   <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([
-        ('Date',                    today.strftime('%-d %B %Y')),
+        ('Date',                    _fmt_d(today, '%-d %B %Y')),
         ('Meter reading',           'Total cumulative volume shown on meter display'),
         ('Volume taken this period','Calculate: current reading minus last reading'),
         ('Start &amp; end time',    'Record pumping start and end times for the period'),
@@ -3030,7 +3042,7 @@ def build_meter_submission_html(now_sydney):
     today            = now_sydney.date()
     prev_month_end   = today.replace(day=1) - timedelta(days=1)
     prev_month_label = prev_month_end.strftime('%B %Y')
-    deadline_str     = today.replace(day=14).strftime('%-d %B %Y')
+    deadline_str     = _fmt_d(today.replace(day=14), '%-d %B %Y')
 
     # Live lake level for permitted pump rate
     lake_data = _load_lake_data()
@@ -3564,7 +3576,7 @@ def main():
     log.info(f'Report saved: {report_path}')
 
     # ── 8. Send daily email to greenkeeper ────────────────────────────────
-    subject = f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}'
+    subject = f'WWCC Morning Briefing - {_fmt_d(yesterday, "%-d %B %Y")}'
     log.info(f'Sending daily email: {subject}')
     send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
 
@@ -3573,7 +3585,7 @@ def main():
         log.info('Monday detected - sending weekly summary...')
         week_history = read_csv_history(7)
         weekly_html  = build_weekly_html(week_history, yesterday)
-        week_subject = f'WWCC Weekly Weather Summary - {yesterday.strftime("%-d %B %Y")}'
+        week_subject = f'WWCC Weekly Weather Summary - {_fmt_d(yesterday, "%-d %B %Y")}'
         send_email(week_subject, weekly_html, EMAIL_RECIPIENTS_ALL)
 
         # Save weekly report
@@ -3679,7 +3691,7 @@ if __name__ == '__main__':
         daily_html = build_daily_html(row, yesterday, history,
                                       forecast_days=forecast_days,
                                       hourly_forecast=hourly_forecast)
-        subject = f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}'
+        subject = f'WWCC Morning Briefing - {_fmt_d(yesterday, "%-d %B %Y")}'
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
 
@@ -3719,11 +3731,11 @@ if __name__ == '__main__':
                 html = build_daily_html(row, yesterday, history,
                                         forecast_days=forecast_days,
                                         hourly_forecast=hourly_forecast)
-                _test_send(html, f'WWCC Morning Briefing - {yesterday.strftime("%-d %B %Y")}')
+                _test_send(html, f'WWCC Morning Briefing - {_fmt_d(yesterday, "%-d %B %Y")}')
 
         if which in ('weekly', 'all'):
             html = build_weekly_html(read_csv_history(7), yesterday)
-            _test_send(html, f'WWCC Weekly Weather Summary - {yesterday.strftime("%-d %B %Y")}')
+            _test_send(html, f'WWCC Weekly Weather Summary - {_fmt_d(yesterday, "%-d %B %Y")}')
 
         if which in ('monthly', 'all'):
             month_name = (yesterday - timedelta(days=1)).strftime('%B %Y')
