@@ -93,7 +93,10 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add data/
+          git add data/farmbot_latest.json data/farmbot_readings.json \
+                  data/farmbot_lake_latest.json data/farmbot_lake_readings.json \
+                  data/farmbot_lake_weather.json data/farmbot_lake_rain_readings.json \
+                  data/davis_weather_history.json data/lake_pump_zone.json
           if git diff --staged --quiet; then
             echo "No data changes — skipping commit and push"
           else
