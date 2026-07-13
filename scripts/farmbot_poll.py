@@ -239,9 +239,12 @@ def davis_v2_get(endpoint, params):
 
 def _process_davis_day(records):
     """Aggregate a list of 15-min sensor records into a single day summary."""
+    import math as _math
     t_max = -999.0; t_min = 999.0; rain = 0.0
     hum_sum = 0.0;  hum_count = 0; wind_max = 0.0; has_temp = False
     bar_sum = 0.0;  bar_count = 0
+    wind_sum = 0.0; wind_count = 0
+    sin_sum  = 0.0; cos_sum = 0.0; dir_count = 0
     for sensor in records:
         for r in (sensor.get('data') or []):
             t_f = r.get('temp') or r.get('temp_out')
@@ -254,11 +257,22 @@ def _process_davis_day(records):
             if rn is not None: rain += float(rn)
             hm = r.get('hum') or r.get('hum_out')
             if hm is not None: hum_sum += float(hm); hum_count += 1
-            wm = (r.get('wind_speed_last') or r.get('wind_speed_avg_last_1_min')
-                  or r.get('wind_speed_hi_last_2_min') or r.get('wind_speed_avg_last_10_min'))
-            if wm is not None:
-                kph = float(wm) * 1.60934
-                if kph > wind_max: wind_max = kph
+            # Wind speed: prefer 10-min avg (most stable), fall back to shorter averages
+            wm_avg = (r.get('wind_speed_avg_last_10_min') or r.get('wind_speed_avg_last_1_min')
+                      or r.get('wind_speed_last'))
+            wm_hi  = (r.get('wind_speed_last') or r.get('wind_speed_avg_last_1_min')
+                      or r.get('wind_speed_hi_last_2_min') or r.get('wind_speed_avg_last_10_min'))
+            if wm_avg is not None:
+                kph_avg = float(wm_avg) * 1.60934
+                wind_sum += kph_avg; wind_count += 1
+            if wm_hi is not None:
+                kph_hi = float(wm_hi) * 1.60934
+                if kph_hi > wind_max: wind_max = kph_hi
+            # Wind direction: vector-average degrees → compass point
+            wd = r.get('wind_dir_of_prevail') or r.get('wind_dir_last')
+            if wd is not None:
+                rad = _math.radians(float(wd))
+                sin_sum += _math.sin(rad); cos_sum += _math.cos(rad); dir_count += 1
             # Pressure: bar_sea_level_in (inHg) → hPa, or bar_sea_level (mb) directly
             bp = r.get('bar_sea_level_in') or r.get('bar_sea_level') or r.get('bar_hi_in') or r.get('bar')
             if bp is not None:
@@ -266,12 +280,20 @@ def _process_davis_day(records):
                 # inHg values are typically 28–32; mb/hPa values are 950–1050
                 hpa = bp_f * 33.8639 if bp_f < 200 else bp_f
                 bar_sum += hpa; bar_count += 1
+    # Derive prevailing wind direction from vector average
+    wind_dir_str = None
+    if dir_count > 0:
+        mean_deg = (_math.degrees(_math.atan2(sin_sum / dir_count, cos_sum / dir_count)) + 360) % 360
+        compass  = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+        wind_dir_str = compass[round(mean_deg / 22.5) % 16]
     return {
         'tMax':     round(t_max, 1) if has_temp else None,
         'tMin':     round(t_min, 1) if has_temp else None,
         'rain':     round(rain,  1),
         'humidity': round(hum_sum / hum_count, 0) if hum_count > 0 else None,
+        'windMean': round(wind_sum / wind_count, 1) if wind_count > 0 else None,
         'windMax':  round(wind_max, 1) if wind_max > 0 else None,
+        'windDir':  wind_dir_str,
         'pressAvg': round(bar_sum / bar_count, 1) if bar_count > 0 else None,
     }
 
