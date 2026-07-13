@@ -965,7 +965,7 @@ RISK_ROW_BG = {
 # and the bgcolor HTML attribute (Outlook reads the attribute, not the CSS property).
 _EMAIL_MOBILE_STYLE = """<style type="text/css">
 @media only screen and (max-width:620px) {
-  table[width="600"], table[width="640"] { width:100% !important; max-width:100% !important; }
+  table[width="600"] { width:100% !important; max-width:100% !important; }
   td[style*="padding:36px 28px"], td[style*="padding:36px 28px 30px"] { padding:20px 16px !important; }
   .mob-block { display:block !important; width:100% !important; padding:0 0 8px 0 !important; }
   .mob-full  { width:100% !important; }
@@ -2358,8 +2358,8 @@ def build_weekly_html(history, week_end_date):
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
-<table width="640" cellpadding="0" cellspacing="0"
-    style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
@@ -2520,8 +2520,8 @@ def build_monthly_html(history, month_label):
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
-<table width="640" cellpadding="0" cellspacing="0"
-    style="max-width:640px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
@@ -2714,8 +2714,8 @@ def build_yearly_html(history, year_label):
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
-<table width="660" cellpadding="0" cellspacing="0"
-    style="max-width:660px;width:100%;background:white;border-radius:14px;overflow:hidden;">
+<table width="600" cellpadding="0" cellspacing="0"
+    style="max-width:600px;width:100%;background:white;border-radius:14px;overflow:hidden;">
 
   <!-- COVER HEADER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:22px 20px 16px 20px;">
