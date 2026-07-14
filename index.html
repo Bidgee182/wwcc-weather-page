@@ -1418,6 +1418,7 @@
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Temperature</div>
                 <div style="font-size:1.5em;font-weight:bold;color:#e67e22;margin-top:4px" id="go-st-temp">--</div>
                 <div style="font-size:0.72em;color:#7f8c8d" id="go-st-feels">Feels like --</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-hilo">Today -- / --</div>
             </div>
             <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Wind</div>
@@ -1484,6 +1485,26 @@
                 <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Air Density</div>
                 <div style="font-size:1.0em;color:#95a5a6;font-weight:bold;margin-top:2px" id="go-st-airdens">--</div>
                 <div style="font-size:0.7em;color:#566573" id="go-st-airdens-note">ball flight effect</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Max Temperature</div>
+                <div style="font-size:1.0em;color:#e67e22;font-weight:bold;margin-top:2px" id="go-st-tmax">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-tmax-time">--</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Min Temperature</div>
+                <div style="font-size:1.0em;color:#5dade2;font-weight:bold;margin-top:2px" id="go-st-tmin">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-tmin-time">--</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Mean Humidity</div>
+                <div style="font-size:1.0em;color:#48c9b0;font-weight:bold;margin-top:2px" id="go-st-rh-yest">--</div>
+                <div style="font-size:0.7em;color:#566573">Daily average</div>
+            </div>
+            <div style="background:#1a252f;border-radius:6px;padding:8px 10px">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Rainfall</div>
+                <div style="font-size:1.0em;color:#3498db;font-weight:bold;margin-top:2px" id="go-st-rain-yest">--</div>
+                <div style="font-size:0.7em;color:#566573" id="go-st-et-yest">ET --</div>
             </div>
         </div>
 
@@ -3938,6 +3959,11 @@ function updateGolferStation() {
         const hlEl = document.getElementById('tile-feelslike-val');
         _s('go-st-feels', 'Feels like ' + (hlEl ? hlEl.textContent : wx.temp.toFixed(1) + '°C'));
     }
+    // Today's forecast high / low
+    if (fc.todayMax !== null || fc.todayMin !== null) {
+        _s('go-st-hilo', 'Today high ' + (fc.todayMax !== null ? Math.round(fc.todayMax) + '°' : '--')
+            + ' / low ' + (fc.todayMin !== null ? Math.round(fc.todayMin) + '°' : '--'));
+    }
     if (wx.windKmh !== null) {
         _s('go-st-wind', wx.windKmh.toFixed(0) + ' km/h');
         _s('go-st-winddir', 'Direction ' + (wx.windDir || '--'));
@@ -3995,6 +4021,13 @@ function updateGolferStation() {
     _s('go-st-thsw-go',    sf(y.thsw_index_c, 1, '°C'));
     _s('go-st-windrun',    sf(y.wind_run_km, 0, ' km'));
     _s('go-st-dew',        sf(y.dew_point_c, 1, '°C'));
+    _s('go-st-tmax',       sf(y.temp_max, 1, '°C'));
+    _s('go-st-tmax-time',  y.temp_max_time ? 'at ' + y.temp_max_time : '--');
+    _s('go-st-tmin',       sf(y.temp_min, 1, '°C'));
+    _s('go-st-tmin-time',  y.temp_min_time ? 'at ' + y.temp_min_time : '--');
+    _s('go-st-rh-yest',    sf(y.rh_mean, 0, '%'));
+    _s('go-st-rain-yest',  sf(y.rain_mm, 1, ' mm'));
+    _s('go-st-et-yest',    'ET ' + sf(y.et_mm, 2, ' mm'));
 
     // Air density with ball flight note
     const ad = parseFloat(y.air_density_kgm3);

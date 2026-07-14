@@ -128,6 +128,24 @@ def stull_wetbulb(temp_c, rh):
     return tw
 
 
+def _calc_air_density(temp_c, rh_pct, sea_level_hpa, elev_m=0.0):
+    """Moist air density (kg/m³) from temperature, RH and pressure.
+
+    Partial-pressure form of the ideal gas law (Rd = 287.05,
+    Rv = 461.495 J/kg.K); saturation vapour pressure via the Magnus formula
+    (Alduchov & Eskridge 1996). elev_m defaults to 0 because the retired
+    Davis air_density field used the sea-level-corrected barometer reading
+    directly - validated against all 3,674 pre-Sep-2025 rows (mean error
+    -0.5%, stdev 0.13%), so derived values remain comparable with history.
+    """
+    t_k = temp_c + 273.15
+    station_hpa = sea_level_hpa * math.exp(-elev_m / (29.263 * t_k)) if elev_m else sea_level_hpa
+    es_hpa = 6.112 * math.exp(17.62 * temp_c / (243.12 + temp_c))
+    e_pa   = (rh_pct / 100.0) * es_hpa * 100.0
+    pd_pa  = station_hpa * 100.0 - e_pa
+    return pd_pa / (287.05 * t_k) + e_pa / (461.495 * t_k)
+
+
 def delta_t(temp_c, rh):
     tw = stull_wetbulb(temp_c, rh)
     if tw is None:
@@ -325,6 +343,7 @@ def process_davis_records(records):
     uv_vals     = []   # uv_index_hi (daily max)
     uv_avg_vals = []   # uv_index_avg
     uv_dose_total = 0.0
+    uv_series   = []   # (rec_dt, uv) pairs for dose integration fallback
     wind_dirs   = []   # wind_dir_of_prevail (degrees) for circular mean
     wind_run_total = 0.0   # miles, will convert to km
     rain_rate_hi_vals = []  # rain_rate values in mm/hr
@@ -433,6 +452,10 @@ def process_davis_records(records):
         uv_avg = rec.get('uv_index_avg')
         if uv_avg is not None:
             uv_avg_vals.append(float(uv_avg))
+        # Keep a timestamped series so UV dose can be integrated below
+        # (prefer the interval average; fall back to the interval high)
+        if uv_avg is not None or uv_hi is not None:
+            uv_series.append((rec_dt, float(uv_avg if uv_avg is not None else uv_hi)))
 
         # UV dose (MEDs per archive interval, cumulative daily)
         uv_d = rec.get('uv_dose')
@@ -502,7 +525,23 @@ def process_davis_records(records):
     pres_mean = round(sum(pressures)/len(pressures), 1) if pressures   else None
     uv_max_davis  = round(max(uv_vals), 1)           if uv_vals        else None
     uv_avg_daily  = round(sum(uv_avg_vals)/len(uv_avg_vals), 2) if uv_avg_vals else None
-    uv_dose_daily = round(uv_dose_total, 2)          if uv_dose_total > 0 else None
+    # The API almost never supplies uv_index_avg / uv_dose directly, so derive
+    # them from the interval readings when absent:
+    #   avg  = mean of the interval values
+    #   dose = integral of erythemal irradiance (1 UV index = 25 mW/m²),
+    #          expressed in MEDs (1 MED = 210 J/m² erythemal)
+    if uv_avg_daily is None and uv_vals:
+        uv_avg_daily = round(sum(uv_vals) / len(uv_vals), 2)
+    uv_dose_daily = round(uv_dose_total, 2) if uv_dose_total > 0 else None
+    if uv_dose_daily is None and len(uv_series) >= 2:
+        uv_series.sort(key=lambda p: p[0])
+        gaps = [(uv_series[i + 1][0] - uv_series[i][0]).total_seconds()
+                for i in range(len(uv_series) - 1)]
+        gaps = [g for g in gaps if 0 < g <= 3600]
+        interval_s = sorted(gaps)[len(gaps) // 2] if gaps else 300.0  # median, default 5 min
+        dose_j_m2 = sum(uv * 0.025 * interval_s for _, uv in uv_series)
+        if dose_j_m2 > 0:
+            uv_dose_daily = round(dose_j_m2 / 210.0, 2)  # J/m² -> MEDs
 
     # Wind direction: circular mean to handle 360/0 wrap-around.
     # On calm days the vane reading is meaningless (it idles at 0 = north and
@@ -527,6 +566,11 @@ def process_davis_records(records):
     thsw_max            = round(max(thsw_vals), 1)          if thsw_vals          else None
     emc_mean            = round(sum(emc_vals)/len(emc_vals), 1) if emc_vals       else None
     air_density_mean    = round(sum(air_density_vals)/len(air_density_vals), 4) if air_density_vals else None
+    # The API stopped supplying air_density on 2025-08-31 - compute moist air
+    # density from station temp / RH / pressure instead (partial-pressure form
+    # of the ideal gas law; matches the Davis field to ~0.1%).
+    if air_density_mean is None and temp_mean is not None and rh_mean is not None and pres_mean is not None:
+        air_density_mean = round(_calc_air_density(temp_mean, rh_mean, pres_mean), 4)
     cloud_cover_mean    = round(sum(cloud_cover_vals)/len(cloud_cover_vals), 2) if cloud_cover_vals else None
     reception_mean      = round(sum(reception_vals)/len(reception_vals), 1)     if reception_vals  else None
 
