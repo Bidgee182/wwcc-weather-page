@@ -115,7 +115,8 @@ else:
         with HISTORY_CSV.open(newline='', encoding='utf-8') as f:
             existing_rows = list(csv.DictReader(f))
 
-    all_rows = new_rows + existing_rows
+    # Keep the file chronological regardless of what order rows were added
+    all_rows = sorted(new_rows + existing_rows, key=lambda r: r.get('timestamp_aest', ''))
     with HISTORY_CSV.open('w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=HEADERS)
         w.writeheader()

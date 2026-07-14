@@ -513,6 +513,7 @@
         body.tv-mode #tile-uv        { order: 7; }
         body.tv-mode #tile-daylight  { order: 8; }
         .tv-three-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        @media (max-width: 700px) { .tv-three-grid { grid-template-columns: 1fr; } }
         /* feature-box: no top padding so the heading bar sits flush */
         .feature-box { border-radius: 10px; overflow: hidden; padding: 0 14px 14px; }
         /* Dynamic colours matching gt-* palette */
@@ -1384,7 +1385,7 @@
     </div>
 
     <!-- TV Slide 2 - Wind Analysis Card -->
-    <div class="card" id="tv-wind-card" style="display:none">
+    <div class="card" id="tv-wind-card">
         <h2>&#127788; Key Wind Holes Today</h2>
         <div id="tv-wind-boxes" class="tv-three-grid"><div style="color:#7f8c8d;font-size:0.85em">Loading wind data...</div></div>
     </div>
@@ -5546,7 +5547,7 @@ async function getWeatherData() {
         updateRecommendation();
         updateAllGolferTiles();
         updatePressureTrend();
-        if (TV_MODE) renderTVWindBoxes();
+        renderTVWindBoxes();   // shown on golfer page and TV slide 2
         checkCartsOnPaths();
         updateMowWindow();
         updateRainfallSummary();
@@ -6433,7 +6434,7 @@ const LAKE_THRESHOLDS = [
     { ahd: 190.05, rate: '1.00 ML/day', level: 2, name: 'Increased Monitoring',        bg: '#8AC63F', color: '#111111' },
     { ahd: 189.85, rate: '0.75 ML/day', level: 3, name: 'Water Conservation Planning', bg: '#FFDD00', color: '#111111' },
     { ahd: 189.65, rate: '0.50 ML/day', level: 4, name: 'Critical Warning',            bg: '#F58E1E', color: '#111111' },
-    // below 189.65 = Level 5 Shutdown (0 ML/day)
+    // below 189.65 = Level 5 Cease to Pump (0 ML/day)
 ];
 let   _tankCustomFrom   = null;
 let   _tankCustomTo     = null;
@@ -6742,7 +6743,7 @@ function lakeExtractionInfo(ahd) {
     if (ahd >= 190.05) return { rate: '1.00 ML/day', label: 'Level 2 \u2014 Increased Monitoring',         color: '#111111', bg: '#8AC63F' };
     if (ahd >= 189.85) return { rate: '0.75 ML/day', label: 'Level 3 \u2014 Water Conservation Planning',  color: '#111111', bg: '#FFDD00' };
     if (ahd >= 189.65) return { rate: '0.50 ML/day', label: ahd < 189.75 ? 'Level 4 \u2014 Critical Warning \u26a0' : 'Level 4 \u2014 Critical Warning', color: '#111111', bg: '#F58E1E' };
-    return                    { rate: '0 ML/day \u2014 No Extraction', label: 'Level 5 \u2014 Shutdown Verification', color: '#FFFFFF', bg: '#EB1E23' };
+    return                    { rate: '0 ML/day \u2014 No Extraction', label: 'Level 5 \u2014 Cease to Pump', color: '#FFFFFF', bg: '#EB1E23' };
 }
 
 function _renderLakeGraph(samples) {
@@ -6875,7 +6876,7 @@ function _renderLakeGraph(samples) {
             drawLine(190.05, '#8AC63F', 'L2 190.05 — 1.00 ML/day');
             drawLine(189.85, '#FFDD00', 'L3 189.85 — 0.75 ML/day');
             drawLine(189.75, '#F58E1E', 'L4 189.75 — Critical Warning');
-            drawLine(189.65, '#EB1E23', 'L5 189.65 — Shutdown');
+            drawLine(189.65, '#EB1E23', 'L5 189.65 — Cease to Pump');
         }
     };
 

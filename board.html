@@ -298,7 +298,7 @@
                     <div class="metric">
                         <div class="lbl">Est. ML Pumped</div>
                         <div class="val" id="ov-ml-month">--</div>
-                        <div class="sub">from lake (estimated)</div>
+                        <div class="sub" id="ov-ml-month-max">licence max --</div>
                     </div>
                     <div class="metric">
                         <div class="lbl">Town Water Saving</div>
@@ -317,7 +317,7 @@
                     </div>
                 </div>
                 <p style="font-size:0.68em;color:#566573;margin-top:10px;">
-                    * ML pumped is estimated from licence zone rate x active irrigation days. Flow sensor installation pending.
+                    * Est. ML = daily irrigation demand capped at the licence zone rate. Licence max shown for reference. Flow sensor installation pending.
                 </p>
             </div>
         </div><!-- end right col -->
@@ -352,7 +352,7 @@
 
     <div class="data-notice" style="margin-bottom:16px;">
         <strong>Off-season period:</strong> June, July and August are outside the irrigation season - no irrigation runs from the lake,
-        so savings are $0 for these months. Savings accumulate from September when the irrigation season begins.
+        so savings are $0 for these months. May is a reduced wind-down month; full irrigation resumes in September.
         Data tracking commenced 20 May 2026.
     </div>
 
@@ -367,6 +367,7 @@
                         <th>Zone</th>
                         <th style="text-align:right;">Irrig. Days</th>
                         <th style="text-align:right;">Est. ML</th>
+                        <th style="text-align:right;">Licence Max ML</th>
                         <th style="text-align:right;">Saving</th>
                     </tr>
                 </thead>
@@ -376,6 +377,7 @@
                         <td colspan="2">Season Total</td>
                         <td style="text-align:right;" id="sv-total-days">--</td>
                         <td style="text-align:right;" id="sv-total-ml">--</td>
+                        <td style="text-align:right;" id="sv-total-ml-max">--</td>
                         <td style="text-align:right; color:#27ae60;" id="sv-total-saving">--</td>
                     </tr>
                 </tfoot>
@@ -383,7 +385,8 @@
             </div>
             <p style="font-size:0.68em;color:#566573;margin-top:10px;">
                 Saving = irrigation kL demand x $<span id="sv-cost-per-kl">1.77</span>/kL town water rate.
-                ML estimated from zone rate x active days. Flow sensor installation pending.
+                Est. ML = daily irrigation demand (capped at licence rate). Licence Max ML = maximum
+                permitted extraction for the zone. Actual figures pending flow sensor installation.
             </p>
         </div>
 
@@ -515,7 +518,7 @@ const ZONE_STYLE = {
     2: { bg:'#8AC63F', fg:'#111',    name:'Level 2 - Monitoring' },
     3: { bg:'#FFDD00', fg:'#111',    name:'Level 3 - Conservation' },
     4: { bg:'#F58E1E', fg:'#111',    name:'Level 4 - Critical' },
-    5: { bg:'#EB1E23', fg:'white',   name:'Level 5 - Cease' },
+    5: { bg:'#EB1E23', fg:'white',   name:'Level 5 - Cease to Pump' },
 };
 function zpill(z) {
     const s = ZONE_STYLE[z] || { bg:'#888', fg:'white', name:'Level ' + z };
@@ -653,8 +656,8 @@ function calcSavings(timeline, from, to) {
     const zRates = {};
     for (const z of _cfg.zone_thresholds) zRates[z.zone] = z.max_pump_ml_day;
 
-    let totalSaving = 0, totalMl = 0;
-    const byMonth = {}; // 'YYYY-MM' → { saving, ml, activeDays, zone }
+    let totalSaving = 0, totalMl = 0, totalMlDemand = 0;
+    const byMonth = {}; // 'YYYY-MM' → { saving, ml, mlDemand, activeDays, zone }
 
     for (const d of eachDay(from, to)) {
         const m = d.getMonth() + 1;
@@ -662,19 +665,22 @@ function calcSavings(timeline, from, to) {
         const zone = zoneOnDate(timeline, d);
         if (zone === 5) continue; // ceased — no saving, no pumping
         const key = d.getFullYear() + '-' + String(m).padStart(2,'0');
-        if (!byMonth[key]) byMonth[key] = { saving:0, ml:0, activeDays:0, zone, year:d.getFullYear(), month:m };
-        const daySaving = parseFloat(irrig[m] || 0) * costKl;
-        const dayMl     = zRates[zone] || 0;
+        if (!byMonth[key]) byMonth[key] = { saving:0, ml:0, mlDemand:0, activeDays:0, zone, year:d.getFullYear(), month:m };
+        const daySaving   = parseFloat(irrig[m] || 0) * costKl;
+        const dayMl       = zRates[zone] || 0;                            // licence max
+        const dayMlDemand = Math.min(dayMl, parseFloat(irrig[m] || 0) / 1000); // capped at irrigation demand
         byMonth[key].saving     += daySaving;
         byMonth[key].ml         += dayMl;
+        byMonth[key].mlDemand   += dayMlDemand;
         byMonth[key].activeDays += 1;
         // Track dominant zone (most common)
         byMonth[key].zone = zone;
-        totalSaving += daySaving;
-        totalMl     += dayMl;
+        totalSaving   += daySaving;
+        totalMl       += dayMl;
+        totalMlDemand += dayMlDemand;
     }
 
-    return { totalSaving, totalMl, byMonth };
+    return { totalSaving, totalMl, totalMlDemand, byMonth };
 }
 
 // ── Historical rainfall averages from daily_log rows ─────────────────────────
@@ -779,12 +785,19 @@ function renderLakeChart(daily) {
     if (!daily.length || !_cfg) return;
     const labels   = daily.map(r => new Date(r.day+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
     const ahdData  = daily.map(r => parseFloat(r.ahd.toFixed(3)));
-    const threshDs = _cfg.zone_thresholds.filter(z => z.min_ahd != null).map(z => ({
-        label: 'L'+z.zone+' ('+z.min_ahd.toFixed(3)+'m)',
-        data: daily.map(() => z.min_ahd),
-        type: 'line', borderColor: (ZONE_STYLE[z.zone]||{}).bg||'#888',
-        borderWidth: 1, borderDash: [4,4], pointRadius: 0, fill: false, tension: 0,
-    }));
+    // Line at each zone's floor. The lowest floor (189.650) is the cease-to-pump
+    // boundary — drawn red and labelled L5 to match index.html and email charts.
+    const floors = _cfg.zone_thresholds.filter(z => z.min_ahd != null);
+    const lowestFloor = Math.min(...floors.map(z => z.min_ahd));
+    const threshDs = floors.map(z => {
+        const isCease = z.min_ahd === lowestFloor;
+        return {
+            label: isCease ? 'L5 Cease ('+z.min_ahd.toFixed(3)+'m)' : 'L'+z.zone+' ('+z.min_ahd.toFixed(3)+'m)',
+            data: daily.map(() => z.min_ahd),
+            type: 'line', borderColor: isCease ? '#EB1E23' : ((ZONE_STYLE[z.zone]||{}).bg||'#888'),
+            borderWidth: 1, borderDash: [4,4], pointRadius: 0, fill: false, tension: 0,
+        };
+    });
     const ctx = $('ov-lake-chart').getContext('2d');
     if (_lakeChart) _lakeChart.destroy();
     _lakeChart = new Chart(ctx, {
@@ -974,12 +987,13 @@ async function loadAll() {
         $('ol-cost').textContent      = fmt$(costToMarch);
         $('ol-daily-cost').textContent = '$' + Math.round(dailyCost) + '/day';
 
-        // This month at a glance
-        $('ov-ml-month').textContent     = fmtMl(monthSav.totalMl);
+        // This month at a glance — demand-based estimate headline, licence max as context
+        $('ov-ml-month').textContent      = fmtMl(monthSav.totalMlDemand);
+        $('ov-ml-month-max').textContent  = 'licence max ' + fmtMl(monthSav.totalMl);
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
-        $('ov-ml-season').textContent     = fmtMl(seasonSav.totalMl);
+        $('ov-ml-season').textContent     = fmtMl(seasonSav.totalMlDemand);
         $('ov-saving-season').textContent = fmt$(seasonSav.totalSaving);
-        $('ov-ml-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
+        $('ov-ml-season-lbl').textContent = 'from ' + fmtDateShort(savFrom) + ' (max ' + fmtMl(seasonSav.totalMl) + ')';
         $('ov-saving-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
 
         // Lake level chart
@@ -995,7 +1009,7 @@ async function loadAll() {
         $('sv-cost-per-kl').textContent = costPerKl.toFixed(2);
 
         const svBody = $('sv-monthly-body');
-        let totDays = 0, totMl = 0, totSaving = 0;
+        let totDays = 0, totMl = 0, totMlDemand = 0, totSaving = 0;
         const monthKeys = Object.keys(seasonSav.byMonth).sort();
         for (const key of monthKeys) {
             const row = seasonSav.byMonth[key];
@@ -1006,18 +1020,21 @@ async function loadAll() {
                 <td>${label}</td>
                 <td>${zpill(row.zone)}</td>
                 <td style="text-align:right;">${row.activeDays}</td>
-                <td style="text-align:right;">${row.ml.toFixed(1)}</td>
+                <td style="text-align:right;">${row.mlDemand.toFixed(1)}</td>
+                <td style="text-align:right;color:#7f8c8d;">${row.ml.toFixed(1)}</td>
                 <td style="text-align:right;color:#27ae60;">${fmt$(row.saving)}</td>`;
             svBody.appendChild(tr);
-            totDays += row.activeDays;
-            totMl   += row.ml;
-            totSaving += row.saving;
+            totDays     += row.activeDays;
+            totMl       += row.ml;
+            totMlDemand += row.mlDemand;
+            totSaving   += row.saving;
         }
         if (monthKeys.length === 0) {
-            svBody.innerHTML = `<tr><td colspan="5" style="color:#566573;padding:16px;">No zone history data yet — tracking will build up over time.</td></tr>`;
+            svBody.innerHTML = `<tr><td colspan="6" style="color:#566573;padding:16px;">No zone history data yet — tracking will build up over time.</td></tr>`;
         }
-        $('sv-total-days').textContent  = totDays;
-        $('sv-total-ml').textContent    = totMl.toFixed(1) + ' ML';
+        $('sv-total-days').textContent   = totDays;
+        $('sv-total-ml').textContent     = totMlDemand.toFixed(1) + ' ML';
+        $('sv-total-ml-max').textContent = totMl.toFixed(1) + ' ML';
         $('sv-total-saving').textContent = fmt$(totSaving);
 
         renderSavingsChart(seasonSav.byMonth);

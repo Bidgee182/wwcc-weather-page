@@ -1329,12 +1329,16 @@ def _load_zone_timeline():
 def _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg):
     """Estimate ML pumped from lake for a date range using zone history.
 
-    Uses zone rate x days for each active irrigation month. Noted as estimate
-    since the flow sensor is not yet connected.
+    Returns (zone_days, zone_ml_max, zone_ml_demand):
+      zone_ml_max    - licence maximum rate x days (theoretical ceiling)
+      zone_ml_demand - daily irrigation demand capped at the licence rate
+                       (realistic estimate). Both noted as estimates since
+                       the flow sensor is not yet connected.
     """
     from datetime import timedelta
     cfg = lu.get_config()
     active_m  = set(cfg['irrigation_season']['active_months'])
+    irrig_kl  = cfg['town_water']['daily_kl_by_month']
     zone_rates = {z['zone']: z['max_pump_ml_day'] for z in zone_cfg}
 
     # Find zone active at month_start
@@ -1355,19 +1359,22 @@ def _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg):
             changes.append((d, z))
 
     # Accumulate ML by zone
-    zone_days  = {}
-    zone_ml    = {}
+    zone_days      = {}
+    zone_ml        = {}
+    zone_ml_demand = {}
     for i, (from_d, zone) in enumerate(changes):
         to_d = changes[i + 1][0] if i + 1 < len(changes) else month_end + timedelta(days=1)
         cur = from_d
         while cur < to_d:
             if cur.month in active_m:
-                rate = zone_rates.get(zone, 0)
-                zone_days[zone]  = zone_days.get(zone, 0) + 1
-                zone_ml[zone]    = zone_ml.get(zone, 0.0) + rate
+                rate      = zone_rates.get(zone, 0)
+                demand_ml = min(rate, float(irrig_kl.get(str(cur.month), 0)) / 1000.0)
+                zone_days[zone]      = zone_days.get(zone, 0) + 1
+                zone_ml[zone]        = zone_ml.get(zone, 0.0) + rate
+                zone_ml_demand[zone] = zone_ml_demand.get(zone, 0.0) + demand_ml
             cur += timedelta(days=1)
 
-    return zone_days, zone_ml
+    return zone_days, zone_ml, zone_ml_demand
 
 
 def _historical_rain_avg(month_num, wx_rows, years=10):
@@ -1477,11 +1484,13 @@ def build_monthly_html(now_syd):
 
     # ── Zone history & ML estimation ──────────────────────────────────────────
     timeline   = _load_zone_timeline()
-    zone_days_m, zone_ml_m = _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg)
-    zone_days_s, zone_ml_s = _estimate_ml_pumped(season_start, month_end, timeline, zone_cfg)
+    zone_days_m, zone_ml_m, zone_mld_m = _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg)
+    zone_days_s, zone_ml_s, zone_mld_s = _estimate_ml_pumped(season_start, month_end, timeline, zone_cfg)
 
-    total_ml_m = sum(zone_ml_m.values())
-    total_ml_s = sum(zone_ml_s.values())
+    total_ml_m  = sum(zone_ml_m.values())    # licence maximum
+    total_ml_s  = sum(zone_ml_s.values())
+    total_mld_m = sum(zone_mld_m.values())   # demand-based estimate
+    total_mld_s = sum(zone_mld_s.values())
 
     # ── Town water savings ─────────────────────────────────────────────────────
     from datetime import timedelta as _td
@@ -1504,7 +1513,7 @@ def build_monthly_html(now_syd):
         [month_start + timedelta(days=i) for i in range((month_end - month_start).days + 1)]
         if d.month in active_m)
     max_ml_l1 = max_rate_l1 * days_in_active_month
-    utilisation_pct = (total_ml_m / max_ml_l1 * 100) if max_ml_l1 > 0 else None
+    utilisation_pct = (total_mld_m / max_ml_l1 * 100) if max_ml_l1 > 0 else None
 
     # ── Rainfall calculations ─────────────────────────────────────────────────
     wx_month  = [r for r in wx_rows if ms_iso <= r['date'] <= me_iso]
@@ -1586,8 +1595,8 @@ def build_monthly_html(now_syd):
        style="border-collapse:collapse;margin-top:20px;">
   <tr>
     {_stat_cell(25, _ROW_A, 'Est. ML Pumped',
-        f'<span style="font-size:18px;">{_fmt_ml(total_ml_m)}</span>',
-        f'{month_label}', accent='#2471a3')}
+        f'<span style="font-size:18px;">{_fmt_ml(total_mld_m)}</span>',
+        f'{month_label} (licence max {_fmt_ml(total_ml_m)})', accent='#2471a3')}
     {_stat_cell(25, _ROW_B, 'Town Water Saved',
         f'<span style="color:{saving_col};font-size:18px;">{_fmt_dollar(saving_month)}</span>',
         f'{month_label}', accent='#00762A')}
@@ -1604,7 +1613,8 @@ def build_monthly_html(now_syd):
     level_rows_m = ''
     for z in zone_cfg:
         days_in = zone_days_m.get(z['zone'], 0)
-        ml_in   = zone_ml_m.get(z['zone'], 0.0)
+        ml_in   = zone_mld_m.get(z['zone'], 0.0)
+        ml_max  = zone_ml_m.get(z['zone'], 0.0)
         if days_in == 0:
             continue
         is_cur = (z['zone'] == lv_num)
@@ -1622,7 +1632,8 @@ def build_monthly_html(now_syd):
           border-bottom:1px solid {_BORDER};text-align:right;">{days_in}&nbsp;days</td>
       <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 10px;
           font-family:Arial,sans-serif;font-size:12px;color:#475569;white-space:nowrap;
-          border-bottom:1px solid {_BORDER};text-align:right;">{ml_in:.2f}&nbsp;ML&nbsp;est.</td>
+          border-bottom:1px solid {_BORDER};text-align:right;">{ml_in:.2f}&nbsp;ML&nbsp;est.
+        <span style="color:#94a3b8;">(max&nbsp;{ml_max:.2f})</span></td>
     </tr>"""
 
     lake_kv_rows = [
@@ -1670,7 +1681,9 @@ def build_monthly_html(now_syd):
     )
 
     # 4. Water cost & savings card
-    irrig_note = '<p style="margin:8px 12px 0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">* Est. - flow sensor not yet connected. Based on licence zone rate x days.</p>'
+    irrig_note = ('<p style="margin:8px 12px 0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">'
+                  '* Est. - flow sensor not yet connected. ML est. = daily irrigation demand capped at the '
+                  'licence zone rate; (max) = licence maximum extraction for the days in that zone.</p>')
 
     body += (
         _card_open('Water Cost &amp; Savings')
@@ -1680,10 +1693,10 @@ def build_monthly_html(now_syd):
   <tr>
     {_stat_cell(50, _ROW_A, f'Month Saving ({month_label})',
         f'<span style="color:#00762A;">{_fmt_dollar(saving_month)}</span>',
-        f'{total_ml_m:.1f} ML pumped from lake (est.)', accent='#00762A')}
+        f'{total_mld_m:.1f} ML pumped est. (licence max {total_ml_m:.1f} ML)', accent='#00762A')}
     {_stat_cell(50, _ROW_B, f'Season Saving (Sep {season_start.year})',
         f'<span style="color:#00762A;">{_fmt_dollar(saving_season)}</span>',
-        f'{total_ml_s:.1f} ML pumped season-to-date (est.)', accent='#00762A')}
+        f'{total_mld_s:.1f} ML pumped season est. (licence max {total_ml_s:.1f} ML)', accent='#00762A')}
   </tr>
 </table>"""
         + _section_label(f'Zone Breakdown - {month_label} (Active Irrigation Days Only)')
@@ -1711,7 +1724,8 @@ def build_monthly_html(now_syd):
         border-top:2px solid {_BORDER};">Total</td>
     <td bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:7px 10px;
         font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#1b2631;
-        border-top:2px solid {_BORDER};text-align:right;">{total_ml_m:.2f}&nbsp;ML</td>
+        border-top:2px solid {_BORDER};text-align:right;">{total_mld_m:.2f}&nbsp;ML
+        <span style="font-weight:400;color:#64748b;">(max&nbsp;{total_ml_m:.2f})</span></td>
     <td bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:7px 10px;
         font-family:Arial,sans-serif;font-size:12px;color:#475569;
         border-top:2px solid {_BORDER};text-align:right;">

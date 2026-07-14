@@ -1087,7 +1087,7 @@ _LAKE_LEVELS = [
     (190.050, 2, 'Increased Monitoring',        '1.00 ML/day', '#8AC63F', '#111111','#f7fee7', '#8AC63F'),
     (189.850, 3, 'Water Conservation Planning', '0.75 ML/day', '#FFDD00', '#111111','#fefce8', '#FFDD00'),
     (189.650, 4, 'Critical Warning',            '0.50 ML/day', '#F58E1E', '#111111','#fff7ed', '#F58E1E'),
-    (0,       5, 'Shutdown Verification',       '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#EB1E23'),
+    (0,       5, 'Cease to Pump',               '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#EB1E23'),
 ]
 
 
@@ -1262,7 +1262,7 @@ def _lake_threshold_table(current_ahd):
         (2, '&ge; 190.050 m AHD', 'Increased Monitoring',        '1.00 ML/day', '#8AC63F', '#111',   '#f7fee7', '#374151', '#3a6b10', '#3a6b10'),
         (3, '&ge; 189.850 m AHD', 'Water Conservation Planning', '0.75 ML/day', '#FFDD00', '#111',   '#fefce8', '#374151', '#854d0e', '#854d0e'),
         (4, '&ge; 189.650 m AHD', 'Critical Warning',            '0.50 ML/day', '#F58E1E', '#111',   '#fff7ed', '#374151', '#9a3412', '#9a3412'),
-        (5, '&lt; 189.650 m AHD', 'Shutdown Verification',       '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#374151', '#991b1b', '#991b1b'),
+        (5, '&lt; 189.650 m AHD', 'Cease to Pump',               '0 ML/day',    '#EB1E23', 'white',  '#fef2f2', '#374151', '#991b1b', '#991b1b'),
     ]
 
     rows = ''
@@ -1583,7 +1583,7 @@ def _zone_history_section_gk(month_start, month_end):
         2: 'Level 2 - Monitoring',
         3: 'Level 3 - Conservation',
         4: 'Level 4 - Critical',
-        5: 'Level 5 - Cease',
+        5: 'Level 5 - Cease to Pump',
     }
     _ZONE_RATES = {
         1: '1.50 ML/day',
@@ -1624,6 +1624,7 @@ def _zone_history_section_gk(month_start, month_end):
                     all_rows_sorted.append((ts, int(row['new_zone']) if row.get('new_zone') else None))
                 except Exception:
                     continue
+        all_rows_sorted.sort(key=lambda t: t[0])
 
         # Find zone at month start
         zone_at_month_start = None
@@ -2937,7 +2938,7 @@ def build_yearly_html(history, year_label):
   </td></tr>
 
   <!-- SECTION 1: MONTHLY BREAKDOWN TABLE -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
     <span style="display:inline-block;width:28px;height:28px;line-height:28px;
         text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
         color:white;font-weight:700;font-size:13px;margin-right:10px;
@@ -2985,7 +2986,7 @@ def build_yearly_html(history, year_label):
   </td></tr>
 
   <!-- SECTION 2: ANNUAL HIGHLIGHTS -->
-  <tr><td style="background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
+  <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;background:linear-gradient(135deg,#1a4a2e,#2d7a4e);padding:16px 24px;">
     <span style="display:inline-block;width:28px;height:28px;line-height:28px;
         text-align:center;border-radius:50%;background:rgba(255,255,255,0.2);
         color:white;font-weight:700;font-size:13px;margin-right:10px;
