@@ -622,8 +622,11 @@
             flex-direction: column; align-items: center; justify-content: center; padding: 0.8vw 0.5vw 1vw; }
         body.tv2-mode .tv2-hour .h-icon { font-size: 3.4vw; line-height: 1.2; }
         body.tv2-mode .tv2-hour .h-temp { font-size: 3vw; font-weight: bold; color: #fff; margin-top: 0.5vw; }
+        body.tv2-mode .tv2-hour .h-sky  { font-size: 1.35vw; color: rgba(255,255,255,0.8); margin-top: 0.3vw; }
         body.tv2-mode .tv2-hour .h-rain { font-size: 1.4vw; margin-top: 0.7vw; color: #5dade2; font-weight: bold; }
         body.tv2-mode .tv2-hour .h-wind { font-size: 1.25vw; color: rgba(255,255,255,0.7); margin-top: 0.35vw; }
+        body.tv2-mode .tv2-hours-note { flex-shrink: 0; text-align: center; font-size: 1.6vw;
+            color: rgba(255,255,255,0.85); padding: 0.9vw 1vw 0.4vw; line-height: 1.4; }
         /* Live Weather Station screen: 3x2 grid of readings */
         body.tv2-mode .tv2-st-grid { display: grid; grid-template-columns: repeat(3, 1fr);
             grid-template-rows: 1fr 1fr; gap: 1.4vw; flex: 1; min-height: 0; padding-bottom: 0.6vw; }
@@ -6849,6 +6852,22 @@ function renderTV2Station() {
         _tv2Cls('tile-rain24h', ['gt-'], 'gt-idle'));
 }
 
+// Short sky wording from the WMO forecast code
+function wmoDesc(code) {
+    if (code === 0) return 'Clear';
+    if (code === 1) return 'Mostly clear';
+    if (code === 2) return 'Partly cloudy';
+    if (code === 3) return 'Overcast';
+    if (code <= 48) return 'Fog';
+    if (code <= 55) return 'Drizzle';
+    if (code <= 65) return 'Rain';
+    if (code <= 77) return 'Snow';
+    if (code <= 82) return 'Showers';
+    if (code <= 86) return 'Snow showers';
+    if (code >= 95) return 'Storm';
+    return 'Variable';
+}
+
 // Screen 6: next 6 hours from the live hourly forecast
 function renderTV2Hours() {
     const grid = document.getElementById('tv2-hours-grid');
@@ -6857,25 +6876,77 @@ function renderTV2Hours() {
     const nowHourIso = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
     let start = hourlyFc.time.findIndex(t => t.slice(0, 13) > nowHourIso);
     if (start < 0) return;
+    const end = Math.min(start + 6, hourlyFc.time.length);
+
+    const fmtHr = i => {
+        const hr = parseInt(hourlyFc.time[i].slice(11, 13), 10);
+        return (hr % 12 || 12) + (hr < 12 ? ' AM' : ' PM');
+    };
+    const winds = [], clouds = [];
+    let rainTotal = 0;
     let html = '';
-    for (let i = start; i < Math.min(start + 6, hourlyFc.time.length); i++) {
-        const hr  = parseInt(hourlyFc.time[i].slice(11, 13), 10);
-        const lbl = (hr % 12 || 12) + (hr < 12 ? ' AM' : ' PM');
-        const tc  = hourlyFc.temperature_2m?.[i];
-        const pp  = hourlyFc.precipitation_probability?.[i] ?? 0;
-        const ws  = hourlyFc.windspeed_10m?.[i];
+    for (let i = start; i < end; i++) {
+        const tc   = hourlyFc.temperature_2m?.[i];
+        const pp   = hourlyFc.precipitation_probability?.[i] ?? 0;
+        const mm   = hourlyFc.precipitation?.[i] ?? 0;
+        const ws   = hourlyFc.windspeed_10m?.[i];
+        const wd   = hourlyFc.winddirection_10m?.[i];
         const code = hourlyFc.weather_code?.[i];
+        const cc   = hourlyFc.cloud_cover?.[i];
+        if (ws != null) winds.push(ws);
+        if (cc != null) clouds.push(cc);
+        rainTotal += mm;
+
+        // Rain line: "20% of 0.6mm", or "No rain" when nothing forecast
+        const rainStr = mm >= 0.05 ? `${pp}% of ${mm.toFixed(1)}mm`
+                      : pp >= 20   ? `${pp}% chance` : 'No rain';
+
+        // Wind trend arrow vs the average of the remaining hours in the window
+        let arrow = '';
+        if (ws != null && i < end - 1) {
+            const later = [];
+            for (let j = i + 1; j < end; j++) if (hourlyFc.windspeed_10m?.[j] != null) later.push(hourlyFc.windspeed_10m[j]);
+            if (later.length) {
+                const avg = later.reduce((a, b) => a + b, 0) / later.length;
+                arrow = avg > ws + 3 ? ' &#8599;' : avg < ws - 3 ? ' &#8600;' : '';
+            }
+        }
+        const windStr = ws != null
+            ? Math.round(ws) + ' km/h' + (wd != null ? ' ' + degreesToCompass(wd) : '') + arrow : '';
+
         html += `<div class="tv2-hour">
-            <div class="h-time">${lbl}</div>
+            <div class="h-time">${fmtHr(i)}</div>
             <div class="tv2-hour-body">
                 <div class="h-icon">${code != null ? wmoIcon(code) : ''}</div>
+                <div class="h-sky">${code != null ? wmoDesc(code) : ''}</div>
                 <div class="h-temp">${tc != null ? Math.round(tc) + '&deg;' : '--'}</div>
-                <div class="h-rain">${pp}% rain</div>
-                <div class="h-wind">${ws != null ? Math.round(ws) + ' km/h wind' : ''}</div>
+                <div class="h-rain">${rainStr}</div>
+                <div class="h-wind">${windStr}</div>
             </div>
         </div>`;
     }
     grid.innerHTML = html;
+
+    // Plain-English summary line under the grid
+    const note = document.getElementById('tv2-hours-note');
+    if (note) {
+        const parts = [];
+        if (winds.length >= 2) {
+            const now = winds[0], peak = Math.max(...winds.slice(1)), last = winds[winds.length - 1];
+            let peakIdx = start + 1 + winds.slice(1).indexOf(peak);
+            if (peak > now + 3)      parts.push(`Wind ${Math.round(now)} km/h now, increasing to ${Math.round(peak)} km/h by ${fmtHr(peakIdx)}`);
+            else if (last < now - 3) parts.push(`Wind ${Math.round(now)} km/h now, easing to ${Math.round(last)} km/h by ${fmtHr(end - 1)}`);
+            else                     parts.push(`Wind steady around ${Math.round(now)} km/h`);
+        }
+        parts.push(rainTotal >= 0.1 ? `${rainTotal.toFixed(1)} mm of rain expected over the next 6 hours`
+                                    : 'No rain expected in the next 6 hours');
+        if (clouds.length >= 2) {
+            const diff = clouds[clouds.length - 1] - clouds[0];
+            if (diff > 30)       parts.push('clouding over');
+            else if (diff < -30) parts.push('clearing');
+        }
+        note.innerHTML = parts.join(' &nbsp;&bull;&nbsp; ');
+    }
 }
 
 // True after last light / before pre-dawn (banner is in its night state)
@@ -7128,6 +7199,7 @@ function initTV2Mode() {
         `<div class="tv2-slide-inner">
             <div class="tv2-title">Next 6 Hours</div>
             <div class="tv2-hour-grid" id="tv2-hours-grid"></div>
+            <div class="tv2-hours-note" id="tv2-hours-note"></div>
         </div>`,
         ...gridPost.map(gridSlide),
         // Live weather station: 3x2 grid mirroring the golfer Station tab
