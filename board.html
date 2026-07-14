@@ -420,7 +420,9 @@
             <p style="font-size:0.68em;color:#566573;margin-top:10px;">
                 Saving = irrigation kL demand x $<span id="sv-cost-per-kl">1.77</span>/kL town water rate.
                 Est. ML = daily irrigation demand (capped at licence rate). Licence Max ML = maximum
-                permitted extraction for the zone. Actual figures pending flow sensor installation.
+                permitted extraction for the zone. Off-season months (Jun-Aug) show $0 and 0 ML once
+                finished - no irrigation runs from the lake. Any metered pumping in those months will
+                be shown once the flow meter is installed.
             </p>
         </div>
 
@@ -706,10 +708,17 @@ function calcSavings(timeline, from, to) {
 
     for (const d of eachDay(from, to)) {
         const m = d.getMonth() + 1;
-        if (!actM.has(m)) continue;
+        const key = d.getFullYear() + '-' + String(m).padStart(2,'0');
+        if (!actM.has(m)) {
+            // Off-season month (Jun-Aug): keep a $0 entry so the month still
+            // appears in the table and chart once it has finished. When the
+            // flow meter is installed, any metered pumping will replace the 0.
+            if (!byMonth[key]) byMonth[key] = { saving:0, ml:0, mlDemand:0, activeDays:0,
+                zone:null, year:d.getFullYear(), month:m, offSeason:true };
+            continue;
+        }
         const zone = zoneOnDate(timeline, d);
         if (zone === 5) continue; // ceased — no saving, no pumping
-        const key = d.getFullYear() + '-' + String(m).padStart(2,'0');
         if (!byMonth[key]) byMonth[key] = { saving:0, ml:0, mlDemand:0, activeDays:0, zone, year:d.getFullYear(), month:m };
         const daySaving   = parseFloat(irrig[m] || 0) * costKl;
         const dayMl       = zRates[zone] || 0;                            // licence max
@@ -723,6 +732,15 @@ function calcSavings(timeline, from, to) {
         totalSaving   += daySaving;
         totalMl       += dayMl;
         totalMlDemand += dayMlDemand;
+    }
+
+    // Off-season months only chart once complete - drop the in-progress one
+    for (const key of Object.keys(byMonth)) {
+        const row = byMonth[key];
+        if (row.offSeason) {
+            const lastDay = new Date(row.year, row.month, 0); // last day of that month
+            if (lastDay > to) delete byMonth[key];
+        }
     }
 
     return { totalSaving, totalMl, totalMlDemand, byMonth };
@@ -1091,13 +1109,17 @@ async function loadAll() {
             const [y,m] = key.split('-');
             const label = new Date(+y,+m-1,1).toLocaleDateString('en-AU',{month:'long',year:'numeric'});
             const tr = document.createElement('tr');
+            const zoneCell = row.offSeason
+                ? '<span style="color:#7f8c8d;font-size:0.85em;">Off-season</span>'
+                : zpill(row.zone);
+            const savingStyle = row.offSeason ? 'color:#7f8c8d;' : 'color:#27ae60;';
             tr.innerHTML = `
                 <td>${label}</td>
-                <td>${zpill(row.zone)}</td>
+                <td>${zoneCell}</td>
                 <td style="text-align:right;">${row.activeDays}</td>
                 <td style="text-align:right;">${row.mlDemand.toFixed(1)}</td>
                 <td style="text-align:right;color:#7f8c8d;">${row.ml.toFixed(1)}</td>
-                <td style="text-align:right;color:#27ae60;">${fmt$(row.saving)}</td>`;
+                <td style="text-align:right;${savingStyle}">${fmt$(row.saving)}</td>`;
             svBody.appendChild(tr);
             totDays     += row.activeDays;
             totMl       += row.ml;
