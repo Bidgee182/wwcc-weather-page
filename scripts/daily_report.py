@@ -504,8 +504,11 @@ def process_davis_records(records):
     uv_avg_daily  = round(sum(uv_avg_vals)/len(uv_avg_vals), 2) if uv_avg_vals else None
     uv_dose_daily = round(uv_dose_total, 2)          if uv_dose_total > 0 else None
 
-    # Wind direction: circular mean to handle 360/0 wrap-around
-    if wind_dirs:
+    # Wind direction: circular mean to handle 360/0 wrap-around.
+    # On calm days the vane reading is meaningless (it idles at 0 = north and
+    # would skew monthly prevailing-direction stats), so record no direction
+    # when the daily mean wind is under 2 km/h.
+    if wind_dirs and wind_mean is not None and wind_mean >= 2:
         sin_sum = sum(math.sin(math.radians(d)) for d in wind_dirs)
         cos_sum = sum(math.cos(math.radians(d)) for d in wind_dirs)
         wind_dir_mean = round((math.degrees(math.atan2(sin_sum, cos_sum)) + 360) % 360)
@@ -3314,9 +3317,11 @@ def send_email(subject, html_body, recipients):
     if not recipients or recipients == ['']:
         log.warning('No email recipients configured.')
         return
+    from lake_utils import html_to_text
     message = Mail(
         from_email=Email(EMAIL_FROM, 'WWCC Weather'),
         subject=subject,
+        plain_text_content=html_to_text(html_body),
         html_content=html_body,
     )
     for addr in recipients:

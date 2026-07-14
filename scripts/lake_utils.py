@@ -8,6 +8,28 @@ evaporation rates, zone thresholds, or pump rates, edit that file only.
 import json
 from pathlib import Path
 
+
+# ── Email plain-text part ─────────────────────────────────────────────────────
+
+def html_to_text(html_str):
+    """Rough HTML to plain-text conversion for the text/plain email part.
+
+    Not a full renderer - just enough that a text-only client (or a spam
+    filter checking for a text alternative) gets readable content.
+    """
+    import html as _html
+    import re
+    text = re.sub(r'<(style|script)[^>]*>.*?</\1>', ' ', html_str,
+                  flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</(p|tr|div|h[1-6]|table)>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = _html.unescape(text)
+    text = re.sub(r'[ \t\xa0]+', ' ', text)
+    text = re.sub(r' ?\n ?', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
 _CONFIG_PATH = Path(__file__).parent.parent / 'data' / 'lake_config.json'
 _config = None
 

@@ -798,9 +798,11 @@ def send_email(subject, html_content, test_mode=False):
         to_list = [e.strip() for e in EMAIL_LAKE_TO.split(',') if e.strip()]
         cc_list = [e.strip() for e in EMAIL_LAKE_CC.split(',') if e.strip()] if EMAIL_LAKE_CC else []
 
+    from lake_utils import html_to_text
     mail = Mail(
         from_email=Email(EMAIL_FROM),
         subject=subject,
+        plain_text_content=html_to_text(html_content),
         html_content=html_content,
     )
     mail.to = [To(e) for e in to_list]

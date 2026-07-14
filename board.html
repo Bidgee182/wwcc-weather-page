@@ -572,6 +572,19 @@ function projectToCease(ahd) {
     return null;
 }
 
+// Volume (ML) between two AHD levels - trapezoidal integration over the
+// linear area model. Identical to lake_utils.vol_between_ml so the board
+// dashboard and board email always produce the same figures.
+function volBetweenMl(loAhd, hiAhd, steps = 500) {
+    if (loAhd >= hiAhd) return 0;
+    const dh = (hiAhd - loAhd) / steps;
+    let total = 0;
+    for (let i = 0; i < steps; i++) {
+        total += (lakeArea(loAhd + i * dh) + lakeArea(loAhd + (i + 1) * dh)) / 2 * dh;
+    }
+    return total / 1000; // m³ → ML
+}
+
 function daysToNextZone(ahd, zone) {
     const zones = _cfg.zone_thresholds;
     const nextZ = zones.find(z => z.zone === zone.zone + 1);
@@ -585,9 +598,7 @@ function daysToNextZone(ahd, zone) {
     const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
     const totalLoss = pumpMl + evapMl;
     if (totalLoss <= 0) return Infinity;
-    // Volume between current AHD and threshold (approx with avg area)
-    const midArea = lakeArea((ahd + threshold) / 2);
-    const volMl = (ahd - threshold) * midArea / 1000;
+    const volMl = volBetweenMl(threshold, ahd);
     return volMl / totalLoss;
 }
 

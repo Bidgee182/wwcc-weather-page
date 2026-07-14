@@ -338,7 +338,9 @@ def send_email(subject, html, recipients):
     try:
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import Mail, To, Email
-        mail = Mail(from_email=Email(EMAIL_FROM), subject=subject, html_content=html)
+        from lake_utils import html_to_text
+        mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
+                    plain_text_content=html_to_text(html), html_content=html)
         mail.to = [To(e) for e in recipients]
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)

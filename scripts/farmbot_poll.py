@@ -193,7 +193,9 @@ def send_alert(pct, volume_l, state):
 
     recipients = [r.strip() for r in EMAIL_GK_RECIPIENTS.split(',') if r.strip()]
     sg   = SendGridAPIClient(SENDGRID_API_KEY)
-    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject, html_content=html)
+    from lake_utils import html_to_text
+    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
+                plain_text_content=html_to_text(html), html_content=html)
     for addr in recipients:
         mail.add_to(To(addr))
     sg.send(mail)

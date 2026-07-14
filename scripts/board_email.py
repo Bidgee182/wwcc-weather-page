@@ -1948,7 +1948,8 @@ def send_email(subject, html_content, test_mode=False):
         log.error('No To recipients - cannot send')
         return False
 
-    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject, html_content=html_content)
+    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
+                plain_text_content=lu.html_to_text(html_content), html_content=html_content)
     mail.to = [To(e) for e in to_list]
     if cc_list:
         mail.cc = [Cc(e) for e in cc_list]
