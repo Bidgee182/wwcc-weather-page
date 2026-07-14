@@ -53,7 +53,9 @@ EMAIL_BOARD_CC   = os.environ.get('EMAIL_BOARD_CC', '')
 EMAIL_BOARD_BCC  = os.environ.get('EMAIL_BOARD_BCC', '')
 
 # ── dedup guard ────────────────────────────────────────────────────────────────
-_SENT_FILE = _DATA_DIR / 'board_sent_week.json'
+_SENT_FILE       = _DATA_DIR / 'board_sent_week.json'
+_SENT_MONTH_FILE = _DATA_DIR / 'board_sent_month.json'
+ZONE_HISTORY_CSV = _DATA_DIR / 'lake_zone_history.csv'
 
 
 def _already_sent_this_week(now_syd):
@@ -85,6 +87,19 @@ def _mark_sent_this_week(now_syd, proj=None):
     if proj:
         payload.update(proj)
     _SENT_FILE.write_text(json.dumps(payload))
+
+
+def _already_sent_this_month(now_syd):
+    iso_month = now_syd.strftime('%Y-%m')
+    try:
+        data = json.loads(_SENT_MONTH_FILE.read_text())
+        return data.get('sent_month') == iso_month
+    except Exception:
+        return False
+
+
+def _mark_sent_this_month(now_syd):
+    _SENT_MONTH_FILE.write_text(json.dumps({'sent_month': now_syd.strftime('%Y-%m')}))
 
 
 # ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -1177,6 +1192,716 @@ def build_html(now_syd):
     return _wrap(body), proj_data
 
 
+# ── Monthly board report ───────────────────────────────────────────────────────
+
+def _monthly_header(subtitle):
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:20px 24px 18px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="middle" class="mob-logo-cell" style="padding-right:16px;white-space:nowrap;width:1%;">
+            <img src="{_LOGO_URL}" width="194" height="44" alt="Wagga Wagga Country Club" style="display:block;border:0;">
+          </td>
+          <td valign="middle" class="mob-text-cell">
+            <p style="margin:0 0 6px 0;font-size:10px;color:#a9cce3;letter-spacing:2px;
+                text-transform:uppercase;font-family:Arial,sans-serif;font-weight:normal;">
+              Wagga Wagga Country Club &nbsp;&bull;&nbsp; Board Monthly Report
+            </p>
+            <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:bold;
+                font-family:Arial,sans-serif;line-height:1.2;">Water &amp; Finance Summary</h1>
+            <p style="margin:4px 0 0 0;font-size:12px;color:#a9cce3;
+                font-family:Arial,sans-serif;font-weight:normal;">{subtitle}</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>"""
+
+
+def _section_label(text):
+    """Blue subheading bar between cards."""
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:4px;">
+  <tr>
+    <td bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:7px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">{text}</p>
+    </td>
+  </tr>
+</table>"""
+
+
+def _zone_pill_html(zone_num, zone_cfg):
+    """Inline coloured zone pill."""
+    z = next((z for z in zone_cfg if z['zone'] == zone_num), None)
+    if not z:
+        return f'Level {zone_num}'
+    return (f'<span style="display:inline-block;background:{z["color_bg"]};color:{z["color_text"]};'
+            f'font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;">'
+            f'Level&nbsp;{zone_num}</span>')
+
+
+def _month_lake_chart(readings, month_start, month_end, zone_cfg):
+    """QuickChart.io PNG — daily average AHD for a calendar month."""
+    by_day = defaultdict(list)
+    ms, me = month_start.isoformat(), month_end.isoformat()
+    for r in readings:
+        try:
+            d = r['date'][:10]
+            if ms <= d <= me and r.get('ahd'):
+                by_day[d].append(float(r['ahd']))
+        except Exception:
+            pass
+    days  = sorted(by_day.keys())
+    vals  = [round(sum(by_day[d]) / len(by_day[d]), 3) for d in days]
+    labels = [f'{int(d[8:])} {datetime.strptime(d, "%Y-%m-%d").strftime("%b")}' for d in days]
+    if not vals:
+        return ''
+    ymin = round(min(vals) - 0.05, 3)
+    ymax = round(max(vals) + 0.05, 3)
+    thresh_colors = {z['zone']: z['color_bg'] for z in zone_cfg}
+    datasets = [{
+        'label': 'Lake Level', 'data': vals,
+        'borderColor': '#1abc9c', 'backgroundColor': 'rgba(26,188,156,0.12)',
+        'fill': True, 'lineTension': 0.3, 'pointRadius': 2, 'borderWidth': 2,
+    }]
+    for z in zone_cfg:
+        t = z.get('min_ahd')
+        if t and ymin - 0.05 <= t <= ymax + 0.05:
+            datasets.append({
+                'data': [t] * len(days),
+                'borderColor': thresh_colors.get(z['zone'], '#888'),
+                'borderWidth': 1, 'borderDash': [5, 4],
+                'fill': False, 'pointRadius': 0, 'lineTension': 0,
+            })
+    config = {
+        'type': 'line',
+        'data': {'labels': labels, 'datasets': datasets},
+        'options': {
+            'legend': {'display': False},
+            'scales': {
+                'xAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'maxRotation': 45, 'autoSkip': True, 'maxTicksLimit': 10}}],
+                'yAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'min': ymin, 'max': ymax}}],
+            },
+        },
+    }
+    import urllib.parse as _up2
+    cfg_json = json.dumps(config, separators=(',', ':'))
+    url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=200&c={_up2.quote(cfg_json)}'
+    return (f'<img src="{url}" width="100%" alt="Lake level - {month_start.strftime("%B %Y")}"'
+            f' style="display:block;border-radius:6px;max-width:100%;">')
+
+
+def _load_zone_timeline():
+    """Read lake_zone_history.csv and return sorted list of (date, zone_num) transitions.
+
+    Returns list of (datetime.date, int) pairs, oldest first.
+    Skips suppressed/initialised rows since they don't represent actual transitions.
+    """
+    timeline = []
+    try:
+        if not ZONE_HISTORY_CSV.exists():
+            return []
+        with ZONE_HISTORY_CSV.open(newline='', encoding='utf-8') as f:
+            for row in csv.DictReader(f):
+                event = row.get('event', '')
+                new_z = row.get('new_zone', '')
+                if event == 'suppressed' or not new_z:
+                    continue
+                try:
+                    ts = datetime.strptime(row['timestamp_aest'], '%Y-%m-%d %H:%M:%S').date()
+                    timeline.append((ts, int(new_z)))
+                except Exception:
+                    pass
+    except Exception as e:
+        log.warning(f'Could not load zone timeline: {e}')
+    return sorted(timeline, key=lambda x: x[0])
+
+
+def _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg):
+    """Estimate ML pumped from lake for a date range using zone history.
+
+    Uses zone rate x days for each active irrigation month. Noted as estimate
+    since the flow sensor is not yet connected.
+    """
+    from datetime import timedelta
+    cfg = lu.get_config()
+    active_m  = set(cfg['irrigation_season']['active_months'])
+    zone_rates = {z['zone']: z['max_pump_ml_day'] for z in zone_cfg}
+
+    # Find zone active at month_start
+    zone_at_start = None
+    for d, z in reversed(timeline):
+        if d <= month_start:
+            zone_at_start = z
+            break
+    if zone_at_start is None and timeline:
+        zone_at_start = timeline[0][1]
+    if zone_at_start is None:
+        zone_at_start = 1  # default if no history
+
+    # Build list of (date, zone) for changes within range
+    changes = [(month_start, zone_at_start)]
+    for d, z in timeline:
+        if month_start < d <= month_end:
+            changes.append((d, z))
+
+    # Accumulate ML by zone
+    zone_days  = {}
+    zone_ml    = {}
+    for i, (from_d, zone) in enumerate(changes):
+        to_d = changes[i + 1][0] if i + 1 < len(changes) else month_end + timedelta(days=1)
+        cur = from_d
+        while cur < to_d:
+            if cur.month in active_m:
+                rate = zone_rates.get(zone, 0)
+                zone_days[zone]  = zone_days.get(zone, 0) + 1
+                zone_ml[zone]    = zone_ml.get(zone, 0.0) + rate
+            cur += timedelta(days=1)
+
+    return zone_days, zone_ml
+
+
+def _historical_rain_avg(month_num, wx_rows, years=10):
+    """Average total rainfall for a given month (1-12) across past N years of data."""
+    from collections import defaultdict
+    by_year = defaultdict(float)
+    for r in wx_rows:
+        try:
+            d = datetime.strptime(r['date'], '%Y-%m-%d')
+            if d.month == month_num:
+                by_year[d.year] += float(r.get('rain_mm') or 0)
+        except Exception:
+            pass
+    if not by_year:
+        return None
+    # Use up to `years` most-recent complete years
+    sorted_years = sorted(by_year.keys())[-years:]
+    vals = [by_year[y] for y in sorted_years]
+    return sum(vals) / len(vals)
+
+
+def build_monthly_html(now_syd):
+    """Build the monthly board report. Reports on the PRIOR calendar month."""
+    from datetime import timedelta, date as _date
+
+    today      = now_syd.date()
+    month_end  = today.replace(day=1) - timedelta(days=1)
+    month_start = month_end.replace(day=1)
+    month_label = month_end.strftime('%B %Y')
+    month_num   = month_end.month
+    year        = month_end.year
+
+    # Season: Sep 1 of prior year → Aug 31 of current year (irrigation year)
+    # If reporting month is Jan-Aug → season started Sep 1 two years ago?
+    # Simpler: just track from Sep 1 of the year in which the reporting month falls
+    if month_num >= 9:
+        season_start = _date(year, 9, 1)
+    else:
+        season_start = _date(year - 1, 9, 1)
+
+    # ── Load data ──────────────────────────────────────────────────────────────
+    lake_latest   = _load_json(_DATA_DIR / 'farmbot_lake_latest.json')
+    readings_raw  = _load_json(_DATA_DIR / 'farmbot_lake_readings.json')
+    tank          = _load_json(_DATA_DIR / 'farmbot_latest.json')
+    tank_readings = _load_json(_DATA_DIR / 'farmbot_readings.json')
+
+    if any(v is None for v in (lake_latest, readings_raw, tank, tank_readings)):
+        log.error('Monthly report: one or more required data files missing')
+        return None
+
+    wx_rows = []
+    try:
+        with open(_DATA_DIR / 'daily_log.csv', encoding='utf-8') as f:
+            for r in csv.DictReader(f):
+                if r.get('date'):
+                    wx_rows.append(r)
+        wx_rows.sort(key=lambda r: r['date'])
+    except Exception as e:
+        log.error(f'Monthly report: failed to load daily_log.csv: {e}')
+        return None
+
+    cfg        = lu.get_config()
+    zone_cfg   = cfg['zone_thresholds']
+    active_m   = set(cfg['irrigation_season']['active_months'])
+    cost_per_kl = cfg['town_water']['cost_per_kl']
+    irrig_kl   = cfg['town_water']['daily_kl_by_month']
+
+    # ── Current lake state ────────────────────────────────────────────────────
+    ahd     = float(lake_latest.get('lake_ahd') or 0)
+    level   = lu.current_zone_info(ahd)
+    lv_num  = level['zone']
+    lv_bg   = level['color_bg']
+    lv_txt  = level['color_text']
+    lv_name = level['name']
+    lv_pump = level['max_pump_ml_day']
+
+    # ── Lake readings for the reporting month ──────────────────────────────────
+    ms_iso, me_iso = month_start.isoformat(), month_end.isoformat()
+    month_readings = sorted(
+        [r for r in readings_raw
+         if r.get('date', '')[:10] >= ms_iso and r.get('date', '')[:10] <= me_iso
+         and r.get('ahd')],
+        key=lambda r: r['date']
+    )
+    ahd_vals_m = [float(r['ahd']) for r in month_readings]
+    ahd_high   = max(ahd_vals_m) if ahd_vals_m else None
+    ahd_low    = min(ahd_vals_m) if ahd_vals_m else None
+    ahd_avg    = sum(ahd_vals_m) / len(ahd_vals_m) if ahd_vals_m else None
+    ahd_start  = ahd_vals_m[0]  if ahd_vals_m else None
+    ahd_end    = ahd_vals_m[-1] if ahd_vals_m else None
+    month_change = (ahd_end - ahd_start) if (ahd_start and ahd_end) else None
+
+    # Volume change in ML (depth change × average surface area)
+    if month_change is not None and ahd_avg:
+        avg_area = lu.lake_area_m2(ahd_avg)
+        change_ml = month_change * avg_area / 1000.0
+    else:
+        change_ml = None
+
+    # Same month last year
+    ly_ms = month_start.replace(year=year - 1).isoformat()
+    ly_me = month_end.replace(year=year - 1).isoformat()
+    ly_readings = [r for r in readings_raw
+                   if r.get('date', '')[:10] >= ly_ms and r.get('date', '')[:10] <= ly_me
+                   and r.get('ahd')]
+    ly_avg = (sum(float(r['ahd']) for r in ly_readings) / len(ly_readings)) if ly_readings else None
+
+    # ── Zone history & ML estimation ──────────────────────────────────────────
+    timeline   = _load_zone_timeline()
+    zone_days_m, zone_ml_m = _estimate_ml_pumped(month_start, month_end, timeline, zone_cfg)
+    zone_days_s, zone_ml_s = _estimate_ml_pumped(season_start, month_end, timeline, zone_cfg)
+
+    total_ml_m = sum(zone_ml_m.values())
+    total_ml_s = sum(zone_ml_s.values())
+
+    # ── Town water savings ─────────────────────────────────────────────────────
+    from datetime import timedelta as _td
+    def _month_saving(from_d, to_d):
+        """Daily irrigation cost × days in active months between dates."""
+        total = 0.0
+        cur = from_d
+        while cur <= to_d:
+            if cur.month in active_m:
+                total += float(irrig_kl.get(str(cur.month), 0)) * cost_per_kl
+            cur += timedelta(days=1)
+        return total
+
+    saving_month  = _month_saving(month_start, month_end)
+    saving_season = _month_saving(season_start, month_end)
+
+    # ── Level 1 capacity comparison ────────────────────────────────────────────
+    max_rate_l1 = next((z['max_pump_ml_day'] for z in zone_cfg if z['zone'] == 1), 1.5)
+    days_in_active_month = sum(1 for d in
+        [month_start + timedelta(days=i) for i in range((month_end - month_start).days + 1)]
+        if d.month in active_m)
+    max_ml_l1 = max_rate_l1 * days_in_active_month
+    utilisation_pct = (total_ml_m / max_ml_l1 * 100) if max_ml_l1 > 0 else None
+
+    # ── Rainfall calculations ─────────────────────────────────────────────────
+    wx_month  = [r for r in wx_rows if ms_iso <= r['date'] <= me_iso]
+    wx_season = [r for r in wx_rows if season_start.isoformat() <= r['date'] <= me_iso]
+
+    rain_month  = sum(float(r.get('rain_mm') or 0) for r in wx_month)
+    rain_season = sum(float(r.get('rain_mm') or 0) for r in wx_season)
+    rain_days_m = sum(1 for r in wx_month if float(r.get('rain_mm') or 0) >= 0.2)
+    et_month    = sum(float(r.get('et_mm') or 0) for r in wx_month)
+    rain_avg    = _historical_rain_avg(month_num, wx_rows)
+    rain_vs_avg = (rain_month - rain_avg) if rain_avg is not None else None
+
+    # ── Outlook ────────────────────────────────────────────────────────────────
+    cease_date    = lu.project_to_cease(ahd, today)
+    cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
+    days_to_cease = (cease_date - today).days if cease_date else None
+    days_nxt, nxt_zone = lu.days_to_next_zone(ahd, today.month)
+
+    # ── Zone change log for this month ────────────────────────────────────────
+    zone_events = []
+    try:
+        if ZONE_HISTORY_CSV.exists():
+            with ZONE_HISTORY_CSV.open(newline='', encoding='utf-8') as f:
+                for row in csv.DictReader(f):
+                    if row.get('event') in ('initialised', 'suppressed'):
+                        continue
+                    try:
+                        d = datetime.strptime(row['timestamp_aest'], '%Y-%m-%d %H:%M:%S').date()
+                        if month_start <= d <= month_end:
+                            zone_events.append(row)
+                    except Exception:
+                        pass
+    except Exception as e:
+        log.warning(f'Monthly report: could not read zone history: {e}')
+
+    # ── Chart ─────────────────────────────────────────────────────────────────
+    lake_chart = _month_lake_chart(readings_raw, month_start, month_end, zone_cfg)
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def _fmt_ahd(v):
+        return f'{v:.3f}&nbsp;m&nbsp;AHD' if v is not None else '-'
+
+    def _fmt_ml(v):
+        return f'{v:.1f}&nbsp;ML' if v is not None else '-'
+
+    def _fmt_dollar(v):
+        return f'${v:,.0f}' if v is not None else '-'
+
+    def _signed(v, fmt='.3f', unit='m'):
+        if v is None:
+            return '-'
+        sign = '+' if v >= 0 else ''
+        return f'{sign}{v:{fmt}}&nbsp;{unit}'
+
+    chg_col = '#00762A' if (month_change or 0) >= 0 else '#EB1E23'
+    chg_arrow = '&uarr;' if (month_change or 0) > 0.001 else ('&darr;' if (month_change or 0) < -0.001 else '&rarr;')
+
+    ly_vs = ''
+    if ly_avg is not None and ahd_avg is not None:
+        diff = ahd_avg - ly_avg
+        ly_col = '#00762A' if diff >= 0 else '#EB1E23'
+        ly_arrow = '&uarr;' if diff > 0.001 else ('&darr;' if diff < -0.001 else '&rarr;')
+        ly_vs = (f'<span style="color:{ly_col};font-weight:700;">'
+                 f'{ly_arrow} {abs(diff):.3f}&nbsp;m vs {year-1}</span>')
+
+    # ── Build HTML ─────────────────────────────────────────────────────────────
+    date_str = f'{month_start.day} {month_start.strftime("%B")} - {month_end.day} {month_end.strftime("%B %Y")}'
+
+    # 1. Header
+    body = _monthly_header(date_str)
+
+    # 2. Headline stat row (4 cells)
+    util_str = f'{utilisation_pct:.0f}%' if utilisation_pct is not None else '-'
+    util_sub = f'of Level 1 max ({max_ml_l1:.1f} ML available)'
+    saving_col = '#00762A' if saving_month > 0 else '#64748b'
+
+    body += f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:20px;">
+  <tr>
+    {_stat_cell(25, _ROW_A, 'Est. ML Pumped',
+        f'<span style="font-size:18px;">{_fmt_ml(total_ml_m)}</span>',
+        f'{month_label}', accent='#2471a3')}
+    {_stat_cell(25, _ROW_B, 'Town Water Saved',
+        f'<span style="color:{saving_col};font-size:18px;">{_fmt_dollar(saving_month)}</span>',
+        f'{month_label}', accent='#00762A')}
+    {_stat_cell(25, _ROW_A, 'Season Saving',
+        f'<span style="color:#00762A;font-size:18px;">{_fmt_dollar(saving_season)}</span>',
+        f'Sep {season_start.year} to date', accent='#00762A')}
+    {_stat_cell(25, _ROW_B, 'Licence Utilisation',
+        f'<span style="font-size:18px;">{util_str}</span>',
+        util_sub, accent='#2471a3')}
+  </tr>
+</table>"""
+
+    # 3. Lake level card
+    level_rows_m = ''
+    for z in zone_cfg:
+        days_in = zone_days_m.get(z['zone'], 0)
+        ml_in   = zone_ml_m.get(z['zone'], 0.0)
+        if days_in == 0:
+            continue
+        is_cur = (z['zone'] == lv_num)
+        rbg    = _ROW_A if z['zone'] % 2 == 1 else _ROW_B
+        marker = '&nbsp;&nbsp;&#9664; now' if is_cur else ''
+        pill   = _zone_pill_html(z['zone'], zone_cfg)
+        level_rows_m += f"""
+    <tr>
+      <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 10px;
+          font-family:Arial,sans-serif;font-size:12px;color:#1b2631;
+          border-bottom:1px solid {_BORDER};">{pill}&nbsp;
+        <span style="font-weight:{'700' if is_cur else '400'};">{z['name']}{marker}</span></td>
+      <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 10px;
+          font-family:Arial,sans-serif;font-size:12px;color:#475569;white-space:nowrap;
+          border-bottom:1px solid {_BORDER};text-align:right;">{days_in}&nbsp;days</td>
+      <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 10px;
+          font-family:Arial,sans-serif;font-size:12px;color:#475569;white-space:nowrap;
+          border-bottom:1px solid {_BORDER};text-align:right;">{ml_in:.2f}&nbsp;ML&nbsp;est.</td>
+    </tr>"""
+
+    lake_kv_rows = [
+        ('Month High',  _fmt_ahd(ahd_high)),
+        ('Month Low',   _fmt_ahd(ahd_low)),
+        ('Month Average', _fmt_ahd(ahd_avg)),
+        ('Start of Month', _fmt_ahd(ahd_start)),
+        ('End of Month',   _fmt_ahd(ahd_end)),
+        ('Month Change',
+         f'<span style="color:{chg_col};">{chg_arrow} {_signed(month_change)}'
+         f'{f" ({_fmt_ml(change_ml)})" if change_ml is not None else ""}</span>'),
+        ('vs Same Month Last Year', ly_vs if ly_vs else '-'),
+    ]
+    kv_html = ''
+    for i, (k, v) in enumerate(lake_kv_rows):
+        rbg = _ROW_A if i % 2 == 0 else _ROW_B
+        kv_html += f"""
+    <tr>
+      <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 12px;
+          font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#1a4a2e;
+          border-bottom:1px solid {_BORDER};width:50%;">{k}</td>
+      <td bgcolor="{rbg}" style="background-color:{rbg};padding:7px 12px;
+          font-family:Arial,sans-serif;font-size:12px;color:#111827;
+          border-bottom:1px solid {_BORDER};">{v}</td>
+    </tr>"""
+
+    body += (
+        _card_open(f'Lake Albert - {month_label}')
+        + f"""
+<table width="100%" cellpadding="0" cellspacing="0"
+       style="border-collapse:collapse;">{kv_html}
+</table>"""
+        + _section_label(f'Lake Level - {month_label}')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td style="background:#0d1b2a;padding:12px;">
+      {lake_chart if lake_chart else
+       '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
+    </td>
+  </tr>
+</table>"""
+        + _card_close()
+    )
+
+    # 4. Water cost & savings card
+    irrig_note = '<p style="margin:8px 12px 0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">* Est. - flow sensor not yet connected. Based on licence zone rate x days.</p>'
+
+    body += (
+        _card_open('Water Cost &amp; Savings')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(50, _ROW_A, f'Month Saving ({month_label})',
+        f'<span style="color:#00762A;">{_fmt_dollar(saving_month)}</span>',
+        f'{total_ml_m:.1f} ML pumped from lake (est.)', accent='#00762A')}
+    {_stat_cell(50, _ROW_B, f'Season Saving (Sep {season_start.year})',
+        f'<span style="color:#00762A;">{_fmt_dollar(saving_season)}</span>',
+        f'{total_ml_s:.1f} ML pumped season-to-date (est.)', accent='#00762A')}
+  </tr>
+</table>"""
+        + _section_label(f'Zone Breakdown - {month_label} (Active Irrigation Days Only)')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:left;">Zone</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:right;">Irrig. Days</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:right;">ML Pumped*</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        text-align:right;">Pump Rate</th>
+  </tr>
+{level_rows_m if level_rows_m else f'<tr><td colspan="4" bgcolor="{_ROW_A}" style="background:{_ROW_A};padding:10px 12px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;">No active irrigation days in {month_label}</td></tr>'}
+  <tr>
+    <td bgcolor="#e2e8f0" colspan="2" style="background-color:#e2e8f0;padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#1b2631;
+        border-top:2px solid {_BORDER};">Total</td>
+    <td bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#1b2631;
+        border-top:2px solid {_BORDER};text-align:right;">{total_ml_m:.2f}&nbsp;ML</td>
+    <td bgcolor="#e2e8f0" style="background-color:#e2e8f0;padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:12px;color:#475569;
+        border-top:2px solid {_BORDER};text-align:right;">
+        @ ${cost_per_kl:.2f}/kL town water</td>
+  </tr>
+</table>
+{irrig_note}"""
+        + _card_close()
+    )
+
+    # 5. Rainfall card
+    avg_str = f'{rain_avg:.1f}&nbsp;mm' if rain_avg is not None else '-'
+    if rain_vs_avg is not None:
+        vs_col = '#00762A' if rain_vs_avg >= 0 else '#EB1E23'
+        vs_str = f'<span style="color:{vs_col};font-weight:700;">{_signed(rain_vs_avg, ".1f", "mm")}</span> vs 10-yr avg'
+    else:
+        vs_str = '-'
+
+    body += (
+        _card_open('Rainfall &amp; Evapotranspiration')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(33, _ROW_A, f'{month_label} Rainfall',
+        f'{rain_month:.1f}&nbsp;mm',
+        f'{rain_days_m} rain day{"s" if rain_days_m != 1 else ""}')}
+    {_stat_cell(34, _ROW_B, '10-Year Monthly Avg',
+        avg_str,
+        f'{month_label[:3]} long-term average')}
+    {_stat_cell(33, _ROW_A, 'vs Average',
+        vs_str,
+        'surplus green, deficit red')}
+  </tr>
+</table>
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:0;">
+  <tr>
+    {_stat_cell(50, _ROW_B, f'Season Rainfall (Sep {season_start.year})',
+        f'{rain_season:.1f}&nbsp;mm',
+        f'through end of {month_label}')}
+    {_stat_cell(50, _ROW_A, f'{month_label} Evapotranspiration',
+        f'{et_month:.1f}&nbsp;mm',
+        'from weather station')}
+  </tr>
+</table>"""
+        + _card_close()
+    )
+
+    # 6. Outlook card (always show — board needs forward view)
+    if days_to_cease is not None and days_to_cease <= 0:
+        days_disp = '<span style="color:#EB1E23;font-weight:700;">Already at cease level</span>'
+        cease_col = '#EB1E23'
+    elif days_to_cease is not None:
+        cease_col = '#00762A' if days_to_cease > 90 else ('#F58E1E' if days_to_cease > 30 else '#EB1E23')
+        days_disp = f'<span style="color:{cease_col};">~{days_to_cease}</span>'
+    else:
+        days_disp = '-'
+        cease_col = '#64748b'
+
+    if days_nxt is None:
+        nxt_disp = 'At cease level'
+    elif days_nxt == float('inf'):
+        nxt_disp = 'Lake rising'
+    else:
+        nxt_zone_name = nxt_zone['name'] if nxt_zone else 'next level'
+        nxt_disp = f'~{int(days_nxt)} days to {nxt_zone_name}'
+
+    body += (
+        _card_open('Outlook - No Future Rainfall Assumed')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(25, _ROW_A, 'Current Level',
+        f'<span style="background:{lv_bg};color:{lv_txt};padding:2px 8px;'
+        f'border-radius:4px;font-size:14px;">Level {lv_num}</span>',
+        lv_name, accent=lv_bg)}
+    {_stat_cell(25, _ROW_B, 'Days to Next Zone',
+        nxt_disp,
+        'conservative - no rain')}
+    {_stat_cell(25, _ROW_A, 'Days to Cease',
+        days_disp,
+        cease_date.strftime('%d %b %Y') if cease_date else 'N/A')}
+    {_stat_cell(25, _ROW_B, 'Cost if Ceased',
+        _fmt_dollar(cost_to_march),
+        'town water to end Mar', accent='#F58E1E' if cost_to_march else None)}
+  </tr>
+</table>"""
+        + _card_close()
+    )
+
+    # 7. Zone change log
+    if zone_events:
+        event_rows = ''
+        for i, row in enumerate(zone_events):
+            rbg = _ROW_A if i % 2 == 0 else _ROW_B
+            td = (f'font-family:Arial,sans-serif;font-size:12px;padding:7px 10px;'
+                  f'border-bottom:1px solid {_BORDER};background-color:{rbg};')
+            try:
+                ts_fmt = datetime.strptime(row['timestamp_aest'], '%Y-%m-%d %H:%M:%S').strftime('%d %b %H:%M')
+            except Exception:
+                ts_fmt = row.get('timestamp_aest', '')
+            event_label = {
+                'zone_change':    'Zone change',
+                'cease_pumping':  'CEASE pumping',
+                'resume_pumping': 'Resume pumping',
+                'email_failed':   'Alert (failed)',
+            }.get(row.get('event', ''), row.get('event', ''))
+            old_p = _zone_pill_html(int(row['old_zone']), zone_cfg) if row.get('old_zone') else '-'
+            new_p = _zone_pill_html(int(row['new_zone']), zone_cfg) if row.get('new_zone') else '-'
+            ahd_s = f"{float(row['ahd']):.3f} m" if row.get('ahd') else '-'
+            new_rate = row.get('new_rate', '-') or '-'
+            event_rows += f"""
+  <tr>
+    <td style="{td}">{ts_fmt}</td>
+    <td style="{td}">{event_label}</td>
+    <td style="{td}">{old_p}</td>
+    <td style="{td}">{new_p}</td>
+    <td style="{td};text-align:right;">{new_rate}</td>
+    <td style="{td};text-align:right;">{ahd_s}</td>
+  </tr>"""
+
+        body += (
+            _card_open(f'Zone Change Log - {month_label}')
+            + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:left;">Date/Time</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:left;">Event</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:left;">From</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:left;">To</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        border-right:1px solid {_BORDER};text-align:right;">New Rate</th>
+    <th bgcolor="{_HDR_BG}" style="background-color:{_HDR_BG};padding:7px 10px;
+        font-family:Arial,sans-serif;font-size:11px;color:#fff;font-weight:700;
+        text-align:right;">AHD</th>
+  </tr>
+{event_rows}
+</table>"""
+            + _card_close()
+        )
+    else:
+        body += (
+            _card_open(f'Zone Change Log - {month_label}')
+            + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td bgcolor="{_ROW_A}" style="background-color:{_ROW_A};padding:14px 16px;
+        font-family:Arial,sans-serif;font-size:13px;color:#475569;">
+      No zone changes during {month_label}. Pumping continued at <strong>Level {lv_num}
+      - {lv_name}</strong> throughout the month.
+    </td>
+  </tr>
+</table>"""
+            + _card_close()
+        )
+
+    # 8. Footer
+    body += f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:24px;">
+  <tr>
+    <td style="padding:16px 24px;border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;
+          text-align:center;">
+        Wagga Wagga Country Club &nbsp;&bull;&nbsp; Monthly Board Water &amp; Finance Report
+        &nbsp;&bull;&nbsp; {month_label}<br>
+        Savings are estimates based on town water volume charge of ${cost_per_kl:.2f}/kL.
+        ML figures estimated from licence zone rate x active irrigation days.
+        Flow sensor installation pending.
+      </p>
+    </td>
+  </tr>
+</table>"""
+
+    return _wrap(body)
+
+
 # ── Send ───────────────────────────────────────────────────────────────────────
 
 def send_email(subject, html_content, test_mode=False):
@@ -1237,10 +1962,42 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Save HTML preview, do not send')
     parser.add_argument('--test',    action='store_true', help='Send to andrew@bidgeepumps.com.au only')
     parser.add_argument('--force',   action='store_true', help='Ignore dedup guard and send regardless')
+    parser.add_argument('--monthly', action='store_true', help='Send monthly board finance report instead of weekly')
     args = parser.parse_args()
 
     now_syd = datetime.now(SYDNEY_TZ)
 
+    if args.monthly:
+        # ── Monthly report ────────────────────────────────────────────────────
+        if not args.dry_run and not args.test and not args.force:
+            if _already_sent_this_month(now_syd):
+                log.info('Monthly board report already sent this month - skipping (use --force to override)')
+                return
+
+        prev_month_end = now_syd.date().replace(day=1) - __import__('datetime').timedelta(days=1)
+        subject = f'Monthly Board Water & Finance Report - {prev_month_end.strftime("%B %Y")}'
+        html    = build_monthly_html(now_syd)
+
+        if html is None:
+            log.error('Could not build monthly report - missing data')
+            return
+
+        if args.dry_run:
+            out = (_DATA_DIR / 'reports'
+                   / now_syd.strftime('%Y') / now_syd.strftime('%m')
+                   / f'board_monthly_preview_{now_syd.strftime("%Y-%m-%d")}.html')
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(html, encoding='utf-8')
+            log.info(f'Monthly dry run - saved to {out}')
+            return
+
+        sent = send_email(subject, html, test_mode=args.test)
+        if sent and not args.test:
+            _mark_sent_this_month(now_syd)
+            log.info('Monthly sent-this-month guard updated')
+        return
+
+    # ── Weekly report ─────────────────────────────────────────────────────────
     if not args.dry_run and not args.test and not args.force:
         if _already_sent_this_week(now_syd):
             log.info('Board email already sent this week - skipping (use --force to override)')

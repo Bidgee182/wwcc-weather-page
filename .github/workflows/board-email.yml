@@ -2,14 +2,26 @@ name: Board Lake Update Email
 
 on:
   schedule:
-    # 7:00 AM AEST (UTC+10) — AEDT off (Apr–Oct): Sunday 21:00 UTC = Monday 07:00 AEST
+    # Weekly — Monday 7:00 AM AEST (UTC+10): Sunday 21:00 UTC
     - cron: '0 21 * * 0'
-    # 7:00 AM AEDT (UTC+11) — AEDT on (Oct–Apr): Sunday 20:00 UTC = Monday 07:00 AEDT
+    # Weekly — Monday 7:00 AM AEDT (UTC+11): Sunday 20:00 UTC
     - cron: '0 20 * * 0'
-    # Both fire year-round; the sent-this-week guard skips the second run.
+    # Monthly — 1st of month 7:00 AM AEST: previous day 21:00 UTC
+    - cron: '0 21 1 * *'
+    # Monthly — 1st of month 7:00 AM AEDT: previous day 20:00 UTC
+    - cron: '0 20 1 * *'
+    # Weekly and monthly guards prevent double-sends.
 
   workflow_dispatch:
     inputs:
+      report:
+        description: 'Report type to send'
+        required: false
+        default: 'weekly'
+        type: choice
+        options:
+          - weekly
+          - monthly
       dry_run:
         description: 'Build HTML preview only — do not send email'
         required: false
@@ -27,7 +39,7 @@ on:
           - 'false'
           - 'true'
       force:
-        description: 'Ignore sent-this-week guard and send regardless'
+        description: 'Ignore sent guard and send regardless'
         required: false
         default: 'false'
         type: choice
@@ -67,6 +79,12 @@ jobs:
           EMAIL_BOARD_BCC:  ${{ secrets.EMAIL_BOARD_BCC }}
         run: |
           ARGS=""
+          # On the 1st of the month (scheduled) or when manually requesting monthly, add --monthly
+          DAY=$(TZ='Australia/Sydney' date +%d)
+          REPORT="${{ github.event.inputs.report }}"
+          if [ "$DAY" = "01" ] || [ "$REPORT" = "monthly" ]; then
+            ARGS="$ARGS --monthly"
+          fi
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
@@ -78,18 +96,19 @@ jobs:
           fi
           python scripts/board_email.py $ARGS
 
-      - name: Commit sent-week guard
+      - name: Commit sent guards
         if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.test != 'true' }}
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add data/board_sent_week.json || true
+          git add data/board_sent_week.json data/board_sent_month.json || true
           if git diff --staged --quiet; then
             echo "No guard changes to commit"
           else
-            git pull --rebase -X theirs origin main
             git commit -m "Board email sent guard $(date -u +%Y-%m-%d)"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase -X theirs origin main && git push && break || echo "Push attempt $i failed, retrying..."
+            done
           fi
 
       - name: Commit dry-run preview
