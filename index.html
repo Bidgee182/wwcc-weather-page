@@ -551,6 +551,19 @@
         .lightning-bar.lb-active { display:block; }
         body.tv-mode .lightning-bar { font-size:0.85em; padding:7px 20px; }
 
+        /* ── Golfer sub-tabs ── */
+        .go-tabs { display:flex; justify-content:center; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+        .go-tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px;
+            padding:9px 22px; font-size:0.88em; letter-spacing:1px; text-transform:uppercase;
+            cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; }
+        .go-tab-btn.active { background:#27ae60; border-color:#27ae60; color:white; font-weight:bold; }
+        .go-tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
+        @media (max-width:480px) { .go-tab-btn { padding:7px 10px; font-size:0.7em; letter-spacing:0.5px; } .go-tabs { gap:4px; } }
+        .go-panel { display:none; }
+        .go-panel.active { display:block; }
+        /* Station live grid: stack on very small phones */
+        @media (max-width:380px) { #go-st-live-grid { grid-template-columns:1fr !important; } }
+
         /* ── General Alert Bars (fog, frost, carts) ── */
         .alert-bar { display:none; width:100%; padding:10px 20px; text-align:center; font-weight:bold; font-size:0.95em; color:#fff; letter-spacing:1px; box-sizing:border-box; }
         .alert-bar.ab-active { display:block; }
@@ -1244,6 +1257,16 @@
 <!-- ══════════════ GOLFER VIEW ══════════════ -->
 <div id="view-golfer" style="display:none">
 
+    <!-- Golfer sub-tabs -->
+    <div class="go-tabs">
+        <button class="go-tab-btn active" id="go-btn-now" onclick="goTab('now')">Now</button>
+        <button class="go-tab-btn" id="go-btn-tips"     onclick="goTab('tips')">Play Tips</button>
+        <button class="go-tab-btn" id="go-btn-forecast" onclick="goTab('forecast')">Forecast</button>
+        <button class="go-tab-btn" id="go-btn-station"  onclick="goTab('station')">Station</button>
+    </div>
+
+    <div id="go-tab-now" class="go-panel active">
+
     <!-- Comfort Banner -->
     <div class="comfort-banner cb-good" id="comfort-banner">
         <div class="cb-label">Overall Playability Score</div>
@@ -1320,6 +1343,10 @@
 
     </div><!-- end golfer-tiles -->
 
+    </div><!-- end go-tab-now -->
+
+    <div id="go-tab-tips" class="go-panel">
+
     <!-- Insights Row -->
     <div class="golfer-insights">
 
@@ -1350,6 +1377,16 @@
 
     </div>
 
+    <!-- Wind Analysis Card (golfer Play Tips tab; moved to TV slide 2 in TV mode) -->
+    <div class="card" id="tv-wind-card">
+        <h2>&#127788; Key Wind Holes Today</h2>
+        <div id="tv-wind-boxes" class="tv-three-grid"><div style="color:#7f8c8d;font-size:0.85em">Loading wind data...</div></div>
+    </div>
+
+    </div><!-- end go-tab-tips -->
+
+    <div id="go-tab-forecast" class="go-panel">
+
     <!-- 12-Hour Forecast -->
     <div class="card" id="hourly-forecast-card" style="display:none">
         <h2>Next 5 Hours</h2>
@@ -1357,6 +1394,18 @@
             <div style="color:#7f8c8d;font-size:0.85em">Loading...</div>
         </div>
     </div>
+
+    <!-- 4-Day Forecast -->
+    <div class="card">
+        <h2>4-Day Forecast</h2>
+        <div class="forecast-grid" id="forecast-container">
+            <div style="grid-column:1/-1;text-align:center;color:#7f8c8d">Loading forecast...</div>
+        </div>
+    </div>
+
+    </div><!-- end go-tab-forecast -->
+
+    <div id="go-tab-station" class="go-panel">
 
     <!-- Weather Station Details Card -->
     <div class="card" id="go-station-card">
@@ -1428,13 +1477,7 @@
         </div>
     </div>
 
-    <!-- 4-Day Forecast -->
-    <div class="card">
-        <h2>4-Day Forecast</h2>
-        <div class="forecast-grid" id="forecast-container">
-            <div style="grid-column:1/-1;text-align:center;color:#7f8c8d">Loading forecast...</div>
-        </div>
-    </div>
+    </div><!-- end go-tab-station -->
 
     <!-- Current Conditions Card (shown on TV slide 2; hidden on golfer page as detail strip covers it) -->
     <div class="card" id="tv-current-card" style="display:none">
@@ -1459,11 +1502,6 @@
         <div id="tv-course-content"><div style="color:#7f8c8d;font-size:0.85em">Loading data...</div></div>
     </div>
 
-    <!-- TV Slide 2 - Wind Analysis Card -->
-    <div class="card" id="tv-wind-card">
-        <h2>&#127788; Key Wind Holes Today</h2>
-        <div id="tv-wind-boxes" class="tv-three-grid"><div style="color:#7f8c8d;font-size:0.85em">Loading wind data...</div></div>
-    </div>
 
     <!-- Current Observations -->
     <div class="detail-strip" style="margin-bottom:0">
@@ -1846,6 +1884,23 @@ function switchTab(tab) {
     if (msgBtn) msgBtn.style.display = isGk ? '' : 'none';
     if (!GK_MODE && !TV_MODE) localStorage.setItem('wx_active_tab', tab);
 }
+
+// ── Golfer sub-tab switching ─────────────────────────────────────
+function goTab(name) {
+    for (const t of ['now', 'tips', 'forecast', 'station']) {
+        const p = document.getElementById('go-tab-' + t);
+        const b = document.getElementById('go-btn-' + t);
+        if (p) p.classList.toggle('active', t === name);
+        if (b) b.classList.toggle('active', t === name);
+    }
+    if (!GK_MODE && !TV_MODE && !TV2_MODE) localStorage.setItem('go_active_tab', name);
+}
+// Restore the last-used golfer tab (normal page views only)
+(function() {
+    if (TV_MODE || TV2_MODE || GK_MODE) return;
+    const saved = localStorage.getItem('go_active_tab');
+    if (saved && document.getElementById('go-tab-' + saved)) goTab(saved);
+})();
 
 // ── URL-based view initialisation ────────────────────────────────
 (function() {
