@@ -558,6 +558,11 @@
         .ab-fog   { background:linear-gradient(90deg,#1c2833,#2c3e50,#1c2833); border-top:2px solid #7f8c8d; border-bottom:2px solid #7f8c8d; }
         .ab-frost      { background:linear-gradient(90deg,#0a1628,#1a3a5c,#0a1628); border-top:2px solid #74b9ff; border-bottom:2px solid #74b9ff; animation:lightning-pulse 2s ease-in-out infinite; }
         .ab-frost-warn { background:linear-gradient(90deg,#0d2137,#1f4a6e,#0d2137); border-top:2px solid #aed6f1; border-bottom:2px solid #aed6f1; }
+        /* Two-tier fog banners: risk (steady) and dense (gentle blue pulse) */
+        .ab-fog-risk  { background:linear-gradient(90deg,#12294a,#1e4e8c,#12294a); border-top:2px solid #60a5fa; border-bottom:2px solid #60a5fa; }
+        .ab-fog-dense { background:linear-gradient(90deg,#153264,#2563eb,#153264); border-top:2px solid #93c5fd; border-bottom:2px solid #93c5fd; animation:fogPulse 2.4s ease-in-out infinite; }
+        @keyframes fogPulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.6); } }
+        @media (prefers-reduced-motion: reduce) { .ab-fog-dense, .ab-frost { animation:none; } }
         .ab-carts  { background:linear-gradient(90deg,#3d2b00,#7d5a00,#3d2b00); border-top:2px solid #d4ac0d; border-bottom:2px solid #d4ac0d; }
         .ab-custom { background:linear-gradient(90deg,#0d3320,#1a6a3a,#0d3320); border-top:2px solid #27ae60; border-bottom:2px solid #27ae60; font-size:1.05em; }
 
@@ -639,6 +644,12 @@
 </div>
 
 <!-- Tab Bar -->
+<!-- Stacked weather alert bars: fog above frost. Shown on golfer, GK and TV views. -->
+<div id="alert-bars">
+    <div class="alert-bar" id="ab-fog-bar"></div>
+    <div class="alert-bar" id="ab-frost-bar"></div>
+</div>
+
 <div class="tab-bar">
     <button class="tab-btn active" id="tab-gk" onclick="switchTab('greenkeeper')">&#9874; Greenkeeper</button>
     <button class="tab-btn" id="tab-go" onclick="switchTab('golfer')">&#9971; For Golfers</button>
@@ -1640,7 +1651,8 @@ function getCurrentHourUV() {
 // ── localStorage helpers ──────────────────────────────────────────
 const STORAGE_VERSION = '6';
 let _csvDaily = {};  // populated by loadCSVBalance() from data/daily_log.csv
-const _wx_alerts = { lightning: false, fog: false, frost: false, frostText: '', carts: false };
+const _wx_alerts = { lightning: false, fog: false, frost: false, frostText: '', carts: false,
+                     fogRisk: false, fogDense: false, fogWindow: '', fogDay: '' };
 let _customMessages = [];   // array loaded from data/kiosk_message.json
 let _tickerActive   = [];
 let _tickerIdx      = 0;
@@ -4688,6 +4700,131 @@ function checkFog() {
     _refreshTicker();
 }
 
+// ── Dense Fog Alert (two-tier, derived from forecast conditions) ──
+// Tier 1 "Fog risk": primary forecast shows near-saturated air in the
+// 4-9 AM window (RH >= 95%, temp-dew point spread <= 1.0 C, wind < 12 km/h).
+// Global models routinely miss localised valley fog, so saturation + calm
+// is treated as a risk signal even when the sky code says clear.
+// Tier 2 "DENSE FOG" (flashing blue): tier 1 PLUS a second, independent
+// model source (ECMWF / best-match; primary feed is GFS) confirms via an
+// explicit fog code (45/48), visibility under 1000 m, or the same
+// saturation conditions. Explicit fog in the primary feed also qualifies.
+// Banners clear automatically once the morning window has passed.
+let _fogXCheck = { ts: 0, confirmed: false };
+
+function _fogHoursFor(dateStr) {
+    const hours = [];
+    if (!hourlyFc || !hourlyFc.time) return hours;
+    for (let i = 0; i < hourlyFc.time.length; i++) {
+        const t = hourlyFc.time[i];
+        if (!t.startsWith(dateStr)) continue;
+        const hr = parseInt(t.slice(11, 13), 10);
+        if (hr < 4 || hr > 9) continue;
+        const rh   = hourlyFc.relative_humidity_2m?.[i];
+        const tc   = hourlyFc.temperature_2m?.[i];
+        const td   = hourlyFc.dew_point_2m?.[i];
+        const ws   = hourlyFc.windspeed_10m?.[i];
+        const code = hourlyFc.weather_code?.[i];
+        const vis  = hourlyFc.visibility?.[i];
+        const heur = rh != null && tc != null && td != null && ws != null
+                     && rh >= 95 && (tc - td) <= 1.0 && ws < 12;
+        const expl = (code === 45 || code === 48) || (vis != null && vis < 1000);
+        if (heur || expl) hours.push({ hr, expl });
+    }
+    return hours;
+}
+
+async function checkDenseFog(evalOnly = false) {
+    if (!hourlyFc || !hourlyFc.time) return;
+    const offsetMs = sydneyOffsetMs();
+    const nowLoc = new Date(Date.now() + offsetMs);
+    const todayStr    = nowLoc.toISOString().slice(0, 10);
+    const tomorrowStr = new Date(nowLoc.getTime() + 86400000).toISOString().slice(0, 10);
+
+    // Before 10 AM, today's own morning window takes priority (banner stays
+    // up during the fog); otherwise look at tomorrow morning.
+    let target = tomorrowStr, day = 'tomorrow';
+    if (nowLoc.getUTCHours() < 10 && _fogHoursFor(todayStr).length) {
+        target = todayStr; day = 'this morning';
+    }
+    const hours = _fogHoursFor(target);
+
+    if (!hours.length) {
+        _wx_alerts.fogRisk = false; _wx_alerts.fogDense = false;
+        _wx_alerts.fogWindow = ''; _wx_alerts.fogDay = '';
+        _refreshTicker();
+        return;
+    }
+
+    const fmtH = h => (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM');
+    _wx_alerts.fogWindow = fmtH(hours[0].hr) + ' - ' + fmtH(hours[hours.length - 1].hr + 1);
+    _wx_alerts.fogDay = day;
+    const explicitPrimary = hours.some(h => h.expl);
+
+    // Cross-check against independent models, cached for 30 minutes
+    if (!evalOnly && Date.now() - _fogXCheck.ts > 30 * 60000) {
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
+                + '&hourly=weather_code,visibility,relative_humidity_2m,temperature_2m,dew_point_2m,wind_speed_10m'
+                + '&models=ecmwf_ifs025,best_match'
+                + `&start_date=${target}&end_date=${target}&timezone=Australia%2FSydney`;
+            const r = await fetch(url);
+            const d = await r.json();
+            const h = d.hourly || {};
+            let confirmed = false;
+            for (const m of ['ecmwf_ifs025', 'best_match']) {
+                for (let i = 0; i < (h.time || []).length; i++) {
+                    const hr = parseInt(h.time[i].slice(11, 13), 10);
+                    if (hr < 4 || hr > 9) continue;
+                    const code = h['weather_code_' + m]?.[i];
+                    const vis  = h['visibility_' + m]?.[i];
+                    const rh   = h['relative_humidity_2m_' + m]?.[i];
+                    const tc   = h['temperature_2m_' + m]?.[i];
+                    const td   = h['dew_point_2m_' + m]?.[i];
+                    const ws   = h['wind_speed_10m_' + m]?.[i];
+                    if (code === 45 || code === 48 || (vis != null && vis < 1000)) confirmed = true;
+                    else if (rh != null && tc != null && td != null && ws != null
+                             && rh >= 95 && (tc - td) <= 1.0 && ws < 12) confirmed = true;
+                    if (confirmed) break;
+                }
+                if (confirmed) break;
+            }
+            _fogXCheck = { ts: Date.now(), confirmed };
+        } catch (e) { /* network issue - keep previous cross-check result */ }
+    }
+
+    _wx_alerts.fogDense = explicitPrimary || _fogXCheck.confirmed;
+    _wx_alerts.fogRisk  = !_wx_alerts.fogDense;
+    _refreshTicker();
+}
+
+// ── Stacked alert banner bars (fog above frost) ───────────────────
+function renderAlertBars() {
+    const fogBar   = document.getElementById('ab-fog-bar');
+    const frostBar = document.getElementById('ab-frost-bar');
+    if (fogBar) {
+        if (_wx_alerts.fogDense) {
+            fogBar.className = 'alert-bar ab-active ab-fog-dense';
+            fogBar.innerHTML = `\u{1F32B}️ DENSE FOG expected ${_wx_alerts.fogDay} ${_wx_alerts.fogWindow}`
+                + ' - visibility may be severely reduced. Check conditions before early tee times.';
+        } else if (_wx_alerts.fogRisk) {
+            fogBar.className = 'alert-bar ab-active ab-fog-risk';
+            fogBar.innerHTML = `\u{1F32B}️ Fog risk ${_wx_alerts.fogDay} ${_wx_alerts.fogWindow}`
+                + ' - near-saturated air and light winds forecast.';
+        } else {
+            fogBar.className = 'alert-bar';
+        }
+    }
+    if (frostBar) {
+        if (_wx_alerts.frost) {
+            frostBar.className = 'alert-bar ab-active ab-frost-warn';
+            frostBar.innerHTML = '❄️ ' + _wx_alerts.frostText;
+        } else {
+            frostBar.className = 'alert-bar';
+        }
+    }
+}
+
 // ── Frost Alert (overnight window) ───────────────────────────────
 function checkFrostAlert() {
     if (!hourlyFc || !hourlyFc.temperature_2m) return;
@@ -4733,6 +4870,8 @@ function _buildTickerItems() {
     const items = [];
     if (_wx_alerts.lightning) items.push({ text: 'Thunderstorm forecast in the next 4 hours - lightning risk in the area', icon: '⚡', color: '#e74c3c', type: 'urgent', urgent: true });
     if (_wx_alerts.frost)     items.push({ text: _wx_alerts.frostText, icon: '❄️', color: '#74b9ff', type: 'alert' });
+    if (_wx_alerts.fogDense)  items.push({ text: `DENSE FOG expected ${_wx_alerts.fogDay} ${_wx_alerts.fogWindow} - visibility may be severely reduced`, icon: '🌫️', color: '#60a5fa', type: 'urgent', urgent: true });
+    else if (_wx_alerts.fogRisk) items.push({ text: `Fog risk ${_wx_alerts.fogDay} ${_wx_alerts.fogWindow} - check visibility before early tee times`, icon: '🌫️', color: '#60a5fa', type: 'alert' });
     if (_wx_alerts.fog)       items.push({ text: 'Fog forecast tomorrow morning - check visibility before early tee times', icon: '🌫️', color: '#95a5a6', type: 'alert' });
     if (_wx_alerts.carts)     items.push({ text: 'COURSE IS WET • Please keep all golf carts on the cart paths at all times. Thank you for helping protect the course.', icon: '🌧️', color: '#2980b9', type: 'urgent', urgent: true, flash: 'blue' });
     const now = new Date();
@@ -4792,6 +4931,7 @@ function _showTickerItem(idx) {
 }
 
 function _refreshTicker() {
+    renderAlertBars();
     const items = _buildTickerItems();
     if (items.length === 0) { _stopTicker(); return; }
 
@@ -5629,7 +5769,7 @@ async function getForecast() {
     try {
         const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${CLUB_LAT}&longitude=${CLUB_LON}`
             + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,uv_index_max,sunrise,sunset,et0_fao_evapotranspiration`
-            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m`
+            + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m,dew_point_2m,visibility`
             + `&timezone=Australia%2FSydney&forecast_days=4&models=gfs_seamless`;
         const fcUrls = [
             omUrl,
@@ -5682,6 +5822,7 @@ async function getForecast() {
         hourlyFc = data.hourly;
         checkThunderstorm();
         checkFog();
+        checkDenseFog();
         checkFrostAlert();
         updateNextSprayWindow();
         renderGKWindStrip();
@@ -6362,6 +6503,11 @@ function initTVMode() {
     const tvRoot = document.getElementById('tv-root');
     if (tvRoot) tvRoot.style.display = 'flex';
 
+    // Alert bars (fog/frost) sit above the slides on the TV
+    const abTV1 = document.getElementById('alert-bars');
+    const slidesWrap1 = document.querySelector('.tv-slides-wrap');
+    if (abTV1 && slidesWrap1 && tvRoot) tvRoot.insertBefore(abTV1, slidesWrap1);
+
     // Activate golfer view so its child elements are in the DOM
     switchTab('golfer');
     // Then hide the now-empty wrapper (children will be moved)
@@ -6712,6 +6858,11 @@ function initTV2Mode() {
 
     const tvRoot = document.getElementById('tv-root');
     if (tvRoot) tvRoot.style.display = 'flex';
+
+    // Alert bars (fog/frost) sit above the slides on the TV
+    const abTV2 = document.getElementById('alert-bars');
+    const slidesWrap2 = document.querySelector('.tv-slides-wrap');
+    if (abTV2 && slidesWrap2 && tvRoot) tvRoot.insertBefore(abTV2, slidesWrap2);
 
     // Build the 8 slides: playability solo, six 3-pill grids, then QR
     const gridSlides = [
@@ -7643,7 +7794,7 @@ getForecast();
 fetchHistoricalWeather();
 fetchTodayWetness();
 setInterval(getWeatherData,       60000);
-setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); checkFrostAlert(); updateUVTimer(); updateMowWindow(); updateNextSprayWindow(); }, 15000);
+setInterval(() => { updateTileDaylight(); checkDataFreshness(); renderHourlyForecast(); renderNightBanner(); checkThunderstorm(); checkFrostAlert(); checkDenseFog(true); updateUVTimer(); updateMowWindow(); updateNextSprayWindow(); }, 15000);
 setInterval(getForecast,        1800000);
 setInterval(fetchHistoricalWeather, 3600000);
 setInterval(fetchTodayWetness,   1800000);
