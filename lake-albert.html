@@ -248,6 +248,18 @@
                 <div class="lake-pill-val" id="pill-trend">--</div>
             </div>
         </div>
+
+        <!-- 7-day depth sparkline -->
+        <div style="margin-top:14px;" id="spark-block">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                <span style="font-size:0.72em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;">Depth - Last 7 Days</span>
+                <span style="font-size:0.7em;color:#566573;" id="spark-note"></span>
+            </div>
+            <div style="position:relative;height:56px;width:100%;background:#1a252f;border-radius:8px;padding:4px 6px;">
+                <canvas id="level-spark"></canvas>
+            </div>
+        </div>
+
         <div style="font-size:0.72em;color:#566573;text-align:center;margin-top:8px" id="l-updated"></div>
     </div>
 
@@ -865,6 +877,57 @@ let _rainYearMm   = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2*(ahd-LAKE_BOTTOM_AHD)/1000) : null; }
+
+// ── 7-day depth sparkline (Current Water Level card) ─────────────────────────
+let _sparkChart = null;
+function renderLevelSpark() {
+    const canvas = document.getElementById('level-spark');
+    if (!canvas || !_lakeHistory || !_lakeHistory.length) return;
+
+    // Daily average depth for the last 7 days
+    const cutoff = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const byDay = {};
+    for (const r of _lakeHistory) {
+        if (!r.date || r.ahd == null) continue;
+        const day = r.date.slice(0, 10);
+        if (day < cutoff) continue;
+        (byDay[day] = byDay[day] || []).push(Math.max(0, r.ahd - LAKE_BOTTOM_AHD));
+    }
+    const days = Object.keys(byDay).sort();
+    if (days.length < 2) { const b = document.getElementById('spark-block'); if (b) b.style.display = 'none'; return; }
+    const vals = days.map(d => byDay[d].reduce((a, b) => a + b, 0) / byDay[d].length);
+
+    const cur = vals[vals.length - 1];
+    const lineCol = cur >= MARGINAL_DEPTH_M ? '#27ae60' : cur >= SAFE_DEPTH_M ? '#d4ac0d' : '#e74c3c';
+    const note = document.getElementById('spark-note');
+    if (note) note.textContent = Math.min(...vals).toFixed(2) + ' - ' + Math.max(...vals).toFixed(2) + ' m';
+
+    const ymin = Math.min(...vals, SAFE_DEPTH_M) - 0.05;
+    const ymax = Math.max(...vals) + 0.05;
+    const datasets = [{
+        data: vals, borderColor: lineCol, backgroundColor: lineCol + '22',
+        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3,
+    }];
+    // Safe boating minimum reference line when it falls inside the view
+    if (SAFE_DEPTH_M >= ymin && SAFE_DEPTH_M <= ymax) {
+        datasets.push({ data: vals.map(() => SAFE_DEPTH_M), borderColor: '#e74c3c',
+            borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: false, tension: 0 });
+    }
+
+    if (_sparkChart) _sparkChart.destroy();
+    _sparkChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels: days, datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { display: false }, tooltip: {
+                callbacks: { label: c => c.parsed.y.toFixed(2) + ' m deep',
+                             title: items => new Date(items[0].label + 'T00:00:00')
+                                .toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) } } },
+            scales: { x: { display: false }, y: { display: false, min: ymin, max: ymax } },
+        },
+    });
+}
 function ahdToPct(ahd) { const ml=ahdToML(ahd); return ml!=null ? Math.min(100,ml/LAKE_FULL_ML*100) : null; }
 
 function degToCompass(deg) {
@@ -1034,6 +1097,7 @@ async function fetchLevel() {
 
         updateBoatingBanner(depth);
         updateLevelPills(ahd,depth,ml,pct);
+        renderLevelSpark();
         // Refresh on-water card with updated depth (wind may already be loaded)
         updateOnwaterCard();
 
