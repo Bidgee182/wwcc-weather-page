@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Board Dashboard - Wagga Wagga Country Club</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; padding: 20px; }
+        @media (max-width: 480px) { body { padding: 10px; } }
+
+        /* ── Logo ── */
+        .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
+        .logo-wrap img { display:block; }
+        .logo-wrap .logo-top  { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
+        .logo-wrap .logo-base { filter: grayscale(1) contrast(200) invert(1); }
+
+        /* ── Header ── */
+        .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
+        .header-logo { height:64px; width:auto; flex-shrink:0; }
+        .header-text h1 { font-size:1.6em; letter-spacing:2px; color:#ecf0f1; line-height:1.1; }
+        .header-text .subtitle { font-size:0.85em; color:#7f8c8d; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
+        @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.15em;} }
+
+        /* ── Tabs ── */
+        .tab-bar { display:flex; justify-content:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+        .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:10px 28px; font-size:0.9em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:all 0.2s; }
+        .tab-btn.active { background:#2471a3; border-color:#2471a3; color:white; font-weight:bold; }
+        .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
+        .tab-panel { display:none; }
+        .tab-panel.active { display:block; }
+
+        /* ── Cards ── */
+        .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
+        .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
+
+        /* ── Stat bar (4-across) ── */
+        .stat-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:0; background:#2c3e50; border-radius:10px; overflow:hidden; margin-bottom:16px; }
+        .stat-cell { padding:16px 12px; text-align:center; }
+        .stat-cell + .stat-cell { border-left:1px solid #3d5166; }
+        .stat-cell .sc-lbl { font-size:0.68em; color:#7f8c8d; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+        .stat-cell .sc-val { font-size:1.6em; font-weight:bold; line-height:1.1; color:#ecf0f1; }
+        .stat-cell .sc-sub { font-size:0.68em; color:#566573; margin-top:4px; }
+        @media (max-width:700px) { .stat-bar { grid-template-columns:repeat(2,1fr); } .stat-cell:nth-child(3){ border-left:none; border-top:1px solid #3d5166; } .stat-cell:nth-child(4){ border-top:1px solid #3d5166; } }
+        @media (max-width:380px) { .stat-bar { grid-template-columns:1fr; } .stat-cell+.stat-cell{ border-left:none; border-top:1px solid #3d5166; } }
+
+        /* ── Zone banner ── */
+        .zone-banner { border-radius:10px; padding:18px 20px; margin-bottom:14px; border:2px solid transparent; }
+        .zone-banner-lbl { font-size:0.7em; text-transform:uppercase; letter-spacing:2px; opacity:0.8; margin-bottom:4px; }
+        .zone-banner-main { font-size:1.5em; font-weight:bold; line-height:1.2; }
+        .zone-banner-sub  { font-size:0.82em; opacity:0.8; margin-top:5px; }
+
+        /* ── Metric grid ── */
+        .metric-grid { display:grid; gap:8px; margin-bottom:14px; }
+        .metric-grid-3 { grid-template-columns:repeat(3,1fr); }
+        .metric-grid-4 { grid-template-columns:repeat(4,1fr); }
+        .metric-grid-2 { grid-template-columns:repeat(2,1fr); }
+        .metric { background:#1a252f; border-radius:6px; padding:10px; text-align:center; }
+        .metric .lbl { font-size:0.68em; color:#7f8c8d; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px; }
+        .metric .val { font-size:1.25em; font-weight:bold; }
+        .metric .sub { font-size:0.65em; color:#566573; margin-top:3px; }
+        @media (max-width:600px) { .metric-grid-4{grid-template-columns:repeat(2,1fr);} .metric-grid-3{grid-template-columns:repeat(2,1fr);} }
+
+        /* ── Big saving banner ── */
+        .saving-hero { background:linear-gradient(135deg,#0d3d1a,#145a2c,#1e8449); border:2px solid #27ae60; border-radius:12px; padding:24px; text-align:center; margin-bottom:16px; }
+        .saving-hero .sh-lbl  { font-size:0.75em; text-transform:uppercase; letter-spacing:2px; color:#5dade2; margin-bottom:8px; }
+        .saving-hero .sh-val  { font-size:3em; font-weight:bold; color:#2ecc71; line-height:1; letter-spacing:-1px; }
+        .saving-hero .sh-sub  { font-size:0.85em; color:#a9dfbf; margin-top:8px; }
+        @media (max-width:480px) { .saving-hero .sh-val { font-size:2.2em; } }
+
+        /* ── Outlook card ── */
+        .outlook-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        .outlook-block { background:#1a252f; border-radius:8px; padding:14px; text-align:center; border:1px solid #3d5166; }
+        .outlook-block .ob-val  { font-size:2em; font-weight:bold; line-height:1; margin-bottom:6px; }
+        .outlook-block .ob-lbl  { font-size:0.68em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; }
+        .outlook-block .ob-sub  { font-size:0.7em; color:#566573; margin-top:4px; }
+        @media (max-width:500px) { .outlook-grid { grid-template-columns:1fr 1fr; } }
+
+        /* ── Tables ── */
+        .data-table { width:100%; border-collapse:collapse; font-size:0.88em; }
+        .data-table th { color:#7f8c8d; font-weight:600; font-size:0.75em; text-transform:uppercase; letter-spacing:0.5px; padding:8px 10px; border-bottom:1px solid #3d5166; text-align:left; }
+        .data-table td { padding:9px 10px; border-bottom:1px solid #243344; vertical-align:middle; }
+        .data-table tr:last-child td { border-bottom:none; }
+        .data-table tr:hover td { background:rgba(255,255,255,0.03); }
+        .data-table tfoot td { border-top:2px solid #3d5166; font-weight:bold; color:#ecf0f1; border-bottom:none; }
+
+        /* ── Zone pills ── */
+        .zpill { display:inline-block; font-size:0.75em; font-weight:700; padding:3px 10px; border-radius:10px; white-space:nowrap; }
+
+        /* ── Chart wrapper ── */
+        .chart-wrap { background:#1a252f; border-radius:8px; padding:14px; }
+
+        /* ── Rainfall vs avg ── */
+        .rain-vs { display:flex; align-items:center; gap:8px; }
+        .rain-bar-wrap { flex:1; background:#1a252f; border-radius:4px; height:8px; overflow:hidden; }
+        .rain-bar-fill  { height:100%; border-radius:4px; transition:width 0.6s; }
+
+        /* ── Two-col layout ── */
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        @media (max-width:700px) { .two-col { grid-template-columns:1fr; } }
+
+        /* ── Error bar ── */
+        .err-bar { display:none; background:#3d1a1a; border-left:3px solid #e74c3c; padding:8px 10px; border-radius:4px; font-size:0.8em; color:#e74c3c; margin-bottom:10px; }
+
+        /* ── Section sub-label ── */
+        .sec-lbl { font-size:0.72em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin:14px 0 8px; }
+
+        /* ── Footer ── */
+        .page-footer { text-align:center; font-size:0.72em; color:#566573; padding:14px 0 6px; }
+        .upd-time { font-size:0.72em; color:#566573; text-align:right; margin-bottom:4px; }
+
+        /* ── Status colours ── */
+        .col-green  { color:#27ae60; }
+        .col-yellow { color:#d4ac0d; }
+        .col-orange { color:#e67e22; }
+        .col-red    { color:#e74c3c; }
+        .col-muted  { color:#7f8c8d; }
+
+        /* ── Empty state ── */
+        .empty-state { text-align:center; color:#566573; padding:32px 16px; font-size:0.9em; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<div class="header">
+    <div class="logo-wrap header-logo">
+        <img class="logo-base" src="assets/images/logo-white.png" height="64" alt="">
+        <img class="logo-top"  src="assets/images/logo-colour.png" height="64" alt="WWCC">
+    </div>
+    <div class="header-text">
+        <h1>BOARD DASHBOARD</h1>
+        <div class="subtitle">Wagga Wagga Country Club &nbsp;&bull;&nbsp; Water &amp; Finance</div>
+    </div>
+</div>
+
+<div class="upd-time">Updated: <span id="upd-time">loading...</span></div>
+
+<!-- ── Tab bar ────────────────────────────────────────────────────────────── -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+    <button class="tab-btn"        onclick="showTab('savings')">Water Savings</button>
+    <button class="tab-btn"        onclick="showTab('history')">Zone History</button>
+    <button class="tab-btn"        onclick="showTab('rainfall')">Rainfall</button>
+</div>
+
+<div class="err-bar" id="err-bar"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 1: OVERVIEW
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-overview" class="tab-panel active">
+
+    <!-- Stat bar -->
+    <div class="stat-bar">
+        <div class="stat-cell">
+            <div class="sc-lbl">Season Saving</div>
+            <div class="sc-val col-green" id="ov-season-saving">--</div>
+            <div class="sc-sub" id="ov-season-label">Sep – now</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">This Month</div>
+            <div class="sc-val col-green" id="ov-month-saving">--</div>
+            <div class="sc-sub" id="ov-month-label">town water saving</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">Licence Zone</div>
+            <div class="sc-val" id="ov-zone-val">--</div>
+            <div class="sc-sub" id="ov-zone-rate">--</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">Days to Cease</div>
+            <div class="sc-val" id="ov-cease-days">--</div>
+            <div class="sc-sub" id="ov-cease-date">no-rain estimate</div>
+        </div>
+    </div>
+
+    <div class="two-col">
+
+        <!-- Lake Status -->
+        <div>
+            <div class="card">
+                <h2>Lake Albert - Current Status</h2>
+                <div class="zone-banner" id="ov-zone-banner">
+                    <div class="zone-banner-lbl">Pumping Licence Level</div>
+                    <div class="zone-banner-main" id="ov-zone-name">Loading...</div>
+                    <div class="zone-banner-sub" id="ov-zone-sub"></div>
+                </div>
+                <div class="metric-grid metric-grid-3">
+                    <div class="metric">
+                        <div class="lbl">Lake AHD</div>
+                        <div class="val" id="ov-ahd">--</div>
+                        <div class="sub">m above datum</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Max Pump Rate</div>
+                        <div class="val" id="ov-pump-rate">--</div>
+                        <div class="sub">per day</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Last Reading</div>
+                        <div class="val" id="ov-last-read" style="font-size:0.9em;">--</div>
+                        <div class="sub">FarmBot sensor</div>
+                    </div>
+                </div>
+                <div class="sec-lbl">Zone thresholds</div>
+                <table class="data-table" id="ov-threshold-table">
+                    <thead><tr><th>Level</th><th>AHD Threshold</th><th>Max Rate</th></tr></thead>
+                    <tbody id="ov-threshold-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Tank -->
+            <div class="card">
+                <h2>Water Tank</h2>
+                <div class="metric-grid metric-grid-3">
+                    <div class="metric">
+                        <div class="lbl">Tank Level</div>
+                        <div class="val" id="ov-tank-pct">--</div>
+                        <div class="sub" id="ov-tank-status">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Volume Available</div>
+                        <div class="val" id="ov-tank-vol" style="font-size:1em;">--</div>
+                        <div class="sub">in tank now</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Capacity</div>
+                        <div class="val" id="ov-tank-cap" style="font-size:1em;">--</div>
+                        <div class="sub">total</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Outlook -->
+        <div>
+            <div class="card">
+                <h2>Cease-to-Pump Outlook</h2>
+                <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">Conservative projection - no future rainfall assumed.</p>
+                <div class="outlook-grid">
+                    <div class="outlook-block">
+                        <div class="ob-val" id="ol-days-next">--</div>
+                        <div class="ob-lbl">Days to Next Zone</div>
+                        <div class="ob-sub" id="ol-next-name">--</div>
+                    </div>
+                    <div class="outlook-block">
+                        <div class="ob-val" id="ol-days-cease">--</div>
+                        <div class="ob-lbl">Days to Cease</div>
+                        <div class="ob-sub" id="ol-cease-date">no rain assumed</div>
+                    </div>
+                    <div class="outlook-block">
+                        <div class="ob-val" id="ol-cost">--</div>
+                        <div class="ob-lbl">Town Water Cost</div>
+                        <div class="ob-sub">if ceased — to end March</div>
+                    </div>
+                </div>
+
+                <div class="sec-lbl" style="margin-top:18px;">If pumping ceases</div>
+                <div class="metric-grid metric-grid-2" style="margin-bottom:0;">
+                    <div class="metric">
+                        <div class="lbl">Projected Cease Date</div>
+                        <div class="val" id="ol-cease-date-full" style="font-size:1em;">--</div>
+                        <div class="sub">no-rain estimate</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Daily Cost While Ceased</div>
+                        <div class="val" id="ol-daily-cost">--</div>
+                        <div class="sub">irrigation from town water</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current month snapshot -->
+            <div class="card">
+                <h2>This Month at a Glance</h2>
+                <div class="metric-grid metric-grid-2">
+                    <div class="metric">
+                        <div class="lbl">Est. ML Pumped</div>
+                        <div class="val" id="ov-ml-month">--</div>
+                        <div class="sub">from lake (estimated)</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Town Water Saving</div>
+                        <div class="val col-green" id="ov-saving-month">--</div>
+                        <div class="sub">vs buying from town</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Season ML (est.)</div>
+                        <div class="val" id="ov-ml-season">--</div>
+                        <div class="sub" id="ov-ml-season-lbl">from lake</div>
+                    </div>
+                    <div class="metric">
+                        <div class="lbl">Season Saving</div>
+                        <div class="val col-green" id="ov-saving-season">--</div>
+                        <div class="sub" id="ov-saving-season-lbl">Sep to now</div>
+                    </div>
+                </div>
+                <p style="font-size:0.68em;color:#566573;margin-top:10px;">
+                    * ML pumped is estimated from licence zone rate x active irrigation days. Flow sensor installation pending.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 2: SAVINGS
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-savings" class="tab-panel">
+
+    <div class="saving-hero">
+        <div class="sh-lbl">Season Water Saving vs Town Water Supply</div>
+        <div class="sh-val" id="sv-hero-val">--</div>
+        <div class="sh-sub" id="sv-hero-sub">Estimated saving since season start</div>
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <h2>Monthly Breakdown</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Zone</th>
+                        <th style="text-align:right;">Irrig. Days</th>
+                        <th style="text-align:right;">Est. ML</th>
+                        <th style="text-align:right;">Saving</th>
+                    </tr>
+                </thead>
+                <tbody id="sv-monthly-body"></tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2">Season Total</td>
+                        <td style="text-align:right;" id="sv-total-days">--</td>
+                        <td style="text-align:right;" id="sv-total-ml">--</td>
+                        <td style="text-align:right; color:#27ae60;" id="sv-total-saving">--</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <p style="font-size:0.68em;color:#566573;margin-top:10px;">
+                Saving = irrigation kL demand x $<span id="sv-cost-per-kl">1.77</span>/kL town water rate.
+                ML estimated from zone rate x active days. Flow sensor installation pending.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Cumulative Season Saving</h2>
+            <div class="chart-wrap">
+                <canvas id="sv-chart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 3: HISTORY
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-history" class="tab-panel">
+    <div class="card">
+        <h2>Pumping Licence - Zone Change History</h2>
+        <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">
+            Compliance record for NSW Water. All zone changes, cease notices, and alert emails.
+            Tracking commenced when zone history logging was enabled.
+        </p>
+        <div id="hist-content">
+            <div class="empty-state">Loading zone history...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 4: RAINFALL
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-rainfall" class="tab-panel">
+    <div class="two-col">
+        <div class="card">
+            <h2>Season Rainfall - Monthly</h2>
+            <table class="data-table" id="rain-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th style="text-align:right;">Rainfall</th>
+                        <th style="text-align:right;">10-Yr Avg</th>
+                        <th style="text-align:right;">vs Avg</th>
+                    </tr>
+                </thead>
+                <tbody id="rain-body"></tbody>
+                <tfoot>
+                    <tr>
+                        <td>Season Total</td>
+                        <td style="text-align:right;" id="rain-total">--</td>
+                        <td style="text-align:right;" id="rain-avg-total">--</td>
+                        <td style="text-align:right;" id="rain-vs-total">--</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Rainfall vs Historical Average</h2>
+            <div class="chart-wrap">
+                <canvas id="rain-chart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Water Balance - Evapotranspiration vs Rainfall</h2>
+        <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">
+            Positive deficit means irrigation demand exceeded rainfall — lake water was required.
+        </p>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th style="text-align:right;">Rain (mm)</th>
+                    <th style="text-align:right;">ET (mm)</th>
+                    <th style="text-align:right;">Balance</th>
+                </tr>
+            </thead>
+            <tbody id="bal-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Footer ──────────────────────────────────────────────────────────────── -->
+<div class="page-footer">
+    Wagga Wagga Country Club &bull; Board Dashboard &bull; Data refreshes every 15 minutes
+</div>
+
+<script>
+'use strict';
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function showTab(id) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const fmt$ = v => v == null ? '--' : '$' + Math.round(v).toLocaleString();
+const fmtMl = v => v == null ? '--' : v.toFixed(1) + ' ML';
+const fmtMm = v => v == null ? '--' : v.toFixed(1) + ' mm';
+
+function daysBetween(a, b) {
+    return Math.round((b - a) / 86400000);
+}
+
+// Season: Sep 1 → Aug 31
+function seasonStart(now) {
+    const y = now.getFullYear(), m = now.getMonth() + 1;
+    return new Date(m >= 9 ? y : y - 1, 8, 1); // month index 8 = September
+}
+
+// All days from a to b (inclusive)
+function* eachDay(from, to) {
+    const cur = new Date(from);
+    while (cur <= to) { yield new Date(cur); cur.setDate(cur.getDate() + 1); }
+}
+
+// Zone pill HTML
+const ZONE_STYLE = {
+    1: { bg:'#00762A', fg:'white',   name:'Level 1 - Normal' },
+    2: { bg:'#8AC63F', fg:'#111',    name:'Level 2 - Monitoring' },
+    3: { bg:'#FFDD00', fg:'#111',    name:'Level 3 - Conservation' },
+    4: { bg:'#F58E1E', fg:'#111',    name:'Level 4 - Critical' },
+    5: { bg:'#EB1E23', fg:'white',   name:'Level 5 - Cease' },
+};
+function zpill(z) {
+    const s = ZONE_STYLE[z] || { bg:'#888', fg:'white', name:'Level ' + z };
+    return `<span class="zpill" style="background:${s.bg};color:${s.fg};">${s.name}</span>`;
+}
+
+// Format date as "14 Jul 2026"
+function fmtDate(d) {
+    return d.toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+}
+function fmtDateShort(d) {
+    return d.toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+}
+function fmtMonthYear(d) {
+    return d.toLocaleDateString('en-AU', { month:'long', year:'numeric' });
+}
+
+// ── Lake calculations (JS port of lake_utils.py) ──────────────────────────────
+let _cfg = null;
+
+function lakeArea(ahd) {
+    const g = _cfg.lake_geometry;
+    const slope = (g.full_area_m2 - g.calibration_area_m2) / (g.full_supply_ahd - g.calibration_ahd);
+    return Math.max(0, g.calibration_area_m2 + slope * (ahd - g.calibration_ahd));
+}
+
+function currentZone(ahd) {
+    for (const z of _cfg.zone_thresholds)
+        if (z.min_ahd === null || ahd >= z.min_ahd) return z;
+    return _cfg.zone_thresholds[_cfg.zone_thresholds.length - 1];
+}
+
+function projectToCease(ahd) {
+    const pan   = _cfg.evaporation.monthly_pan_mm_day;
+    const pf    = _cfg.evaporation.pan_factor;
+    const irrig = _cfg.town_water.daily_kl_by_month;
+    const actM  = new Set(_cfg.irrigation_season.active_months);
+    const ceaseAhd = Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
+
+    let cur = ahd, d = new Date(); d.setHours(0,0,0,0);
+    if (cur <= ceaseAhd) return null;
+    for (let i = 0; i < 1095; i++) {
+        const m = d.getMonth() + 1;
+        const area = lakeArea(cur);
+        const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
+        const irrigMl = actM.has(m) ? parseFloat(irrig[m] || 0) / 1000 : 0;
+        cur -= (evapMl + irrigMl) * 1000 / area;
+        d.setDate(d.getDate() + 1);
+        if (cur <= ceaseAhd) return new Date(d);
+    }
+    return null;
+}
+
+function daysToNextZone(ahd, zone) {
+    const zones = _cfg.zone_thresholds;
+    const nextZ = zones.find(z => z.zone === zone.zone + 1);
+    if (!nextZ) return null;
+    const threshold = zone.min_ahd;
+    const pumpMl = zone.max_pump_ml_day;
+    const m = new Date().getMonth() + 1;
+    const pan = _cfg.evaporation.monthly_pan_mm_day;
+    const pf  = _cfg.evaporation.pan_factor;
+    const area = lakeArea(ahd);
+    const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
+    const totalLoss = pumpMl + evapMl;
+    if (totalLoss <= 0) return Infinity;
+    // Volume between current AHD and threshold (approx with avg area)
+    const midArea = lakeArea((ahd + threshold) / 2);
+    const volMl = (ahd - threshold) * midArea / 1000;
+    return volMl / totalLoss;
+}
+
+function townWaterCostToMarch(ceaseDate) {
+    if (!ceaseDate) return null;
+    const irrig = _cfg.town_water.daily_kl_by_month;
+    const costKl = _cfg.town_water.cost_per_kl;
+    const actM = new Set(_cfg.irrigation_season.active_months);
+    const cease = new Date(ceaseDate); cease.setHours(0,0,0,0);
+    const yr = cease.getMonth() >= 3 ? cease.getFullYear() + 1 : cease.getFullYear();
+    const endMarch = new Date(yr, 2, 31);
+    let total = 0;
+    for (const d of eachDay(cease, endMarch)) {
+        const m = d.getMonth() + 1;
+        if (actM.has(m)) total += parseFloat(irrig[m] || 0) * costKl;
+    }
+    return total;
+}
+
+// ── Parse CSV text → array of objects ────────────────────────────────────────
+function parseCsv(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(',').map(h => h.trim());
+    return lines.slice(1).map(line => {
+        const vals = line.split(',');
+        const row = {};
+        headers.forEach((h, i) => row[h] = (vals[i] || '').trim());
+        return row;
+    });
+}
+
+// ── Build zone timeline from zone_history CSV rows ────────────────────────────
+// Returns sorted array of {date, zone} where date is midnight Date object
+function buildTimeline(histRows) {
+    const events = [];
+    for (const r of histRows) {
+        if (!r.timestamp_aest || !r.new_zone) continue;
+        if (r.event === 'suppressed') continue;
+        try {
+            const [datePart] = r.timestamp_aest.split(' ');
+            const d = new Date(datePart + 'T00:00:00');
+            if (isNaN(d)) continue;
+            events.push({ date: d, zone: parseInt(r.new_zone) });
+        } catch(e) {}
+    }
+    events.sort((a, b) => a.date - b.date);
+    return events;
+}
+
+// Zone active on a given Date (midnight local)
+function zoneOnDate(timeline, d) {
+    let zone = timeline.length > 0 ? timeline[0].zone : 1;
+    for (const e of timeline) {
+        if (e.date <= d) zone = e.zone;
+        else break;
+    }
+    return zone;
+}
+
+// ── Savings calculation ────────────────────────────────────────────────────────
+function calcSavings(timeline, from, to) {
+    const irrig  = _cfg.town_water.daily_kl_by_month;
+    const costKl = _cfg.town_water.cost_per_kl;
+    const actM   = new Set(_cfg.irrigation_season.active_months);
+    const zRates = {};
+    for (const z of _cfg.zone_thresholds) zRates[z.zone] = z.max_pump_ml_day;
+
+    let totalSaving = 0, totalMl = 0;
+    const byMonth = {}; // 'YYYY-MM' → { saving, ml, activeDays, zone }
+
+    for (const d of eachDay(from, to)) {
+        const m = d.getMonth() + 1;
+        if (!actM.has(m)) continue;
+        const zone = zoneOnDate(timeline, d);
+        if (zone === 5) continue; // ceased — no saving, no pumping
+        const key = d.getFullYear() + '-' + String(m).padStart(2,'0');
+        if (!byMonth[key]) byMonth[key] = { saving:0, ml:0, activeDays:0, zone, year:d.getFullYear(), month:m };
+        const daySaving = parseFloat(irrig[m] || 0) * costKl;
+        const dayMl     = zRates[zone] || 0;
+        byMonth[key].saving     += daySaving;
+        byMonth[key].ml         += dayMl;
+        byMonth[key].activeDays += 1;
+        // Track dominant zone (most common)
+        byMonth[key].zone = zone;
+        totalSaving += daySaving;
+        totalMl     += dayMl;
+    }
+
+    return { totalSaving, totalMl, byMonth };
+}
+
+// ── Historical rainfall averages from daily_log rows ─────────────────────────
+function buildRainAvgs(wxRows, years = 10) {
+    const byYearMonth = {};
+    for (const r of wxRows) {
+        if (!r.date || !r.rain_mm) continue;
+        const d = new Date(r.date + 'T00:00:00');
+        if (isNaN(d)) continue;
+        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0');
+        byYearMonth[key] = (byYearMonth[key] || 0) + parseFloat(r.rain_mm || 0);
+    }
+    // For each month 1-12, average the last `years` years of data
+    const now = new Date(), thisYear = now.getFullYear();
+    const avgs = {};
+    for (let m = 1; m <= 12; m++) {
+        const totals = [];
+        for (let y = thisYear - years; y < thisYear; y++) {
+            const key = y + '-' + String(m).padStart(2,'0');
+            if (byYearMonth[key] != null) totals.push(byYearMonth[key]);
+        }
+        avgs[m] = totals.length ? totals.reduce((a,b)=>a+b,0)/totals.length : null;
+    }
+    return { avgs, byYearMonth };
+}
+
+// ── Savings chart ─────────────────────────────────────────────────────────────
+let _svChart = null;
+function renderSavingsChart(byMonth) {
+    const keys = Object.keys(byMonth).sort();
+    const labels = keys.map(k => {
+        const [y,m] = k.split('-');
+        return new Date(+y,+m-1,1).toLocaleDateString('en-AU',{month:'short',year:'2-digit'});
+    });
+    let cumul = 0;
+    const cumulData  = keys.map(k => { cumul += byMonth[k].saving; return Math.round(cumul); });
+    const monthData  = keys.map(k => Math.round(byMonth[k].saving));
+
+    const ctx = $('sv-chart').getContext('2d');
+    if (_svChart) _svChart.destroy();
+    _svChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Monthly Saving', data: monthData, backgroundColor:'rgba(39,174,96,0.6)', borderColor:'#27ae60', borderWidth:1, yAxisID:'y' },
+                { label: 'Cumulative',     data: cumulData, type:'line', borderColor:'#5dade2', backgroundColor:'rgba(93,173,226,0.08)', borderWidth:2, pointRadius:3, fill:true, tension:0.3, yAxisID:'y2' },
+            ]
+        },
+        options: {
+            responsive:true,
+            plugins:{ legend:{ labels:{ color:'#7f8c8d', font:{size:11} } } },
+            scales:{
+                x:{ ticks:{color:'#7f8c8d'}, grid:{color:'#1e3040'} },
+                y:{ ticks:{color:'#7f8c8d', callback:v=>'$'+v.toLocaleString()}, grid:{color:'#1e3040'}, title:{display:true,text:'Monthly $',color:'#566573'} },
+                y2:{ position:'right', ticks:{color:'#5dade2',callback:v=>'$'+v.toLocaleString()}, grid:{drawOnChartArea:false}, title:{display:true,text:'Cumulative $',color:'#5dade2'} }
+            }
+        }
+    });
+}
+
+// ── Rainfall chart ────────────────────────────────────────────────────────────
+let _rainChart = null;
+function renderRainfallChart(labels, actuals, avgs) {
+    const ctx = $('rain-chart').getContext('2d');
+    if (_rainChart) _rainChart.destroy();
+    _rainChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label:'Rainfall (mm)',   data:actuals, backgroundColor:'rgba(41,128,185,0.6)', borderColor:'#2980b9', borderWidth:1 },
+                { label:'10-Yr Avg (mm)',  data:avgs,    type:'line',  borderColor:'#e67e22', backgroundColor:'transparent', borderWidth:2, pointRadius:3, tension:0.2 }
+            ]
+        },
+        options: {
+            responsive:true,
+            plugins:{ legend:{ labels:{ color:'#7f8c8d', font:{size:11} } } },
+            scales:{
+                x:{ ticks:{color:'#7f8c8d'}, grid:{color:'#1e3040'} },
+                y:{ ticks:{color:'#7f8c8d', callback:v=>v+' mm'}, grid:{color:'#1e3040'} }
+            }
+        }
+    });
+}
+
+// ── Main data loader ──────────────────────────────────────────────────────────
+async function loadAll() {
+    const errEl = $('err-bar');
+    function showErr(msg) { errEl.textContent = msg; errEl.style.display='block'; }
+
+    try {
+        const cb = '?_=' + Date.now();
+
+        // Load all data sources in parallel
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes] = await Promise.all([
+            fetch('data/lake_config.json'             + cb),
+            fetch('data/farmbot_lake_latest.json'     + cb),
+            fetch('data/lake_pump_zone.json'          + cb),
+            fetch('data/farmbot_latest.json'          + cb),
+            fetch('data/lake_zone_history.csv'        + cb),
+            fetch('data/daily_log.csv'                + cb),
+        ]);
+
+        if (!cfgRes.ok)  { showErr('lake_config.json not found'); return; }
+        if (!lakeRes.ok) { showErr('farmbot_lake_latest.json not found'); return; }
+
+        _cfg = await cfgRes.json();
+        const lakeLatest = await lakeRes.json();
+        const zoneFile   = zoneRes.ok  ? await zoneRes.json()  : null;
+        const tankLatest = tankRes.ok  ? await tankRes.json()  : null;
+        const histText   = histRes.ok  ? await histRes.text()  : '';
+        const wxText     = wxRes.ok    ? await wxRes.text()    : '';
+
+        // ── Parse data ────────────────────────────────────────────────────────
+        const histRows = histText ? parseCsv(histText) : [];
+        const wxRows   = wxText   ? parseCsv(wxText)   : [];
+        const timeline = buildTimeline(histRows);
+
+        const now       = new Date();
+        const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        const seaStart  = seasonStart(now);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // ── Lake / zone state ─────────────────────────────────────────────────
+        const ahd  = lakeLatest.lake_ahd;
+        const zone = ahd != null ? currentZone(ahd) : null;
+
+        // ── Savings calculations ──────────────────────────────────────────────
+        const seasonSav = calcSavings(timeline, seaStart, yesterday);
+        const monthSav  = calcSavings(timeline, monthStart, yesterday);
+
+        // ── Cease projection ──────────────────────────────────────────────────
+        const ceaseDate   = ahd != null ? projectToCease(ahd) : null;
+        const daysNxtZone = (ahd != null && zone) ? daysToNextZone(ahd, zone) : null;
+        const daysToC     = ceaseDate ? daysBetween(today, ceaseDate) : null;
+        const costToMarch = ceaseDate ? townWaterCostToMarch(ceaseDate) : null;
+        const costPerKl   = _cfg.town_water.cost_per_kl;
+        const curMonth    = today.getMonth() + 1;
+        const dailyCost   = _cfg.town_water.daily_kl_by_month[curMonth] * costPerKl;
+
+        // ── Rainfall ──────────────────────────────────────────────────────────
+        const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
+
+        // ── Update footer ─────────────────────────────────────────────────────
+        $('upd-time').textContent = now.toLocaleString('en-AU',{
+            hour:'2-digit', minute:'2-digit', day:'numeric', month:'short', year:'numeric'
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // OVERVIEW TAB
+        // ════════════════════════════════════════════════════════════════════
+        const activeM = new Set(_cfg.irrigation_season.active_months);
+
+        // Stat bar
+        $('ov-season-saving').textContent = fmt$(seasonSav.totalSaving);
+        $('ov-season-label').textContent  = 'Sep ' + seaStart.getFullYear() + ' - now';
+        $('ov-month-saving').textContent  = fmt$(monthSav.totalSaving);
+        $('ov-month-label').textContent   = 'town water saving ' + fmtMonthYear(now);
+
+        if (zone) {
+            const zs = ZONE_STYLE[zone.zone] || {};
+            $('ov-zone-val').textContent  = 'Level ' + zone.zone;
+            $('ov-zone-val').style.color  = zs.bg || '#ecf0f1';
+            $('ov-zone-rate').textContent = zone.max_pump_ml_day + ' ML/day max';
+        }
+        if (daysToC != null) {
+            $('ov-cease-days').textContent = daysToC > 365 ? '365+' : '~' + daysToC;
+            $('ov-cease-days').style.color = daysToC > 90 ? '#27ae60' : daysToC > 30 ? '#e67e22' : '#e74c3c';
+            $('ov-cease-date').textContent = ceaseDate ? fmtDate(ceaseDate) : '--';
+        } else {
+            $('ov-cease-days').textContent = ahd != null ? 'At cease' : '--';
+        }
+
+        // Lake status card
+        if (ahd != null && zone) {
+            const zs = ZONE_STYLE[zone.zone] || { bg:'#888', fg:'white', name:'Level '+zone.zone };
+            const banner = $('ov-zone-banner');
+            banner.style.background  = zs.bg;
+            banner.style.borderColor = zs.bg;
+            banner.style.color       = zs.fg;
+            $('ov-zone-name').textContent = 'Level ' + zone.zone + ' - ' + zone.name;
+            $('ov-zone-sub').textContent  = 'Max extraction: ' + zone.max_pump_ml_day + ' ML/day';
+            $('ov-ahd').textContent       = ahd.toFixed(3) + ' m';
+            $('ov-pump-rate').textContent  = zone.max_pump_ml_day + ' ML/day';
+        }
+        if (lakeLatest.lake_date) {
+            const d = new Date(lakeLatest.lake_date);
+            $('ov-last-read').textContent = d.toLocaleString('en-AU',{ day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+        }
+
+        // Zone threshold table
+        const thBody = $('ov-threshold-body');
+        for (const z of _cfg.zone_thresholds) {
+            const isCur = zone && z.zone === zone.zone;
+            const tr = document.createElement('tr');
+            if (isCur) tr.style.fontWeight = 'bold';
+            tr.innerHTML = `
+                <td>${zpill(z.zone)}${isCur?' &nbsp;&#9664;':''}</td>
+                <td>${z.min_ahd != null ? '&ge; '+z.min_ahd.toFixed(3)+' m AHD' : 'Below Level 4'}</td>
+                <td style="text-align:right;">${z.max_pump_ml_day} ML/day</td>`;
+            thBody.appendChild(tr);
+        }
+
+        // Tank
+        if (tankLatest) {
+            const pct = tankLatest.tank_pct;
+            $('ov-tank-pct').textContent  = pct != null ? pct.toFixed(1)+'%' : '--';
+            $('ov-tank-pct').style.color  = pct > 50 ? '#27ae60' : pct > 20 ? '#e67e22' : '#e74c3c';
+            $('ov-tank-status').textContent = tankLatest.tank_status || '';
+            const vol = tankLatest.tank_volume_l;
+            $('ov-tank-vol').textContent  = vol != null ? (vol/1000).toFixed(0)+' kL' : '--';
+            const cap = tankLatest.tank_total_volume || 250000;
+            $('ov-tank-cap').textContent  = (cap/1000).toFixed(0)+' kL';
+        }
+
+        // Outlook card
+        if (daysNxtZone != null) {
+            const nxtZ = _cfg.zone_thresholds.find(z => z.zone === (zone.zone + 1));
+            if (daysNxtZone === Infinity) {
+                $('ol-days-next').textContent = 'Rising';
+                $('ol-days-next').style.color = '#27ae60';
+            } else {
+                const d = Math.round(daysNxtZone);
+                $('ol-days-next').textContent = '~' + d;
+                $('ol-days-next').style.color = d > 60 ? '#27ae60' : d > 20 ? '#e67e22' : '#e74c3c';
+            }
+            $('ol-next-name').textContent = nxtZ ? nxtZ.name : '--';
+        } else {
+            $('ol-days-next').textContent = '-';
+            $('ol-next-name').textContent = 'no lower zone';
+        }
+
+        if (daysToC != null) {
+            $('ol-days-cease').textContent = daysToC > 365 ? '365+' : '~'+daysToC;
+            $('ol-days-cease').style.color = daysToC>90?'#27ae60':daysToC>30?'#e67e22':'#e74c3c';
+            $('ol-cease-date').textContent  = ceaseDate ? fmtDate(ceaseDate) : '--';
+            $('ol-cease-date-full').textContent = ceaseDate ? fmtDate(ceaseDate) : '--';
+        } else {
+            $('ol-days-cease').textContent = ahd!=null?'At cease':'--';
+        }
+        $('ol-cost').textContent      = fmt$(costToMarch);
+        $('ol-daily-cost').textContent = '$' + Math.round(dailyCost) + '/day';
+
+        // This month at a glance
+        $('ov-ml-month').textContent     = fmtMl(monthSav.totalMl);
+        $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
+        $('ov-ml-season').textContent     = fmtMl(seasonSav.totalMl);
+        $('ov-saving-season').textContent = fmt$(seasonSav.totalSaving);
+        $('ov-ml-season-lbl').textContent = 'Sep '+seaStart.getFullYear()+' to now';
+        $('ov-saving-season-lbl').textContent = 'Sep '+seaStart.getFullYear()+' to now';
+
+        // ════════════════════════════════════════════════════════════════════
+        // SAVINGS TAB
+        // ════════════════════════════════════════════════════════════════════
+        $('sv-hero-val').textContent = fmt$(seasonSav.totalSaving);
+        $('sv-hero-sub').textContent = 'Estimated saving Sep '+seaStart.getFullYear()+' to now — vs purchasing equivalent irrigation water from town supply';
+        $('sv-cost-per-kl').textContent = costPerKl.toFixed(2);
+
+        const svBody = $('sv-monthly-body');
+        let totDays = 0, totMl = 0, totSaving = 0;
+        const monthKeys = Object.keys(seasonSav.byMonth).sort();
+        for (const key of monthKeys) {
+            const row = seasonSav.byMonth[key];
+            const [y,m] = key.split('-');
+            const label = new Date(+y,+m-1,1).toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${label}</td>
+                <td>${zpill(row.zone)}</td>
+                <td style="text-align:right;">${row.activeDays}</td>
+                <td style="text-align:right;">${row.ml.toFixed(1)}</td>
+                <td style="text-align:right;color:#27ae60;">${fmt$(row.saving)}</td>`;
+            svBody.appendChild(tr);
+            totDays += row.activeDays;
+            totMl   += row.ml;
+            totSaving += row.saving;
+        }
+        if (monthKeys.length === 0) {
+            svBody.innerHTML = `<tr><td colspan="5" style="color:#566573;padding:16px;">No zone history data yet — tracking will build up over time.</td></tr>`;
+        }
+        $('sv-total-days').textContent  = totDays;
+        $('sv-total-ml').textContent    = totMl.toFixed(1) + ' ML';
+        $('sv-total-saving').textContent = fmt$(totSaving);
+
+        renderSavingsChart(seasonSav.byMonth);
+
+        // ════════════════════════════════════════════════════════════════════
+        // HISTORY TAB
+        // ════════════════════════════════════════════════════════════════════
+        const histContent = $('hist-content');
+        const eventRows = histRows.filter(r => r.event && r.event !== 'suppressed');
+        if (eventRows.length === 0) {
+            histContent.innerHTML = `<div class="empty-state">No zone history recorded yet. Zone changes will appear here as they occur.</div>`;
+        } else {
+            const rows = [...eventRows].reverse(); // newest first
+            const tbl = document.createElement('table');
+            tbl.className = 'data-table';
+            tbl.innerHTML = `
+                <thead><tr>
+                    <th>Date / Time</th>
+                    <th>Event</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th style="text-align:right;">New Rate</th>
+                    <th style="text-align:right;">AHD</th>
+                    <th style="text-align:center;">Email</th>
+                </tr></thead>
+                <tbody></tbody>`;
+            const tbody = tbl.querySelector('tbody');
+            const EVENT_LABEL = {
+                initialised:    'Initialised',
+                zone_change:    'Zone change',
+                cease_pumping:  'CEASE pumping',
+                resume_pumping: 'Resume pumping',
+                email_failed:   'Alert failed',
+            };
+            for (const r of rows) {
+                const tr = document.createElement('tr');
+                const ts = r.timestamp_aest
+                    ? new Date(r.timestamp_aest.replace(' ','T')).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
+                    : '--';
+                const evLabel = EVENT_LABEL[r.event] || r.event || '--';
+                const isCease = r.event === 'cease_pumping';
+                tr.innerHTML = `
+                    <td>${ts}</td>
+                    <td style="${isCease?'color:#e74c3c;font-weight:bold;':''}">${evLabel}</td>
+                    <td>${r.old_zone ? zpill(parseInt(r.old_zone)) : '-'}</td>
+                    <td>${r.new_zone ? zpill(parseInt(r.new_zone)) : '-'}</td>
+                    <td style="text-align:right;">${r.new_rate || '-'}</td>
+                    <td style="text-align:right;">${r.ahd ? parseFloat(r.ahd).toFixed(3)+' m' : '-'}</td>
+                    <td style="text-align:center;">${r.email_sent==='true'?'<span class="col-green">Yes</span>':'<span class="col-muted">No</span>'}</td>`;
+                tbody.appendChild(tr);
+            }
+            histContent.innerHTML = '';
+            histContent.appendChild(tbl);
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // RAINFALL TAB
+        // ════════════════════════════════════════════════════════════════════
+        const rainBody = $('rain-body');
+        const balBody  = $('bal-body');
+        const chartLabels = [], chartActuals = [], chartAvgs = [];
+        let seasonRainTotal = 0, seasonAvgTotal = 0;
+
+        // Build months from season start to current month
+        const rainMonths = [];
+        const cur = new Date(seaStart.getFullYear(), seaStart.getMonth(), 1);
+        const curMo = new Date(now.getFullYear(), now.getMonth(), 1);
+        while (cur <= curMo) {
+            rainMonths.push(new Date(cur));
+            cur.setMonth(cur.getMonth() + 1);
+        }
+
+        for (const mo of rainMonths) {
+            const y = mo.getFullYear(), m = mo.getMonth() + 1;
+            const key = y + '-' + String(m).padStart(2,'0');
+            const actual = rainByYM[key] || 0;
+            const avg    = rainAvgs[m];
+            const label  = mo.toLocaleDateString('en-AU',{month:'short',year:'2-digit'});
+            const isComplete = mo < new Date(now.getFullYear(), now.getMonth(), 1);
+
+            // Rainfall table row
+            const diff = avg != null ? actual - avg : null;
+            const diffStr = diff != null
+                ? `<span style="color:${diff>=0?'#27ae60':'#e74c3c'};font-weight:bold;">${diff>=0?'+':''}${diff.toFixed(1)} mm</span>`
+                : '--';
+            const tr1 = document.createElement('tr');
+            tr1.innerHTML = `
+                <td>${mo.toLocaleDateString('en-AU',{month:'long',year:'numeric'})}${!isComplete?' *':''}</td>
+                <td style="text-align:right;">${actual.toFixed(1)} mm</td>
+                <td style="text-align:right;">${avg!=null?avg.toFixed(1)+' mm':'--'}</td>
+                <td style="text-align:right;">${diffStr}</td>`;
+            rainBody.appendChild(tr1);
+
+            // Water balance row (ET vs Rain)
+            const etKey = key;
+            const etTotal = wxRows
+                .filter(r => r.date && r.date.startsWith(key.replace('-','-').slice(0,7)))
+                .reduce((s,r) => s + parseFloat(r.et_mm||0), 0);
+            const balance = etTotal - actual;
+            const balStr = balance > 0
+                ? `<span class="col-red">+${balance.toFixed(1)} deficit</span>`
+                : `<span class="col-green">${balance.toFixed(1)} surplus</span>`;
+            const tr2 = document.createElement('tr');
+            tr2.innerHTML = `
+                <td>${label}</td>
+                <td style="text-align:right;">${actual.toFixed(1)}</td>
+                <td style="text-align:right;">${etTotal.toFixed(1)}</td>
+                <td style="text-align:right;">${balStr}</td>`;
+            balBody.appendChild(tr2);
+
+            seasonRainTotal += actual;
+            if (avg != null) seasonAvgTotal += avg;
+            chartLabels.push(label);
+            chartActuals.push(parseFloat(actual.toFixed(1)));
+            chartAvgs.push(avg != null ? parseFloat(avg.toFixed(1)) : null);
+        }
+
+        $('rain-total').textContent    = seasonRainTotal.toFixed(1) + ' mm';
+        $('rain-avg-total').textContent = seasonAvgTotal.toFixed(1) + ' mm';
+        const totalDiff = seasonRainTotal - seasonAvgTotal;
+        $('rain-vs-total').innerHTML = totalDiff >= 0
+            ? `<span class="col-green">+${totalDiff.toFixed(1)} mm</span>`
+            : `<span class="col-red">${totalDiff.toFixed(1)} mm</span>`;
+
+        renderRainfallChart(chartLabels, chartActuals, chartAvgs);
+
+    } catch(e) {
+        console.error(e);
+        $('err-bar').textContent = 'Error loading data: ' + e.message;
+        $('err-bar').style.display = 'block';
+    }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadAll();
+setInterval(loadAll, 15 * 60 * 1000); // refresh every 15 min
+</script>
+</body>
+</html>
