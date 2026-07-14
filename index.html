@@ -4859,7 +4859,8 @@ function checkFog() {
         if (hour > 12) continue;
         if (fogCodes.has(hourlyFc.weather_code[i])) { found = true; break; }
     }
-    _wx_alerts.fog = found;
+    // Tomorrow-morning fog ticker item only shows from mid-afternoon onwards
+    _wx_alerts.fog = found && new Date(Date.now() + offsetMs).getUTCHours() >= 15;
     _refreshTicker();
 }
 
@@ -4875,14 +4876,14 @@ function checkFog() {
 // Banners clear automatically once the morning window has passed.
 let _fogXCheck = { ts: 0, confirmed: false };
 
-function _fogHoursFor(dateStr) {
+function _fogHoursFor(dateStr, fromHour = 0) {
     const hours = [];
     if (!hourlyFc || !hourlyFc.time) return hours;
     for (let i = 0; i < hourlyFc.time.length; i++) {
         const t = hourlyFc.time[i];
         if (!t.startsWith(dateStr)) continue;
         const hr = parseInt(t.slice(11, 13), 10);
-        if (hr < 4 || hr > 9) continue;
+        if (hr < 4 || hr > 9 || hr < fromHour) continue;
         const rh   = hourlyFc.relative_humidity_2m?.[i];
         const tc   = hourlyFc.temperature_2m?.[i];
         const td   = hourlyFc.dew_point_2m?.[i];
@@ -4904,13 +4905,20 @@ async function checkDenseFog(evalOnly = false) {
     const todayStr    = nowLoc.toISOString().slice(0, 10);
     const tomorrowStr = new Date(nowLoc.getTime() + 86400000).toISOString().slice(0, 10);
 
-    // Before 10 AM, today's own morning window takes priority (banner stays
-    // up during the fog); otherwise look at tomorrow morning.
-    let target = tomorrowStr, day = 'tomorrow';
-    if (nowLoc.getUTCHours() < 10 && _fogHoursFor(todayStr).length) {
-        target = todayStr; day = 'this morning';
+    // Before 10 AM: show today's window, but only the hours still ahead -
+    // the banner drops away as the fog window passes (gone once 9 AM ends).
+    // Tomorrow's early warning only appears from 3 PM onwards, so a fresh
+    // "tomorrow" banner does not replace this morning's the moment it clears.
+    const curHr = nowLoc.getUTCHours();
+    let target = null, day = '', hours = [];
+    if (curHr < 10) {
+        hours = _fogHoursFor(todayStr, curHr);
+        if (hours.length) { target = todayStr; day = 'this morning'; }
     }
-    const hours = _fogHoursFor(target);
+    if (!hours.length && curHr >= 15) {
+        hours = _fogHoursFor(tomorrowStr);
+        if (hours.length) { target = tomorrowStr; day = 'tomorrow'; }
+    }
 
     if (!hours.length) {
         _wx_alerts.fogRisk = false; _wx_alerts.fogDense = false;
