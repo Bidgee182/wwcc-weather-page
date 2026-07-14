@@ -6493,6 +6493,9 @@ function tvGoTo(n) {
     dots.forEach((d, i)   => d && d.classList.toggle('tv-dot-active',   i === n));
     if (label) label.textContent = n + 1;
     tvCurrentSlide = n;
+    // Each time the carousel wraps to slide 1, check whether a newer version
+    // of the page has been deployed (reloads automatically if so)
+    if (n === 0 && typeof checkForUpdates === 'function') checkForUpdates();
     if (tvTimer) { clearInterval(tvTimer); tvTimer = setInterval(() => tvGoTo((tvCurrentSlide + 1) % 3), 20000); }
     if (n === 0 && _pageETag !== null) checkForUpdates();
 }
@@ -6904,6 +6907,9 @@ function tv2GoTo(n) {
     }
     const label = document.getElementById('tv-slide-label');
     if (label) label.textContent = n + 1;
+    // Each time the carousel wraps to slide 1, check whether a newer version
+    // of the page has been deployed (reloads automatically if so)
+    if (n === 0 && typeof checkForUpdates === 'function') checkForUpdates();
     if (tv2Timer) { clearInterval(tv2Timer); tv2Timer = setInterval(() => tv2GoTo((tv2Current + 1) % TV2_SLIDE_COUNT), TV2_ROTATE_MS); }
 }
 
