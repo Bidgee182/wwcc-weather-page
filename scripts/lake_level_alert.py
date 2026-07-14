@@ -17,7 +17,7 @@ Zone state file: data/lake_pump_zone.json
 On first run (no zone file) the current zone is recorded and no email is sent.
 """
 
-import json, os, sys, logging
+import csv, json, os, sys, logging
 from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -31,7 +31,13 @@ log = logging.getLogger(__name__)
 
 SYDNEY_TZ = ZoneInfo('Australia/Sydney')
 DATA_DIR  = Path(__file__).parent.parent / 'data'
-ZONE_FILE = DATA_DIR / 'lake_pump_zone.json'
+ZONE_FILE        = DATA_DIR / 'lake_pump_zone.json'
+ZONE_HISTORY_CSV = DATA_DIR / 'lake_zone_history.csv'
+
+_HISTORY_HEADERS = [
+    'timestamp_aest', 'old_zone', 'new_zone', 'old_rate', 'new_rate',
+    'ahd', 'event', 'email_sent', 'recipients',
+]
 
 _WHITE_LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 
@@ -140,6 +146,29 @@ def _save_zone(zone_num, rate, ahd, changed_at=None, last_alert_at=None):
         ZONE_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
     except Exception as e:
         log.warning(f'Could not save zone file: {e}')
+
+
+def _append_history(now_syd, old_zone, new_zone, old_rate, new_rate, ahd, event, email_sent, recipients):
+    """Append one row to the zone history CSV. Creates file with headers if needed."""
+    try:
+        write_header = not ZONE_HISTORY_CSV.exists() or ZONE_HISTORY_CSV.stat().st_size == 0
+        with ZONE_HISTORY_CSV.open('a', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            if write_header:
+                w.writerow(_HISTORY_HEADERS)
+            w.writerow([
+                now_syd.strftime('%Y-%m-%d %H:%M:%S'),
+                old_zone if old_zone is not None else '',
+                new_zone,
+                old_rate or '',
+                new_rate or '',
+                f'{ahd:.3f}' if ahd is not None else '',
+                event,
+                'true' if email_sent else 'false',
+                '; '.join(recipients) if recipients else '',
+            ])
+    except Exception as e:
+        log.warning(f'Could not write zone history: {e}')
 
 
 def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_syd):
@@ -334,6 +363,7 @@ def main():
         new_num, new_rate, new_bg, new_fg = _level_info_raw(ahd)
         log.info(f'No zone file — initialising to Level {new_num} ({ahd:.3f}m AHD). No alert sent.')
         _save_zone(new_num, new_rate, ahd)
+        _append_history(now_syd, None, new_num, '', new_rate, ahd, 'initialised', False, [])
         return
 
     old_num  = saved.get('zone')
@@ -344,6 +374,14 @@ def main():
     if new_num == old_num:
         log.info(f'Zone unchanged: Level {new_num} ({ahd:.3f}m AHD) — no alert.')
         return
+
+    # Determine event type for logging and email subject
+    if new_num == 5:
+        event_type = 'cease_pumping'
+    elif old_num == 5:
+        event_type = 'resume_pumping'
+    else:
+        event_type = 'zone_change'
 
     # Cease (->Zone 5) and resume (from Zone 5) always send immediately — no buffer
     is_critical = (new_num == 5 or old_num == 5)
@@ -362,6 +400,8 @@ def main():
                         f'(min {MIN_ALERT_HOURS}h) — Level {old_num} -> {new_num} '
                         f'at {ahd:.3f}m AHD. Zone file unchanged; will retry next poll.'
                     )
+                    _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
+                                    'suppressed', False, [])
                     return  # Don't update zone file — preserves pending change for next check
             except Exception as e:
                 log.warning(f'Could not parse last_alert_at: {e}')
@@ -374,8 +414,12 @@ def main():
         _save_zone(new_num, new_rate, ahd,
                    changed_at=now_syd,
                    last_alert_at=datetime.now(timezone.utc))
+        _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
+                        event_type, True, EMAIL_RECIPIENTS_ALL)
     else:
         log.warning('Email failed — zone file not updated; will retry on next poll.')
+        _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
+                        event_type, False, EMAIL_RECIPIENTS_ALL)
 
 
 if __name__ == '__main__':

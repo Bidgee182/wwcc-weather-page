@@ -73,8 +73,9 @@ def _fmt_d(dt, fmt):
     return dt.strftime(s)
 
 # Paths (relative to repo root, where the script runs from)
-CSV_PATH     = Path('data/daily_log.csv')
-REPORTS_ROOT = Path('data/reports')
+CSV_PATH          = Path('data/daily_log.csv')
+REPORTS_ROOT      = Path('data/reports')
+ZONE_HISTORY_CSV  = Path('data/lake_zone_history.csv')
 
 CSV_HEADERS = [
     'date',
@@ -1568,6 +1569,190 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
   </tr>"""
 
 
+def _zone_history_section_gk(month_start, month_end):
+    """Read lake_zone_history.csv and build a zone change log for the monthly GK email."""
+    _ZONE_COLOURS = {
+        1: ('#00762A', 'white'),
+        2: ('#8AC63F', '#111111'),
+        3: ('#FFDD00', '#111111'),
+        4: ('#F58E1E', '#111111'),
+        5: ('#EB1E23', 'white'),
+    }
+    _ZONE_NAMES = {
+        1: 'Level 1 - Normal',
+        2: 'Level 2 - Monitoring',
+        3: 'Level 3 - Conservation',
+        4: 'Level 4 - Critical',
+        5: 'Level 5 - Cease',
+    }
+    _ZONE_RATES = {
+        1: '1.50 ML/day',
+        2: '1.00 ML/day',
+        3: '0.75 ML/day',
+        4: '0.50 ML/day',
+        5: '0 ML/day',
+    }
+    try:
+        if not ZONE_HISTORY_CSV.exists():
+            return ''
+        rows = []
+        with ZONE_HISTORY_CSV.open(newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                event = row.get('event', '')
+                if event in ('initialised', 'suppressed'):
+                    continue
+                try:
+                    ts = datetime.strptime(row['timestamp_aest'], '%Y-%m-%d %H:%M:%S').date()
+                except Exception:
+                    continue
+                if month_start <= ts <= month_end:
+                    rows.append(row)
+        if not rows:
+            return ''
+
+        # Build summary: time spent in each zone
+        zone_durations = {}
+        all_rows_sorted = []
+        with ZONE_HISTORY_CSV.open(newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get('event') in ('initialised', 'suppressed'):
+                    continue
+                try:
+                    ts = datetime.strptime(row['timestamp_aest'], '%Y-%m-%d %H:%M:%S')
+                    all_rows_sorted.append((ts, int(row['new_zone']) if row.get('new_zone') else None))
+                except Exception:
+                    continue
+
+        # Find zone at month start
+        zone_at_month_start = None
+        for ts, z in reversed(all_rows_sorted):
+            if ts.date() < month_start and z is not None:
+                zone_at_month_start = z
+                break
+        if zone_at_month_start is None and all_rows_sorted:
+            zone_at_month_start = all_rows_sorted[0][1]
+
+        # Build time-in-zone for the month
+        month_start_dt = datetime(month_start.year, month_start.month, month_start.day)
+        month_end_dt   = datetime(month_end.year, month_end.month, month_end.day, 23, 59, 59)
+        periods = [(month_start_dt, zone_at_month_start)]
+        for ts, z in all_rows_sorted:
+            if month_start_dt <= ts <= month_end_dt and z is not None:
+                periods.append((ts, z))
+        periods.append((month_end_dt, None))
+
+        zone_days = {}
+        for i in range(len(periods) - 1):
+            ts_from, zone = periods[i]
+            ts_to, _     = periods[i + 1]
+            if zone is None:
+                continue
+            days = (ts_to - ts_from).total_seconds() / 86400
+            zone_days[zone] = zone_days.get(zone, 0) + days
+
+        # Duration summary pills
+        total_days = (month_end - month_start).days + 1
+        summary_cells = ''
+        for z in sorted(zone_days):
+            bg, fg = _ZONE_COLOURS.get(z, ('#888', 'white'))
+            d = zone_days[z]
+            pct = d / total_days * 100
+            summary_cells += f'''
+              <td style="padding:4px 8px;text-align:center;vertical-align:middle;">
+                <span style="display:inline-block;background:{bg};color:{fg};
+                    font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;
+                    white-space:nowrap;">Level {z}</span><br>
+                <span style="font-size:11px;color:#555;font-family:Arial,sans-serif;">
+                  {d:.1f}d ({pct:.0f}%)</span>
+              </td>'''
+
+        summary_row = f'<table cellpadding="0" cellspacing="0"><tr>{summary_cells}</tr></table>'
+
+        # Change log table
+        header_style = (
+            'background:#1a4a2e;color:white;font-size:11px;font-weight:700;'
+            'font-family:Arial,sans-serif;padding:6px 10px;text-align:left;letter-spacing:0.5px;'
+        )
+        def _zone_pill(z):
+            if not z:
+                return '-'
+            try:
+                zi = int(z)
+            except Exception:
+                return z
+            bg, fg = _ZONE_COLOURS.get(zi, ('#888', 'white'))
+            name = _ZONE_NAMES.get(zi, f'Level {zi}')
+            return (f'<span style="display:inline-block;background:{bg};color:{fg};'
+                    f'font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">'
+                    f'{name}</span>')
+
+        change_rows_html = ''
+        for i, row in enumerate(rows):
+            bg = _GK_ROW_A if i % 2 == 0 else _GK_ROW_B
+            cell = (f'font-family:Arial,sans-serif;font-size:12px;padding:6px 10px;'
+                    f'border-bottom:1px solid {_GK_BORDER};background:{bg};')
+            try:
+                ts_str = row.get('timestamp_aest', '')
+                ts_fmt = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S').strftime('%d %b %H:%M')
+            except Exception:
+                ts_fmt = row.get('timestamp_aest', '')
+            event_label = {
+                'zone_change':    'Zone change',
+                'cease_pumping':  'CEASE pumping',
+                'resume_pumping': 'Resume pumping',
+                'email_failed':   'Alert failed',
+            }.get(row.get('event', ''), row.get('event', ''))
+            old_zone_pill = _zone_pill(row.get('old_zone'))
+            new_zone_pill = _zone_pill(row.get('new_zone'))
+            new_rate_str  = row.get('new_rate') or _ZONE_RATES.get(
+                int(row['new_zone']) if row.get('new_zone') else 0, '-')
+            ahd_str = f"{float(row['ahd']):.3f} m" if row.get('ahd') else '-'
+            sent_str = 'Yes' if row.get('email_sent') == 'true' else 'No'
+            change_rows_html += f'''<tr>
+              <td style="{cell}">{ts_fmt}</td>
+              <td style="{cell}">{event_label}</td>
+              <td style="{cell}">{old_zone_pill}</td>
+              <td style="{cell}">{new_zone_pill}</td>
+              <td style="{cell}">{new_rate_str}</td>
+              <td style="{cell}">{ahd_str}</td>
+              <td style="{cell}">{sent_str}</td>
+            </tr>'''
+
+        change_table = f'''
+          <div style="overflow-x:auto;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+              style="border-collapse:collapse;border:1px solid {_GK_BORDER};border-radius:8px;overflow:hidden;min-width:500px;">
+            <thead><tr>
+              <th style="{header_style}">Date/Time</th>
+              <th style="{header_style}">Event</th>
+              <th style="{header_style}">From</th>
+              <th style="{header_style}">To</th>
+              <th style="{header_style}">New Rate</th>
+              <th style="{header_style}">AHD</th>
+              <th style="{header_style}">Alert sent</th>
+            </tr></thead>
+            <tbody>{change_rows_html}</tbody>
+          </table></div>'''
+
+        return f'''
+  <tr>
+    <td style="background:white;padding:16px 24px 24px;border-top:1px solid {_GK_BORDER};">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#1a4a2e;margin-bottom:10px;">PUMPING LICENCE - ZONE HISTORY</div>
+      <div style="margin-bottom:12px;">{summary_row}</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          color:#94a3b8;margin-bottom:6px;">ZONE CHANGES THIS MONTH</div>
+      {change_table}
+    </td>
+  </tr>'''
+
+    except Exception as e:
+        log.warning(f'Could not build zone history section: {e}')
+        return ''
+
+
 def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     """Build the lake section HTML for the monthly GK email."""
     if lake_data is None:
@@ -1673,13 +1858,15 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
 
       {threshold_tbl}"""
 
+    zone_history_html = _zone_history_section_gk(month_start, month_end)
+
     return f"""
   {section_header}
   <tr>
     <td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
       {body}
     </td>
-  </tr>"""
+  </tr>{zone_history_html}"""
 
 
 def _build_lake_section_yearly(lake_data, year_label, section_num=3):
