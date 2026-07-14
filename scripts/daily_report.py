@@ -773,7 +773,7 @@ def fetch_hourly_forecast(today_date):
     params = {
         'latitude':   CLUB_LAT,
         'longitude':  CLUB_LON,
-        'hourly':     'temperature_2m,precipitation_probability,weather_code,wind_speed_10m',
+        'hourly':     'temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m',
         'start_date': date_str,
         'end_date':   date_str,
         'timezone':   'Australia/Sydney',
@@ -789,6 +789,7 @@ def fetch_hourly_forecast(today_date):
     hourly = data.get('hourly', {})
     times     = hourly.get('time', [])
     temps     = hourly.get('temperature_2m', [])
+    rhs       = hourly.get('relative_humidity_2m', [])
     precip    = hourly.get('precipitation_probability', [])
     codes     = hourly.get('weather_code', [])
     winds     = hourly.get('wind_speed_10m', [])
@@ -809,6 +810,7 @@ def fetch_hourly_forecast(today_date):
             'hour':       hour,
             'label':      f'{label_hour} {am_pm}',
             'temp_c':     float(temps[i]) if i < len(temps) and temps[i] is not None else None,
+            'rh':         float(rhs[i])   if i < len(rhs) and rhs[i] is not None else None,
             'precip_pct': int(precip[i])  if i < len(precip) and precip[i] is not None else 0,
             'wind_kmh':   float(winds[i]) if i < len(winds) and winds[i] is not None else None,
             'icon':       _WMO_ICON.get(code, '&#9925;'),
@@ -2094,11 +2096,16 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
     # Alert banners
     frost_banner = ''
     if frost_flag:
+        _fmin  = safe_float(row.get('temp_min'))
+        _ftime = row.get('temp_min_time') or ''
+        _fdetail = ''
+        if _fmin is not None:
+            _fdetail = f' Minimum {_fmin:.1f}&deg;C' + (f' at {_ftime}' if _ftime else '') + '.'
         frost_banner = (
             '<tr><td style="background:#0c1a2e;border-left:4px solid #60a5fa;'
             'padding:12px 24px;color:#93c5fd;font-size:13px;">'
             '&#10052; &nbsp;<strong style="color:#bfdbfe;">Frost recorded overnight</strong>'
-            ' - greens should be checked before early morning play.</td></tr>')
+            f' - greens should be checked before early morning play.{_fdetail}</td></tr>')
 
     disease_banner = ''
     if da_flag:
@@ -2182,19 +2189,62 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
     # Section 4: 12-hour hourly forecast strip
     hourly_html = ''
     if hourly_forecast:
+        _SPRAY_CHIP = {
+            'GO':      ('#15803d', 'GO'),
+            'CAUTION': ('#d97706', 'CAUT'),
+            'NO-GO':   ('#dc2626', 'NO'),
+        }
         hour_cols = []
+        hour_spray = []   # (hour_label, status) for the windows summary
         for hf in hourly_forecast:
             temp_str  = f"{hf['temp_c']:.0f}°" if hf['temp_c'] is not None else '--°'
             wind_str  = f"{hf['wind_kmh']:.0f}" if hf['wind_kmh'] is not None else '--'
             precip_pct = hf['precip_pct']
             precip_col = '#1d4ed8' if precip_pct >= 60 else ('#6b7280' if precip_pct >= 30 else '#94a3b8')
+            # Forecast spray status for this hour (Delta T + temp + wind rules)
+            spray_chip = ''
+            if hf['temp_c'] is not None and hf.get('rh') is not None:
+                dt_v   = delta_t(hf['temp_c'], hf['rh'])
+                status = spray_status(dt_v, hf['temp_c'], hf['wind_kmh'])
+                hour_spray.append((hf['label'], status))
+                s_col, s_lbl = _SPRAY_CHIP[status]
+                spray_chip = (f'<div style="font-size:9px;font-weight:700;color:white;'
+                              f'background:{s_col};border-radius:8px;padding:2px 0;'
+                              f'margin-top:4px;">{s_lbl}</div>')
             hour_cols.append(f"""<td style="text-align:center;padding:8px 4px;vertical-align:top;border-right:1px solid #e2e8f0;">
               <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.5px;margin-bottom:4px;">{hf['label']}</div>
               <div style="font-size:20px;margin-bottom:4px;">{hf['icon']}</div>
               <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px;">{temp_str}</div>
               <div style="font-size:11px;color:{precip_col};font-weight:600;margin-bottom:3px;">{precip_pct}%</div>
               <div style="font-size:10px;color:#64748b;">{wind_str} km/h</div>
+              {spray_chip}
             </td>""")
+
+        # Contiguous GO ranges -> "Spray windows today: 6 AM - 9 AM, 4 PM - 6 PM"
+        spray_windows_note = ''
+        if hour_spray:
+            ranges, start, prev = [], None, None
+            for lbl, status in hour_spray:
+                if status == 'GO':
+                    if start is None:
+                        start = lbl
+                    prev = lbl
+                else:
+                    if start is not None:
+                        ranges.append((start, prev))
+                        start = None
+            if start is not None:
+                ranges.append((start, prev))
+            if ranges:
+                win_str = ', '.join(a if a == b else f'{a} - {b}' for a, b in ranges)
+                spray_windows_note = (f'<div style="font-size:12px;color:#15803d;font-weight:700;'
+                                      f'margin-top:8px;padding-left:2px;">'
+                                      f'Spray windows today: {win_str}</div>')
+            else:
+                spray_windows_note = ('<div style="font-size:12px;color:#dc2626;font-weight:700;'
+                                      'margin-top:8px;padding-left:2px;">'
+                                      'No spray-safe windows forecast between 6 AM and 6 PM today.</div>')
+
         hourly_html = f"""
   {sec_header('4', "Today's 12-Hour Forecast", 'Hourly conditions 6 AM – 6 PM &bull; Open-Meteo')}
   <tr><td style="background:white;padding:16px 24px 24px;border-radius:0 0 10px 10px;">
@@ -2202,8 +2252,9 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
       <tr>{''.join(hour_cols)}</tr>
     </table>
-    <div style="font-size:11px;color:#94a3b8;margin-top:8px;padding-left:2px;">
-      Precipitation % is chance of rain. Wind in km/h.
+    {spray_windows_note}
+    <div style="font-size:11px;color:#94a3b8;margin-top:6px;padding-left:2px;">
+      Precipitation % is chance of rain. Wind in km/h. GO / CAUT / NO = forecast spray condition (Delta T and wind).
     </div>
   </td></tr>"""
 
