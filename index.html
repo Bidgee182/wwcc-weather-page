@@ -568,13 +568,13 @@
         body.tv-mode #tv-s1 .golfer-insights { grid-template-columns: repeat(3, 1fr); }
 
         /* ── TV2 mode: 3 giant pills per rotating screen ── */
-        .gt-blue { background: linear-gradient(160deg, #123a5a, #1c6ea4); border-color: #3498db; }
         body.tv2-mode .tv2-slide-inner { display: flex; flex-direction: column; height: 100%; }
         body.tv2-mode .tv2-title { text-align: center; font-size: 2vw; text-transform: uppercase;
             letter-spacing: 6px; color: rgba(255,255,255,0.55); font-weight: bold; padding: 0.6vw 0 1vw; flex-shrink: 0; }
         body.tv2-mode .tv2-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vw;
             flex: 1; min-height: 0; padding-bottom: 0.6vw; }
-        body.tv2-mode .tv2-pill { border-radius: 20px; border: 4px solid #3d5166; display: flex;
+        /* border colour comes from the gt-/fb-/cb- state class on each pill */
+        body.tv2-mode .tv2-pill { border-radius: 20px; border-width: 4px; border-style: solid; display: flex;
             flex-direction: column; align-items: center; justify-content: center; text-align: center;
             padding: 1.5vw; overflow: hidden; min-height: 0; }
         body.tv2-mode .tv2-lbl  { font-size: 1.9vw; text-transform: uppercase; letter-spacing: 3px;
@@ -590,10 +590,12 @@
         body.tv2-mode .tv2-solo-lbl { font-size: 2.2vw; letter-spacing: 6px; text-transform: uppercase;
             color: rgba(255,255,255,0.85); font-weight: bold; }
         body.tv2-mode .tv2-solo-val { font-size: 9vw; font-weight: bold; line-height: 1; color: #fff; }
+        body.tv2-mode .tv2-solo-sub { font-size: 2vw; color: rgba(255,255,255,0.88); max-width: 78%;
+            line-height: 1.45; }
         body.tv2-mode .tv2-solo-chips { display: flex; flex-wrap: wrap; justify-content: center;
-            gap: 1.1vw; max-width: 82%; margin-top: 1.2vw; }
+            gap: 1.1vw; max-width: 85%; margin-top: 1.2vw; }
         body.tv2-mode .tv2-chip { background: rgba(0,0,0,0.32); border: 2px solid rgba(255,255,255,0.28);
-            border-radius: 60px; padding: 1vw 2vw; font-size: 2vw; color: #fff; white-space: nowrap; }
+            border-radius: 60px; padding: 1vw 2.2vw; font-size: 2.3vw; color: #fff; white-space: nowrap; }
         body.tv2-mode .tv2-qr-wrap { display: flex; align-items: center; justify-content: center;
             gap: 4vw; flex: 1; min-height: 0; }
         body.tv2-mode .tv2-qr-wrap img { height: 34vw; max-height: 100%; width: auto;
@@ -6466,6 +6468,16 @@ function _tv2Txt(id, fallback = '--') {
     const t  = el ? el.textContent.trim() : '';
     return t || fallback;
 }
+// Like _tv2Txt but keeps a separator where the source had <br> tags, so
+// multi-line tile text does not run together when flattened.
+function _tv2TxtSep(id, fallback = '') {
+    const el = document.getElementById(id);
+    if (!el) return fallback;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = el.innerHTML.replace(/<br\s*\/?>/gi, ' &middot; ');
+    const t = tmp.textContent.replace(/\s+/g, ' ').trim();
+    return t || fallback;
+}
 // Extract headline/pill/sub from an insight card (#best-time-content etc.)
 function _tv2Insight(containerId) {
     const el = document.getElementById(containerId);
@@ -6495,15 +6507,55 @@ function _tv2SetPill(id, opts) {
         (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '');
 }
 
+// True after last light / before pre-dawn (banner is in its night state)
+function _tv2IsNight() {
+    const b = document.getElementById('comfort-banner');
+    return !!(b && b.classList.contains('cb-night'));
+}
+
 // Screen 1: full-screen playability score with the detail items spread
 // out as individual chips so they read easily from a distance.
 function renderTV2Playability() {
     const el = document.getElementById('tv2-playability');
     if (!el) return;
-    el.className = 'tv2-solo ' + _tv2Cls('comfort-banner', ['cb-'], 'cb-good');
+    const banner   = document.getElementById('comfort-banner');
     const detailEl = document.getElementById('comfort-detail');
+    const bannerCls = _tv2Cls('comfort-banner', ['cb-'], 'cb-good');
+    el.className = 'tv2-solo ' + bannerCls;
+
+    // Night / pre-dawn: the banner renders a rich stats block - rebuild it
+    // as a clean icon + rating + status line + short stat chips.
+    if (banner && (banner.classList.contains('cb-night') || banner.classList.contains('cb-predawn'))) {
+        const isNight  = banner.classList.contains('cb-night');
+        const ratingEl = document.getElementById('comfort-rating');
+        let ratingText = ratingEl ? ratingEl.textContent.trim() : '--';
+        const emojiSpan = ratingEl ? ratingEl.querySelector('span') : null;
+        const emoji = emojiSpan ? emojiSpan.textContent : (isNight ? '\u{1F319}' : '\u{1F305}');
+        if (emojiSpan) ratingText = ratingText.replace(emojiSpan.textContent, '').trim();
+        // Status sentence = detail text before the stats row
+        let statusLine = '';
+        if (detailEl && detailEl.firstChild && detailEl.firstChild.nodeType === Node.TEXT_NODE) {
+            statusLine = detailEl.firstChild.textContent.trim();
+        }
+        // Stat chips from the banner's stat row (short "value label" pairs)
+        const chips = detailEl
+            ? [...detailEl.querySelectorAll('.cb-stat')].map(s => {
+                const v = s.querySelector('.cs-val'), l = s.querySelector('.cs-lbl');
+                return v && l ? `${l.textContent.trim()}: ${v.textContent.trim()}` : s.textContent.trim();
+              })
+            : [];
+        el.innerHTML =
+            `<div class="tv2-icon" style="font-size:5vw;">${emoji}</div>` +
+            `<div class="tv2-solo-val" style="font-size:6.5vw;">${ratingText}</div>` +
+            (statusLine ? `<div class="tv2-solo-sub">${statusLine}</div>` : '') +
+            (chips.length ? `<div class="tv2-solo-chips">${chips.map(c => `<div class="tv2-chip">${c}</div>`).join('')}</div>` : '');
+        return;
+    }
+
+    // Daytime: rating + short keyword chips (max 4, long factor text trimmed
+    // at the " - " so each chip is a quick read from a distance)
     const parts = detailEl
-        ? detailEl.textContent.split('·').map(s => s.trim()).filter(Boolean)
+        ? detailEl.textContent.split('·').map(s => s.split(' - ')[0].trim()).filter(Boolean).slice(0, 4)
         : [];
     el.innerHTML =
         `<div class="tv2-solo-lbl">Overall Playability Score</div>` +
@@ -6518,7 +6570,7 @@ function renderTV2() {
     // ── Screen 2: Right Now ──
     _tv2SetPill('tv2-p-temp', { lbl:'Temperature', icon:'&#127777;&#65039;', val:_tv2Txt('cc-temp'),
         sub:'Feels like ' + _tv2Txt('cc-feels'), cls:_tv2Cls('tile-feelslike', ['gt-'], 'gt-idle') });
-    _tv2SetPill('tv2-p-wind', { lbl:'Wind', icon:'&#127788;&#65039;', val:_tv2Txt('tile-wind-val'),
+    _tv2SetPill('tv2-p-wind', { lbl:'Wind', icon:'&#127788;&#65039;', val:_tv2Txt('tile-wind-val'), med:true,
         sub:_tv2Txt('tile-wind-explain', ''), cls:_tv2Cls('tile-wind', ['gt-'], 'gt-idle') });
     _tv2SetPill('tv2-p-rain', { lbl:'Rain Today', icon:'&#127783;&#65039;', val:_tv2Txt('cc-rain'),
         sub:'Last 24 hours: ' + _tv2Txt('tile-rain24h-val'), cls:_tv2Cls('tile-rain24h', ['gt-'], 'gt-idle') });
@@ -6527,15 +6579,16 @@ function renderTV2() {
     const fr = _tv2Insight('frost-risk-content');
     _tv2SetPill('tv2-p-frost', { lbl:'Frost Risk', icon:'&#10052;&#65039;', val:fr.big, med:true,
         sub:(fr.pill ? fr.pill + ' - ' : '') + fr.sub, cls:fr.cls });
-    _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:_tv2Txt('tile-uv-val'),
+    _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:_tv2Txt('tile-uv-val'), med:true,
         sub:_tv2Txt('tile-uv-explain', ''), cls:_tv2Cls('tile-uv', ['gt-'], 'gt-idle') });
     const bt = _tv2Insight('best-time-content');
-    _tv2SetPill('tv2-p-besttime', { lbl:'Best Time to Play', val:bt.big, med:true,
+    _tv2SetPill('tv2-p-besttime', { lbl:'Best Time to Play',
+        val:(bt.big !== '--' ? bt.big : 'Tomorrow'), med:true,
         sub:(bt.pill ? bt.pill + ' - ' : '') + bt.sub, cls:bt.cls });
 
     // ── Screen 4: Course Conditions ──
     _tv2SetPill('tv2-p-course', { lbl:'Course Roll', icon:'&#9971;', val:_tv2Txt('tile-course-val'), med:true,
-        sub:_tv2Txt('tile-course-explain', ''), cls:_tv2Cls('tile-course', ['gt-'], 'gt-idle') });
+        sub:_tv2TxtSep('tile-course-explain', ''), cls:_tv2Cls('tile-course', ['gt-'], 'gt-idle') });
     const gs = _tv2Insight('green-speed-content');
     _tv2SetPill('tv2-p-greens', { lbl:'Green Speed', icon:'&#127807;', val:gs.big, med:true,
         sub:(gs.pill ? gs.pill + ' - ' : '') + gs.sub, cls:gs.cls });
@@ -6579,10 +6632,20 @@ function renderTV2WindPills() {
         { id:'tv2-p-wtail',  lbl:'Best Tailwind',     key:'tail'  },
         { id:'tv2-p-wcross', lbl:'Worst Crosswind',   key:'cross' },
     ];
+    // NOTE: fb-dyn-* colours only apply alongside .feature-box (compound CSS
+    // selectors), so every wind pill class must include it.
+    // After dark: live wind analysis is not useful - show a check-back message.
+    // Pre-dawn and daylight show the live analysis.
+    if (_tv2IsNight()) {
+        for (const c of cats) _tv2SetPill(c.id, { lbl:c.lbl, val:'&#127769;', med:true,
+            sub:'Wind guide returns at first light - check back tomorrow morning.',
+            cls:'feature-box fb-dyn-idle' });
+        return;
+    }
     const kmh = wx.windKmh || 0;
     if (wx.windDeg === null || kmh < 5) {
         for (const c of cats) _tv2SetPill(c.id, { lbl:c.lbl, val:'Calm', med:true,
-            sub:'Minimal wind impact right now - no club changes needed.', cls:'fb-dyn-idle' });
+            sub:'Minimal wind impact right now - no club changes needed.', cls:'feature-box fb-dyn-idle' });
         return;
     }
     const results    = analyseWindHoles(wx.windDeg || 0, kmh);
@@ -6599,10 +6662,11 @@ function renderTV2WindPills() {
         const club = te.clubAdj === 0 ? 'No club change'
             : te.clubAdj > 0 ? `Club up ${te.clubAdj}` : `Club down ${Math.abs(te.clubAdj)}`;
         const mag = c.key === 'cross' ? te.driftM : Math.abs(te.metresEffect);
-        const cls = c.key === 'tail' ? 'fb-dyn-green'
+        // Same colour bands as the TV1 wind boxes (tail: green when helping, yellow when negligible)
+        const cls = c.key === 'tail' ? (mag >= 3 ? 'fb-dyn-green' : 'fb-dyn-yellow')
             : mag >= 8 ? 'fb-dyn-red' : mag >= 3 ? 'fb-dyn-orange' : 'fb-dyn-yellow';
         _tv2SetPill(c.id, { lbl:c.lbl, val:'Hole ' + r.hole,
-            sub:`${impact} &bull; ${club}`, cls });
+            sub:`${impact} &bull; ${club}`, cls:'feature-box ' + cls });
     }
 }
 
