@@ -65,7 +65,7 @@ jobs:
           FARMBOT_TANK_SID:       ${{ secrets.FARMBOT_TANK_SID }}
           FARMBOT_TANK_CAPACITY_L: '250000'
           FARMBOT_LAKE_SID:       ${{ secrets.FARMBOT_LAKE_SID }}
-          LAKE_AHD_OFFSET:        '189.3616'
+          LAKE_AHD_OFFSET:        '189.3746'
         run: |
           FROM="${{ github.event.inputs.backfill_from }}"
           FROM="${FROM:-2025-01-01}"
