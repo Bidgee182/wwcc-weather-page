@@ -8,14 +8,18 @@ to the GK and committee mailing list.
 Runs after each FarmBot poll via farmbot-poll.yml.
 
 Zone state file: data/lake_pump_zone.json
-  {"zone": 2, "rate": "1.00 ML/day", "ahd": 190.123}
+  {
+    "zone": 2, "rate": "1.00 ML/day", "ahd": 190.123,
+    "changed_at": "2026-07-14T07:32:00+10:00",
+    "last_alert_at": "2026-07-14T07:32:00+00:00"
+  }
 
 On first run (no zone file) the current zone is recorded and no email is sent.
 """
 
 import json, os, sys, logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 logging.basicConfig(
@@ -55,13 +59,56 @@ LAKE_LEVELS = [
 # Threshold below which pumping must cease
 CEASE_AHD = 189.650
 
+# Hysteresis deadband: lake must move this far past a threshold before a zone
+# change is registered. Prevents alert spam when the level oscillates at a boundary.
+# Zone 5 (cease/resume pumping) transitions always bypass this — compliance-critical.
+HYSTERESIS_M = 0.01   # 10 mm
 
-def _level_info(ahd):
-    """Return (num, rate, bg, fg) for the given AHD."""
+# Minimum hours between non-critical zone change alerts.
+# Cease (->Zone 5) and resume (from Zone 5) always send immediately.
+MIN_ALERT_HOURS = 12
+
+# Pre-built lookup: zone_num -> (min_ahd, rate, bg, fg)
+_ZONE_INFO = {n: (m, r, bg, fg) for m, n, r, bg, fg in LAKE_LEVELS}
+
+
+def _level_info_raw(ahd):
+    """Return (num, rate, bg, fg) with no hysteresis — used for first-run init and test mode."""
     for min_ahd, num, rate, bg, fg in LAKE_LEVELS:
         if ahd >= min_ahd:
             return num, rate, bg, fg
     return LAKE_LEVELS[-1][1:]
+
+
+def _level_info(ahd, current_zone=None):
+    """Return (num, rate, bg, fg) applying a HYSTERESIS_M deadband when current_zone is given.
+
+    - Dropping to a worse zone: AHD must be HYSTERESIS_M below the current zone's lower boundary.
+    - Rising to a better zone: AHD must be HYSTERESIS_M above the better zone's lower boundary.
+    - Zone 5 (cease/resume) transitions always use raw thresholds — compliance-critical.
+    """
+    raw_num, raw_rate, raw_bg, raw_fg = _level_info_raw(ahd)
+
+    if current_zone is None or raw_num == current_zone:
+        return raw_num, raw_rate, raw_bg, raw_fg
+
+    # Never buffer cease or resume transitions — they are licence compliance events
+    if raw_num == 5 or current_zone == 5:
+        return raw_num, raw_rate, raw_bg, raw_fg
+
+    cur_min, cur_rate, cur_bg, cur_fg = _ZONE_INFO[current_zone]
+
+    if raw_num > current_zone:
+        # Dropping to worse zone: only change if HYSTERESIS_M below current zone's floor
+        if ahd > cur_min - HYSTERESIS_M:
+            return current_zone, cur_rate, cur_bg, cur_fg
+    else:
+        # Rising to better zone: only change if HYSTERESIS_M above the better zone's floor
+        new_min = _ZONE_INFO[raw_num][0]
+        if ahd < new_min + HYSTERESIS_M:
+            return current_zone, cur_rate, cur_bg, cur_fg
+
+    return raw_num, raw_rate, raw_bg, raw_fg
 
 
 def _load_current_ahd():
@@ -83,12 +130,14 @@ def _load_zone():
         return None
 
 
-def _save_zone(zone_num, rate, ahd):
+def _save_zone(zone_num, rate, ahd, changed_at=None, last_alert_at=None):
     try:
-        ZONE_FILE.write_text(
-            json.dumps({'zone': zone_num, 'rate': rate, 'ahd': round(ahd, 3)}, indent=2),
-            encoding='utf-8',
-        )
+        data = {'zone': zone_num, 'rate': rate, 'ahd': round(ahd, 3)}
+        if changed_at is not None:
+            data['changed_at'] = changed_at.isoformat()
+        if last_alert_at is not None:
+            data['last_alert_at'] = last_alert_at.replace(microsecond=0).isoformat()
+        ZONE_FILE.write_text(json.dumps(data, indent=2), encoding='utf-8')
     except Exception as e:
         log.warning(f'Could not save zone file: {e}')
 
@@ -98,7 +147,6 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
     ceasing  = new_num == 5
     resuming = old_num == 5
 
-    # Body paragraph
     if ceasing:
         icon = '&#9888;'
         body_text = (
@@ -158,21 +206,25 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
         kv_row('As at',              f'{now_str} AEST', 4)
     )
 
+    _mob_style = """\
+<style type="text/css">
+@media only screen and (max-width:620px) {
+  table[width="600"] { width:100% !important; max-width:100% !important; }
+  .mob-logo-cell { display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }
+  .mob-logo-cell img { height:44px !important; width:auto !important; max-width:100% !important; }
+  .mob-text-cell { display:block !important; width:100% !important; }
+}
+</style>"""
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<style type="text/css">
-@media only screen and (max-width:620px) {{
-  table[width="600"] {{ width:100% !important; max-width:100% !important; }}
-  .mob-logo-cell {{ display:block !important; width:100% !important; text-align:center !important; padding-right:0 !important; padding-bottom:14px !important; }}
-  .mob-logo-cell img {{ height:44px !important; width:auto !important; max-width:100% !important; }}
-  .mob-text-cell {{ display:block !important; width:100% !important; }}
-}}
-</style>
+{_mob_style}
 </head>
 <body style="margin:0;padding:0;background:#f0f4f8;font-family:Arial,Helvetica,sans-serif;">
+{_mob_style}
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:28px 0;">
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0"
@@ -250,10 +302,10 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
 def send_email(subject, html, recipients):
     if not SENDGRID_API_KEY:
         log.warning('No SENDGRID_API_KEY — skipping send.')
-        return
+        return False
     if not recipients:
         log.warning('No recipients — skipping send.')
-        return
+        return False
     try:
         from sendgrid import SendGridAPIClient
         from sendgrid.helpers.mail import Mail, To, Email
@@ -262,8 +314,10 @@ def send_email(subject, html, recipients):
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)
         log.info(f'Sent "{subject}" — {resp.status_code} — to {recipients}')
+        return True
     except Exception as e:
         log.error(f'Send error: {e}')
+        return False
 
 
 def main():
@@ -273,10 +327,11 @@ def main():
         log.info('No lake AHD available — skipping alert check.')
         return
 
-    new_num, new_rate, new_bg, new_fg = _level_info(ahd)
     saved = _load_zone()
 
     if saved is None:
+        # First run: initialise zone file silently without sending an alert
+        new_num, new_rate, new_bg, new_fg = _level_info_raw(ahd)
         log.info(f'No zone file — initialising to Level {new_num} ({ahd:.3f}m AHD). No alert sent.')
         _save_zone(new_num, new_rate, ahd)
         return
@@ -284,15 +339,43 @@ def main():
     old_num  = saved.get('zone')
     old_rate = saved.get('rate', '-')
 
+    new_num, new_rate, new_bg, new_fg = _level_info(ahd, current_zone=old_num)
+
     if new_num == old_num:
         log.info(f'Zone unchanged: Level {new_num} ({ahd:.3f}m AHD) — no alert.')
         return
 
+    # Cease (->Zone 5) and resume (from Zone 5) always send immediately — no buffer
+    is_critical = (new_num == 5 or old_num == 5)
+
+    if not is_critical:
+        last_alert_str = saved.get('last_alert_at')
+        if last_alert_str:
+            try:
+                last_alert = datetime.fromisoformat(last_alert_str)
+                if last_alert.tzinfo is None:
+                    last_alert = last_alert.replace(tzinfo=timezone.utc)
+                hours_since = (datetime.now(timezone.utc) - last_alert).total_seconds() / 3600
+                if hours_since < MIN_ALERT_HOURS:
+                    log.info(
+                        f'Alert suppressed: {hours_since:.1f}h since last alert '
+                        f'(min {MIN_ALERT_HOURS}h) — Level {old_num} -> {new_num} '
+                        f'at {ahd:.3f}m AHD. Zone file unchanged; will retry next poll.'
+                    )
+                    return  # Don't update zone file — preserves pending change for next check
+            except Exception as e:
+                log.warning(f'Could not parse last_alert_at: {e}')
+
     log.info(f'Zone changed: Level {old_num} -> Level {new_num} ({ahd:.3f}m AHD) — sending alert.')
     html, subject = _build_email(ahd, new_num, new_rate, new_bg, new_fg,
                                   old_num, old_rate, now_syd)
-    send_email(subject, html, EMAIL_RECIPIENTS_ALL)
-    _save_zone(new_num, new_rate, ahd)
+    sent = send_email(subject, html, EMAIL_RECIPIENTS_ALL)
+    if sent:
+        _save_zone(new_num, new_rate, ahd,
+                   changed_at=now_syd,
+                   last_alert_at=datetime.now(timezone.utc))
+    else:
+        log.warning('Email failed — zone file not updated; will retry on next poll.')
 
 
 if __name__ == '__main__':
@@ -305,7 +388,7 @@ if __name__ == '__main__':
         if ahd is None:
             log.error('No lake AHD data available for test.')
             sys.exit(1)
-        new_num, new_rate, new_bg, new_fg = _level_info(ahd)
+        new_num, new_rate, new_bg, new_fg = _level_info_raw(ahd)
         old_num  = max(1, new_num - 1)   # simulate coming from one level better
         old_rate = next((r for _, n, r, _, _ in LAKE_LEVELS if n == old_num), '-')
         log.info(f'[TEST] Simulating zone change Level {old_num} -> Level {new_num} at {ahd:.3f}m AHD')
