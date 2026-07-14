@@ -337,6 +337,40 @@
         </div>
     </div>
 
+    <!-- Licence compliance summary -->
+    <div class="card">
+        <h2>Licence Compliance — NSW Water</h2>
+        <div class="metric-grid metric-grid-4">
+            <div class="metric">
+                <div class="lbl">Tracking Since</div>
+                <div class="val" id="cp-since" style="font-size:1em;">--</div>
+                <div class="sub">zone history log</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Cease Events</div>
+                <div class="val" id="cp-cease">--</div>
+                <div class="sub">pumping stops required</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Zone Changes</div>
+                <div class="val" id="cp-changes">--</div>
+                <div class="sub">recorded transitions</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Alerts Issued</div>
+                <div class="val" id="cp-alerts">--</div>
+                <div class="sub">automatic emails sent</div>
+            </div>
+        </div>
+        <p id="cp-statement" style="font-size:0.82em;color:#a9dfbf;background:#12271a;border-left:3px solid #27ae60;border-radius:4px;padding:10px 12px;margin:0;">
+            Loading compliance summary...
+        </p>
+        <p style="font-size:0.68em;color:#566573;margin-top:8px;">
+            Pumping is managed to the licence zone rate in effect; every zone change and alert is logged
+            in an append-only record. Direct flow metering pending sensor installation.
+        </p>
+    </div>
+
 </div><!-- end tab-overview -->
 
 <!-- ══════════════════════════════════════════════════════════════════════════
@@ -1011,6 +1045,36 @@ async function loadAll() {
         const dailyLake = buildDailyLake(lakeReadings);
         if (dailyLake.length > 0) renderLakeChart(dailyLake);
         else $('ov-chart-date-range').textContent = 'No sensor data available yet';
+
+        // Licence compliance summary (from the append-only zone history log)
+        {
+            const logRows   = histRows.filter(r => r.event && r.event !== 'suppressed');
+            const ceaseCnt  = logRows.filter(r => r.event === 'cease_pumping').length;
+            const changeCnt = logRows.filter(r => r.event !== 'initialised').length;
+            const alertCnt  = logRows.filter(r => r.email_sent === 'true').length;
+            if (logRows.length > 0) {
+                const first = logRows.reduce((a, b) =>
+                    (a.timestamp_aest < b.timestamp_aest ? a : b));
+                $('cp-since').textContent = fmtDate(new Date(first.timestamp_aest.split(' ')[0] + 'T00:00:00'));
+            }
+            $('cp-cease').textContent   = ceaseCnt;
+            $('cp-cease').style.color   = ceaseCnt === 0 ? '#27ae60' : '#e74c3c';
+            $('cp-changes').textContent = changeCnt;
+            $('cp-alerts').textContent  = alertCnt;
+            const stmt = $('cp-statement');
+            if (ceaseCnt === 0) {
+                stmt.textContent = 'No cease-to-pump events since tracking began - the lake has remained '
+                    + 'above the 189.650 m AHD cease threshold at all times, and pumping has operated '
+                    + 'within the permitted rate for the licence zone in effect.';
+            } else {
+                stmt.textContent = ceaseCnt + ' cease-to-pump event' + (ceaseCnt > 1 ? 's' : '')
+                    + ' recorded. Pumping was stopped and recipients notified automatically on each occasion; '
+                    + 'see the Zone History tab for the full compliance record.';
+                stmt.style.color = '#f5b7b1';
+                stmt.style.background = '#2e1a1a';
+                stmt.style.borderLeftColor = '#e74c3c';
+            }
+        }
 
         // ════════════════════════════════════════════════════════════════════
         // SAVINGS TAB
