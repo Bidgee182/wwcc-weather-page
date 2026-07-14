@@ -624,6 +624,17 @@
         body.tv2-mode .tv2-hour .h-temp { font-size: 3vw; font-weight: bold; color: #fff; margin-top: 0.5vw; }
         body.tv2-mode .tv2-hour .h-rain { font-size: 1.4vw; margin-top: 0.7vw; color: #5dade2; font-weight: bold; }
         body.tv2-mode .tv2-hour .h-wind { font-size: 1.25vw; color: rgba(255,255,255,0.7); margin-top: 0.35vw; }
+        /* Live Weather Station screen: 3x2 grid of readings */
+        body.tv2-mode .tv2-st-grid { display: grid; grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: 1fr 1fr; gap: 1.4vw; flex: 1; min-height: 0; padding-bottom: 0.6vw; }
+        body.tv2-mode .tv2-st { border-radius: 16px; border: 3px solid #3d5166; background: #1e2f3e;
+            display: flex; flex-direction: column; align-items: center; overflow: hidden;
+            min-height: 0; text-align: center; }
+        body.tv2-mode .tv2-st-body { flex: 1; min-height: 0; width: 100%; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; padding: 0.6vw 1vw 1vw; }
+        body.tv2-mode .tv2-st .st-val { font-size: 4.3vw; font-weight: bold; color: #fff; line-height: 1.05; }
+        body.tv2-mode .tv2-st .st-sub { font-size: 1.5vw; color: rgba(255,255,255,0.85);
+            margin-top: 0.7vw; line-height: 1.4; padding: 0 0.6vw; }
         body.tv2-mode .tv2-icon { font-size: 4vw; }
         body.tv2-mode .tv2-val  { font-size: 6vw; font-weight: bold; line-height: 1.05; color: #fff; }
         body.tv2-mode .tv2-val-med { font-size: 3.4vw; }
@@ -6751,7 +6762,7 @@ async function checkForUpdates() {
 // Readability-first kiosk layout. All values are synced from the elements the
 // normal golfer page already renders, so there is no duplicated weather logic.
 let tv2Timer = null, tv2Current = 0;
-const TV2_SLIDE_COUNT = 9;
+const TV2_SLIDE_COUNT = 10;
 const TV2_ROTATE_MS   = 15000;
 const TV2_PAGE_URL    = 'https://bidgee182.github.io/wwcc-weather-page/';
 
@@ -6807,6 +6818,35 @@ function _tv2SetPill(id, opts) {
         `<div class="tv2-val${opts.med ? ' tv2-val-med' : ''}">${opts.val}</div>` +
         (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '') +
         `</div>`;
+}
+
+// Screen 9: live weather station grid - values mirror the golfer page
+// Station tab cells (same source elements, so they can never disagree)
+function renderTV2Station() {
+    const cell = (id, val, sub, cls) => {
+        const box = document.getElementById(id);
+        const v = document.getElementById(id + '-val');
+        const s = document.getElementById(id + '-sub');
+        if (box) box.className = 'tv2-st ' + (cls || 'gt-idle');
+        if (v) v.innerHTML = val;
+        if (s) s.innerHTML = sub || '';
+    };
+    // Gust line only when the station reports meaningful gusts
+    const gustEl  = document.getElementById('go-st-gust');
+    const gustTxt = (gustEl && gustEl.style.display !== 'none' && gustEl.textContent.trim())
+        ? gustEl.textContent.trim() : 'Steady';
+
+    cell('tv2-st-temp', _tv2Txt('go-st-temp'),
+        _tv2Txt('go-st-feels', '') + ' &middot; ' + _tv2Txt('go-st-hilo', ''),
+        _tv2Cls('tile-feelslike', ['gt-'], 'gt-idle'));
+    cell('tv2-st-wind', _tv2Txt('tile-wind-val'), gustTxt,
+        _tv2Cls('tile-wind', ['gt-'], 'gt-idle'));
+    cell('tv2-st-uv', _tv2Txt('tile-uv-val'), _tv2Txt('tile-uv-explain', ''),
+        _tv2Cls('tile-uv', ['gt-'], 'gt-idle'));
+    cell('tv2-st-rh', _tv2Txt('go-st-rh'), _tv2Txt('go-st-dewlive', ''), 'gt-idle');
+    cell('tv2-st-press', _tv2Txt('go-st-pressure'), _tv2Txt('go-st-deltat', ''), 'gt-idle');
+    cell('tv2-st-rain', _tv2Txt('go-st-rain'), _tv2Txt('go-st-rain-totals', ''),
+        _tv2Cls('tile-rain24h', ['gt-'], 'gt-idle'));
 }
 
 // Screen 6: next 6 hours from the live hourly forecast
@@ -6956,6 +6996,9 @@ function renderTV2() {
             cls: probCls });
     }
 
+    // ── Screen 9: Live Weather Station ──
+    renderTV2Station();
+
     // ── Screen 8: Daylight & Rain ──
     // Daylight pill mirrors the golfer tile (countdown + status colour),
     // with the sunrise/sunset pair added to the sub-line.
@@ -7087,6 +7130,24 @@ function initTV2Mode() {
             <div class="tv2-hour-grid" id="tv2-hours-grid"></div>
         </div>`,
         ...gridPost.map(gridSlide),
+        // Live weather station: 3x2 grid mirroring the golfer Station tab
+        `<div class="tv2-slide-inner">
+            <div class="tv2-title">Live Weather Station</div>
+            <div class="tv2-st-grid">${[
+                ['tv2-st-temp',  'Temperature'],
+                ['tv2-st-wind',  'Wind'],
+                ['tv2-st-uv',    'UV Index'],
+                ['tv2-st-rh',    'Humidity'],
+                ['tv2-st-press', 'Pressure'],
+                ['tv2-st-rain',  'Rain Today'],
+            ].map(([id, lbl]) => `<div class="tv2-st gt-idle" id="${id}">
+                <div class="tv2-lbl">${lbl}</div>
+                <div class="tv2-st-body">
+                    <div class="st-val" id="${id}-val">--</div>
+                    <div class="st-sub" id="${id}-sub"></div>
+                </div></div>`).join('')}
+            </div>
+        </div>`,
         // QR code to the golfer page
         `<div class="tv2-slide-inner">
             <div class="tv2-title">Take the Conditions With You</div>
