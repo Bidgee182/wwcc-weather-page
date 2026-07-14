@@ -136,6 +136,36 @@
 
         /* ── Empty state ── */
         .empty-state { text-align:center; color:#566573; padding:32px 16px; font-size:0.9em; }
+
+        /* ── Print stylesheet: board pack friendly (Ctrl+P prints all tabs) ── */
+        @media print {
+            body { background:#fff !important; color:#111 !important; padding:0; }
+            .tab-bar, .upd-time, .err-bar { display:none !important; }
+            .tab-panel { display:block !important; page-break-before:always; }
+            .tab-panel:first-of-type, #tab-overview { page-break-before:auto; }
+            .card, .stat-bar, .saving-hero { background:#fff !important; border:1px solid #cbd5e1 !important;
+                page-break-inside:avoid; }
+            .metric, .outlook-block, .chart-wrap { background:#f8fafc !important; border:1px solid #e2e8f0 !important; }
+            .card h2 { color:#334155 !important; border-bottom-color:#cbd5e1 !important; }
+            .stat-cell + .stat-cell { border-left-color:#e2e8f0 !important; }
+            .stat-cell .sc-val, .metric .val, .outlook-block .ob-val, .data-table td,
+            .header-text h1 { color:#111 !important; }
+            .stat-cell .sc-lbl, .metric .lbl, .ob-lbl, .sec-lbl, .data-table th,
+            .header-text .subtitle { color:#475569 !important; }
+            .stat-cell .sc-sub, .metric .sub, .ob-sub, .page-footer { color:#64748b !important; }
+            .data-table td { border-bottom:1px solid #e2e8f0 !important; }
+            .data-table tfoot td { color:#111 !important; border-top-color:#94a3b8 !important; }
+            .data-notice { background:#f1f5f9 !important; color:#475569 !important; }
+            .data-notice strong { color:#1d4ed8 !important; }
+            .saving-hero .sh-lbl, .saving-hero .sh-sub, .saving-hero .sh-val { color:#166534 !important; }
+            #cp-statement { background:#f0fdf4 !important; color:#166534 !important; }
+            #ztd-bar { border:1px solid #cbd5e1; }
+            #ztd-legend { color:#475569 !important; }
+            .col-green { color:#166534 !important; } .col-red { color:#b91c1c !important; }
+            .col-orange { color:#c2410c !important; } .col-muted { color:#64748b !important; }
+            /* Keep zone pill / banner / bar colours in print */
+            .zpill, .zone-banner, .ztd-seg { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        }
     </style>
 </head>
 <body>
@@ -439,6 +469,15 @@
      TAB 3: HISTORY
      ══════════════════════════════════════════════════════════════════════ -->
 <div id="tab-history" class="tab-panel">
+    <div class="card">
+        <h2>Time in Each Licence Level</h2>
+        <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">
+            Days spent in each pumping level since tracking began (<span id="ztd-since">--</span>).
+        </p>
+        <div id="ztd-bar" style="display:flex;height:34px;border-radius:8px;overflow:hidden;background:#1a252f;"></div>
+        <div id="ztd-legend" style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:0.78em;color:#bdc3c7;"></div>
+    </div>
+
     <div class="card">
         <h2>Pumping Licence - Zone Change History</h2>
         <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">
@@ -1139,6 +1178,37 @@ async function loadAll() {
         // ════════════════════════════════════════════════════════════════════
         // HISTORY TAB
         // ════════════════════════════════════════════════════════════════════
+
+        // Time-in-zone distribution bar (days per level since tracking began)
+        if (timeline.length > 0) {
+            const zoneDays = {};
+            let totalZDays = 0;
+            for (const d of eachDay(timeline[0].date, yesterday)) {
+                const z = zoneOnDate(timeline, d);
+                zoneDays[z] = (zoneDays[z] || 0) + 1;
+                totalZDays += 1;
+            }
+            $('ztd-since').textContent = fmtDate(timeline[0].date) + ' - ' + totalZDays + ' days';
+            const bar = $('ztd-bar'), legend = $('ztd-legend');
+            bar.innerHTML = ''; legend.innerHTML = '';
+            for (const z of Object.keys(zoneDays).map(Number).sort()) {
+                const s = ZONE_STYLE[z] || { bg:'#888', fg:'white', name:'Level '+z };
+                const pct = zoneDays[z] / totalZDays * 100;
+                const seg = document.createElement('div');
+                seg.className = 'ztd-seg';
+                seg.style.cssText = `width:${pct}%;background:${s.bg};color:${s.fg};display:flex;`
+                    + 'align-items:center;justify-content:center;font-size:0.78em;font-weight:700;'
+                    + 'white-space:nowrap;overflow:hidden;';
+                seg.title = `${s.name}: ${zoneDays[z]} days (${pct.toFixed(0)}%)`;
+                if (pct >= 12) seg.textContent = `L${z} - ${zoneDays[z]}d`;
+                bar.appendChild(seg);
+                const li = document.createElement('span');
+                li.innerHTML = `<span class="zpill" style="background:${s.bg};color:${s.fg};">L${z}</span>`
+                    + ` ${zoneDays[z]} days (${pct.toFixed(0)}%)`;
+                legend.appendChild(li);
+            }
+        }
+
         const histContent = $('hist-content');
         const eventRows = histRows.filter(r => r.event && r.event !== 'suppressed');
         if (eventRows.length === 0) {

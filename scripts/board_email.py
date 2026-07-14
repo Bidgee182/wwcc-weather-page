@@ -1685,6 +1685,33 @@ def build_monthly_html(now_syd):
                   '* Est. - flow sensor not yet connected. ML est. = daily irrigation demand capped at the '
                   'licence zone rate; (max) = licence maximum extraction for the days in that zone.</p>')
 
+    # Next-month town water exposure: what this month's irrigation would cost
+    # if the lake could not be pumped (cease). The monthly email sends on the
+    # 1st, so "next month" is the month just starting.
+    import calendar as _cal
+    nm_year, nm_month = today.year, today.month
+    nm_days   = _cal.monthrange(nm_year, nm_month)[1]
+    nm_kl_day = float(irrig_kl.get(str(nm_month), 0))
+    nm_cost   = nm_kl_day * nm_days * cost_per_kl
+    nm_label  = _date(nm_year, nm_month, 1).strftime('%B %Y')
+    if nm_kl_day > 0:
+        nm_text = (f'If pumping from the lake ceased, {nm_label} irrigation from town water would '
+                   f'cost approximately <strong>{_fmt_dollar(nm_cost)}</strong> '
+                   f'({nm_kl_day:.0f} kL/day x {nm_days} days @ ${cost_per_kl:.2f}/kL).')
+        nm_border, nm_bg, nm_col = '#2471a3', '#eff6ff', '#1e3a8a'
+    else:
+        nm_text = (f'{nm_label} is outside the irrigation season - no town water exposure '
+                   f'if pumping ceased.')
+        nm_border, nm_bg, nm_col = '#94a3b8', '#f8fafc', '#475569'
+    next_month_html = (
+        f'<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"'
+        f' style="border-collapse:collapse;margin-top:12px;"><tr>'
+        f'<td bgcolor="{nm_bg}" style="background-color:{nm_bg};border-left:4px solid {nm_border};'
+        f'padding:10px 14px;font-family:Arial,sans-serif;font-size:12px;color:{nm_col};'
+        f'border-radius:0 6px 6px 0;"><strong>Next Month Exposure</strong> - {nm_text}</td>'
+        f'</tr></table>'
+    )
+
     body += (
         _card_open('Water Cost &amp; Savings')
         + f"""
@@ -1732,7 +1759,8 @@ def build_monthly_html(now_syd):
         @ ${cost_per_kl:.2f}/kL town water</td>
   </tr>
 </table>
-{irrig_note}"""
+{irrig_note}
+{next_month_html}"""
         + _card_close()
     )
 
@@ -1834,6 +1862,7 @@ def build_monthly_html(now_syd):
                 'cease_pumping':  'CEASE pumping',
                 'resume_pumping': 'Resume pumping',
                 'email_failed':   'Alert (failed)',
+                'backfilled':     'Derived from sensor',
             }.get(row.get('event', ''), row.get('event', ''))
             old_p = _zone_pill_html(int(row['old_zone']), zone_cfg) if row.get('old_zone') else '-'
             new_p = _zone_pill_html(int(row['new_zone']), zone_cfg) if row.get('new_zone') else '-'
