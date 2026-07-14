@@ -1430,6 +1430,21 @@
                 <div style="font-size:1.5em;font-weight:bold;color:#f39c12;margin-top:4px" id="go-st-uv-live">--</div>
                 <div style="font-size:0.72em;color:#7f8c8d" id="go-st-uv-cat">--</div>
             </div>
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Humidity</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#5dade2;margin-top:4px" id="go-st-rh">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-dewlive">Dew point --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Pressure</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#a569bd;margin-top:4px" id="go-st-pressure">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-deltat">Delta T --</div>
+            </div>
+            <div style="background:#1a252f;border-radius:8px;padding:10px;text-align:center">
+                <div style="font-size:0.68em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px">Rain Today</div>
+                <div style="font-size:1.5em;font-weight:bold;color:#48c9b0;margin-top:4px" id="go-st-rain">--</div>
+                <div style="font-size:0.72em;color:#7f8c8d" id="go-st-rain-totals">--</div>
+            </div>
         </div>
 
         <!-- Yesterday's full sensor summary -->
@@ -1503,8 +1518,10 @@
     </div>
 
 
-    <!-- Current Observations -->
-    <div class="detail-strip" style="margin-bottom:0">
+    <!-- Current Observations strip - hidden since the golfer sub-tabs landed
+         (all readings live on the Station tab now). Elements kept in the DOM
+         because updateDetailStrip() and the lake weather relay write to them. -->
+    <div class="detail-strip" style="margin-bottom:0;display:none">
         <div class="ds-item"><div class="ds-lbl">Air Temp</div><div class="ds-val" id="ds-temp">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Humidity</div><div class="ds-val" id="ds-rh">--</div></div>
         <div class="ds-item"><div class="ds-lbl">Dew Point</div><div class="ds-val" id="ds-dp">--</div></div>
@@ -3941,6 +3958,23 @@ function updateGolferStation() {
         _s('go-st-uv-live', uvEl.textContent);
         const uvCat = uvVal >= 11 ? 'Extreme' : uvVal >= 8 ? 'Very High' : uvVal >= 6 ? 'High' : uvVal >= 3 ? 'Moderate' : 'Low';
         _s('go-st-uv-cat', uvCat);
+    }
+    // Humidity + live dew point
+    if (wx.rh !== null) {
+        _s('go-st-rh', wx.rh.toFixed(0) + '%');
+        if (wx.temp !== null) _s('go-st-dewlive', 'Dew point ' + calcDewPoint(wx.temp, wx.rh).toFixed(1) + '°C');
+    }
+    // Pressure + Delta T
+    if (wx.pressure !== null) _s('go-st-pressure', wx.pressure.toFixed(1) + ' hPa');
+    if (wx.deltaT !== null && wx.deltaT !== undefined) _s('go-st-deltat', 'Delta T ' + wx.deltaT.toFixed(1) + '°C');
+    // Rain today + running totals
+    if (wx.rainToday !== null) _s('go-st-rain', wx.rainToday.toFixed(1) + ' mm');
+    if (wx.rainMonth !== null || wx.rainYear !== null) {
+        const mName = new Date().toLocaleString('en-AU', { month: 'short', timeZone: 'Australia/Sydney' });
+        _s('go-st-rain-totals',
+            (wx.rainMonth !== null ? mName + ' ' + wx.rainMonth.toFixed(1) + ' mm' : '') +
+            (wx.rainMonth !== null && wx.rainYear !== null ? ' · ' : '') +
+            (wx.rainYear !== null ? 'YTD ' + wx.rainYear.toFixed(0) + ' mm' : ''));
     }
 
     // Yesterday's data from CSV
