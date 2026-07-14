@@ -6499,7 +6499,7 @@ function tvGoTo(n) {
 
 function tvUpdateClock() {
     const opts   = { timeZone: 'Australia/Sydney' };
-    const timeStr = new Date().toLocaleTimeString('en-AU', { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeStr = new Date().toLocaleTimeString('en-AU', { ...opts, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
     const dateStr = new Date().toLocaleDateString('en-AU', { ...opts, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const tc = document.getElementById('tv-clock');
     const td = document.getElementById('tv-date-str');
