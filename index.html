@@ -580,10 +580,30 @@
             flex: 1; min-height: 0; padding-bottom: 0.6vw; }
         /* border colour comes from the gt-/fb-/cb- state class on each pill */
         body.tv2-mode .tv2-pill { border-radius: 20px; border-width: 4px; border-style: solid; display: flex;
-            flex-direction: column; align-items: center; justify-content: center; text-align: center;
-            padding: 1.5vw; overflow: hidden; min-height: 0; }
-        body.tv2-mode .tv2-lbl  { font-size: 1.9vw; text-transform: uppercase; letter-spacing: 3px;
-            color: rgba(255,255,255,0.8); font-weight: bold; margin-bottom: 1vw; }
+            flex-direction: column; align-items: center; justify-content: flex-start; text-align: center;
+            padding: 0; overflow: hidden; min-height: 0; }
+        /* Title band across the top of each pill, darker shade - matches TV1 tiles */
+        body.tv2-mode .tv2-lbl  { width: 100%; background: rgba(0,0,0,0.35); padding: 0.9vw 1vw 0.8vw;
+            font-size: 1.7vw; text-transform: uppercase; letter-spacing: 3px;
+            color: rgba(255,255,255,0.78); font-weight: bold; flex-shrink: 0; }
+        body.tv2-mode .tv2-body { flex: 1; min-height: 0; width: 100%; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            padding: 1vw 1.5vw 1.4vw; }
+        /* Next-6-hours strip */
+        body.tv2-mode .tv2-hour-grid { display: grid; grid-template-columns: repeat(6, 1fr);
+            gap: 1.2vw; flex: 1; min-height: 0; padding-bottom: 0.6vw; }
+        body.tv2-mode .tv2-hour { border-radius: 16px; border: 3px solid #3d5166; background: #1e2f3e;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            text-align: center; overflow: hidden; min-height: 0; }
+        body.tv2-mode .tv2-hour .h-time { width: 100%; background: rgba(0,0,0,0.35);
+            padding: 0.8vw 0.4vw 0.7vw; font-size: 1.6vw; font-weight: bold;
+            color: rgba(255,255,255,0.78); letter-spacing: 2px; text-transform: uppercase; flex-shrink: 0; }
+        body.tv2-mode .tv2-hour-body { flex: 1; min-height: 0; width: 100%; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; padding: 0.8vw 0.5vw 1vw; }
+        body.tv2-mode .tv2-hour .h-icon { font-size: 3.4vw; line-height: 1.2; }
+        body.tv2-mode .tv2-hour .h-temp { font-size: 3vw; font-weight: bold; color: #fff; margin-top: 0.5vw; }
+        body.tv2-mode .tv2-hour .h-rain { font-size: 1.4vw; margin-top: 0.7vw; color: #5dade2; font-weight: bold; }
+        body.tv2-mode .tv2-hour .h-wind { font-size: 1.25vw; color: rgba(255,255,255,0.7); margin-top: 0.35vw; }
         body.tv2-mode .tv2-icon { font-size: 4.2vw; line-height: 1; margin-bottom: 0.8vw; }
         body.tv2-mode .tv2-val  { font-size: 6.4vw; font-weight: bold; line-height: 1.05; color: #fff; }
         body.tv2-mode .tv2-val-med { font-size: 3.6vw; }
@@ -6599,7 +6619,7 @@ async function checkForUpdates() {
 // Readability-first kiosk layout. All values are synced from the elements the
 // normal golfer page already renders, so there is no duplicated weather logic.
 let tv2Timer = null, tv2Current = 0;
-const TV2_SLIDE_COUNT = 8;
+const TV2_SLIDE_COUNT = 9;
 const TV2_ROTATE_MS   = 15000;
 const TV2_PAGE_URL    = 'https://bidgee182.github.io/wwcc-weather-page/';
 
@@ -6648,9 +6668,40 @@ function _tv2SetPill(id, opts) {
     el.className = 'tv2-pill ' + (opts.cls || 'gt-idle');
     el.innerHTML =
         `<div class="tv2-lbl">${opts.lbl}</div>` +
+        `<div class="tv2-body">` +
         (opts.icon ? `<div class="tv2-icon">${opts.icon}</div>` : '') +
         `<div class="tv2-val${opts.med ? ' tv2-val-med' : ''}">${opts.val}</div>` +
-        (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '');
+        (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '') +
+        `</div>`;
+}
+
+// Screen 6: next 6 hours from the live hourly forecast
+function renderTV2Hours() {
+    const grid = document.getElementById('tv2-hours-grid');
+    if (!grid || !hourlyFc || !hourlyFc.time) return;
+    const offsetMs = sydneyOffsetMs();
+    const nowHourIso = new Date(Date.now() + offsetMs).toISOString().slice(0, 13);
+    let start = hourlyFc.time.findIndex(t => t.slice(0, 13) > nowHourIso);
+    if (start < 0) return;
+    let html = '';
+    for (let i = start; i < Math.min(start + 6, hourlyFc.time.length); i++) {
+        const hr  = parseInt(hourlyFc.time[i].slice(11, 13), 10);
+        const lbl = (hr % 12 || 12) + (hr < 12 ? ' AM' : ' PM');
+        const tc  = hourlyFc.temperature_2m?.[i];
+        const pp  = hourlyFc.precipitation_probability?.[i] ?? 0;
+        const ws  = hourlyFc.windspeed_10m?.[i];
+        const code = hourlyFc.weather_code?.[i];
+        html += `<div class="tv2-hour">
+            <div class="h-time">${lbl}</div>
+            <div class="tv2-hour-body">
+                <div class="h-icon">${code != null ? wmoIcon(code) : ''}</div>
+                <div class="h-temp">${tc != null ? Math.round(tc) + '&deg;' : '--'}</div>
+                <div class="h-rain">${pp}% rain</div>
+                <div class="h-wind">${ws != null ? Math.round(ws) + ' km/h wind' : ''}</div>
+            </div>
+        </div>`;
+    }
+    grid.innerHTML = html;
 }
 
 // True after last light / before pre-dawn (banner is in its night state)
@@ -6749,7 +6800,10 @@ function renderTV2() {
     // ── Screen 5: Wind on the Course ──
     renderTV2WindPills();
 
-    // ── Screen 6: Looking Ahead ──
+    // ── Screen 6: Next 6 Hours ──
+    renderTV2Hours();
+
+    // ── Screen 7: Looking Ahead ──
     const dayNames = ['Today', 'Tomorrow'];
     for (let i = 0; i < 3; i++) {
         const d = fc.forecastDays[i];
@@ -6765,7 +6819,7 @@ function renderTV2() {
             cls: probCls });
     }
 
-    // ── Screen 7: Daylight & Rain ──
+    // ── Screen 8: Daylight & Rain ──
     // Daylight pill mirrors the golfer tile (countdown + status colour),
     // with the sunrise/sunset pair added to the sub-line.
     const dlIcon = document.getElementById('tile-daylight-icon');
@@ -6864,37 +6918,37 @@ function initTV2Mode() {
     const slidesWrap2 = document.querySelector('.tv-slides-wrap');
     if (abTV2 && slidesWrap2 && tvRoot) tvRoot.insertBefore(abTV2, slidesWrap2);
 
-    // Build the 8 slides: playability solo, six 3-pill grids, then QR
-    const gridSlides = [
+    // Build the slides: playability solo, 3-pill grids, next-6-hours strip, QR
+    const gridPre = [
         { title: 'Right Now',           pills: ['tv2-p-temp', 'tv2-p-wind', 'tv2-p-rain'] },
         { title: 'Planning Your Round', pills: ['tv2-p-frost', 'tv2-p-uv', 'tv2-p-besttime'] },
         { title: 'Course Conditions',   pills: ['tv2-p-course', 'tv2-p-greens', 'tv2-p-ball'] },
         { title: 'Wind on the Course',  pills: ['tv2-p-whead', 'tv2-p-wtail', 'tv2-p-wcross'] },
+    ];
+    const gridPost = [
         { title: 'Looking Ahead',       pills: ['tv2-p-fc0', 'tv2-p-fc1', 'tv2-p-fc2'] },
         { title: 'Daylight &amp; Rain', pills: ['tv2-p-sun', 'tv2-p-rainmonth', 'tv2-p-rainyear'] },
     ];
-    const wrap = document.querySelector('.tv-slides-wrap');
+    const gridSlide = s => `<div class="tv2-slide-inner">
+            <div class="tv2-title">${s.title}</div>
+            <div class="tv2-grid">${s.pills.map(id => `<div class="tv2-pill gt-idle" id="${id}"></div>`).join('')}</div>
+        </div>`;
 
-    // Slide 1: full-screen playability score
-    let slidesHtml = `<div class="tv-slide tv-slide-active" id="tv2-s0">
-        <div class="tv2-slide-inner">
-            <div class="tv2-solo cb-good" id="tv2-playability"></div>
-        </div></div>`;
-
-    // Slides 2-7: 3-pill grids
-    gridSlides.forEach((s, idx) => {
-        slidesHtml += `<div class="tv-slide" id="tv2-s${idx + 1}">
-            <div class="tv2-slide-inner">
-                <div class="tv2-title">${s.title}</div>
-                <div class="tv2-grid">${s.pills.map(id => `<div class="tv2-pill gt-idle" id="${id}"></div>`).join('')}</div>
-            </div></div>`;
-    });
-
-    // Slide 8: QR code to the golfer page
     const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(TV2_PAGE_URL)
                 + '&size=520&margin=2&dark=1a252f&light=ffffff';
-    slidesHtml += `<div class="tv-slide" id="tv2-s7">
-        <div class="tv2-slide-inner">
+
+    const slideBodies = [
+        // Full-screen playability score
+        `<div class="tv2-slide-inner"><div class="tv2-solo cb-good" id="tv2-playability"></div></div>`,
+        ...gridPre.map(gridSlide),
+        // Next 6 hours strip
+        `<div class="tv2-slide-inner">
+            <div class="tv2-title">Next 6 Hours</div>
+            <div class="tv2-hour-grid" id="tv2-hours-grid"></div>
+        </div>`,
+        ...gridPost.map(gridSlide),
+        // QR code to the golfer page
+        `<div class="tv2-slide-inner">
             <div class="tv2-title">Take the Conditions With You</div>
             <div class="tv2-qr-wrap">
                 <img src="${qrUrl}" alt="QR code - live course conditions">
@@ -6903,16 +6957,19 @@ function initTV2Mode() {
                     <div class="sml">Point your phone camera at the code to open the golfers
                         page - weather, wind, green speed and the best time to play, updated live.</div>
                 </div>
-            </div></div></div>`;
-    if (wrap) wrap.innerHTML = slidesHtml;
+            </div></div>`,
+    ];
+    const wrap = document.querySelector('.tv-slides-wrap');
+    if (wrap) wrap.innerHTML = slideBodies.map((body, i) =>
+        `<div class="tv-slide${i === 0 ? ' tv-slide-active' : ''}" id="tv2-s${i}">${body}</div>`).join('');
 
-    // Rebuild the footer dots for 7 slides and update the caption
+    // Rebuild the footer dots and caption for the slide count
     const dots = document.querySelector('.tv-dots');
     if (dots) dots.innerHTML = Array.from({ length: TV2_SLIDE_COUNT }, (_, i) =>
         `<div class="tv-dot${i === 0 ? ' tv-dot-active' : ''}" id="tv2-dot-${i}" onclick="tv2GoTo(${i})"></div>`).join('');
     const lbl = document.getElementById('tv-slide-label');
     if (lbl && lbl.parentElement) lbl.parentElement.innerHTML =
-        'Slide <span id="tv-slide-label">1</span> of 8 - auto-rotates every 15s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span>';
+        `Slide <span id="tv-slide-label">1</span> of ${TV2_SLIDE_COUNT} - auto-rotates every 15s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span>`;
 
     // Clock, value sync, and rotation
     tvUpdateClock();
