@@ -171,7 +171,68 @@ def _append_history(now_syd, old_zone, new_zone, old_rate, new_rate, ahd, event,
         log.warning(f'Could not write zone history: {e}')
 
 
-def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_syd):
+def _lake_chart_html(days=14):
+    """QuickChart image of the last N days of daily-average lake AHD with
+    zone threshold lines. Returns '' on any failure - the alert must never
+    be blocked by chart trouble."""
+    try:
+        import urllib.parse as _up
+        from collections import defaultdict
+        readings = json.loads((DATA_DIR / 'farmbot_lake_readings.json').read_text(encoding='utf-8'))
+        by_day = defaultdict(list)
+        for r in readings:
+            if r.get('date') and r.get('ahd') is not None:
+                by_day[r['date'][:10]].append(float(r['ahd']))
+        day_keys = sorted(by_day)[-days:]
+        if len(day_keys) < 2:
+            return ''
+        vals   = [round(sum(by_day[d]) / len(by_day[d]), 3) for d in day_keys]
+        labels = [datetime.strptime(d, '%Y-%m-%d').strftime('%d %b') for d in day_keys]
+        ymin, ymax = round(min(vals) - 0.05, 3), round(max(vals) + 0.05, 3)
+
+        datasets = [{
+            'label': 'Lake Level', 'data': vals, 'borderColor': '#1abc9c',
+            'backgroundColor': 'rgba(26,188,156,0.12)', 'fill': True,
+            'lineTension': 0.3, 'pointRadius': 0, 'borderWidth': 2,
+        }]
+        for min_ahd, num, _, bg, _fg in LAKE_LEVELS:
+            if num == 5:
+                continue
+            col = '#EB1E23' if min_ahd == CEASE_AHD else bg
+            if ymin - 0.1 <= min_ahd <= ymax + 0.1:
+                datasets.append({'data': [min_ahd] * len(day_keys), 'borderColor': col,
+                                 'borderWidth': 1, 'borderDash': [5, 4], 'fill': False,
+                                 'pointRadius': 0, 'lineTension': 0})
+        config = {
+            'type': 'line',
+            'data': {'labels': labels, 'datasets': datasets},
+            'options': {
+                'legend': {'display': False},
+                'scales': {
+                    'xAxes': [{'gridLines': {'color': '#e2e8e4'},
+                               'ticks': {'fontColor': '#64748b', 'maxRotation': 0}}],
+                    'yAxes': [{'gridLines': {'color': '#e2e8e4'},
+                               'ticks': {'fontColor': '#64748b', 'min': ymin, 'max': ymax}}],
+                },
+            },
+        }
+        cfg_json = json.dumps(config, separators=(',', ':'))
+        url = f'https://quickchart.io/chart?bkg=white&w=552&h=180&c={_up.quote(cfg_json)}'
+        return (
+            f'<tr><td style="background:white;padding:0 24px 20px;">'
+            f'<p style="margin:0 0 6px 0;font-family:Arial,sans-serif;font-size:12px;'
+            f'font-weight:700;color:#1a4a2e;">Lake level - last {len(day_keys)} days</p>'
+            f'<img src="{url}" width="100%" alt="Lake level chart - last {len(day_keys)} days"'
+            f' style="display:block;border:1px solid #e2e8e4;border-radius:8px;max-width:100%;">'
+            f'</td></tr>'
+        )
+    except Exception as e:
+        log.warning(f'Could not build alert chart: {e}')
+        return ''
+
+
+def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_syd,
+                 days_in_prev=None):
     rising   = new_num < old_num
     ceasing  = new_num == 5
     resuming = old_num == 5
@@ -231,8 +292,25 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
         kv_row('Current Lake Level', f'{ahd:.3f}m AHD', 0) +
         kv_row('New Zone',           f'Level {new_num}', 1) +
         kv_row('Permitted Rate',     new_rate, 2) +
-        kv_row('Previous Rate',      old_rate, 3) +
-        kv_row('As at',              f'{now_str} AEST', 4)
+        kv_row('Previous Rate',      old_rate, 3)
+    )
+    row_i = 4
+    if days_in_prev is not None:
+        dur = 'less than 1 day' if days_in_prev < 1 else (
+              '1 day' if days_in_prev == 1 else f'{days_in_prev} days')
+        table_rows += kv_row('Time at Previous Level', dur, row_i)
+        row_i += 1
+    table_rows += kv_row('As at', f'{now_str} AEST', row_i)
+
+    chart_html = _lake_chart_html()
+
+    dashboard_html = (
+        '<tr><td style="background:white;padding:0 24px 24px;" align="center">'
+        '<a href="https://bidgee182.github.io/wwcc-weather-page/board.html"'
+        ' style="display:inline-block;background:#1a4a2e;color:#ffffff;'
+        'font-family:Arial,sans-serif;font-size:13px;font-weight:700;'
+        'text-decoration:none;padding:11px 26px;border-radius:8px;">'
+        'View Live Lake Dashboard</a></td></tr>'
     )
 
     _mob_style = """\
@@ -295,12 +373,18 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
   </td></tr>
 
   <!-- DETAIL TABLE -->
-  <tr><td style="background:white;padding:0 24px 28px;">
+  <tr><td style="background:white;padding:0 24px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border-collapse:collapse;border:1px solid {BORDER};border-radius:8px;overflow:hidden;">
       {table_rows}
     </table>
   </td></tr>
+
+  <!-- 14-DAY CHART -->
+  {chart_html}
+
+  <!-- DASHBOARD LINK -->
+  {dashboard_html}
 
   <!-- FOOTER -->
   <tr><td bgcolor="#1a4a2e" style="background-color:#1a4a2e;padding:18px 28px;text-align:center;">
@@ -408,9 +492,22 @@ def main():
             except Exception as e:
                 log.warning(f'Could not parse last_alert_at: {e}')
 
+    # Days the previous zone was in effect (from the zone file's changed_at)
+    days_in_prev = None
+    changed_str = saved.get('changed_at')
+    if changed_str:
+        try:
+            changed_at = datetime.fromisoformat(changed_str)
+            if changed_at.tzinfo is None:
+                changed_at = changed_at.replace(tzinfo=SYDNEY_TZ)
+            days_in_prev = max(0, (now_syd - changed_at).days)
+        except Exception as e:
+            log.warning(f'Could not parse changed_at: {e}')
+
     log.info(f'Zone changed: Level {old_num} -> Level {new_num} ({ahd:.3f}m AHD) — sending alert.')
     html, subject = _build_email(ahd, new_num, new_rate, new_bg, new_fg,
-                                  old_num, old_rate, now_syd)
+                                  old_num, old_rate, now_syd,
+                                  days_in_prev=days_in_prev)
     sent = send_email(subject, html, EMAIL_RECIPIENTS_ALL)
     if sent:
         _save_zone(new_num, new_rate, ahd,
@@ -439,7 +536,7 @@ if __name__ == '__main__':
         old_rate = next((r for _, n, r, _, _ in LAKE_LEVELS if n == old_num), '-')
         log.info(f'[TEST] Simulating zone change Level {old_num} -> Level {new_num} at {ahd:.3f}m AHD')
         html, subject = _build_email(ahd, new_num, new_rate, new_bg, new_fg,
-                                      old_num, old_rate, now_syd)
+                                      old_num, old_rate, now_syd, days_in_prev=12)
         send_email(f'[TEST] {subject}', html, ['andrew@bidgeepumps.com.au'])
         log.info('Test alert sent to andrew@bidgeepumps.com.au')
     else:
