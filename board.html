@@ -92,6 +92,13 @@
         /* ── Chart wrapper ── */
         .chart-wrap { background:#1a252f; border-radius:8px; padding:14px; }
 
+        /* ── Data notice ── */
+        .data-notice { background:#1a2f3a; border-left:3px solid #2980b9; border-radius:4px; padding:9px 12px; font-size:0.78em; color:#7f8c8d; margin-bottom:14px; }
+        .data-notice strong { color:#5dade2; }
+
+        /* ── Backfill badge ── */
+        .badge-backfill { display:inline-block; font-size:0.68em; background:#1a3a4a; color:#5dade2; border:1px solid #2471a3; border-radius:4px; padding:1px 6px; margin-left:4px; vertical-align:middle; }
+
         /* ── Rainfall vs avg ── */
         .rain-vs { display:flex; align-items:center; gap:8px; }
         .rain-bar-wrap { flex:1; background:#1a252f; border-radius:4px; height:8px; overflow:hidden; }
@@ -233,9 +240,9 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div><!-- end left col -->
 
-        <!-- Outlook -->
+        <!-- Outlook + This Month -->
         <div>
             <div class="card">
                 <h2>Cease-to-Pump Outlook</h2>
@@ -254,7 +261,7 @@
                     <div class="outlook-block">
                         <div class="ob-val" id="ol-cost">--</div>
                         <div class="ob-lbl">Town Water Cost</div>
-                        <div class="ob-sub">if ceased — to end March</div>
+                        <div class="ob-sub">if ceased - to end March</div>
                     </div>
                 </div>
 
@@ -295,16 +302,31 @@
                     <div class="metric">
                         <div class="lbl">Season Saving</div>
                         <div class="val col-green" id="ov-saving-season">--</div>
-                        <div class="sub" id="ov-saving-season-lbl">Sep to now</div>
+                        <div class="sub" id="ov-saving-season-lbl">from earliest data</div>
                     </div>
                 </div>
                 <p style="font-size:0.68em;color:#566573;margin-top:10px;">
                     * ML pumped is estimated from licence zone rate x active irrigation days. Flow sensor installation pending.
                 </p>
             </div>
+        </div><!-- end right col -->
+
+    </div><!-- end two-col -->
+
+    <!-- Lake level chart — full width below the two-col -->
+    <div class="card">
+        <h2>Lake Albert Level — Sensor History</h2>
+        <div class="data-notice" id="ov-lake-chart-notice">
+            <strong>Monitoring period:</strong> <span id="ov-chart-date-range">loading...</span> &bull;
+            Daily average AHD. Zone threshold lines shown for reference.
+            <span id="ov-manual-note"></span>
+        </div>
+        <div class="chart-wrap">
+            <canvas id="ov-lake-chart" height="200"></canvas>
         </div>
     </div>
-</div>
+
+</div><!-- end tab-overview -->
 
 <!-- ══════════════════════════════════════════════════════════════════════════
      TAB 2: SAVINGS
@@ -315,6 +337,12 @@
         <div class="sh-lbl">Season Water Saving vs Town Water Supply</div>
         <div class="sh-val" id="sv-hero-val">--</div>
         <div class="sh-sub" id="sv-hero-sub">Estimated saving since season start</div>
+    </div>
+
+    <div class="data-notice" style="margin-bottom:16px;">
+        <strong>Off-season period:</strong> June, July and August are outside the irrigation season - no irrigation runs from the lake,
+        so savings are $0 for these months. Savings accumulate from September when the irrigation season begins.
+        Data tracking commenced 20 May 2026.
     </div>
 
     <div class="two-col">
@@ -716,6 +744,56 @@ function renderRainfallChart(labels, actuals, avgs) {
     });
 }
 
+// ── Lake level chart ──────────────────────────────────────────────────────────
+function buildDailyLake(readings) {
+    const byDay = {};
+    for (const r of readings) {
+        if (!r.date || r.ahd == null) continue;
+        const day = String(r.date).slice(0, 10);
+        if (!byDay[day]) byDay[day] = [];
+        byDay[day].push(parseFloat(r.ahd));
+    }
+    const days = Object.keys(byDay).sort();
+    return days.map(day => ({ day, ahd: byDay[day].reduce((a,b)=>a+b,0) / byDay[day].length }));
+}
+
+let _lakeChart = null;
+function renderLakeChart(daily) {
+    if (!daily.length || !_cfg) return;
+    const labels   = daily.map(r => new Date(r.day+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+    const ahdData  = daily.map(r => parseFloat(r.ahd.toFixed(3)));
+    const threshDs = _cfg.zone_thresholds.filter(z => z.min_ahd != null).map(z => ({
+        label: 'L'+z.zone+' ('+z.min_ahd.toFixed(3)+'m)',
+        data: daily.map(() => z.min_ahd),
+        type: 'line', borderColor: (ZONE_STYLE[z.zone]||{}).bg||'#888',
+        borderWidth: 1, borderDash: [4,4], pointRadius: 0, fill: false, tension: 0,
+    }));
+    const ctx = $('ov-lake-chart').getContext('2d');
+    if (_lakeChart) _lakeChart.destroy();
+    _lakeChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [
+            { label:'Daily Avg AHD', data:ahdData, borderColor:'#5dade2', backgroundColor:'rgba(93,173,226,0.12)',
+              borderWidth:2, pointRadius:3, pointHoverRadius:5, fill:true, tension:0.2 },
+            ...threshDs,
+        ]},
+        options: {
+            responsive:true,
+            plugins: {
+                legend: { labels:{ color:'#7f8c8d', font:{size:11} } },
+                tooltip: { callbacks:{ label: c => c.dataset.label+': '+c.parsed.y.toFixed(3)+' m' } },
+            },
+            scales: {
+                x: { ticks:{ color:'#7f8c8d', maxTicksLimit:14 }, grid:{ color:'#1e3040' } },
+                y: { ticks:{ color:'#7f8c8d', callback:v=>v.toFixed(3)+' m' }, grid:{ color:'#1e3040' },
+                     title:{ display:true, text:'AHD (m)', color:'#566573' } },
+            },
+        },
+    });
+    const fD = s => new Date(s+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+    $('ov-chart-date-range').textContent = fD(daily[0].day)+' to '+fD(daily[daily.length-1].day)+' ('+daily.length+' days)';
+}
+
 // ── Main data loader ──────────────────────────────────────────────────────────
 async function loadAll() {
     const errEl = $('err-bar');
@@ -725,24 +803,26 @@ async function loadAll() {
         const cb = '?_=' + Date.now();
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes] = await Promise.all([
             fetch('data/lake_config.json'             + cb),
             fetch('data/farmbot_lake_latest.json'     + cb),
             fetch('data/lake_pump_zone.json'          + cb),
             fetch('data/farmbot_latest.json'          + cb),
             fetch('data/lake_zone_history.csv'        + cb),
             fetch('data/daily_log.csv'                + cb),
+            fetch('data/farmbot_lake_readings.json'   + cb),
         ]);
 
         if (!cfgRes.ok)  { showErr('lake_config.json not found'); return; }
         if (!lakeRes.ok) { showErr('farmbot_lake_latest.json not found'); return; }
 
         _cfg = await cfgRes.json();
-        const lakeLatest = await lakeRes.json();
-        const zoneFile   = zoneRes.ok  ? await zoneRes.json()  : null;
-        const tankLatest = tankRes.ok  ? await tankRes.json()  : null;
-        const histText   = histRes.ok  ? await histRes.text()  : '';
-        const wxText     = wxRes.ok    ? await wxRes.text()    : '';
+        const lakeLatest    = await lakeRes.json();
+        const zoneFile      = zoneRes.ok    ? await zoneRes.json()  : null;
+        const tankLatest    = tankRes.ok    ? await tankRes.json()  : null;
+        const histText      = histRes.ok    ? await histRes.text()  : '';
+        const wxText        = wxRes.ok      ? await wxRes.text()    : '';
+        const lakeReadings  = lakeReadRes.ok ? await lakeReadRes.json() : [];
 
         // ── Parse data ────────────────────────────────────────────────────────
         const histRows = histText ? parseCsv(histText) : [];
@@ -754,13 +834,15 @@ async function loadAll() {
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
         const seaStart  = seasonStart(now);
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        // Savings tracked from first zone history entry — not season start (pre-entry data is unknown)
+        const savFrom = timeline.length > 0 ? timeline[0].date : monthStart;
 
         // ── Lake / zone state ─────────────────────────────────────────────────
         const ahd  = lakeLatest.lake_ahd;
         const zone = ahd != null ? currentZone(ahd) : null;
 
         // ── Savings calculations ──────────────────────────────────────────────
-        const seasonSav = calcSavings(timeline, seaStart, yesterday);
+        const seasonSav = calcSavings(timeline, savFrom, yesterday);
         const monthSav  = calcSavings(timeline, monthStart, yesterday);
 
         // ── Cease projection ──────────────────────────────────────────────────
@@ -787,7 +869,7 @@ async function loadAll() {
 
         // Stat bar
         $('ov-season-saving').textContent = fmt$(seasonSav.totalSaving);
-        $('ov-season-label').textContent  = 'Sep ' + seaStart.getFullYear() + ' - now';
+        $('ov-season-label').textContent  = 'since ' + fmtDateShort(savFrom);
         $('ov-month-saving').textContent  = fmt$(monthSav.totalSaving);
         $('ov-month-label').textContent   = 'town water saving ' + fmtMonthYear(now);
 
@@ -880,14 +962,19 @@ async function loadAll() {
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
         $('ov-ml-season').textContent     = fmtMl(seasonSav.totalMl);
         $('ov-saving-season').textContent = fmt$(seasonSav.totalSaving);
-        $('ov-ml-season-lbl').textContent = 'Sep '+seaStart.getFullYear()+' to now';
-        $('ov-saving-season-lbl').textContent = 'Sep '+seaStart.getFullYear()+' to now';
+        $('ov-ml-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
+        $('ov-saving-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
+
+        // Lake level chart
+        const dailyLake = buildDailyLake(lakeReadings);
+        if (dailyLake.length > 0) renderLakeChart(dailyLake);
+        else $('ov-chart-date-range').textContent = 'No sensor data available yet';
 
         // ════════════════════════════════════════════════════════════════════
         // SAVINGS TAB
         // ════════════════════════════════════════════════════════════════════
         $('sv-hero-val').textContent = fmt$(seasonSav.totalSaving);
-        $('sv-hero-sub').textContent = 'Estimated saving Sep '+seaStart.getFullYear()+' to now — vs purchasing equivalent irrigation water from town supply';
+        $('sv-hero-sub').textContent = 'Estimated saving from '+fmtDate(savFrom)+' to now - vs purchasing equivalent irrigation water from town supply';
         $('sv-cost-per-kl').textContent = costPerKl.toFixed(2);
 
         const svBody = $('sv-monthly-body');
@@ -927,6 +1014,14 @@ async function loadAll() {
             histContent.innerHTML = `<div class="empty-state">No zone history recorded yet. Zone changes will appear here as they occur.</div>`;
         } else {
             const rows = [...eventRows].reverse(); // newest first
+            const hasBackfill = rows.some(r => r.event === 'backfilled');
+            const noticeHtml = hasBackfill
+                ? `<div class="data-notice" style="margin-bottom:14px;">
+                    <strong>Note:</strong> Entries marked <span class="badge-backfill">derived</span> were calculated from sensor AHD readings
+                    after zone history logging was enabled. No alert email was sent for these - they represent the actual zone
+                    at the time based on recorded lake level data.
+                   </div>`
+                : '';
             const tbl = document.createElement('table');
             tbl.className = 'data-table';
             tbl.innerHTML = `
@@ -947,17 +1042,20 @@ async function loadAll() {
                 cease_pumping:  'CEASE pumping',
                 resume_pumping: 'Resume pumping',
                 email_failed:   'Alert failed',
+                backfilled:     'Derived from sensor',
             };
             for (const r of rows) {
                 const tr = document.createElement('tr');
                 const ts = r.timestamp_aest
                     ? new Date(r.timestamp_aest.replace(' ','T')).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
                     : '--';
-                const evLabel = EVENT_LABEL[r.event] || r.event || '--';
+                const isBackfill = r.event === 'backfilled';
+                const evLabel = (EVENT_LABEL[r.event] || r.event || '--')
+                    + (isBackfill ? ' <span class="badge-backfill">derived</span>' : '');
                 const isCease = r.event === 'cease_pumping';
                 tr.innerHTML = `
                     <td>${ts}</td>
-                    <td style="${isCease?'color:#e74c3c;font-weight:bold;':''}">${evLabel}</td>
+                    <td style="${isCease?'color:#e74c3c;font-weight:bold;':''}${isBackfill?'color:#7f8c8d;':''}">${evLabel}</td>
                     <td>${r.old_zone ? zpill(parseInt(r.old_zone)) : '-'}</td>
                     <td>${r.new_zone ? zpill(parseInt(r.new_zone)) : '-'}</td>
                     <td style="text-align:right;">${r.new_rate || '-'}</td>
@@ -965,7 +1063,7 @@ async function loadAll() {
                     <td style="text-align:center;">${r.email_sent==='true'?'<span class="col-green">Yes</span>':'<span class="col-muted">No</span>'}</td>`;
                 tbody.appendChild(tr);
             }
-            histContent.innerHTML = '';
+            histContent.innerHTML = noticeHtml;
             histContent.appendChild(tbl);
         }
 
