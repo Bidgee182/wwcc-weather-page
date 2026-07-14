@@ -567,6 +567,31 @@
         /* ── TV Slide 2 - 6-card 3×2 insights grid ── */
         body.tv-mode #tv-s1 .golfer-insights { grid-template-columns: repeat(3, 1fr); }
 
+        /* ── TV2 mode: 3 giant pills per rotating screen ── */
+        .gt-blue { background: linear-gradient(160deg, #123a5a, #1c6ea4); border-color: #3498db; }
+        body.tv2-mode .tv2-slide-inner { display: flex; flex-direction: column; height: 100%; }
+        body.tv2-mode .tv2-title { text-align: center; font-size: 2vw; text-transform: uppercase;
+            letter-spacing: 6px; color: rgba(255,255,255,0.55); font-weight: bold; padding: 0.6vw 0 1vw; flex-shrink: 0; }
+        body.tv2-mode .tv2-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6vw;
+            flex: 1; min-height: 0; padding-bottom: 0.6vw; }
+        body.tv2-mode .tv2-pill { border-radius: 20px; border: 4px solid #3d5166; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+            padding: 1.5vw; overflow: hidden; min-height: 0; }
+        body.tv2-mode .tv2-lbl  { font-size: 1.9vw; text-transform: uppercase; letter-spacing: 3px;
+            color: rgba(255,255,255,0.8); font-weight: bold; margin-bottom: 1vw; }
+        body.tv2-mode .tv2-icon { font-size: 4.2vw; line-height: 1; margin-bottom: 0.8vw; }
+        body.tv2-mode .tv2-val  { font-size: 6.4vw; font-weight: bold; line-height: 1.05; color: #fff; }
+        body.tv2-mode .tv2-val-med { font-size: 3.6vw; }
+        body.tv2-mode .tv2-sub  { font-size: 1.7vw; color: rgba(255,255,255,0.88); margin-top: 1.1vw;
+            line-height: 1.4; max-width: 94%; }
+        body.tv2-mode .tv2-qr-wrap { display: flex; align-items: center; justify-content: center;
+            gap: 4vw; flex: 1; min-height: 0; }
+        body.tv2-mode .tv2-qr-wrap img { height: 34vw; max-height: 100%; width: auto;
+            border-radius: 16px; border: 6px solid #fff; }
+        body.tv2-mode .tv2-qr-text { text-align: left; max-width: 40vw; }
+        body.tv2-mode .tv2-qr-text .big { font-size: 4vw; font-weight: bold; line-height: 1.15; color: #fff; }
+        body.tv2-mode .tv2-qr-text .sml { font-size: 1.9vw; color: rgba(255,255,255,0.75); margin-top: 1.4vw; line-height: 1.5; }
+
         /* ── Scrolling ticker animation ── */
         @keyframes wwccTicker {
             0%   { transform: translateX(100vw); }
@@ -1454,8 +1479,9 @@
 
 <script>
 // ── URL Mode Detection (must be first) ───────────────────────────
-const TV_MODE = new URLSearchParams(window.location.search).has('tv');
-const GK_MODE = new URLSearchParams(window.location.search).has('gk');
+const TV_MODE  = new URLSearchParams(window.location.search).has('tv');
+const TV2_MODE = new URLSearchParams(window.location.search).has('tv2');
+const GK_MODE  = new URLSearchParams(window.location.search).has('gk');
 
 // ── Credentials ───────────────────────────────────────────────────
 // NOTE: Credentials visible in source. Do not host this file publicly
@@ -4715,7 +4741,7 @@ function _showTickerItem(idx) {
     if (!items || items.length === 0) { _stopTicker(); return; }
 
     const item = items[idx % items.length];
-    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
+    const tickerId = (TV_MODE || TV2_MODE) ? 'tv-ticker-bar' : 'ticker-bar';
     const el = document.getElementById(tickerId);
     if (!el) return;
 
@@ -4770,7 +4796,7 @@ function _refreshTicker() {
 
 function _stopTicker() {
     if (_tickerTimer) { clearTimeout(_tickerTimer); _tickerTimer = null; }
-    const tickerId = TV_MODE ? 'tv-ticker-bar' : 'ticker-bar';
+    const tickerId = (TV_MODE || TV2_MODE) ? 'tv-ticker-bar' : 'ticker-bar';
     const el = document.getElementById(tickerId);
     if (!el) return;
     el.style.display    = 'none';
@@ -5636,6 +5662,7 @@ async function getForecast() {
                 min:  data.daily.temperature_2m_min?.[i]  ?? null,
                 rain: data.daily.precipitation_sum?.[i]   || 0,
                 prob: data.daily.precipitation_probability_max?.[i] ?? 0,
+                code: data.daily.weather_code?.[i] ?? null,
             });
         }
 
@@ -6410,8 +6437,232 @@ async function checkForUpdates() {
     }
 }
 
+// ══════════════ TV2 MODE (?tv2=1) — 3 giant pills per rotating screen ══════════════
+// Readability-first kiosk layout. All values are synced from the elements the
+// normal golfer page already renders, so there is no duplicated weather logic.
+let tv2Timer = null, tv2Current = 0;
+const TV2_SLIDE_COUNT = 7;
+const TV2_ROTATE_MS   = 15000;
+const TV2_PAGE_URL    = 'https://bidgee182.github.io/wwcc-weather-page/';
+
+function _tv2Cls(id, prefixes, fallback) {
+    const el = document.getElementById(id);
+    if (!el) return fallback;
+    const m = [...el.classList].filter(c => prefixes.some(p => c.startsWith(p)));
+    return m.length ? m.join(' ') : fallback;
+}
+function _tv2Txt(id, fallback = '--') {
+    const el = document.getElementById(id);
+    const t  = el ? el.textContent.trim() : '';
+    return t || fallback;
+}
+// Extract headline/pill/sub from an insight card (#best-time-content etc.)
+function _tv2Insight(containerId) {
+    const el = document.getElementById(containerId);
+    const out = { big: '--', pill: '', sub: '', cls: 'gt-idle' };
+    if (!el) return out;
+    const big  = el.querySelector('.insight-big');
+    const pill = el.querySelector('.insight-pill');
+    const sub  = el.querySelector('.insight-sub');
+    if (big)  out.big  = big.textContent.trim();
+    if (sub)  out.sub  = sub.textContent.trim();
+    if (pill) {
+        out.pill = pill.textContent.trim();
+        const map = { 'pill-green':'gt-green','pill-yellow':'gt-yellow','pill-orange':'gt-orange',
+                      'pill-red':'gt-red','pill-blue':'gt-blue' };
+        for (const c of pill.classList) if (map[c]) out.cls = map[c];
+    }
+    return out;
+}
+function _tv2SetPill(id, opts) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'tv2-pill ' + (opts.cls || 'gt-idle');
+    el.innerHTML =
+        `<div class="tv2-lbl">${opts.lbl}</div>` +
+        (opts.icon ? `<div class="tv2-icon">${opts.icon}</div>` : '') +
+        `<div class="tv2-val${opts.med ? ' tv2-val-med' : ''}">${opts.val}</div>` +
+        (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '');
+}
+
+function renderTV2() {
+    // ── Screen 1: Right Now ──
+    _tv2SetPill('tv2-p-temp', { lbl:'Temperature', icon:'&#127777;&#65039;', val:_tv2Txt('cc-temp'),
+        sub:'Feels like ' + _tv2Txt('cc-feels'), cls:_tv2Cls('tile-feelslike', ['gt-'], 'gt-idle') });
+    _tv2SetPill('tv2-p-wind', { lbl:'Wind', icon:'&#127788;&#65039;', val:_tv2Txt('tile-wind-val'),
+        sub:_tv2Txt('tile-wind-explain', ''), cls:_tv2Cls('tile-wind', ['gt-'], 'gt-idle') });
+    _tv2SetPill('tv2-p-rain', { lbl:'Rain Today', icon:'&#127783;&#65039;', val:_tv2Txt('cc-rain'),
+        sub:'Last 24 hours: ' + _tv2Txt('tile-rain24h-val'), cls:_tv2Cls('tile-rain24h', ['gt-'], 'gt-idle') });
+
+    // ── Screen 2: Playing Comfort ──
+    _tv2SetPill('tv2-p-comfort', { lbl:'Playability Score', val:_tv2Txt('comfort-rating'), med:true,
+        sub:_tv2Txt('comfort-detail', ''), cls:_tv2Cls('comfort-banner', ['cb-'], 'gt-idle') });
+    _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:_tv2Txt('tile-uv-val'),
+        sub:_tv2Txt('tile-uv-explain', ''), cls:_tv2Cls('tile-uv', ['gt-'], 'gt-idle') });
+    const bt = _tv2Insight('best-time-content');
+    _tv2SetPill('tv2-p-besttime', { lbl:'Best Time to Play', val:bt.big, med:true,
+        sub:(bt.pill ? bt.pill + ' - ' : '') + bt.sub, cls:bt.cls });
+
+    // ── Screen 3: Course Conditions ──
+    _tv2SetPill('tv2-p-course', { lbl:'Course Roll', icon:'&#9971;', val:_tv2Txt('tile-course-val'), med:true,
+        sub:_tv2Txt('tile-course-explain', ''), cls:_tv2Cls('tile-course', ['gt-'], 'gt-idle') });
+    const gs = _tv2Insight('green-speed-content');
+    _tv2SetPill('tv2-p-greens', { lbl:'Green Speed', icon:'&#127807;', val:gs.big, med:true,
+        sub:(gs.pill ? gs.pill + ' - ' : '') + gs.sub, cls:gs.cls });
+    const fr = _tv2Insight('frost-risk-content');
+    _tv2SetPill('tv2-p-frost', { lbl:'Frost Risk', icon:'&#10052;&#65039;', val:fr.big, med:true,
+        sub:(fr.pill ? fr.pill + ' - ' : '') + fr.sub, cls:fr.cls });
+
+    // ── Screen 4: Wind on the Course ──
+    renderTV2WindPills();
+
+    // ── Screen 5: Looking Ahead ──
+    const dayNames = ['Today', 'Tomorrow'];
+    for (let i = 0; i < 3; i++) {
+        const d = fc.forecastDays[i];
+        if (!d) { _tv2SetPill('tv2-p-fc' + i, { lbl:'--', val:'--', cls:'gt-idle' }); continue; }
+        const lbl = dayNames[i] || new Date(d.date + 'T00:00').toLocaleDateString('en-AU', { weekday:'long' });
+        const icon = d.code != null ? wmoIcon(d.code) : '';
+        const probCls = d.prob >= 60 ? 'gt-blue' : d.prob >= 30 ? 'gt-yellow' : 'gt-green';
+        _tv2SetPill('tv2-p-fc' + i, { lbl, icon,
+            val: (d.max != null ? Math.round(d.max) + '&deg;' : '--'),
+            sub: 'Low ' + (d.min != null ? Math.round(d.min) + '&deg;' : '--') +
+                 ' &bull; ' + d.prob + '% chance of rain' +
+                 (d.rain >= 1 ? ' (' + d.rain.toFixed(1) + ' mm)' : ''),
+            cls: probCls });
+    }
+
+    // ── Screen 6: Daylight & Rain ──
+    _tv2SetPill('tv2-p-sun', { lbl:'Sunrise / Sunset', icon:'&#127749;', val:_tv2Txt('cc-sun'), med:true,
+        sub:_tv2Txt('tile-daylight-explain', ''), cls:'gt-idle' });
+    _tv2SetPill('tv2-p-rainmonth', { lbl:'Rain This Month', icon:'&#127783;&#65039;',
+        val:_tv2Txt('cc-rain-month').replace(/^[A-Za-z]+:\s*/, ''), med:true,
+        sub:_tv2Txt('cc-rain-month').split(':')[0], cls:'gt-idle' });
+    _tv2SetPill('tv2-p-rainyear', { lbl:'Rain This Year', icon:'&#128167;',
+        val:_tv2Txt('cc-rain-year').replace(/^YTD:\s*/, ''), med:true,
+        sub:'Year to date', cls:'gt-idle' });
+}
+
+function renderTV2WindPills() {
+    const cats = [
+        { id:'tv2-p-whead',  lbl:'Hardest Into Wind', key:'head'  },
+        { id:'tv2-p-wtail',  lbl:'Best Tailwind',     key:'tail'  },
+        { id:'tv2-p-wcross', lbl:'Worst Crosswind',   key:'cross' },
+    ];
+    const kmh = wx.windKmh || 0;
+    if (wx.windDeg === null || kmh < 5) {
+        for (const c of cats) _tv2SetPill(c.id, { lbl:c.lbl, val:'Calm', med:true,
+            sub:'Minimal wind impact right now - no club changes needed.', cls:'fb-dyn-idle' });
+        return;
+    }
+    const results    = analyseWindHoles(wx.windDeg || 0, kmh);
+    const worstHead  = [...results].sort((a,b) => b.headScore  - a.headScore)[0];
+    const bestTail   = [...results].sort((a,b) => b.tailScore  - a.tailScore)[0];
+    const worstCross = [...results].sort((a,b) => b.crossScore - a.crossScore)[0];
+    const picks = { head: worstHead, tail: bestTail, cross: worstCross };
+    for (const c of cats) {
+        const r  = picks[c.key];
+        const te = r.segments[0].effect;
+        const impact = c.key === 'cross'
+            ? `~${te.driftM.toFixed(0)}m lateral drift`
+            : `${te.metresEffect >= 0 ? '+' : ''}${te.metresEffect.toFixed(0)}m carry`;
+        const club = te.clubAdj === 0 ? 'No club change'
+            : te.clubAdj > 0 ? `Club up ${te.clubAdj}` : `Club down ${Math.abs(te.clubAdj)}`;
+        const mag = c.key === 'cross' ? te.driftM : Math.abs(te.metresEffect);
+        const cls = c.key === 'tail' ? 'fb-dyn-green'
+            : mag >= 8 ? 'fb-dyn-red' : mag >= 3 ? 'fb-dyn-orange' : 'fb-dyn-yellow';
+        _tv2SetPill(c.id, { lbl:c.lbl, val:'Hole ' + r.hole,
+            sub:`${impact} &bull; ${club}`, cls });
+    }
+}
+
+function tv2GoTo(n) {
+    tv2Current = n;
+    for (let i = 0; i < TV2_SLIDE_COUNT; i++) {
+        const s = document.getElementById('tv2-s' + i);
+        const d = document.getElementById('tv2-dot-' + i);
+        if (s) s.classList.toggle('tv-slide-active', i === n);
+        if (d) d.classList.toggle('tv-dot-active', i === n);
+    }
+    const label = document.getElementById('tv-slide-label');
+    if (label) label.textContent = n + 1;
+    if (tv2Timer) { clearInterval(tv2Timer); tv2Timer = setInterval(() => tv2GoTo((tv2Current + 1) % TV2_SLIDE_COUNT), TV2_ROTATE_MS); }
+}
+
+function initTV2Mode() {
+    if (!TV2_MODE || TV_MODE) return;
+    document.body.classList.add('tv-mode', 'tv2-mode');
+
+    // Hide normal page chrome (golfer view stays in the DOM, hidden, so all
+    // its render functions keep updating the source elements we sync from)
+    for (const sel of ['.header', '.tab-bar']) {
+        const el = document.querySelector(sel);
+        if (el) el.style.display = 'none';
+    }
+    for (const id of ['last-updated-bar', 'view-greenkeeper', 'view-golfer']) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+
+    const tvRoot = document.getElementById('tv-root');
+    if (tvRoot) tvRoot.style.display = 'flex';
+
+    // Build the 7 slides
+    const titles = ['Right Now', 'Playing Comfort', 'Course Conditions',
+                    'Wind on the Course', 'Looking Ahead', 'Daylight &amp; Rain', ''];
+    const pillIds = [
+        ['tv2-p-temp', 'tv2-p-wind', 'tv2-p-rain'],
+        ['tv2-p-comfort', 'tv2-p-uv', 'tv2-p-besttime'],
+        ['tv2-p-course', 'tv2-p-greens', 'tv2-p-frost'],
+        ['tv2-p-whead', 'tv2-p-wtail', 'tv2-p-wcross'],
+        ['tv2-p-fc0', 'tv2-p-fc1', 'tv2-p-fc2'],
+        ['tv2-p-sun', 'tv2-p-rainmonth', 'tv2-p-rainyear'],
+    ];
+    const wrap = document.querySelector('.tv-slides-wrap');
+    let slidesHtml = '';
+    for (let i = 0; i < 6; i++) {
+        slidesHtml += `<div class="tv-slide${i === 0 ? ' tv-slide-active' : ''}" id="tv2-s${i}">
+            <div class="tv2-slide-inner">
+                <div class="tv2-title">${titles[i]}</div>
+                <div class="tv2-grid">${pillIds[i].map(id => `<div class="tv2-pill gt-idle" id="${id}"></div>`).join('')}</div>
+            </div></div>`;
+    }
+    // Slide 7: QR code to the golfer page
+    const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(TV2_PAGE_URL)
+                + '&size=520&margin=2&dark=1a252f&light=ffffff';
+    slidesHtml += `<div class="tv-slide" id="tv2-s6">
+        <div class="tv2-slide-inner">
+            <div class="tv2-title">Take the Conditions With You</div>
+            <div class="tv2-qr-wrap">
+                <img src="${qrUrl}" alt="QR code - live course conditions">
+                <div class="tv2-qr-text">
+                    <div class="big">Scan for live course conditions on your phone</div>
+                    <div class="sml">Point your phone camera at the code to open the golfers
+                        page - weather, wind, green speed and the best time to play, updated live.</div>
+                </div>
+            </div></div></div>`;
+    if (wrap) wrap.innerHTML = slidesHtml;
+
+    // Rebuild the footer dots for 7 slides and update the caption
+    const dots = document.querySelector('.tv-dots');
+    if (dots) dots.innerHTML = Array.from({ length: TV2_SLIDE_COUNT }, (_, i) =>
+        `<div class="tv-dot${i === 0 ? ' tv-dot-active' : ''}" id="tv2-dot-${i}" onclick="tv2GoTo(${i})"></div>`).join('');
+    const lbl = document.getElementById('tv-slide-label');
+    if (lbl && lbl.parentElement) lbl.parentElement.innerHTML =
+        'Slide <span id="tv-slide-label">1</span> of 7 - auto-rotates every 15s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span>';
+
+    // Clock, value sync, and rotation
+    tvUpdateClock();
+    setInterval(tvUpdateClock, 1000);
+    renderTV2();
+    setInterval(renderTV2, 3000);
+    tv2GoTo(0);
+    tv2Timer = setInterval(() => tv2GoTo((tv2Current + 1) % TV2_SLIDE_COUNT), TV2_ROTATE_MS);
+}
+
 // ── Boot ──────────────────────────────────────────────────────────
 initTVMode();
+initTV2Mode();
 initSprayProductSelect();
 // ── FarmBot Tank / Water functions ──────────────────────────────────
 
