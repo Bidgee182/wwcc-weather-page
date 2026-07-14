@@ -584,6 +584,16 @@
         body.tv2-mode .tv2-val-med { font-size: 3.6vw; }
         body.tv2-mode .tv2-sub  { font-size: 1.7vw; color: rgba(255,255,255,0.88); margin-top: 1.1vw;
             line-height: 1.4; max-width: 94%; }
+        body.tv2-mode .tv2-solo { flex: 1; min-height: 0; border-radius: 20px;
+            border: 4px solid rgba(255,255,255,0.3); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center; padding: 2vw; gap: 1.4vw; }
+        body.tv2-mode .tv2-solo-lbl { font-size: 2.2vw; letter-spacing: 6px; text-transform: uppercase;
+            color: rgba(255,255,255,0.85); font-weight: bold; }
+        body.tv2-mode .tv2-solo-val { font-size: 9vw; font-weight: bold; line-height: 1; color: #fff; }
+        body.tv2-mode .tv2-solo-chips { display: flex; flex-wrap: wrap; justify-content: center;
+            gap: 1.1vw; max-width: 82%; margin-top: 1.2vw; }
+        body.tv2-mode .tv2-chip { background: rgba(0,0,0,0.32); border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 60px; padding: 1vw 2vw; font-size: 2vw; color: #fff; white-space: nowrap; }
         body.tv2-mode .tv2-qr-wrap { display: flex; align-items: center; justify-content: center;
             gap: 4vw; flex: 1; min-height: 0; }
         body.tv2-mode .tv2-qr-wrap img { height: 34vw; max-height: 100%; width: auto;
@@ -6441,7 +6451,7 @@ async function checkForUpdates() {
 // Readability-first kiosk layout. All values are synced from the elements the
 // normal golfer page already renders, so there is no duplicated weather logic.
 let tv2Timer = null, tv2Current = 0;
-const TV2_SLIDE_COUNT = 7;
+const TV2_SLIDE_COUNT = 8;
 const TV2_ROTATE_MS   = 15000;
 const TV2_PAGE_URL    = 'https://bidgee182.github.io/wwcc-weather-page/';
 
@@ -6485,8 +6495,27 @@ function _tv2SetPill(id, opts) {
         (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '');
 }
 
+// Screen 1: full-screen playability score with the detail items spread
+// out as individual chips so they read easily from a distance.
+function renderTV2Playability() {
+    const el = document.getElementById('tv2-playability');
+    if (!el) return;
+    el.className = 'tv2-solo ' + _tv2Cls('comfort-banner', ['cb-'], 'cb-good');
+    const detailEl = document.getElementById('comfort-detail');
+    const parts = detailEl
+        ? detailEl.textContent.split('·').map(s => s.trim()).filter(Boolean)
+        : [];
+    el.innerHTML =
+        `<div class="tv2-solo-lbl">Overall Playability Score</div>` +
+        `<div class="tv2-solo-val">${_tv2Txt('comfort-rating')}</div>` +
+        (parts.length ? `<div class="tv2-solo-chips">${parts.map(p => `<div class="tv2-chip">${p}</div>`).join('')}</div>` : '');
+}
+
 function renderTV2() {
-    // ── Screen 1: Right Now ──
+    // ── Screen 1: Playability (solo) ──
+    renderTV2Playability();
+
+    // ── Screen 2: Right Now ──
     _tv2SetPill('tv2-p-temp', { lbl:'Temperature', icon:'&#127777;&#65039;', val:_tv2Txt('cc-temp'),
         sub:'Feels like ' + _tv2Txt('cc-feels'), cls:_tv2Cls('tile-feelslike', ['gt-'], 'gt-idle') });
     _tv2SetPill('tv2-p-wind', { lbl:'Wind', icon:'&#127788;&#65039;', val:_tv2Txt('tile-wind-val'),
@@ -6494,29 +6523,30 @@ function renderTV2() {
     _tv2SetPill('tv2-p-rain', { lbl:'Rain Today', icon:'&#127783;&#65039;', val:_tv2Txt('cc-rain'),
         sub:'Last 24 hours: ' + _tv2Txt('tile-rain24h-val'), cls:_tv2Cls('tile-rain24h', ['gt-'], 'gt-idle') });
 
-    // ── Screen 2: Playing Comfort ──
-    _tv2SetPill('tv2-p-comfort', { lbl:'Playability Score', val:_tv2Txt('comfort-rating'), med:true,
-        sub:_tv2Txt('comfort-detail', ''), cls:_tv2Cls('comfort-banner', ['cb-'], 'gt-idle') });
+    // ── Screen 3: Planning Your Round ──
+    const fr = _tv2Insight('frost-risk-content');
+    _tv2SetPill('tv2-p-frost', { lbl:'Frost Risk', icon:'&#10052;&#65039;', val:fr.big, med:true,
+        sub:(fr.pill ? fr.pill + ' - ' : '') + fr.sub, cls:fr.cls });
     _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:_tv2Txt('tile-uv-val'),
         sub:_tv2Txt('tile-uv-explain', ''), cls:_tv2Cls('tile-uv', ['gt-'], 'gt-idle') });
     const bt = _tv2Insight('best-time-content');
     _tv2SetPill('tv2-p-besttime', { lbl:'Best Time to Play', val:bt.big, med:true,
         sub:(bt.pill ? bt.pill + ' - ' : '') + bt.sub, cls:bt.cls });
 
-    // ── Screen 3: Course Conditions ──
+    // ── Screen 4: Course Conditions ──
     _tv2SetPill('tv2-p-course', { lbl:'Course Roll', icon:'&#9971;', val:_tv2Txt('tile-course-val'), med:true,
         sub:_tv2Txt('tile-course-explain', ''), cls:_tv2Cls('tile-course', ['gt-'], 'gt-idle') });
     const gs = _tv2Insight('green-speed-content');
     _tv2SetPill('tv2-p-greens', { lbl:'Green Speed', icon:'&#127807;', val:gs.big, med:true,
         sub:(gs.pill ? gs.pill + ' - ' : '') + gs.sub, cls:gs.cls });
-    const fr = _tv2Insight('frost-risk-content');
-    _tv2SetPill('tv2-p-frost', { lbl:'Frost Risk', icon:'&#10052;&#65039;', val:fr.big, med:true,
-        sub:(fr.pill ? fr.pill + ' - ' : '') + fr.sub, cls:fr.cls });
+    const bf = _tv2Insight('ball-flight-content');
+    _tv2SetPill('tv2-p-ball', { lbl:'Ball @ 150m', icon:'&#9898;', val:bf.big, med:true,
+        sub:(bf.pill ? bf.pill + ' - ' : '') + bf.sub, cls:bf.cls });
 
-    // ── Screen 4: Wind on the Course ──
+    // ── Screen 5: Wind on the Course ──
     renderTV2WindPills();
 
-    // ── Screen 5: Looking Ahead ──
+    // ── Screen 6: Looking Ahead ──
     const dayNames = ['Today', 'Tomorrow'];
     for (let i = 0; i < 3; i++) {
         const d = fc.forecastDays[i];
@@ -6532,7 +6562,7 @@ function renderTV2() {
             cls: probCls });
     }
 
-    // ── Screen 6: Daylight & Rain ──
+    // ── Screen 7: Daylight & Rain ──
     _tv2SetPill('tv2-p-sun', { lbl:'Sunrise / Sunset', icon:'&#127749;', val:_tv2Txt('cc-sun'), med:true,
         sub:_tv2Txt('tile-daylight-explain', ''), cls:'gt-idle' });
     _tv2SetPill('tv2-p-rainmonth', { lbl:'Rain This Month', icon:'&#127783;&#65039;',
@@ -6607,30 +6637,36 @@ function initTV2Mode() {
     const tvRoot = document.getElementById('tv-root');
     if (tvRoot) tvRoot.style.display = 'flex';
 
-    // Build the 7 slides
-    const titles = ['Right Now', 'Playing Comfort', 'Course Conditions',
-                    'Wind on the Course', 'Looking Ahead', 'Daylight &amp; Rain', ''];
-    const pillIds = [
-        ['tv2-p-temp', 'tv2-p-wind', 'tv2-p-rain'],
-        ['tv2-p-comfort', 'tv2-p-uv', 'tv2-p-besttime'],
-        ['tv2-p-course', 'tv2-p-greens', 'tv2-p-frost'],
-        ['tv2-p-whead', 'tv2-p-wtail', 'tv2-p-wcross'],
-        ['tv2-p-fc0', 'tv2-p-fc1', 'tv2-p-fc2'],
-        ['tv2-p-sun', 'tv2-p-rainmonth', 'tv2-p-rainyear'],
+    // Build the 8 slides: playability solo, six 3-pill grids, then QR
+    const gridSlides = [
+        { title: 'Right Now',           pills: ['tv2-p-temp', 'tv2-p-wind', 'tv2-p-rain'] },
+        { title: 'Planning Your Round', pills: ['tv2-p-frost', 'tv2-p-uv', 'tv2-p-besttime'] },
+        { title: 'Course Conditions',   pills: ['tv2-p-course', 'tv2-p-greens', 'tv2-p-ball'] },
+        { title: 'Wind on the Course',  pills: ['tv2-p-whead', 'tv2-p-wtail', 'tv2-p-wcross'] },
+        { title: 'Looking Ahead',       pills: ['tv2-p-fc0', 'tv2-p-fc1', 'tv2-p-fc2'] },
+        { title: 'Daylight &amp; Rain', pills: ['tv2-p-sun', 'tv2-p-rainmonth', 'tv2-p-rainyear'] },
     ];
     const wrap = document.querySelector('.tv-slides-wrap');
-    let slidesHtml = '';
-    for (let i = 0; i < 6; i++) {
-        slidesHtml += `<div class="tv-slide${i === 0 ? ' tv-slide-active' : ''}" id="tv2-s${i}">
+
+    // Slide 1: full-screen playability score
+    let slidesHtml = `<div class="tv-slide tv-slide-active" id="tv2-s0">
+        <div class="tv2-slide-inner">
+            <div class="tv2-solo cb-good" id="tv2-playability"></div>
+        </div></div>`;
+
+    // Slides 2-7: 3-pill grids
+    gridSlides.forEach((s, idx) => {
+        slidesHtml += `<div class="tv-slide" id="tv2-s${idx + 1}">
             <div class="tv2-slide-inner">
-                <div class="tv2-title">${titles[i]}</div>
-                <div class="tv2-grid">${pillIds[i].map(id => `<div class="tv2-pill gt-idle" id="${id}"></div>`).join('')}</div>
+                <div class="tv2-title">${s.title}</div>
+                <div class="tv2-grid">${s.pills.map(id => `<div class="tv2-pill gt-idle" id="${id}"></div>`).join('')}</div>
             </div></div>`;
-    }
-    // Slide 7: QR code to the golfer page
+    });
+
+    // Slide 8: QR code to the golfer page
     const qrUrl = 'https://quickchart.io/qr?text=' + encodeURIComponent(TV2_PAGE_URL)
                 + '&size=520&margin=2&dark=1a252f&light=ffffff';
-    slidesHtml += `<div class="tv-slide" id="tv2-s6">
+    slidesHtml += `<div class="tv-slide" id="tv2-s7">
         <div class="tv2-slide-inner">
             <div class="tv2-title">Take the Conditions With You</div>
             <div class="tv2-qr-wrap">
@@ -6649,7 +6685,7 @@ function initTV2Mode() {
         `<div class="tv-dot${i === 0 ? ' tv-dot-active' : ''}" id="tv2-dot-${i}" onclick="tv2GoTo(${i})"></div>`).join('');
     const lbl = document.getElementById('tv-slide-label');
     if (lbl && lbl.parentElement) lbl.parentElement.innerHTML =
-        'Slide <span id="tv-slide-label">1</span> of 7 - auto-rotates every 15s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span>';
+        'Slide <span id="tv-slide-label">1</span> of 8 - auto-rotates every 15s &nbsp;<span id="tv-update-status" style="display:none;color:#27ae60"></span>';
 
     // Clock, value sync, and rotation
     tvUpdateClock();
