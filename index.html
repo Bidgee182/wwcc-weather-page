@@ -641,6 +641,8 @@
         body.tv2-mode .tv2-icon { font-size: 4vw; }
         body.tv2-mode .tv2-val  { font-size: 6vw; font-weight: bold; line-height: 1.05; color: #fff; }
         body.tv2-mode .tv2-val-med { font-size: 3.4vw; }
+        body.tv2-mode .tv2-sub + .tv2-sub { margin-top: 0.35vw; }
+        body.tv2-mode .tv2-st .st-sub + .st-sub { margin-top: 0.3vw; }
         body.tv2-mode .tv2-sub  { font-size: 1.7vw; color: rgba(255,255,255,0.88); margin-top: 1.1vw;
             line-height: 1.4; max-width: 94%; }
         body.tv2-mode .tv2-solo { flex: 1; min-height: 0; border-radius: 20px;
@@ -6827,7 +6829,9 @@ function _tv2SetPill(id, opts) {
         `<div class="tv2-body">` +
         `<div class="tv2-icon">${opts.icon || ''}</div>` +
         `<div class="tv2-val${opts.med ? ' tv2-val-med' : ''}">${opts.val}</div>` +
-        (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '') +
+        (Array.isArray(opts.sub)
+            ? opts.sub.filter(Boolean).map(l => `<div class="tv2-sub">${l}</div>`).join('')
+            : (opts.sub ? `<div class="tv2-sub">${opts.sub}</div>` : '')) +
         `</div>`;
 }
 
@@ -6840,7 +6844,9 @@ function renderTV2Station() {
         const s = document.getElementById(id + '-sub');
         if (box) box.className = 'tv2-st ' + (cls || 'gt-idle');
         if (v) v.innerHTML = val;
-        if (s) s.innerHTML = sub || '';
+        if (s) s.innerHTML = Array.isArray(sub)
+            ? sub.filter(Boolean).map(l => `<div class="st-sub">${l}</div>`).join('')
+            : (sub || '');
     };
     // Gust line only when the station reports meaningful gusts
     const gustEl  = document.getElementById('go-st-gust');
@@ -6848,7 +6854,7 @@ function renderTV2Station() {
         ? gustEl.textContent.trim() : 'Steady';
 
     cell('tv2-st-temp', _tv2Txt('go-st-temp'),
-        _tv2Txt('go-st-feels', '') + ' &middot; ' + _tv2Txt('go-st-hilo', ''),
+        [_tv2Txt('go-st-feels', ''), _tv2Txt('go-st-hilo', '')],
         _tv2Cls('tile-feelslike', ['gt-'], 'gt-idle'));
     cell('tv2-st-wind', _tv2Txt('tile-wind-val'), gustTxt,
         _tv2Cls('tile-wind', ['gt-'], 'gt-idle'));
@@ -6856,7 +6862,8 @@ function renderTV2Station() {
         _tv2Cls('tile-uv', ['gt-'], 'gt-idle'));
     cell('tv2-st-rh', _tv2Txt('go-st-rh'), _tv2Txt('go-st-dewlive', ''), 'gt-idle');
     cell('tv2-st-press', _tv2Txt('go-st-pressure'), _tv2Txt('go-st-deltat', ''), 'gt-idle');
-    cell('tv2-st-rain', _tv2Txt('go-st-rain'), _tv2Txt('go-st-rain-totals', ''),
+    cell('tv2-st-rain', _tv2Txt('go-st-rain'),
+        _tv2Txt('go-st-rain-totals', '').split('·').map(s => s.trim()),
         _tv2Cls('tile-rain24h', ['gt-'], 'gt-idle'));
 }
 
@@ -7020,13 +7027,14 @@ function renderTV2() {
     // ── Screen 2: Right Now — each pill mirrors its golfer-page tile exactly
     // (same value, same comment, same colour), with extra context in the sub.
     _tv2SetPill('tv2-p-temp', { lbl:'Feels Like', icon:'&#127777;&#65039;', val:_tv2Txt('tile-feelslike-val'),
-        sub:_tv2Txt('tile-feelslike-explain', '') + ' &middot; Actual ' + _tv2Txt('cc-temp'),
+        sub:[_tv2Txt('tile-feelslike-explain', ''), 'Actual: ' + _tv2Txt('cc-temp')],
         cls:_tv2Cls('tile-feelslike', ['gt-'], 'gt-idle') });
     _tv2SetPill('tv2-p-wind', { lbl:'Wind', icon:'&#127788;&#65039;', val:_tv2Txt('tile-wind-val'), med:true,
         sub:_tv2Txt('tile-wind-explain', ''), cls:_tv2Cls('tile-wind', ['gt-'], 'gt-idle') });
     _tv2SetPill('tv2-p-rain', { lbl:'Rain Chance', icon:'&#9748;', val:_tv2Txt('tile-rain-val'),
-        sub:_tv2Txt('tile-rain-explain', '') + ' &middot; Today ' + _tv2Txt('cc-rain')
-            + ' &middot; 24h ' + _tv2Txt('tile-rain24h-val'),
+        sub:[_tv2Txt('tile-rain-explain', ''),
+             'Today: ' + _tv2Txt('cc-rain'),
+             'Last 24 hours: ' + _tv2Txt('tile-rain24h-val')],
         cls:_tv2Cls('tile-rain', ['gt-'], 'gt-idle') });
 
     // ── Screen 3: Planning Your Round ──
@@ -7084,7 +7092,7 @@ function renderTV2() {
     const dlIcon = document.getElementById('tile-daylight-icon');
     _tv2SetPill('tv2-p-sun', { lbl:_tv2Txt('tile-daylight-title', 'Daylight'),
         icon:(dlIcon ? dlIcon.innerHTML : '&#127749;'), val:_tv2Txt('tile-daylight-val'), med:true,
-        sub:_tv2Txt('tile-daylight-explain', '') + ' &middot; Sun ' + _tv2Txt('cc-sun'),
+        sub:[_tv2Txt('tile-daylight-explain', ''), 'Sun: ' + _tv2Txt('cc-sun')],
         cls:_tv2Cls('tile-daylight', ['gt-'], 'gt-idle') });
     _tv2SetPill('tv2-p-rainmonth', { lbl:'Rain This Month', icon:'&#127783;&#65039;',
         val:_tv2Txt('cc-rain-month').replace(/^[A-Za-z]+:\s*/, ''), med:true,
