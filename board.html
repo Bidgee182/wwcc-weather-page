@@ -101,6 +101,20 @@
         /* ── Chart wrapper ── */
         .chart-wrap { background:#1a252f; border-radius:8px; padding:14px; }
 
+        /* ── Lake chart range filters ── */
+        .lk-range-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+        .lk-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px;
+            padding:5px 14px; font-size:0.78em; cursor:pointer; transition:all 0.2s; }
+        .lk-range-btn.active { background:#2471a3; border-color:#2471a3; color:white; font-weight:bold; }
+        .lk-range-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
+        .lk-custom-row { display:none; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;
+            font-size:0.8em; color:#7f8c8d; }
+        .lk-custom-row.open { display:flex; }
+        .lk-custom-row input { background:#1a252f; border:1px solid #3d5166; color:#ecf0f1;
+            border-radius:6px; padding:4px 8px; font-size:1em; color-scheme:dark; }
+        .lk-apply-btn { background:#2471a3; border:none; color:white; border-radius:6px;
+            padding:5px 16px; font-size:0.95em; cursor:pointer; }
+
         /* ── Data notice ── */
         .data-notice { background:#1a2f3a; border-left:3px solid #2980b9; border-radius:4px; padding:9px 12px; font-size:0.78em; color:#7f8c8d; margin-bottom:14px; }
         .data-notice strong { color:#5dade2; }
@@ -357,13 +371,25 @@
     <!-- Lake level chart — full width below the two-col -->
     <div class="card">
         <h2>Lake Albert Level — Sensor History</h2>
+        <div class="lk-range-row">
+            <button class="lk-range-btn" onclick="setLakeRange(24)">24h</button>
+            <button class="lk-range-btn" onclick="setLakeRange(48)">48h</button>
+            <button class="lk-range-btn active" id="lk-btn-168" onclick="setLakeRange(168)">7 Days</button>
+            <button class="lk-range-btn" onclick="setLakeRange(720)">30 Days</button>
+            <button class="lk-range-btn" id="lk-btn-custom" onclick="toggleLakeCustom()">Custom</button>
+        </div>
+        <div class="lk-custom-row" id="lk-custom-row">
+            <label>From <input type="date" id="lk-from"></label>
+            <label>To <input type="date" id="lk-to"></label>
+            <button class="lk-apply-btn" onclick="applyLakeCustom()">Apply</button>
+        </div>
         <div class="data-notice" id="ov-lake-chart-notice">
-            <strong>Monitoring period:</strong> <span id="ov-chart-date-range">loading...</span> &bull;
-            Daily average AHD. Zone threshold lines shown for reference.
+            <strong>Showing:</strong> <span id="ov-chart-date-range">loading...</span> &bull;
+            Zone threshold lines shown for reference.
             <span id="ov-manual-note"></span>
         </div>
-        <div class="chart-wrap">
-            <canvas id="ov-lake-chart" height="200"></canvas>
+        <div class="chart-wrap" style="height:160px;position:relative;">
+            <canvas id="ov-lake-chart"></canvas>
         </div>
     </div>
 
@@ -882,11 +908,81 @@ function buildDailyLake(readings) {
     return days.map(day => ({ day, ahd: byDay[day].reduce((a,b)=>a+b,0) / byDay[day].length }));
 }
 
+// ── Lake chart range filtering ────────────────────────────────────────────────
 let _lakeChart = null;
-function renderLakeChart(daily) {
-    if (!daily.length || !_cfg) return;
-    const labels   = daily.map(r => new Date(r.day+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-    const ahdData  = daily.map(r => parseFloat(r.ahd.toFixed(3)));
+let _lakeReadingsAll = [];
+let _lakeRangeHours  = 168;   // 24 / 48 / 168 / 720, or null when custom active
+let _lakeCustom      = null;  // { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
+
+function setLakeRange(hours) {
+    _lakeRangeHours = hours;
+    _lakeCustom = null;
+    document.querySelectorAll('.lk-range-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('lk-btn-' + hours) ||
+        [...document.querySelectorAll('.lk-range-btn')].find(b => b.getAttribute('onclick') === `setLakeRange(${hours})`);
+    if (btn) btn.classList.add('active');
+    $('lk-custom-row').classList.remove('open');
+    renderLakeRange();
+}
+
+function toggleLakeCustom() {
+    $('lk-custom-row').classList.toggle('open');
+}
+
+function applyLakeCustom() {
+    const from = $('lk-from').value, to = $('lk-to').value;
+    if (!from || !to || from > to) return;
+    _lakeCustom = { from, to };
+    _lakeRangeHours = null;
+    document.querySelectorAll('.lk-range-btn').forEach(b => b.classList.remove('active'));
+    $('lk-btn-custom').classList.add('active');
+    renderLakeRange();
+}
+
+function renderLakeRange() {
+    if (!_cfg || !_lakeReadingsAll.length) return;
+    let rows, spanHours;
+    if (_lakeCustom) {
+        rows = _lakeReadingsAll.filter(r => {
+            const d = String(r.date).slice(0, 10);
+            return d >= _lakeCustom.from && d <= _lakeCustom.to;
+        });
+        spanHours = (new Date(_lakeCustom.to) - new Date(_lakeCustom.from)) / 3600000 + 24;
+    } else {
+        const cutoff = Date.now() - _lakeRangeHours * 3600000;
+        rows = _lakeReadingsAll.filter(r => new Date(r.date).getTime() >= cutoff);
+        spanHours = _lakeRangeHours;
+    }
+    if (!rows.length) {
+        $('ov-chart-date-range').textContent = 'No readings in the selected period';
+        if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
+        return;
+    }
+
+    // Short ranges plot individual readings; longer ranges use daily averages
+    let labels, values, note;
+    if (spanHours <= 72) {
+        const sorted = [...rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+        labels = sorted.map(r => new Date(r.date).toLocaleString('en-AU',
+            spanHours <= 24 ? { hour:'numeric', minute:'2-digit' }
+                            : { weekday:'short', hour:'numeric' }));
+        values = sorted.map(r => parseFloat(parseFloat(r.ahd).toFixed(3)));
+        note = sorted.length + ' readings';
+    } else {
+        const daily = buildDailyLake(rows);
+        labels = daily.map(r => new Date(r.day+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
+        values = daily.map(r => parseFloat(r.ahd.toFixed(3)));
+        note = 'daily average AHD, ' + daily.length + ' days';
+    }
+    const first = new Date(rows.reduce((a,b) => a.date < b.date ? a : b).date);
+    const last  = new Date(rows.reduce((a,b) => a.date > b.date ? a : b).date);
+    const fD = d => d.toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+    $('ov-chart-date-range').textContent = fD(first)+' to '+fD(last)+' ('+note+')';
+    renderLakeChart(labels, values);
+}
+
+function renderLakeChart(labels, values) {
+    if (!values.length || !_cfg) return;
     // Line at each zone's floor. The lowest floor (189.650) is the cease-to-pump
     // boundary — drawn red and labelled L5 to match index.html and email charts.
     const floors = _cfg.zone_thresholds.filter(z => z.min_ahd != null);
@@ -895,7 +991,7 @@ function renderLakeChart(daily) {
         const isCease = z.min_ahd === lowestFloor;
         return {
             label: isCease ? 'L5 Cease ('+z.min_ahd.toFixed(3)+'m)' : 'L'+z.zone+' ('+z.min_ahd.toFixed(3)+'m)',
-            data: daily.map(() => z.min_ahd),
+            data: values.map(() => z.min_ahd),
             type: 'line', borderColor: isCease ? '#EB1E23' : ((ZONE_STYLE[z.zone]||{}).bg||'#888'),
             borderWidth: 1, borderDash: [4,4], pointRadius: 0, fill: false, tension: 0,
         };
@@ -905,25 +1001,23 @@ function renderLakeChart(daily) {
     _lakeChart = new Chart(ctx, {
         type: 'line',
         data: { labels, datasets: [
-            { label:'Daily Avg AHD', data:ahdData, borderColor:'#5dade2', backgroundColor:'rgba(93,173,226,0.12)',
-              borderWidth:2, pointRadius:3, pointHoverRadius:5, fill:true, tension:0.2 },
+            { label:'Lake AHD', data:values, borderColor:'#5dade2', backgroundColor:'rgba(93,173,226,0.12)',
+              borderWidth:2, pointRadius:(values.length > 60 ? 0 : 3), pointHoverRadius:5, fill:true, tension:0.2 },
             ...threshDs,
         ]},
         options: {
-            responsive:true,
+            responsive:true, maintainAspectRatio:false,
             plugins: {
                 legend: { labels:{ color:'#7f8c8d', font:{size:11} } },
                 tooltip: { callbacks:{ label: c => c.dataset.label+': '+c.parsed.y.toFixed(3)+' m' } },
             },
             scales: {
-                x: { ticks:{ color:'#7f8c8d', maxTicksLimit:14 }, grid:{ color:'#1e3040' } },
+                x: { ticks:{ color:'#7f8c8d', maxTicksLimit:12 }, grid:{ color:'#1e3040' } },
                 y: { ticks:{ color:'#7f8c8d', callback:v=>v.toFixed(3)+' m' }, grid:{ color:'#1e3040' },
                      title:{ display:true, text:'AHD (m)', color:'#566573' } },
             },
         },
     });
-    const fD = s => new Date(s+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
-    $('ov-chart-date-range').textContent = fD(daily[0].day)+' to '+fD(daily[daily.length-1].day)+' ('+daily.length+' days)';
 }
 
 // ── Main data loader ──────────────────────────────────────────────────────────
@@ -1098,10 +1192,17 @@ async function loadAll() {
         $('ov-ml-season-lbl').textContent = 'from ' + fmtDateShort(savFrom) + ' (max ' + fmtMl(seasonSav.totalMl) + ')';
         $('ov-saving-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
 
-        // Lake level chart
-        const dailyLake = buildDailyLake(lakeReadings);
-        if (dailyLake.length > 0) renderLakeChart(dailyLake);
-        else $('ov-chart-date-range').textContent = 'No sensor data available yet';
+        // Lake level chart (range filters re-render from this cached set)
+        _lakeReadingsAll = lakeReadings || [];
+        if (_lakeReadingsAll.length > 0) {
+            // Prefill the custom pickers with the full data span
+            const dates = _lakeReadingsAll.map(r => String(r.date).slice(0, 10)).sort();
+            if (!$('lk-from').value) $('lk-from').value = dates[0];
+            if (!$('lk-to').value)   $('lk-to').value   = dates[dates.length - 1];
+            renderLakeRange();
+        } else {
+            $('ov-chart-date-range').textContent = 'No sensor data available yet';
+        }
 
         // Licence compliance summary (from the append-only zone history log)
         {
