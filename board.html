@@ -377,6 +377,8 @@
             <button class="lk-range-btn active" id="lk-btn-168" onclick="setLakeRange(168)">7 Days</button>
             <button class="lk-range-btn" onclick="setLakeRange(720)">30 Days</button>
             <button class="lk-range-btn" id="lk-btn-custom" onclick="toggleLakeCustom()">Custom</button>
+            <button class="lk-range-btn" id="lk-fit-btn" onclick="toggleLakeFit()"
+                style="margin-left:auto;" title="Toggle between zooming to the data and showing the full zone ladder">Fit: Data</button>
         </div>
         <div class="lk-custom-row" id="lk-custom-row">
             <label>From <input type="date" id="lk-from"></label>
@@ -388,7 +390,7 @@
             Zone threshold lines shown for reference.
             <span id="ov-manual-note"></span>
         </div>
-        <div class="chart-wrap" style="height:160px;position:relative;">
+        <div class="chart-wrap" style="height:210px;position:relative;">
             <canvas id="ov-lake-chart"></canvas>
         </div>
     </div>
@@ -911,6 +913,14 @@ function buildDailyLake(readings) {
 // ── Lake chart range filtering ────────────────────────────────────────────────
 let _lakeChart = null;
 let _lakeReadingsAll = [];
+let _lakeFitZones = false;   // false = auto-zoom to data, true = show full zone ladder
+
+function toggleLakeFit() {
+    _lakeFitZones = !_lakeFitZones;
+    const b = document.getElementById('lk-fit-btn');
+    if (b) b.textContent = _lakeFitZones ? 'Fit: Zones' : 'Fit: Data';
+    renderLakeRange();
+}
 let _lakeRangeHours  = 168;   // 24 / 48 / 168 / 720, or null when custom active
 let _lakeCustom      = null;  // { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
 
@@ -983,11 +993,31 @@ function renderLakeRange() {
 
 function renderLakeChart(labels, values) {
     if (!values.length || !_cfg) return;
-    // Line at each zone's floor. The lowest floor (189.650) is the cease-to-pump
-    // boundary — drawn red and labelled L5 to match index.html and email charts.
     const floors = _cfg.zone_thresholds.filter(z => z.min_ahd != null);
-    const lowestFloor = Math.min(...floors.map(z => z.min_ahd));
-    const threshDs = floors.map(z => {
+    const lowestFloor  = Math.min(...floors.map(z => z.min_ahd));
+    const highestFloor = Math.max(...floors.map(z => z.min_ahd));
+
+    // Y-axis window: auto-zoom to the data (15% pad, never tighter than a
+    // 50 mm span so sensor noise is not magnified), or the full zone ladder
+    // when the Fit toggle is on Zones.
+    const dmin = Math.min(...values), dmax = Math.max(...values);
+    let ymin, ymax;
+    if (_lakeFitZones) {
+        ymin = Math.min(dmin, lowestFloor)  - 0.03;
+        ymax = Math.max(dmax, highestFloor) + 0.03;
+    } else {
+        const pad = Math.max((dmax - dmin) * 0.15, 0.008);
+        ymin = dmin - pad; ymax = dmax + pad;
+        const MIN_SPAN = 0.05;
+        if (ymax - ymin < MIN_SPAN) {
+            const mid = (ymin + ymax) / 2;
+            ymin = mid - MIN_SPAN / 2; ymax = mid + MIN_SPAN / 2;
+        }
+    }
+
+    // Zone floor lines - only those inside the visible window. The lowest
+    // floor (189.650) is the cease boundary, red to match the email charts.
+    const threshDs = floors.filter(z => z.min_ahd >= ymin && z.min_ahd <= ymax).map(z => {
         const isCease = z.min_ahd === lowestFloor;
         return {
             label: isCease ? 'L5 Cease ('+z.min_ahd.toFixed(3)+'m)' : 'L'+z.zone+' ('+z.min_ahd.toFixed(3)+'m)',
@@ -1013,7 +1043,8 @@ function renderLakeChart(labels, values) {
             },
             scales: {
                 x: { ticks:{ color:'#7f8c8d', maxTicksLimit:12 }, grid:{ color:'#1e3040' } },
-                y: { ticks:{ color:'#7f8c8d', callback:v=>v.toFixed(3)+' m' }, grid:{ color:'#1e3040' },
+                y: { min: parseFloat(ymin.toFixed(3)), max: parseFloat(ymax.toFixed(3)),
+                     ticks:{ color:'#7f8c8d', callback:v=>v.toFixed(3)+' m' }, grid:{ color:'#1e3040' },
                      title:{ display:true, text:'AHD (m)', color:'#566573' } },
             },
         },
