@@ -71,6 +71,7 @@
         </div>
         <label style="margin-top:10px;">GitHub token (needed once to save your PIN)<br>
             <input type="password" id="su-token" style="width:100%;max-width:380px;"></label>
+        <div class="note" id="su-token-hint"></div>
         <div style="margin-top:10px;"><button onclick="completeSetup()">Set PIN &amp; Continue</button></div>
     </div>
     <div class="status" id="li-status"></div>
@@ -332,6 +333,9 @@ async function login() {
     if (!u.pin_hash) {
         $('setup-block').style.display = 'block';
         $('li-status').textContent = 'Set your PIN below to finish creating your account.';
+        if ((localStorage.getItem('wx_github_pat') || '').trim()) {
+            $('su-token-hint').textContent = 'A token from the screen-message panel was found on this browser - leave the box blank to use it.';
+        }
         return;
     }
     const h = await pinHash(email, pin, u.salt);
@@ -344,9 +348,11 @@ async function login() {
         catch { SES.token = null; }
     }
     if (!SES.token) {
-        const t = prompt('First time on this device: paste your GitHub token (stored encrypted under your PIN).');
-        if (t && t.trim()) {
-            SES.token = t.trim();
+        // Prefer the token the screen-message panel already saved on this browser
+        let t = (localStorage.getItem('wx_github_pat') || '').trim();
+        if (!t) t = (prompt('First time on this device: paste your GitHub token (stored encrypted under your PIN).') || '').trim();
+        if (t) {
+            SES.token = t;
             const encd = await aesEnc(await aesKey(email + ':' + pin, u.salt + ':tok'), SES.token);
             localStorage.setItem(tokStoreKey(email), JSON.stringify(encd));
         }
@@ -357,7 +363,9 @@ async function login() {
 async function completeSetup() {
     const email = $('li-email').value.trim().toLowerCase();
     const p1 = $('su-pin1').value.trim(), p2 = $('su-pin2').value.trim();
-    const tok = $('su-token').value.trim();
+    // Use the token already saved by the screen-message panel on this browser
+    // when the box is left blank - avoids any copy/truncation problems
+    const tok = $('su-token').value.trim() || (localStorage.getItem('wx_github_pat') || '').trim();
     if (!/^\d{6}$/.test(p1)) { $('li-status').textContent = 'PIN must be exactly 6 digits.'; return; }
     if (p1 !== p2) { $('li-status').textContent = 'PINs do not match.'; return; }
     if (!tok) { $('li-status').textContent = 'The GitHub token is required to save your PIN.'; return; }
@@ -372,7 +380,13 @@ async function completeSetup() {
         const tu = arr.find(x => x.email.toLowerCase() === email);
         tu.pin_hash = u.pin_hash;
         await ghPut('data/admin_users.json', JSON.stringify(arr, null, 2), 'Admin PIN set: ' + email, f.sha);
-    } catch (e) { $('li-status').textContent = 'Save failed: ' + e.message; return; }
+    } catch (e) {
+        $('li-status').textContent = 'Save failed: ' + e.message
+            + (String(e.message).includes('401') || String(e.message).toLowerCase().includes('invalid')
+               ? ' - the token was not accepted. Do this on the same browser you post screen messages from and leave the token box blank, or generate a fresh token on GitHub.'
+               : '');
+        return;
+    }
     SES.email = email; SES.pin = p1;
     const encd = await aesEnc(await aesKey(email + ':' + p1, u.salt + ':tok'), tok);
     localStorage.setItem(tokStoreKey(email), JSON.stringify(encd));
