@@ -288,16 +288,26 @@
         <div class="table-wrap"><table class="secinv">
             <thead><tr><th>Secret</th><th>Purpose</th></tr></thead>
             <tbody>
-                <tr><td>SENDGRID_API_KEY</td><td>Sends every email (all reports and alerts)</td></tr>
-                <tr><td>EMAIL_FROM</td><td>The from-address on all emails</td></tr>
-                <tr><td>EMAIL_GK_RECIPIENTS</td><td>Greenkeeper reports + tank alerts (fallback if encrypted list absent)</td></tr>
-                <tr><td>EMAIL_COMMITTEE_RECIPIENTS</td><td>Lake level alerts (fallback)</td></tr>
-                <tr><td>EMAIL_LAKE_TO / EMAIL_LAKE_CC</td><td>Lake Albert reports (fallback)</td></tr>
-                <tr><td>EMAIL_BOARD_TO / CC / BCC</td><td>Board reports (fallback)</td></tr>
-                <tr><td>RECIPIENTS_KEY</td><td>Decrypts data/email_recipients.enc.json in the workflows</td></tr>
-                <tr><td>FARMBOT_CLIENT_ID / SECRET</td><td>FarmBot API (tank + lake sensors)</td></tr>
-                <tr><td>FARMBOT_TANK_SID / LAKE_SID</td><td>Sensor identifiers</td></tr>
-                <tr><td>DAVIS_* (6 secrets)</td><td>Davis weather station APIs</td></tr>
+                <tr><td>SENDGRID_API_KEY</td><td>SendGrid API key - sends every email (all reports and alerts)</td></tr>
+                <tr><td>EMAIL_FROM</td><td>The from-address shown on all outgoing emails</td></tr>
+                <tr><td>EMAIL_GK_RECIPIENTS</td><td>Greenkeeper reports + tank alerts recipient list (fallback when the encrypted list is absent)</td></tr>
+                <tr><td>EMAIL_COMMITTEE_RECIPIENTS</td><td>Lake level alert recipients - committee (fallback)</td></tr>
+                <tr><td>EMAIL_LAKE_TO</td><td>Lake Albert reports - To recipients (fallback)</td></tr>
+                <tr><td>EMAIL_LAKE_CC</td><td>Lake Albert reports - CC recipients (fallback)</td></tr>
+                <tr><td>EMAIL_BOARD_TO</td><td>Board reports - To recipients (fallback)</td></tr>
+                <tr><td>EMAIL_BOARD_CC</td><td>Board reports - CC recipients (fallback)</td></tr>
+                <tr><td>EMAIL_BOARD_BCC</td><td>Board reports - BCC recipients (fallback)</td></tr>
+                <tr><td>RECIPIENTS_KEY</td><td>Decryption key for data/email_recipients.enc.json (the admin-editable recipient lists)</td></tr>
+                <tr><td>FARMBOT_CLIENT_ID</td><td>FarmBot API OAuth client ID (tank + lake sensor data)</td></tr>
+                <tr><td>FARMBOT_CLIENT_SECRET</td><td>FarmBot API OAuth client secret</td></tr>
+                <tr><td>FARMBOT_TANK_SID</td><td>FarmBot sensor ID for the water tank level probe</td></tr>
+                <tr><td>FARMBOT_LAKE_SID</td><td>FarmBot sensor ID for the lake level probe</td></tr>
+                <tr><td>DAVIS_DID</td><td>Davis WeatherLink v1 device ID (station identifier)</td></tr>
+                <tr><td>DAVIS_PASS</td><td>Davis WeatherLink v1 account password</td></tr>
+                <tr><td>DAVIS_TOKEN</td><td>Davis WeatherLink v1 API token</td></tr>
+                <tr><td>DAVIS_V2_KEY</td><td>Davis WeatherLink v2 API key (daily archive data)</td></tr>
+                <tr><td>DAVIS_V2_SECRET</td><td>Davis WeatherLink v2 API secret</td></tr>
+                <tr><td>DAVIS_V2_STATION</td><td>Davis WeatherLink v2 station ID (10489 - on-course station)</td></tr>
             </tbody>
         </table></div>
         <p class="note">Manage at
