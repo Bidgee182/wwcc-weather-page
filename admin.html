@@ -32,7 +32,7 @@
         td { padding:7px 8px; border-bottom:1px solid #243344; vertical-align:top; }
         .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
         .light { display:inline-block; width:20px; height:20px; border-radius:50%; margin-right:10px; vertical-align:middle; box-shadow:0 0 6px rgba(0,0,0,0.4) inset; }
-        .lg { background:#27ae60; } .ly { background:#d4ac0d; } .lr { background:#e74c3c; } .lgrey { background:#566573; }
+        .lg { background:#27ae60; } .ly { background:#d4ac0d; } .lr { background:#e74c3c; } .lgrey { background:#566573; } .lb { background:#2980b9; }
         .hrow { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #243344; font-size:0.98em; flex-wrap:wrap; gap:6px; }
         .hrow .sub { color:#566573; font-size:0.85em; }
         .pill { display:inline-block; font-size:0.75em; font-weight:700; padding:2px 10px; border-radius:10px; }
@@ -149,6 +149,7 @@
     <button class="tab-btn" data-p="recipients" onclick="showPanel('recipients')">Recipients</button>
     <button class="tab-btn" data-p="admins" onclick="showPanel('admins')">Admins</button>
     <button class="tab-btn" data-p="reference" onclick="showPanel('reference')">Reference</button>
+    <button class="ghost" style="margin-left:auto;" onclick="window.print()" title="Print the tab you are viewing">Print</button>
 </div>
 
 <!-- HEALTH -->
@@ -168,8 +169,8 @@
         <h2>Manual Triggers</h2>
         <div class="flexrow">
             <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
-            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend')">Resend Daily Email</button>
-            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to me)</button>
+            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend', 'This re-sends the daily email to the FULL greenkeeper list. Continue?')">Resend Daily Email</button>
+            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to Andrew)</button>
             <button onclick="wfTrigger('board-email.yml', { dry_run: 'true' }, 'board email dry run')">Board Email Dry Run</button>
             <button onclick="wfTrigger('lake-report.yml', { dry_run: 'true' }, 'lake report dry run')">Lake Report Dry Run</button>
         </div>
@@ -210,7 +211,6 @@
             <button class="ghost" onclick="downloadLog()">Download</button>
         </div>
         <div class="table-wrap" id="log-table">Loading...</div>
-        <div style="margin-top:10px;"><button class="ghost" onclick="window.print()">Print view</button></div>
     </div>
     <div class="grid2">
         <div class="card">
@@ -548,7 +548,7 @@ async function completeSetup() {
 
 function enterApp() {
     // Survive a browser refresh: session lives until the tab closes or Log out
-    try { sessionStorage.setItem('wwcc_admin_ses', JSON.stringify({ email: SES.email, token: SES.token })); } catch {}
+    try { sessionStorage.setItem('wwcc_admin_ses', JSON.stringify({ email: SES.email, token: SES.token, pin: SES.pin })); } catch {}
     $('login-card').style.display = 'none';
     $('main').style.display = 'block';
     $('session-box').style.display = 'block';
@@ -568,6 +568,8 @@ function enterApp() {
         }
     } catch {}
     loadHealth(); loadAllLogs(); loadControls(); admRender();
+    recTryStored();
+    if (!window._healthTimer) window._healthTimer = setInterval(loadHealth, 5 * 60000);
 }
 function logout() { try { sessionStorage.removeItem('wwcc_admin_ses'); } catch {} location.reload(); }
 
@@ -575,6 +577,7 @@ function showPanel(p) {
     document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('[data-p]').forEach(x => x.classList.toggle('active', x.dataset.p === p));
     $('panel-' + p).classList.add('active');
+    if (p === 'health' && Date.now() - _lastHealth > 60000) loadHealth();
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -615,9 +618,10 @@ function fmtCountdown(ms) {
 }
 
 // Shared workflow runs cache (health card + workflows tab)
-let _wfRuns = null, _wfPromise = null;
+let _wfRuns = null, _wfPromise = null, _wfFetchedAt = 0, _lastHealth = 0;
 function ensureWfRuns() {
-    if (_wfPromise) return _wfPromise;
+    if (_wfPromise && Date.now() - _wfFetchedAt < 4 * 60000) return _wfPromise;
+    _wfFetchedAt = Date.now();
     const h = SES.token ? { Authorization: 'Bearer ' + SES.token } : {};
     _wfPromise = fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=100`, { headers: h })
         .then(r => r.json()).then(d => { _wfRuns = d.workflow_runs || []; return _wfRuns; })
@@ -628,6 +632,7 @@ function ensureWfRuns() {
 const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts' };
 
 async function loadHealth() {
+    _lastHealth = Date.now();
     const cb = '?_=' + Date.now();
     const issues = [];
     const rowHtml = (n, cls, sub) =>
@@ -677,7 +682,7 @@ async function loadHealth() {
             parts.push(rowHtml('Tank level', tc,
                 tank.tank_pct.toFixed(1) + '% (' + ((tank.tank_volume_l || 0) / 1000).toFixed(0) + ' kL)'));
         }
-        if (parts.length) cards.push({ title: 'Course Water', state: worst(cls), html: parts.join('') });
+        if (parts.length) cards.push({ title: 'Course Water', state: worst(cls), noHero: true, html: parts.join('') });
     } catch {}
 
     // ── Davis card ──
@@ -736,8 +741,11 @@ async function loadHealth() {
     // ── Render cards, hero, global alert ──
     $('sys-cards').innerHTML = cards.map(c =>
         `<div class="syscard s-${c.state}"><h3>${c.title}</h3>${c.html}</div>`).join('');
-    const anyBad = cards.some(c => c.state === 'bad') || issues.length > 0;
-    const anyWarn = cards.some(c => c.state === 'warn');
+    // Course Water (noHero) shows operational state, not system health - a low
+    // lake or tank must not read as a system fault on the banner
+    const sys = cards.filter(c => !c.noHero);
+    const anyBad = sys.some(c => c.state === 'bad') || issues.length > 0;
+    const anyWarn = sys.some(c => c.state === 'warn');
     const hero = $('hero');
     if (anyBad) {
         hero.className = 'hero hero-bad';
@@ -903,7 +911,7 @@ async function loadControls() {
 async function loadAutoMessages() {
     const el = $('ctl-auto-list');
     const row = (icon, name, trigger, active, detail) =>
-        `<div class="hrow"><span><span class="light ${active ? 'lr' : 'lg'}"></span>${icon} <strong>${name}</strong>
+        `<div class="hrow"><span><span class="light ${active ? 'lb' : 'lgrey'}"></span>${icon} <strong>${name}</strong>
          <span class="sub" style="margin-left:8px;">${trigger}</span></span>
          <span class="sub">${active ? 'ACTIVE - ' + detail : 'not active'}</span></div>`;
     try {
@@ -1024,6 +1032,7 @@ async function kmPost() {
     } catch (e) { $('km-status').textContent = 'Failed: ' + e.message; }
 }
 async function kmDelete(id) {
+    if (!confirm('Remove this message from the TV ticker?')) return;
     if (!SES.token) { $('km-status').textContent = 'No token on this device.'; return; }
     try {
         const f = await ghGet('data/kiosk_message.json');
@@ -1106,8 +1115,8 @@ async function admRender() {
             <td>${u.pin_hash ? '<span class="pill ok">yes</span>' : '<span class="pill fail">pending first login</span>'}</td>
             <td class="sub">${(u.added_at || '').slice(0, 10)} ${u.added_by ? 'by ' + u.added_by : ''}</td>
             <td>${u.email.toLowerCase() === (SES.email || '') ? '' :
-                `<button class="ghost" onclick="admResetPin('${u.email}')" style="padding:3px 10px;font-size:0.8em;margin-right:6px;">Reset PIN</button>`
-                + `<button class="danger" onclick="admRemove('${u.email}')" style="padding:3px 10px;font-size:0.8em;">Remove</button>`}</td>
+                `<button class="ghost" data-e="${u.email.replace(/"/g, '&quot;')}" onclick="admResetPin(this.dataset.e)" style="padding:3px 10px;font-size:0.8em;margin-right:6px;">Reset PIN</button>`
+                + `<button class="danger" data-e="${u.email.replace(/"/g, '&quot;')}" onclick="admRemove(this.dataset.e)" style="padding:3px 10px;font-size:0.8em;">Remove</button>`}</td>
         </tr>`).join('');
 }
 async function admAdd() {
@@ -1155,7 +1164,15 @@ async function chgPin() {
         // Re-encrypt the device token under the new PIN
         const encd = await aesEnc(await aesKey(SES.email + ':' + n1, u.salt + ':tok'), SES.token);
         localStorage.setItem(tokStoreKey(SES.email), JSON.stringify(encd));
+        // Saved recipients key (if any) moves to the new PIN as well
+        let savedRecKey = null;
+        try {
+            const rk = localStorage.getItem(recKeyStoreKey());
+            if (rk) savedRecKey = await aesDec(await aesKey(SES.email + ':' + oldP, REC_SALT + ':dev'), JSON.parse(rk));
+        } catch {}
         SES.pin = n1;
+        if (savedRecKey) await recSaveKeyOnDevice(savedRecKey);
+        try { sessionStorage.setItem('wwcc_admin_ses', JSON.stringify({ email: SES.email, token: SES.token, pin: SES.pin })); } catch {}
         logAction('pin_change', 'own PIN changed');
         st('PIN changed.');
         $('cp-old').value = $('cp-new1').value = $('cp-new2').value = '';
@@ -1175,8 +1192,9 @@ async function admResetPin(email) {
 }
 
 // ── Manual workflow triggers ──────────────────────────────────────────────────
-async function wfTrigger(file, inputs, label) {
+async function wfTrigger(file, inputs, label, confirmMsg) {
     const st = m => $('wf-trigger-status').textContent = m;
+    if (confirmMsg && !confirm(confirmMsg)) return;
     if (!SES.token) { st('No token on this device.'); return; }
     st('Triggering ' + label + '...');
     try {
@@ -1210,14 +1228,16 @@ async function loadPreviews() {
         }
         let files = [];
         for (const m of months) {
-            const r = await fetch(`https://api.github.com/repos/${REPO}/contents/data/reports/${m}`);
+            const hdrs = SES.token ? { Authorization: 'Bearer ' + SES.token } : {};
+            const r = await fetch(`https://api.github.com/repos/${REPO}/contents/data/reports/${m}`, { headers: hdrs });
             if (r.ok) {
                 const list = await r.json();
                 files = files.concat(list.filter(f => f.name.endsWith('.html'))
                     .map(f => ({ name: f.name, path: 'data/reports/' + m + '/' + f.name })));
             }
         }
-        files.sort((a, b) => b.name.localeCompare(a.name));
+        const fdate = n => (n.match(/\d{4}-\d{2}-\d{2}/) || [''])[0];
+        files.sort((a, b) => fdate(b.name).localeCompare(fdate(a.name)) || b.name.localeCompare(a.name));
         el.innerHTML = files.slice(0, 12).map(f =>
             `<div class="hrow"><a href="${f.path}" target="_blank" style="color:#5dade2;">${f.name}</a></div>`).join('')
             || '<span class="sub" style="color:#566573;">No previews found.</span>';
@@ -1262,6 +1282,10 @@ async function pumpAdd() {
     try {
         const f = await ghGet('data/pumping_usage.json');
         let arr = []; try { arr = JSON.parse(f.text) || []; } catch {}
+        if (arr.some(e => e.date === date)
+            && !confirm('An entry for ' + date + ' already exists. Add another entry for the same date?')) {
+            st('Cancelled.'); return;
+        }
         arr.push({ date, ml, note: note || ('entered by ' + SES.email) });
         arr.sort((a, b) => a.date < b.date ? -1 : 1);
         await ghPut('data/pumping_usage.json', JSON.stringify(arr, null, 2),
@@ -1289,6 +1313,25 @@ function recGenKey() {
     $('rec-genkey').value = hex(crypto.getRandomValues(new Uint8Array(24)));
     $('rec-genkey').select();
 }
+function recKeyStoreKey() { return 'wwcc_admin_reckey_' + (SES.email || ''); }
+async function recSaveKeyOnDevice(key) {
+    if (!SES.pin || !SES.email) return;
+    try {
+        const encd = await aesEnc(await aesKey(SES.email + ':' + SES.pin, REC_SALT + ':dev'), key);
+        localStorage.setItem(recKeyStoreKey(), JSON.stringify(encd));
+    } catch {}
+}
+// If a key was saved on this device, decrypt it with the PIN and unlock silently
+async function recTryStored() {
+    if (_recData || !SES.pin) return;
+    const stored = localStorage.getItem(recKeyStoreKey());
+    if (!stored) return;
+    try {
+        const key = await aesDec(await aesKey(SES.email + ':' + SES.pin, REC_SALT + ':dev'), JSON.parse(stored));
+        $('rec-key').value = key;
+        await recUnlock();
+    } catch {}
+}
 async function recUnlock() {
     const key = $('rec-key').value.trim();
     if (!key) { $('rec-status').textContent = 'Enter the key.'; return; }
@@ -1300,6 +1343,7 @@ async function recUnlock() {
             const blob = await r.json();
             const k = await aesKey(key, REC_SALT);
             _recData = JSON.parse(await aesDec(k, blob));
+            recSaveKeyOnDevice(key);
         } else {
             _recData = { streams: Object.fromEntries(STREAMS.map(([s]) => [s, []])), change_log: [] };
             $('rec-status').textContent = 'No encrypted file yet - enter the lists and Save to create it.';
@@ -1355,7 +1399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Restore the session after a refresh instead of showing the login page
     try {
         const s = JSON.parse(sessionStorage.getItem('wwcc_admin_ses') || 'null');
-        if (s && s.email) { SES.email = s.email; SES.token = s.token || null; enterApp(); }
+        if (s && s.email) { SES.email = s.email; SES.token = s.token || null; SES.pin = s.pin || null; enterApp(); }
     } catch {}
 });
 </script>
