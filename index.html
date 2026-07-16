@@ -7705,11 +7705,33 @@ function renderTankMonthlyChart(history) {
         peakEl.textContent = `Peak usage day: ${peakDate} — ${(peakDay.used_l / 1000).toFixed(1)} kL (${peakDay.used_pct?.toFixed(1) || '--'}% of tank)`;
     }
 
+    // Value labels above each bar - winter months are real but sub-pixel
+    // against summer volumes, so the number carries the information
+    const barValuePlugin = {
+        id: 'tankBarValues',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            chart.data.datasets[0].data.forEach((v, i) => {
+                const bar = meta.data[i];
+                if (!bar || v == null) return;
+                ctx.save();
+                ctx.fillStyle = '#bdc3c7';
+                ctx.font = 'bold 10px Arial,sans-serif';
+                ctx.textAlign = 'center';
+                const lbl = v >= 100 ? Math.round(v).toLocaleString('en-AU') : v.toFixed(v >= 10 ? 0 : 1);
+                ctx.fillText(lbl, bar.x, bar.y - 5);
+                ctx.restore();
+            });
+        }
+    };
+
     const cfg = {
         type: 'bar',
         data: { labels, datasets: [{ label: 'Usage (kL)', data, backgroundColor: bgColors, borderRadius: 4 }] },
         options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 16 } },
             plugins: {
                 legend: { display: false },
                 tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + ' kL total' } }
@@ -7718,7 +7740,8 @@ function renderTankMonthlyChart(history) {
                 x: { ticks: { color: '#7f8c8d', font: { size: 11 } }, grid: { color: '#1a2d3d' } },
                 y: { min: 0, ticks: { color: '#7f8c8d', font: { size: 10 }, callback: v => v + ' kL' }, grid: { color: '#1a2d3d' } }
             }
-        }
+        },
+        plugins: [barValuePlugin]
     };
 
     if (_tankMonthlyChart) {
