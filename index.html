@@ -365,7 +365,7 @@
         .tank-custom-row label { color:#566573; font-size:0.78em; }
         .tank-apply-btn { background:#2980b9; border:1px solid #2980b9; color:white; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; font-weight:bold; }
         .tank-graph-wrap { width:100%; }
-        .tank-stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+        .tank-stat-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-top:12px; }
         .lake-placeholder { background:#1a252f; border:1px dashed #3d5166; border-radius:8px; padding:24px; text-align:center; }
         .lake-placeholder .lp-icon  { font-size:2em; margin-bottom:8px; }
         .lake-placeholder .lp-title { font-size:0.88em; font-weight:bold; color:#7f8c8d; margin-bottom:6px; }
@@ -1132,6 +1132,7 @@
                 <div class="irr-metric"><div class="lbl">Min (period)</div><div class="val" id="tank-hist-min">--</div></div>
                 <div class="irr-metric"><div class="lbl">Max (period)</div><div class="val" id="tank-hist-max">--</div></div>
                 <div class="irr-metric"><div class="lbl">Change (start &rarr; end)</div><div class="val" id="tank-hist-change">--</div><div style="font-size:0.68em;color:#566573;margin-top:2px" id="tank-hist-change-sub">--</div></div>
+                <div class="irr-metric"><div class="lbl">Total Usage (period)</div><div class="val" id="tank-hist-usage">--</div><div style="font-size:0.68em;color:#566573;margin-top:2px" id="tank-hist-usage-sub">draw-downs, refills excluded</div></div>
             </div>
         </div>
 
@@ -7378,6 +7379,19 @@ function _renderTankGraph(samples) {
     if (chEl) { chEl.textContent = (change >= 0 ? '+' : '') + Math.round(change) + '%'; chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c'; }
     const chSub = document.getElementById('tank-hist-change-sub');
     if (chSub) chSub.textContent = rawVals[0].toFixed(1) + '% → ' + rawVals[rawVals.length - 1].toFixed(1) + '%';
+
+    // Total usage over the period: sum of all draw-downs between consecutive
+    // raw readings (level rises = refills, excluded)
+    const volOf = s => s.volume_l != null ? s.volume_l : parseFloat(s.pct ?? 0) / 100 * 250000;
+    let totalUseL = 0;
+    for (let i = 1; i < sortedSamples.length; i++) {
+        const d = volOf(sortedSamples[i - 1]) - volOf(sortedSamples[i]);
+        if (d > 0) totalUseL += d;
+    }
+    const useEl = document.getElementById('tank-hist-usage');
+    if (useEl) useEl.textContent = Math.round(totalUseL).toLocaleString('en-AU') + ' L';
+    const useSub = document.getElementById('tank-hist-usage-sub');
+    if (useSub) useSub.textContent = (totalUseL / 1000).toFixed(1) + ' kL · refills excluded';
 
     // 4-hour bucket averaging when smoothing is in effect
     const smoothOn = _tankSmoothEffective() && (_tankRange === null || _tankRange > 24);
