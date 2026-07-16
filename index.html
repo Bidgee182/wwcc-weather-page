@@ -1206,9 +1206,12 @@
             <h2>&#128202; Lake Level History</h2>
             <div class="tank-history-range" id="lake-range-controls">
                 <button class="tank-range-btn active" onclick="setLakeRange(24)">24h</button>
+                <button class="tank-range-btn" onclick="setLakeRange(48)">48h</button>
                 <button class="tank-range-btn" onclick="setLakeRange(168)">7 Days</button>
                 <button class="tank-range-btn" onclick="setLakeRange(720)">30 Days</button>
                 <button class="tank-range-btn" id="lake-custom-btn" onclick="showLakeCustomRange()">Custom</button>
+                <button class="tank-range-btn" id="lake-fit-btn" onclick="toggleGkLakeFit()"
+                    style="margin-left:auto" title="Toggle between zooming to the data and showing the full zone ladder">Fit: Data</button>
             </div>
             <div class="tank-custom-row" id="lake-custom-row">
                 <label>From <input type="date" id="lake-date-from"></label>
@@ -7282,6 +7285,7 @@ let   _tankDailyHistory = null;   // farmbot_history.json (daily summaries for s
 let   _tankChart        = null;
 let   _tankMonthlyChart = null;
 let   _lakeRange          = 24;
+let   _lakeFitZones       = false;  // false = auto-zoom to data, true = full zone ladder
 let   _lakeLatest         = null;
 let   _lakeHistory        = null;
 let   _lakeReadingsCache  = null;   // persistent cache for pills (not cleared on range change)
@@ -7673,9 +7677,22 @@ function _renderLakeGraph(samples) {
     const change = (firstV != null && lastV != null) ? lastV - firstV : null;
     const n      = plotVals.length;
 
-    // Y-axis bounds: always show all 4 threshold lines + padding
-    const yMin = Math.min(minV, 189.60) - 0.05;
-    const yMax = Math.max(maxV, 190.35) + 0.05;
+    // Y-axis bounds: auto-zoom to the data (15% pad, never tighter than a
+    // 50 mm span so sensor noise is not magnified). The Fit toggle restores
+    // the full zone ladder; threshold lines outside the window self-hide.
+    let yMin, yMax;
+    if (_lakeFitZones || !realVals.length) {
+        yMin = Math.min(minV, 189.60) - 0.05;
+        yMax = Math.max(maxV, 190.35) + 0.05;
+    } else {
+        const pad = Math.max((maxV - minV) * 0.15, 0.008);
+        yMin = minV - pad; yMax = maxV + pad;
+        const MIN_SPAN = 0.05;
+        if (yMax - yMin < MIN_SPAN) {
+            const mid = (yMin + yMax) / 2;
+            yMin = mid - MIN_SPAN / 2; yMax = mid + MIN_SPAN / 2;
+        }
+    }
 
     const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3) + ' m' : '--';
     const maxEl = document.getElementById('lake-hist-max'); if (maxEl) maxEl.textContent = realVals.length ? maxV.toFixed(3) + ' m' : '--';
@@ -7935,6 +7952,13 @@ async function fetchLakeData() {
         if (errEl) { errEl.textContent = '\u26A0 Lake data unavailable: ' + e.message; errEl.style.display = 'block'; }
         console.error('[FarmBot Lake]', e);
     }
+}
+
+function toggleGkLakeFit() {
+    _lakeFitZones = !_lakeFitZones;
+    const b = document.getElementById('lake-fit-btn');
+    if (b) b.textContent = _lakeFitZones ? 'Fit: Zones' : 'Fit: Data';
+    fetchLakeData();
 }
 
 function setLakeRange(hours) {
