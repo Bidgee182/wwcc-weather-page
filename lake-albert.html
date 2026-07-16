@@ -1130,10 +1130,15 @@ async function fetchLevel() {
         if(_range!==null && _range<=24) {
             samples=(_lakeLatest.lake_graph||[]).slice();
         } else {
-            const today=new Date().toISOString().slice(0,10);
-            const fromDate=_range===null ? _customFrom : new Date(Date.now()-_range*3600000).toISOString().slice(0,10);
-            const toDate  =_range===null ? _customTo   : today;
-            samples=(_lakeHistory||[]).filter(d=>d.date.slice(0,10)>=fromDate&&d.date.slice(0,10)<=toDate);
+            // Clip to the exact plotted window (same expressions the chart grid
+            // uses) so High/Low/Change always reconcile with the visible line
+            let winFrom,winTo;
+            if(_range===null){winFrom=new Date(_customFrom).getTime();winTo=new Date(_customTo+'T23:59:59').getTime();}
+            else             {winTo=Date.now();winFrom=winTo-_range*3600000;}
+            samples=(_lakeHistory||[]).filter(d=>{
+                const t=new Date(d.date).getTime();
+                return t>=winFrom&&t<=winTo;
+            });
         }
         const _lldr=document.getElementById('level-chart-loader');
         const _lwrp=document.getElementById('level-chart-wrap');
@@ -1231,11 +1236,13 @@ function renderLevelChart(samples) {
         plotTooltips=samples.map(s=>new Date(s.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}));
     }
 
-    const rawStatVals=(samples||[]).map(s=>parseFloat(s.ahd??NaN)).filter(v=>!isNaN(v));
+    const sortedRaw=[...(samples||[])].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const rawStatVals=sortedRaw.map(s=>parseFloat(s.ahd??NaN)).filter(v=>!isNaN(v));
     const realVals=rawStatVals.length?rawStatVals:plotVals.filter(v=>v!==null);
     const minV=realVals.length?Math.min(...realVals):190.0;
     const maxV=realVals.length?Math.max(...realVals):190.0;
-    const firstV=plotVals.find(v=>v!==null),lastV=[...plotVals].reverse().find(v=>v!==null);
+    const firstV=rawStatVals.length?rawStatVals[0]:plotVals.find(v=>v!==null);
+    const lastV=rawStatVals.length?rawStatVals[rawStatVals.length-1]:[...plotVals].reverse().find(v=>v!==null);
     const change=(firstV!=null&&lastV!=null)?lastV-firstV:null;
 
     // Stats shown as depth in metres, not raw AHD

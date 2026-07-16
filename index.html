@@ -7682,8 +7682,10 @@ function _renderLakeGraph(samples) {
     }
 
     // Stats from the RAW readings (not slot averages) so smoothing never
-    // shaves the true min/max the greenkeeper acts on
-    const rawStatVals = (samples || []).map(s => parseFloat(s.ahd ?? NaN)).filter(v => !isNaN(v));
+    // shaves the true min/max the greenkeeper acts on. Samples are clipped to
+    // the plotted window, so Change, High and Low share one basis.
+    const sortedRaw = [...(samples || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const rawStatVals = sortedRaw.map(s => parseFloat(s.ahd ?? NaN)).filter(v => !isNaN(v));
     const realVals = rawStatVals.length ? rawStatVals : plotVals.filter(v => v !== null);
     if (realVals.length === 0) {
         if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
@@ -7693,8 +7695,8 @@ function _renderLakeGraph(samples) {
 
     const minV   = realVals.length ? Math.min(...realVals) : 190.0;
     const maxV   = realVals.length ? Math.max(...realVals) : 190.0;
-    const firstV = plotVals.find(v => v !== null);
-    const lastV  = [...plotVals].reverse().find(v => v !== null);
+    const firstV = rawStatVals.length ? rawStatVals[0] : plotVals.find(v => v !== null);
+    const lastV  = rawStatVals.length ? rawStatVals[rawStatVals.length - 1] : [...plotVals].reverse().find(v => v !== null);
     const change = (firstV != null && lastV != null) ? lastV - firstV : null;
     const n      = plotVals.length;
 
@@ -7960,11 +7962,20 @@ async function fetchLakeData() {
                 const hResp = await fetch('data/farmbot_lake_readings.json?_=' + Date.now());
                 if (hResp.ok) _lakeHistory = await hResp.json();
             }
-            const today    = new Date().toISOString().slice(0, 10);
-            const fromDate = _lakeRange === null ? _lakeCustomFrom : new Date(Date.now() - _lakeRange * 3600000).toISOString().slice(0, 10);
-            const toDate   = _lakeRange === null ? _lakeCustomTo   : today;
-            samples = (_lakeHistory || [])
-                .filter(d => d.date.slice(0, 10) >= fromDate && d.date.slice(0, 10) <= toDate);
+            // Clip to the exact plotted window (same expressions the chart grid
+            // uses) so High/Low/Change always reconcile with the visible line
+            let winFrom, winTo;
+            if (_lakeRange === null) {
+                winFrom = new Date(_lakeCustomFrom).getTime();
+                winTo   = new Date(_lakeCustomTo + 'T23:59:59').getTime();
+            } else {
+                winTo   = Date.now();
+                winFrom = winTo - _lakeRange * 3600000;
+            }
+            samples = (_lakeHistory || []).filter(d => {
+                const t = new Date(d.date).getTime();
+                return t >= winFrom && t <= winTo;
+            });
         }
         _renderLakeGraph(samples);
 
