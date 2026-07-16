@@ -90,5 +90,6 @@ jobs:
           git config user.email "bot@wwcc.com.au"
           git add data/daily_log.csv data/reports/
           git diff --staged --quiet || git commit -m "Daily log $(date -u +%Y-%m-%d)"
-          git pull --rebase -X theirs origin main
-          git push
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && break || echo "Push attempt $i failed, retrying..."
+          done

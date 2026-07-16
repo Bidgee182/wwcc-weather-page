@@ -38,7 +38,6 @@ log = logging.getLogger(__name__)
 
 SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
 DATA_DIR    = Path(__file__).parent.parent / 'data'
-LAKE_BOTTOM = 189.362   # m AHD — lake bed elevation
 LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
 LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
 LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html

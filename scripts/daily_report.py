@@ -673,8 +673,16 @@ def fetch_openmeteo_archive(target_date):
         return None
 
 
-def fetch_openmeteo_uv(target_date):
-    """Lightweight Open-Meteo call for UV index only (used when station has no UV data)."""
+def fetch_openmeteo_uv(target_date, want_detail=False):
+    """Open-Meteo UV for a date (used because the Davis archive endpoint
+    carries no UV fields).
+
+    Returns uv_index_max, or with want_detail=True a dict:
+      { 'max': float, 'avg': float, 'dose_med': float }
+    avg  = mean UV index across the sunlit hours (UV > 0.1)
+    dose = hourly UV integrated as erythemal irradiance
+           (1 UV index = 25 mW/m²; 1 MED = 210 J/m²)
+    """
     date_str = target_date.strftime('%Y-%m-%d')
     # historical-forecast-api has UV data; archive-api (ERA5) does not
     url = 'https://historical-forecast-api.open-meteo.com/v1/forecast'
@@ -684,16 +692,24 @@ def fetch_openmeteo_uv(target_date):
         'start_date': date_str,
         'end_date':   date_str,
         'daily':      'uv_index_max',
+        'hourly':     'uv_index',
         'timezone':   'Australia/Sydney',
     }
     try:
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-        return (data.get('daily') or {}).get('uv_index_max', [None])[0]
+        uv_max = (data.get('daily') or {}).get('uv_index_max', [None])[0]
+        if not want_detail:
+            return uv_max
+        hourly = [v for v in (data.get('hourly') or {}).get('uv_index', []) if v is not None]
+        sunlit = [v for v in hourly if v > 0.1]
+        avg  = round(sum(sunlit) / len(sunlit), 2) if sunlit else None
+        dose = round(sum(v * 0.025 * 3600 for v in hourly) / 210.0, 2) if hourly else None
+        return {'max': uv_max, 'avg': avg, 'dose_med': dose}
     except Exception as e:
         log.warning(f'Open-Meteo UV fetch error: {e}')
-        return None
+        return None if not want_detail else {'max': None, 'avg': None, 'dose_med': None}
 
 
 # WMO weather code sets used for alert detection
@@ -3726,9 +3742,16 @@ def main():
             d['rain_mm'] = daily['precipitation_sum'][0] or 0.0
         if d['et_mm'] == 0 and daily.get('et0_fao_evapotranspiration'):
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
-    # UV: archive API (ERA5) doesn't have UV - always use historical-forecast API
+    # UV: the Davis archive endpoint carries no UV fields, so max/avg/dose all
+    # come from Open-Meteo's historical-forecast API (hourly integration for
+    # avg and erythemal dose in MEDs)
+    _uv_detail = fetch_openmeteo_uv(yesterday, want_detail=True)
     if uv_max is None:
-        uv_max = fetch_openmeteo_uv(yesterday)
+        uv_max = _uv_detail.get('max')
+    if d.get('uv_index_avg') is None and _uv_detail.get('avg') is not None:
+        d['uv_index_avg'] = _uv_detail['avg']
+    if d.get('uv_dose') is None and _uv_detail.get('dose_med') is not None:
+        d['uv_dose'] = _uv_detail['dose_med']
 
     # ── 3. Read CSV history for running totals ─────────────────────────────
     history_7 = read_csv_history(7)
