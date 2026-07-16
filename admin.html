@@ -219,6 +219,11 @@
         </div>
         <div class="status" id="km-status"></div>
         <div id="ctl-kiosk-list" style="margin-top:10px;">Loading...</div>
+        <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#7f8c8d;margin:16px 0 6px;">Automatic weather messages (system generated - for reference)</div>
+        <div id="ctl-auto-list">Checking current conditions...</div>
+        <p class="note">These appear on the ticker automatically when their trigger conditions are met and
+        clear themselves - they are not stored in the message list and cannot be edited. Status is
+        evaluated from the same live forecast the pages use.</p>
         <p class="note">Changes reach the TVs within ~30 seconds and are recorded in the Kiosk log.
         The greenkeeper page's message panel edits the same list.</p>
     </div>
@@ -775,6 +780,87 @@ async function loadControls() {
     try { _sources = await fetch('data/tank_fill_source.json' + cb).then(r => r.json());
           renderSrc(); } catch {}
     kmRender();
+    loadAutoMessages();
+}
+
+// Automatic ticker messages: evaluate current status with the same triggers
+// index.html uses (thresholds mirrored - keep in sync with checkThunderstorm,
+// checkFrostAlert, checkDenseFog and checkCartsOnPaths there)
+async function loadAutoMessages() {
+    const el = $('ctl-auto-list');
+    const row = (icon, name, trigger, active, detail) =>
+        `<div class="hrow"><span><span class="light ${active ? 'lr' : 'lg'}"></span>${icon} <strong>${name}</strong>
+         <span class="sub" style="margin-left:8px;">${trigger}</span></span>
+         <span class="sub">${active ? 'ACTIVE - ' + detail : 'not active'}</span></div>`;
+    try {
+        const om = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-35.1082&longitude=147.3598'
+            + '&hourly=weather_code,temperature_2m,relative_humidity_2m,dew_point_2m,windspeed_10m'
+            + '&timezone=Australia%2FSydney&forecast_days=2').then(r => r.json());
+        const h = om.hourly, now = sydNow();
+        const idx = t => new Date(t.replace(' ', 'T'));
+
+        // Thunderstorm: storm codes (95/96/99) within the next 4 hours
+        let storm = false;
+        for (let i = 0; i < h.time.length; i++) {
+            const d = idx(h.time[i]);
+            if (d >= now && d - now <= 4 * 3600000 && [95, 96, 99].includes(h.weather_code[i])) storm = true;
+        }
+
+        // Frost: overnight minimum (8 PM tonight to 9 AM) below 4 C
+        let minT = Infinity;
+        const ws = new Date(now); ws.setHours(20, 0, 0, 0);
+        const we = new Date(ws.getTime() + 13 * 3600000);
+        for (let i = 0; i < h.time.length; i++) {
+            const d = idx(h.time[i]);
+            if (d >= ws && d <= we && h.temperature_2m[i] != null) minT = Math.min(minT, h.temperature_2m[i]);
+        }
+        const frost = minT < 4;
+
+        // Fog risk: near-saturated + light wind in the 4-9 AM window
+        // (current morning before 10 AM; tomorrow shown from 3 PM)
+        let fogHours = 0;
+        const dayStr = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const tomorrow = new Date(now.getTime() + 86400000);
+        const target = now.getHours() < 10 ? dayStr(now) : (now.getHours() >= 15 ? dayStr(tomorrow) : null);
+        if (target) {
+            for (let i = 0; i < h.time.length; i++) {
+                if (!h.time[i].startsWith(target)) continue;
+                const hr = parseInt(h.time[i].slice(11, 13), 10);
+                if (hr < 4 || hr > 9) continue;
+                const rh = h.relative_humidity_2m[i], tc = h.temperature_2m[i],
+                      td = h.dew_point_2m[i], wsd = h.windspeed_10m[i];
+                if (rh != null && tc != null && td != null && wsd != null
+                    && rh >= 95 && (tc - td) <= 1.0 && wsd < 12) fogHours++;
+            }
+        }
+
+        // Carts on paths: 7-day soil surplus over 10 mm or 24 h rain 15 mm+
+        let carts = false, surplus = null, rain24 = null;
+        try {
+            const csvTxt = await fetch('data/daily_log.csv?_=' + Date.now()).then(r => r.text());
+            const rows = parseCsvText(csvTxt);
+            const head = rows[0], data = rows.slice(-7);
+            const iEt = head.indexOf('et_mm'), iRn = head.indexOf('rain_mm');
+            let et = 0, rn = 0;
+            for (const r of data) { et += parseFloat(r[iEt]) || 0; rn += parseFloat(r[iRn]) || 0; }
+            surplus = rn - et;
+            rain24 = parseFloat(data[data.length - 1][iRn]) || 0;
+            carts = surplus > 10 || rain24 >= 15;
+        } catch {}
+
+        const plural = fogHours === 1 ? '' : 's';
+        el.innerHTML =
+            row('&#9889;', 'Thunderstorm', 'storm forecast within 4 hours', storm, 'storm code in next 4 h')
+          + row('&#10052;&#65039;', 'Frost', 'overnight minimum below 4&deg;C (8 PM - 9 AM)', frost,
+                (minT === Infinity ? '' : 'overnight min ' + minT.toFixed(1) + '&deg;C'))
+          + row('&#127787;&#65039;', 'Fog', 'near-saturated air + light wind, 4-9 AM window', fogHours > 0,
+                fogHours + ' qualifying hour' + plural)
+          + row('&#128663;', 'Carts on paths', '7-day soil surplus over 10 mm or 24 h rain 15 mm+', carts,
+                (surplus != null ? 'surplus ' + surplus.toFixed(1) + ' mm, rain ' + rain24.toFixed(1) + ' mm' : ''));
+    } catch {
+        el.innerHTML = '<span class="sub" style="color:#566573;">Could not evaluate (forecast API unreachable). '
+            + 'Triggers: storm within 4 h; overnight min below 4&deg;C; fog saturation 4-9 AM; wet-course carts rule.</span>';
+    }
 }
 
 // ── Kiosk message manager ─────────────────────────────────────────────────────
