@@ -455,8 +455,7 @@ async function loadHealth() {
         }
         try {
             const csvTxt = await fetch('data/daily_log.csv' + cb).then(r => r.text());
-            const lastLine = csvTxt.trim().split('
-').pop();
+            const lastLine = csvTxt.trim().split(String.fromCharCode(10)).pop();
             const lastDate = lastLine.slice(0, 10);
             rows.push(['Davis daily log (yesterday row)', lastDate + 'T23:59:00+10:00', 36 * 60, 60 * 60]);
         } catch {}
@@ -464,7 +463,7 @@ async function loadHealth() {
             `<div class="hrow"><span><span class="light ${light(ok, warn, iso)}"></span>${n}</span>
              <span class="sub">${ago(iso) || 'no data'}</span></div>`).join('')
             + '<p class="note">FarmBot readings normally lag 4-6 hours behind real time - amber only past 8 h. '
-            + 'Davis rows go amber if the morning report has not written yesterday's row.</p>';
+            + 'Davis rows go amber if the morning report has not written the previous day.</p>';
     } catch { $('health-lights').textContent = 'Could not load data files.'; }
 
     // Last email per type
