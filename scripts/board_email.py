@@ -1507,6 +1507,27 @@ def build_monthly_html(now_syd):
     saving_month  = _month_saving(month_start, month_end)
     saving_season = _month_saving(season_start, month_end)
 
+    # Town-supplied irrigation cost on ceased (zone 5) days - the club only
+    # switches to tank/town water when the lake hits cease-to-pump
+    def _ceased_cost(from_d, to_d):
+        total, days = 0.0, 0
+        zmap = dict()
+        cur = from_d
+        zone = None
+        idx = 0
+        while cur <= to_d:
+            while idx < len(timeline) and timeline[idx][0] <= cur:
+                zone = timeline[idx][1]
+                idx += 1
+            if cur.month in active_m and zone == 5:
+                total += float(irrig_kl.get(str(cur.month), 0)) * cost_per_kl
+                days  += 1
+            cur += timedelta(days=1)
+        return total, days
+
+    ceased_cost_m, ceased_days_m = _ceased_cost(month_start, month_end)
+    ceased_cost_s, ceased_days_s = _ceased_cost(season_start, month_end)
+
     # ── Level 1 capacity comparison ────────────────────────────────────────────
     max_rate_l1 = next((z['max_pump_ml_day'] for z in zone_cfg if z['zone'] == 1), 1.5)
     days_in_active_month = sum(1 for d in
@@ -1703,6 +1724,21 @@ def build_monthly_html(now_syd):
         nm_text = (f'{nm_label} is outside the irrigation season - no town water exposure '
                    f'if pumping ceased.')
         nm_border, nm_bg, nm_col = '#94a3b8', '#f8fafc', '#475569'
+    if ceased_days_s > 0:
+        ceased_html = (
+            f'<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"'
+            f' style="border-collapse:collapse;margin-top:12px;"><tr>'
+            f'<td bgcolor="#fef2f2" style="background-color:#fef2f2;border-left:4px solid #EB1E23;'
+            f'padding:10px 14px;font-family:Arial,sans-serif;font-size:12px;color:#991b1b;'
+            f'border-radius:0 6px 6px 0;"><strong>Town-supplied irrigation while ceased:</strong> '
+            f'{_fmt_dollar(ceased_cost_m)} this month ({ceased_days_m} days) - '
+            f'{_fmt_dollar(ceased_cost_s)} season to date ({ceased_days_s} days). '
+            f'Irrigation runs from tank/town water only while the lake is below the '
+            f'cease-to-pump level.</td></tr></table>'
+        )
+    else:
+        ceased_html = ''
+
     next_month_html = (
         f'<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"'
         f' style="border-collapse:collapse;margin-top:12px;"><tr>'
@@ -1759,6 +1795,7 @@ def build_monthly_html(now_syd):
         @ ${cost_per_kl:.2f}/kL town water</td>
   </tr>
 </table>
+{ceased_html}
 {irrig_note}
 {next_month_html}"""
         + _card_close()
