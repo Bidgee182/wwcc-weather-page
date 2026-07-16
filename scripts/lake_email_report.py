@@ -814,8 +814,9 @@ def send_email(subject, html_content, test_mode=False):
         subject = f'[TEST] {subject}'
         log.info(f'[TEST MODE] Sending only to {to_list[0]}')
     else:
-        to_list = [e.strip() for e in EMAIL_LAKE_TO.split(',') if e.strip()]
-        cc_list = [e.strip() for e in EMAIL_LAKE_CC.split(',') if e.strip()] if EMAIL_LAKE_CC else []
+        from lake_utils import recipients_for
+        to_list = recipients_for('lake_to', EMAIL_LAKE_TO)
+        cc_list = recipients_for('lake_cc', EMAIL_LAKE_CC)
 
     from lake_utils import html_to_text
     mail = Mail(

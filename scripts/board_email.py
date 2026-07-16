@@ -2006,9 +2006,9 @@ def send_email(subject, html_content, test_mode=False):
         subject  = f'[TEST] {subject}'
         log.info(f'TEST MODE - sending only to {to_list[0]}')
     else:
-        to_list  = [e.strip() for e in EMAIL_BOARD_TO.split(',')  if e.strip() and '@' in e]
-        cc_list  = [e.strip() for e in EMAIL_BOARD_CC.split(',')  if e.strip() and '@' in e] if EMAIL_BOARD_CC  else []
-        bcc_list = [e.strip() for e in EMAIL_BOARD_BCC.split(',') if e.strip() and '@' in e] if EMAIL_BOARD_BCC else []
+        to_list  = [e for e in lu.recipients_for('board_to',  EMAIL_BOARD_TO)  if '@' in e]
+        cc_list  = [e for e in lu.recipients_for('board_cc',  EMAIL_BOARD_CC)  if '@' in e]
+        bcc_list = [e for e in lu.recipients_for('board_bcc', EMAIL_BOARD_BCC) if '@' in e]
 
     if not to_list:
         log.error('No To recipients - cannot send')

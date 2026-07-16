@@ -193,7 +193,11 @@ def send_alert(pct, volume_l, state):
 </table></td></tr></table>
 </body></html>"""
 
-    recipients = [r.strip() for r in EMAIL_GK_RECIPIENTS.split(',') if r.strip()]
+    try:
+        from lake_utils import recipients_for
+        recipients = recipients_for('gk', EMAIL_GK_RECIPIENTS)
+    except Exception:
+        recipients = [r.strip() for r in EMAIL_GK_RECIPIENTS.split(',') if r.strip()]
     sg   = SendGridAPIClient(SENDGRID_API_KEY)
     from lake_utils import html_to_text
     mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,

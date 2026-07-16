@@ -34,6 +34,39 @@ def log_email(email_type, subject, recipients, status):
         pass
 
 
+# ── Encrypted email recipients ────────────────────────────────────────────────
+
+def load_recipients():
+    """Decrypt data/email_recipients.enc.json using the RECIPIENTS_KEY env var.
+
+    Returns the streams dict ({'gk': [...], 'lake_to': [...], ...}) or None -
+    callers fall back to the legacy GitHub-secret env vars, so the encrypted
+    file is strictly additive and can never break sending.
+    """
+    import os, base64, hashlib
+    key = os.environ.get('RECIPIENTS_KEY', '')
+    path = Path(__file__).parent.parent / 'data' / 'email_recipients.enc.json'
+    if not key or not path.exists():
+        return None
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        blob = json.loads(path.read_text(encoding='utf-8'))
+        kd = hashlib.pbkdf2_hmac('sha256', key.encode(), b'wwcc-recipients-v1', 100000, 32)
+        pt = AESGCM(kd).decrypt(bytes.fromhex(blob['iv']),
+                                base64.b64decode(blob['ct']), None)
+        return (json.loads(pt.decode('utf-8')) or {}).get('streams') or None
+    except Exception:
+        return None
+
+
+def recipients_for(stream, env_value=''):
+    """Recipient list for a stream: encrypted file first, env-secret fallback."""
+    data = load_recipients()
+    if data and data.get(stream):
+        return [a.strip() for a in data[stream] if a and a.strip()]
+    return [a.strip() for a in (env_value or '').split(',') if a.strip()]
+
+
 # ── Email plain-text part ─────────────────────────────────────────────────────
 
 def html_to_text(html_str):

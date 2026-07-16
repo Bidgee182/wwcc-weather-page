@@ -76,6 +76,7 @@ jobs:
           EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
           EMAIL_LAKE_TO:    ${{ secrets.EMAIL_LAKE_TO }}
           EMAIL_LAKE_CC:    ${{ secrets.EMAIL_LAKE_CC }}
+          RECIPIENTS_KEY:   ${{ secrets.RECIPIENTS_KEY }}
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.report }}" ]; then

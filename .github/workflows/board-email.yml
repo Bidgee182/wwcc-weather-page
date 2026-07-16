@@ -77,6 +77,7 @@ jobs:
           EMAIL_BOARD_TO:   ${{ secrets.EMAIL_BOARD_TO }}
           EMAIL_BOARD_CC:   ${{ secrets.EMAIL_BOARD_CC }}
           EMAIL_BOARD_BCC:  ${{ secrets.EMAIL_BOARD_BCC }}
+          RECIPIENTS_KEY:   ${{ secrets.RECIPIENTS_KEY }}
         run: |
           ARGS=""
           # On the 1st of the month (scheduled) or when manually requesting monthly, add --monthly

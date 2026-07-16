@@ -73,6 +73,7 @@ jobs:
           EMAIL_GK_RECIPIENTS:       ${{ secrets.EMAIL_GK_RECIPIENTS }}
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
           EMAIL_FROM:                ${{ secrets.EMAIL_FROM }}
+          RECIPIENTS_KEY:            ${{ secrets.RECIPIENTS_KEY }}
         run: |
           if [ "${{ github.event.inputs.resend }}" = "true" ]; then
             python scripts/daily_report.py --resend

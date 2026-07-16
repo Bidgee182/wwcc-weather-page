@@ -66,6 +66,7 @@ jobs:
           FARMBOT_TANK_CAPACITY_L: '250000'
           FARMBOT_LAKE_SID:       ${{ secrets.FARMBOT_LAKE_SID }}
           LAKE_AHD_OFFSET:        '189.3746'
+          RECIPIENTS_KEY:         ${{ secrets.RECIPIENTS_KEY }}
         run: |
           FROM="${{ github.event.inputs.backfill_from }}"
           FROM="${FROM:-2025-01-01}"
@@ -87,6 +88,7 @@ jobs:
           EMAIL_FROM:                 ${{ secrets.EMAIL_FROM }}
           EMAIL_GK_RECIPIENTS:        ${{ secrets.EMAIL_GK_RECIPIENTS }}
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}
+          RECIPIENTS_KEY:             ${{ secrets.RECIPIENTS_KEY }}
         run: python scripts/lake_level_alert.py
 
       - name: Commit updated data to repository

@@ -51,13 +51,16 @@ EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 # Comma-separated list of email addresses from secret, e.g.:
 # "greenkeeper@wwcc.com.au,committee@wwcc.com.au"
 # Greenkeeper addresses (daily + weekly + monthly + annual)
-EMAIL_GK_RECIPIENTS = [
-    a.strip() for a in os.environ.get('EMAIL_GK_RECIPIENTS', '').split(',') if a.strip()
-]
+def _recips(stream, env_name):
+    try:
+        from lake_utils import recipients_for
+        return recipients_for(stream, os.environ.get(env_name, ''))
+    except Exception:
+        return [a.strip() for a in os.environ.get(env_name, '').split(',') if a.strip()]
+
+EMAIL_GK_RECIPIENTS = _recips('gk', 'EMAIL_GK_RECIPIENTS')
 # Committee addresses (weekly + monthly + annual only)
-EMAIL_COMMITTEE_RECIPIENTS = [
-    a.strip() for a in os.environ.get('EMAIL_COMMITTEE_RECIPIENTS', '').split(',') if a.strip()
-]
+EMAIL_COMMITTEE_RECIPIENTS = _recips('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
 EMAIL_RECIPIENTS_ALL     = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
 EMAIL_RECIPIENTS_GK_ONLY = EMAIL_GK_RECIPIENTS
 
