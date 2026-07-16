@@ -1228,7 +1228,7 @@
             <div class="tank-stat-row">
                 <div class="irr-metric"><div class="lbl">Min AHD (period)</div><div class="val" id="lake-hist-min">--</div></div>
                 <div class="irr-metric"><div class="lbl">Max AHD (period)</div><div class="val" id="lake-hist-max">--</div></div>
-                <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="lake-hist-change">--</div></div>
+                <div class="irr-metric"><div class="lbl">Change (start &rarr; end)</div><div class="val" id="lake-hist-change">--</div><div style="font-size:0.68em;color:#566573;margin-top:2px" id="lake-hist-change-sub">--</div></div>
             </div>
         </div>
 
@@ -7720,13 +7720,16 @@ function _renderLakeGraph(samples) {
     const minEl = document.getElementById('lake-hist-min'); if (minEl) minEl.textContent = realVals.length ? minV.toFixed(3) + ' m' : '--';
     const maxEl = document.getElementById('lake-hist-max'); if (maxEl) maxEl.textContent = realVals.length ? maxV.toFixed(3) + ' m' : '--';
     const chEl  = document.getElementById('lake-hist-change');
+    const chSub = document.getElementById('lake-hist-change-sub');
     if (chEl) {
         if (change !== null) {
             chEl.textContent = (change >= 0 ? '+' : '') + (change * 100).toFixed(1) + ' cm';
             chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c';
+            if (chSub) chSub.textContent = firstV.toFixed(3) + ' m → ' + lastV.toFixed(3) + ' m';
         } else {
             chEl.textContent = '--';
             chEl.style.color = '';
+            if (chSub) chSub.textContent = '--';
         }
     }
 
