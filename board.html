@@ -491,6 +491,7 @@
     <div class="two-col">
         <div class="card">
             <h2>Town Water Purchases - Tank Refills</h2>
+            <div class="data-notice" id="tk-src-badge" style="margin-bottom:12px;">Loading fill source...</div>
             <div class="metric-grid metric-grid-3">
                 <div class="metric">
                     <div class="lbl">This Month</div>
@@ -506,6 +507,24 @@
                     <div class="lbl">FY To Date</div>
                     <div class="val" id="tk-buy-fytd">--</div>
                     <div class="sub" id="tk-buy-fytd-sub">since 1 Jul</div>
+                </div>
+            </div>
+            <div class="sec-lbl">Rainwater captured (free inflow)</div>
+            <div class="metric-grid metric-grid-3" style="margin-bottom:0;">
+                <div class="metric">
+                    <div class="lbl">This Month</div>
+                    <div class="val col-green" id="tk-rain-month">--</div>
+                    <div class="sub" id="tk-rain-month-sub">--</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Last Month</div>
+                    <div class="val" id="tk-rain-last">--</div>
+                    <div class="sub" id="tk-rain-last-sub">--</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Since 20 May</div>
+                    <div class="val col-green" id="tk-rain-total">--</div>
+                    <div class="sub" id="tk-rain-total-sub">town water avoided</div>
                 </div>
             </div>
             <p style="font-size:0.68em;color:#566573;margin-top:10px;" id="tk-buy-note">
@@ -547,12 +566,13 @@
             <table class="data-table">
                 <thead><tr>
                     <th>Date</th>
+                    <th>Source</th>
                     <th>Level Before &rarr; After</th>
                     <th style="text-align:right;">Volume Added</th>
                     <th style="text-align:right;">Est. Cost</th>
                 </tr></thead>
                 <tbody id="tk-refill-body">
-                    <tr><td colspan="4" style="color:#566573;">Loading...</td></tr>
+                    <tr><td colspan="5" style="color:#566573;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -593,6 +613,38 @@
             Saving updates data/lake_config.json in the repository - every savings and cost figure
             across the dashboards and emails recalculates from the new rate. Changes are recorded in
             data/water_rate_log.json. Allow a minute for the site to redeploy after saving.
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>Tank Fill Source</h2>
+        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:0.72em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Currently</div>
+                <div style="font-size:1.3em;font-weight:bold;" id="ts-current">--</div>
+            </div>
+            <label style="font-size:0.78em;color:#7f8c8d;">Effective from<br>
+                <input type="date" id="ts-from"
+                    style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:6px 10px;margin-top:3px;color-scheme:dark;">
+            </label>
+            <label style="font-size:0.78em;color:#7f8c8d;">Changed by<br>
+                <input type="text" id="ts-by" placeholder="name"
+                    style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:6px 10px;width:130px;margin-top:3px;">
+            </label>
+            <button class="lk-apply-btn" id="ts-save" onclick="saveTankSource()">Switch Source</button>
+        </div>
+        <div id="ts-status" style="font-size:0.78em;color:#7f8c8d;margin-top:8px;"></div>
+        <div class="sec-lbl" style="margin-top:14px;">Source change history</div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Effective From</th><th>Source</th><th>Changed By</th><th>Note</th></tr></thead>
+                <tbody id="ts-log-body"><tr><td colspan="4" style="color:#566573;">Loading...</td></tr></tbody>
+            </table>
+        </div>
+        <p style="font-size:0.68em;color:#566573;margin-top:8px;">
+            Costs are only attributed to inflows during mains periods. Rain-fed inflows are counted
+            as town water avoided. Switching appends a dated period to data/tank_fill_source.json -
+            history is never rewritten.
         </p>
     </div>
 
@@ -1251,6 +1303,73 @@ function renderLakeChart(labels, values) {
 
 
 
+
+// ── Tank fill source (mains vs rainwater) ─────────────────────────────────────
+// Period log: costs only attach to inflows on days when mains was the source.
+let _tkSources = [{ from: '2026-02-10', source: 'mains' }];  // replaced by fetch
+
+function tkSourceOn(dateStr) {
+    let s = 'mains';
+    for (const e of _tkSources) if (e.from <= dateStr) s = e.source;
+    return s;
+}
+function tkCurrentSource() {
+    return tkSourceOn(new Date().toISOString().slice(0, 10));
+}
+function _tsStatus(msg, color) {
+    const el = $('ts-status'); el.textContent = msg; el.style.color = color || '#7f8c8d';
+}
+
+function renderTankSourceCard() {
+    const cur = tkCurrentSource();
+    const curEl = $('ts-current');
+    curEl.innerHTML = cur === 'mains' ? 'Mains (town water)' : '\u{1F327}\uFE0F Rainwater';
+    curEl.style.color = cur === 'mains' ? '#5dade2' : '#27ae60';
+    $('ts-save').textContent = cur === 'mains' ? 'Switch to Rainwater' : 'Switch to Mains';
+    if (!$('ts-from').value) $('ts-from').value = new Date().toISOString().slice(0, 10);
+    const badge = $('tk-src-badge');
+    if (badge) badge.innerHTML = cur === 'mains'
+        ? '<strong>Tank currently: Mains-fed.</strong> Inflows below are purchased town water.'
+        : '<strong>Tank currently: \u{1F327}\uFE0F Rainwater-fed</strong> (town supply off since 20 May 2026). '
+          + 'Inflows during rain periods are free - counted below as town water avoided.';
+    const body = $('ts-log-body');
+    body.innerHTML = [..._tkSources].reverse().map(e => {
+        const dt = new Date(e.from + 'T12:00:00').toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+        const pill = e.source === 'mains'
+            ? '<span class="zpill" style="background:#1a3a5c;color:#5dade2;">Mains</span>'
+            : '<span class="zpill" style="background:#12401f;color:#2ecc71;">Rainwater</span>';
+        return '<tr><td>' + dt + '</td><td>' + pill + '</td><td>' + (e.by || '-') + '</td><td style="color:#7f8c8d;">' + (e.note || '') + '</td></tr>';
+    }).join('');
+}
+
+async function saveTankSource() {
+    const from = $('ts-from').value;
+    if (!from || from < '2026-02-10') { _tsStatus('Pick a valid effective date (2026-02-10 or later).', '#e74c3c'); return; }
+    const pat = localStorage.getItem('wx_github_pat') || '';
+    if (!pat) { $('wr-token-row').style.display = 'block';
+                _tsStatus('GitHub token needed - enter it in the Water Rate card below.', '#e67e22'); return; }
+    const target = tkCurrentSource() === 'mains' ? 'rain' : 'mains';
+    const by = ($('ts-by').value || '').trim() || 'unspecified';
+    const btn = $('ts-save'); btn.disabled = true;
+    _tsStatus('Saving...', '#5dade2');
+    try {
+        const file = await _ghGet('data/tank_fill_source.json', pat);
+        const log = Array.isArray(file.json) ? file.json : [];
+        log.push({ from, source: target, by, changed_at: new Date().toISOString() });
+        log.sort((a, b) => a.from < b.from ? -1 : 1);
+        await _ghPut('data/tank_fill_source.json', log,
+            `Tank fill source: ${target} from ${from} (by ${by})`, file.sha, pat);
+        _tkSources = log;
+        renderTankSourceCard();
+        _tsStatus('Saved - tank is ' + (target === 'mains' ? 'mains-fed' : 'rainwater-fed') + ' from ' + from
+            + '. Figures update after the site redeploys (~1 min).', '#27ae60');
+        setTimeout(loadAll, 90000);
+    } catch (e) {
+        _tsStatus('Failed: ' + e.message, '#e74c3c');
+    }
+    btn.disabled = false;
+}
+
 // ── Water rate editor (writes lake_config.json + water_rate_log.json) ────────
 const GITHUB_REPO = 'Bidgee182/wwcc-weather-page';
 
@@ -1528,7 +1647,9 @@ function renderTankTab(tankLatest, costPerKl) {
             const spaceL = Math.max(0, TK_CAP_L - volL);
             $('tk-space').textContent = (spaceL / 1000).toFixed(1) + ' kL';
             $('tk-space-cost').textContent = '$' + (spaceL / 1000 * costPerKl).toFixed(2);
-            $('tk-space-cost-sub').textContent = 'at $' + costPerKl.toFixed(2) + '/kL';
+            $('tk-space-cost-sub').textContent = tkCurrentSource() === 'rain'
+                ? 'if refilled from mains at $' + costPerKl.toFixed(2) + '/kL'
+                : 'at $' + costPerKl.toFixed(2) + '/kL';
         }
     }
     if (!_tkReadings.length) return;
@@ -1545,15 +1666,30 @@ function renderTankTab(tankLatest, costPerKl) {
     const fmtBuy = (L) => '$' + (L / 1000 * costPerKl).toFixed(L / 1000 * costPerKl >= 100 ? 0 : 2);
     const fmtKl = (L) => (L / 1000).toFixed(1) + ' kL';
 
-    const buyM  = sumL(daily.filter(d => d.date.slice(0, 7) === thisMonth), 'inflowL');
-    const buyLM = sumL(daily.filter(d => d.date.slice(0, 7) === lastMonth), 'inflowL');
-    const buyFY = sumL(daily.filter(d => d.date >= fyStart), 'inflowL');
+    // Attribute each day's inflow to the fill source active that day
+    const mains = daily.filter(d => tkSourceOn(d.date) === 'mains');
+    const rainy = daily.filter(d => tkSourceOn(d.date) === 'rain');
+    const buyM  = sumL(mains.filter(d => d.date.slice(0, 7) === thisMonth), 'inflowL');
+    const buyLM = sumL(mains.filter(d => d.date.slice(0, 7) === lastMonth), 'inflowL');
+    const buyFY = sumL(mains.filter(d => d.date >= fyStart), 'inflowL');
     $('tk-buy-month').textContent = fmtBuy(buyM);
-    $('tk-buy-month-sub').textContent = fmtKl(buyM) + ' inflow';
+    $('tk-buy-month-sub').textContent = fmtKl(buyM) + ' mains inflow';
     $('tk-buy-last').textContent = fmtBuy(buyLM);
-    $('tk-buy-last-sub').textContent = fmtKl(buyLM) + ' inflow';
+    $('tk-buy-last-sub').textContent = fmtKl(buyLM) + ' mains inflow';
     $('tk-buy-fytd').textContent = fmtBuy(buyFY);
     $('tk-buy-fytd-sub').textContent = fmtKl(buyFY) + ' since 1 Jul';
+
+    // Rainwater captured = free inflow = town water avoided
+    const rainM  = sumL(rainy.filter(d => d.date.slice(0, 7) === thisMonth), 'inflowL');
+    const rainLM = sumL(rainy.filter(d => d.date.slice(0, 7) === lastMonth), 'inflowL');
+    const rainAll = sumL(rainy, 'inflowL');
+    $('tk-rain-month').textContent = fmtKl(rainM);
+    $('tk-rain-month-sub').textContent = fmtBuy(rainM) + ' avoided';
+    $('tk-rain-last').textContent = fmtKl(rainLM);
+    $('tk-rain-last-sub').textContent = fmtBuy(rainLM) + ' avoided';
+    $('tk-rain-total').textContent = fmtKl(rainAll);
+    $('tk-rain-total-sub').textContent = fmtBuy(rainAll) + ' town water avoided';
+    renderTankSourceCard();
     $('tk-buy-note').textContent = 'Estimated from metered tank inflows x $' + costPerKl.toFixed(2)
         + '/kL town water volume charge. No fixed service fees included. Full tank = 250 kL = $'
         + (250 * costPerKl).toFixed(2) + '. Tank readings begin 10 Feb 2026.';
@@ -1577,15 +1713,23 @@ function renderTankTab(tankLatest, costPerKl) {
     const refills = daily.filter(d => d.inflowL > TK_CAP_L * 0.02).slice(-8).reverse();
     const body = $('tk-refill-body');
     if (!refills.length) {
-        body.innerHTML = '<tr><td colspan="4" style="color:#566573;">No refills recorded in the tracked period.</td></tr>';
+        body.innerHTML = '<tr><td colspan="5" style="color:#566573;">No refills recorded in the tracked period.</td></tr>';
     } else {
         body.innerHTML = refills.map(r => {
             const dt = new Date(r.date + 'T12:00:00').toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+            const isMains = tkSourceOn(r.date) === 'mains';
+            const srcPill = isMains
+                ? '<span class="zpill" style="background:#1a3a5c;color:#5dade2;">Mains</span>'
+                : '<span class="zpill" style="background:#12401f;color:#2ecc71;">Rainwater</span>';
+            const cost = isMains
+                ? '<span style="color:#e67e22;">$' + (r.inflowL / 1000 * costPerKl).toFixed(2) + '</span>'
+                : '<span style="color:#27ae60;">free</span>';
             return '<tr>'
                 + '<td>' + dt + '</td>'
+                + '<td>' + srcPill + '</td>'
                 + '<td>' + r.startPct.toFixed(0) + '% \u2192 ' + r.endPct.toFixed(0) + '%</td>'
                 + '<td style="text-align:right;">' + Math.round(r.inflowL).toLocaleString('en-AU') + ' L</td>'
-                + '<td style="text-align:right;color:#27ae60;">$' + (r.inflowL / 1000 * costPerKl).toFixed(2) + '</td>'
+                + '<td style="text-align:right;">' + cost + '</td>'
                 + '</tr>';
         }).join('');
     }
@@ -1612,7 +1756,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -1621,6 +1765,7 @@ async function loadAll() {
             fetch('data/daily_log.csv'                + cb),
             fetch('data/farmbot_lake_readings.json'   + cb),
             fetch('data/farmbot_readings.json'        + cb),
+            fetch('data/tank_fill_source.json'        + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -1634,6 +1779,7 @@ async function loadAll() {
         const wxText        = wxRes.ok      ? await wxRes.text()    : '';
         const lakeReadings  = lakeReadRes.ok ? await lakeReadRes.json() : [];
         _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
+        if (srcRes.ok) { const s = await srcRes.json(); if (Array.isArray(s) && s.length) _tkSources = s.sort((a, b) => a.from < b.from ? -1 : 1); }
 
         // ── Parse data ────────────────────────────────────────────────────────
         const histRows = histText ? parseCsv(histText) : [];
