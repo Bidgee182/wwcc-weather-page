@@ -68,6 +68,15 @@
         .quicknav { font-size:0.78em; margin:0 0 12px; color:#566573; }
         .quicknav a { color:#5dade2; text-decoration:none; margin-right:14px; }
         .galert { display:none; background:#40120f; border:1px solid #e74c3c; border-left:5px solid #e74c3c; color:#f5b7b1; border-radius:8px; padding:10px 14px; font-size:0.85em; margin-bottom:14px; }
+        .gwarn  { display:none; background:#332900; border:1px solid #d4ac0d; border-left:5px solid #d4ac0d; color:#f9e79f; border-radius:8px; padding:10px 14px; font-size:0.85em; margin-bottom:14px; }
+        @media print {
+            body { background:#fff !important; color:#111 !important; padding:0; }
+            .tab-bar, .quicknav, button, input, select, #session-box, .galert, .gwarn, .status { display:none !important; }
+            .card, .syscard { background:#fff !important; border:1px solid #cbd5e1 !important; page-break-inside:avoid; }
+            .card h2, .syscard h3, td, th, .hrow, .sub { color:#111 !important; }
+            .hero { border:1px solid #cbd5e1 !important; background:#fff !important; color:#111 !important; animation:none !important; }
+            .light, .dot, .pill { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        }
     </style>
 </head>
 <body>
@@ -94,6 +103,7 @@
     <a href="board.html">Board</a><a href="lake-albert.html">Lake Albert</a><a href="tv2.html">TV2</a>
 </div>
 <div class="galert" id="global-alert"></div>
+<div class="gwarn" id="global-warn"></div>
 
 <!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
 <div class="card" id="login-card" style="max-width:460px;margin:40px auto;">
@@ -159,6 +169,20 @@
         </table></div>
         <p class="note">Click a row to open that run's logs on GitHub.</p>
     </div>
+    <div class="card">
+        <h2>Manual Triggers</h2>
+        <div class="flexrow">
+            <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
+            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend')">Resend Daily Email</button>
+            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to me)</button>
+            <button onclick="wfTrigger('board-email.yml', { dry_run: 'true' }, 'board email dry run')">Board Email Dry Run</button>
+            <button onclick="wfTrigger('lake-report.yml', { dry_run: 'true' }, 'lake report dry run')">Lake Report Dry Run</button>
+        </div>
+        <div class="status" id="wf-trigger-status"></div>
+        <p class="note">Requires the device token to have Actions: Read and write permission on the
+        repository (edit the token on GitHub to add it). Runs appear in the table above within a
+        minute; dry runs write previews to data/reports/ without sending anything.</p>
+    </div>
 </div>
 
 <!-- LOGS -->
@@ -178,6 +202,19 @@
             <button class="ghost" onclick="downloadLog()">Download</button>
         </div>
         <div class="table-wrap" id="log-table">Loading...</div>
+        <div style="margin-top:10px;"><button class="ghost" onclick="window.print()">Print view</button></div>
+    </div>
+    <div class="grid2">
+        <div class="card">
+            <h2>Generated Email Previews</h2>
+            <div id="prev-list">Loading...</div>
+            <p class="note">HTML files committed to data/reports/ by the daily run and dry runs -
+            open one to see exactly how an email rendered.</p>
+        </div>
+        <div class="card">
+            <h2>Email Sends by Month</h2>
+            <div class="table-wrap" id="email-stats">Loading...</div>
+        </div>
     </div>
 </div>
 
@@ -226,6 +263,23 @@
         evaluated from the same live forecast the pages use.</p>
         <p class="note">Changes reach the TVs within ~30 seconds and are recorded in the Kiosk log.
         The greenkeeper page's message panel edits the same list.</p>
+    </div>
+
+    <div class="card">
+        <h2>Lake Pumping Record (manual entries)</h2>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Date</th><th style="text-align:right;">ML</th><th>Note</th></tr></thead>
+            <tbody id="pump-list"><tr><td colspan="3">Loading...</td></tr></tbody>
+        </table></div>
+        <div class="flexrow" style="margin-top:12px;">
+            <label>Date<br><input type="date" id="pump-date"></label>
+            <label>ML pumped<br><input type="number" id="pump-ml" step="0.1" min="0" style="width:100px;"></label>
+            <label style="flex:1;min-width:160px;">Note<br><input type="text" id="pump-note" maxlength="120" placeholder="e.g. Toro report May 2026"></label>
+            <button onclick="pumpAdd()">Add Entry</button>
+        </div>
+        <div class="status" id="pump-status"></div>
+        <p class="note">Writes data/pumping_usage.json - used by the lake email reports. This is where
+        Toro monthly figures get entered until the flow meter arrives.</p>
     </div>
 </div>
 
@@ -281,8 +335,19 @@
             <button onclick="admAdd()">Add Admin</button>
         </div>
         <div class="status" id="adm-status"></div>
-        <p class="note">New admins set their own PIN the first time they log in. Removals and additions
-        are recorded in the Admin Actions log. You cannot remove your own account.</p>
+        <p class="note">New admins set their own PIN the first time they log in. Reset returns an
+        account to "pending first login" so they choose a new PIN. Removals, additions and resets are
+        recorded in the Admin Actions log. You cannot remove your own account.</p>
+    </div>
+    <div class="card">
+        <h2>Change My PIN</h2>
+        <div class="flexrow">
+            <label>Current PIN<br><input type="password" id="cp-old" maxlength="6" inputmode="numeric" style="width:100px;"></label>
+            <label>New PIN<br><input type="password" id="cp-new1" maxlength="6" inputmode="numeric" style="width:100px;"></label>
+            <label>Confirm<br><input type="password" id="cp-new2" maxlength="6" inputmode="numeric" style="width:100px;"></label>
+            <button onclick="chgPin()">Change PIN</button>
+        </div>
+        <div class="status" id="cp-status"></div>
     </div>
 </div>
 
@@ -432,6 +497,7 @@ async function login() {
             SES.token = t;
             const encd = await aesEnc(await aesKey(email + ':' + pin, u.salt + ':tok'), SES.token);
             localStorage.setItem(tokStoreKey(email), JSON.stringify(encd));
+            localStorage.setItem(tokStoreKey(email) + '_date', new Date().toISOString());
         }
     }
     enterApp();
@@ -467,6 +533,7 @@ async function completeSetup() {
     SES.email = email; SES.pin = p1;
     const encd = await aesEnc(await aesKey(email + ':' + p1, u.salt + ':tok'), tok);
     localStorage.setItem(tokStoreKey(email), JSON.stringify(encd));
+    localStorage.setItem(tokStoreKey(email) + '_date', new Date().toISOString());
     logAction('pin_set', 'PIN created and token stored on device');
     enterApp();
 }
@@ -476,6 +543,19 @@ function enterApp() {
     $('main').style.display = 'block';
     $('session-box').style.display = 'block';
     $('session-email').textContent = SES.email + (SES.token ? '' : ' (read-only - no token)');
+    // Fine-grained tokens live at most a year - warn as expiry approaches
+    try {
+        const saved = localStorage.getItem(tokStoreKey(SES.email) + '_date');
+        if (saved) {
+            const days = (Date.now() - new Date(saved).getTime()) / 86400000;
+            if (days > 335) {
+                const w = $('global-warn');
+                w.style.display = 'block';
+                w.textContent = 'The GitHub token on this device was saved ' + Math.round(days)
+                    + ' days ago - fine-grained tokens expire at 12 months. Generate a fresh one soon.';
+            }
+        }
+    } catch {}
     loadHealth(); loadAllLogs(); loadControls(); admRender();
 }
 function logout() { location.reload(); }
@@ -568,6 +648,26 @@ async function loadHealth() {
                 + '<canvas class="spark" id="spark-lake"></canvas><div class="sparklbl">Lake AHD - last 24 h</div>',
         });
     } catch { cards.push({ title: 'FarmBot', state: 'bad', html: 'Could not load data files.' }); issues.push('FarmBot data unreadable'); }
+
+    // ── Course water snapshot (lake zone + tank) ──
+    try {
+        const zone = await fetch('data/lake_pump_zone.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null);
+        const parts = [], cls = [];
+        if (lake && lake.lake_ahd != null) {
+            const zn = zone && zone.zone ? zone.zone : null;
+            const zc = zn == null ? 'lgrey' : zn <= 2 ? 'lg' : zn === 3 ? 'ly' : 'lr';
+            cls.push(zc === 'lgrey' ? 'lg' : zc);
+            parts.push(rowHtml('Lake level', zc,
+                lake.lake_ahd.toFixed(3) + ' m AHD' + (zn ? ' - Level ' + zn + (zone.rate ? ' (' + zone.rate + ')' : '') : '')));
+        }
+        if (tank && tank.tank_pct != null) {
+            const tc = tank.tank_pct > 50 ? 'lg' : tank.tank_pct > 20 ? 'ly' : 'lr';
+            cls.push(tc);
+            parts.push(rowHtml('Tank level', tc,
+                tank.tank_pct.toFixed(1) + '% (' + ((tank.tank_volume_l || 0) / 1000).toFixed(0) + ' kL)'));
+        }
+        if (parts.length) cards.push({ title: 'Course Water', state: worst(cls), html: parts.join('') });
+    } catch {}
 
     // ── Davis card ──
     try {
@@ -747,6 +847,8 @@ async function loadAllLogs() {
     _logs.kiosk = await get('data/kiosk_message_log.json', 'json');
     _logs.admin = await get('data/admin_actions_log.json', 'json');
     renderCurrentLog();
+    loadPreviews();
+    loadEmailStats();
 }
 function showLog(l) {
     _curLog = l;
@@ -781,6 +883,7 @@ async function loadControls() {
           renderSrc(); } catch {}
     kmRender();
     loadAutoMessages();
+    loadPumping();
 }
 
 // Automatic ticker messages: evaluate current status with the same triggers
@@ -991,7 +1094,9 @@ async function admRender() {
         <tr><td>${u.email}</td>
             <td>${u.pin_hash ? '<span class="pill ok">yes</span>' : '<span class="pill fail">pending first login</span>'}</td>
             <td class="sub">${(u.added_at || '').slice(0, 10)} ${u.added_by ? 'by ' + u.added_by : ''}</td>
-            <td>${u.email.toLowerCase() === (SES.email || '') ? '' : `<button class="danger" onclick="admRemove('${u.email}')" style="padding:3px 10px;font-size:0.8em;">Remove</button>`}</td>
+            <td>${u.email.toLowerCase() === (SES.email || '') ? '' :
+                `<button class="ghost" onclick="admResetPin('${u.email}')" style="padding:3px 10px;font-size:0.8em;margin-right:6px;">Reset PIN</button>`
+                + `<button class="danger" onclick="admRemove('${u.email}')" style="padding:3px 10px;font-size:0.8em;">Remove</button>`}</td>
         </tr>`).join('');
 }
 async function admAdd() {
@@ -1019,6 +1124,142 @@ async function admRemove(email) {
         logAction('admin_remove', email);
         admRender();
     } catch (e) { $('adm-status').textContent = 'Failed: ' + e.message; }
+}
+
+// ── PIN management ────────────────────────────────────────────────────────────
+async function chgPin() {
+    const oldP = $('cp-old').value.trim(), n1 = $('cp-new1').value.trim(), n2 = $('cp-new2').value.trim();
+    const st = m => $('cp-status').textContent = m;
+    if (!/^\d{6}$/.test(n1)) { st('New PIN must be 6 digits.'); return; }
+    if (n1 !== n2) { st('New PINs do not match.'); return; }
+    if (!SES.token) { st('No token on this device.'); return; }
+    try {
+        const f = await ghGet('data/admin_users.json');
+        const arr = JSON.parse(f.text);
+        const u = arr.find(x => x.email.toLowerCase() === SES.email);
+        if (!u) { st('Account not found.'); return; }
+        if (u.pin_hash !== await pinHash(SES.email, oldP, u.salt)) { st('Current PIN is incorrect.'); return; }
+        u.pin_hash = await pinHash(SES.email, n1, u.salt);
+        await ghPut('data/admin_users.json', JSON.stringify(arr, null, 2), 'PIN change: ' + SES.email, f.sha);
+        // Re-encrypt the device token under the new PIN
+        const encd = await aesEnc(await aesKey(SES.email + ':' + n1, u.salt + ':tok'), SES.token);
+        localStorage.setItem(tokStoreKey(SES.email), JSON.stringify(encd));
+        SES.pin = n1;
+        logAction('pin_change', 'own PIN changed');
+        st('PIN changed.');
+        $('cp-old').value = $('cp-new1').value = $('cp-new2').value = '';
+    } catch (e) { st('Failed: ' + e.message); }
+}
+async function admResetPin(email) {
+    if (!confirm('Reset the PIN for ' + email + '? They will set a new one at their next login.')) return;
+    try {
+        const f = await ghGet('data/admin_users.json');
+        const arr = JSON.parse(f.text);
+        const u = arr.find(x => x.email.toLowerCase() === email.toLowerCase());
+        if (u) u.pin_hash = null;
+        await ghPut('data/admin_users.json', JSON.stringify(arr, null, 2), 'PIN reset: ' + email + ' (by ' + SES.email + ')', f.sha);
+        logAction('pin_reset', email);
+        admRender();
+    } catch (e) { $('adm-status').textContent = 'Failed: ' + e.message; }
+}
+
+// ── Manual workflow triggers ──────────────────────────────────────────────────
+async function wfTrigger(file, inputs, label) {
+    const st = m => $('wf-trigger-status').textContent = m;
+    if (!SES.token) { st('No token on this device.'); return; }
+    st('Triggering ' + label + '...');
+    try {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${file}/dispatches`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + SES.token, 'Content-Type': 'application/json',
+                       Accept: 'application/vnd.github+json' },
+            body: JSON.stringify({ ref: 'main', inputs }),
+        });
+        if (r.status === 204) {
+            st('Triggered ' + label + ' - it will appear in the runs table within a minute.');
+            logAction('workflow_trigger', label);
+            setTimeout(() => { _wfPromise = null; renderWorkflows(); }, 60000);
+        } else if (r.status === 403 || r.status === 404) {
+            st('Not permitted: the token needs "Actions: Read and write" on the repository. Edit the token on GitHub and add it.');
+        } else {
+            const e = await r.json().catch(() => ({}));
+            st('Failed (' + r.status + '): ' + (e.message || ''));
+        }
+    } catch (e) { st('Failed: ' + e.message); }
+}
+
+// ── Email preview browser + send stats ────────────────────────────────────────
+async function loadPreviews() {
+    const el = $('prev-list');
+    try {
+        const now = new Date(), months = [];
+        for (let i = 0; i < 2; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            months.push(d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0'));
+        }
+        let files = [];
+        for (const m of months) {
+            const r = await fetch(`https://api.github.com/repos/${REPO}/contents/data/reports/${m}`);
+            if (r.ok) {
+                const list = await r.json();
+                files = files.concat(list.filter(f => f.name.endsWith('.html'))
+                    .map(f => ({ name: f.name, path: 'data/reports/' + m + '/' + f.name })));
+            }
+        }
+        files.sort((a, b) => b.name.localeCompare(a.name));
+        el.innerHTML = files.slice(0, 12).map(f =>
+            `<div class="hrow"><a href="${f.path}" target="_blank" style="color:#5dade2;">${f.name}</a></div>`).join('')
+            || '<span class="sub" style="color:#566573;">No previews found.</span>';
+    } catch { el.textContent = 'Could not list previews.'; }
+}
+function loadEmailStats() {
+    const el = $('email-stats');
+    const d = _logs.email;
+    if (!d || !d.rows || !d.rows.length) { el.innerHTML = '<span class="sub" style="color:#566573;">No sends logged yet.</span>'; return; }
+    const byMonth = {};
+    for (const r of d.rows) {
+        if (r.length < 6) continue;
+        const m = String(r[0]).slice(0, 7), t = r[1];
+        if (!byMonth[m]) byMonth[m] = {};
+        byMonth[m][t] = (byMonth[m][t] || 0) + 1;
+    }
+    const SHORT = { gk_report: 'GK', lake_report: 'Lake', board_report: 'Board', lake_alert: 'Lake alerts', tank_alert: 'Tank alerts' };
+    const types = Object.keys(EMAIL_NAMES);
+    const months = Object.keys(byMonth).sort().reverse().slice(0, 6);
+    el.innerHTML = '<table><thead><tr><th>Month</th>' + types.map(t => `<th>${SHORT[t]}</th>`).join('')
+        + '</tr></thead><tbody>'
+        + months.map(m => '<tr><td>' + m + '</td>' + types.map(t => `<td>${byMonth[m][t] || 0}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
+}
+
+// ── Pumping record (manual Toro/meter entries) ────────────────────────────────
+async function loadPumping() {
+    try {
+        const arr = await fetch('data/pumping_usage.json?_=' + Date.now()).then(r => r.ok ? r.json() : []);
+        const rows = [...(arr || [])].sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 8);
+        $('pump-list').innerHTML = rows.length
+            ? rows.map(p => `<tr><td>${p.date}</td><td style="text-align:right;">${(p.ml ?? 0).toFixed ? p.ml.toFixed(1) : p.ml}</td><td class="sub">${String(p.note || '').replace(/</g, '&lt;')}</td></tr>`).join('')
+            : '<tr><td colspan="3" class="sub">No entries yet.</td></tr>';
+    } catch { $('pump-list').innerHTML = '<tr><td colspan="3">Could not load.</td></tr>'; }
+}
+async function pumpAdd() {
+    const date = $('pump-date').value, ml = parseFloat($('pump-ml').value), note = $('pump-note').value.trim();
+    const st = m => $('pump-status').textContent = m;
+    if (!date || isNaN(ml) || ml < 0) { st('Enter a date and a non-negative ML figure.'); return; }
+    if (!SES.token) { st('No token on this device.'); return; }
+    st('Saving...');
+    try {
+        const f = await ghGet('data/pumping_usage.json');
+        let arr = []; try { arr = JSON.parse(f.text) || []; } catch {}
+        arr.push({ date, ml, note: note || ('entered by ' + SES.email) });
+        arr.sort((a, b) => a.date < b.date ? -1 : 1);
+        await ghPut('data/pumping_usage.json', JSON.stringify(arr, null, 2),
+            `Pumping entry ${date}: ${ml} ML (by ${SES.email})`, f.sha);
+        logAction('pumping_entry', date + ': ' + ml + ' ML');
+        st('Saved.');
+        $('pump-ml').value = ''; $('pump-note').value = '';
+        loadPumping();
+    } catch (e) { st('Failed: ' + e.message); }
 }
 
 // ── Recipients (encrypted) ────────────────────────────────────────────────────
