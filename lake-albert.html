@@ -886,7 +886,24 @@ let _rainMonthMm  = null;
 let _rainYearMm   = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function ahdToML(ahd)  { return ahd != null ? Math.max(0, LAKE_SURFACE_M2*(ahd-LAKE_BOTTOM_AHD)/1000) : null; }
+// Volume via the linear area model (calibration points MUST MATCH
+// data/lake_config.json lake_geometry) - keeps this page's ML figures in
+// agreement with the emails and the board dashboard.
+function lakeAreaM2(ahd) {
+    const calAhd = 190.047, calArea = 1105748.28, fullAhd = 191.551, fullArea = 1202045.97;
+    const slope = (fullArea - calArea) / (fullAhd - calAhd);
+    return Math.max(0, calArea + slope * (ahd - calAhd));
+}
+function ahdToML(ahd) {
+    if (ahd == null) return null;
+    if (ahd <= LAKE_BOTTOM_AHD) return 0;
+    const steps = 200, dh = (ahd - LAKE_BOTTOM_AHD) / steps;
+    let total = 0;
+    for (let i = 0; i < steps; i++) {
+        total += (lakeAreaM2(LAKE_BOTTOM_AHD + i * dh) + lakeAreaM2(LAKE_BOTTOM_AHD + (i + 1) * dh)) / 2 * dh;
+    }
+    return total / 1000;
+}
 
 // ── 7-day depth sparkline (Current Water Level card) ─────────────────────────
 let _sparkChart = null;
