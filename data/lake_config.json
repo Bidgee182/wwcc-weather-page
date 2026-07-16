@@ -1,56 +1,104 @@
 {
-  "_note": "Lake Albert water resource configuration. Edit values here — all board email calculations update automatically.",
-
+  "_note": "Lake Albert water resource configuration. Edit values here \u2014 all board email calculations update automatically.",
   "lake_geometry": {
     "_note": "Linear area model fitted between calibration_ahd and full_supply_ahd. Change calibration_area_m2 if a new survey is done.",
-    "physical_bottom_ahd":  188.1,
-    "sensor_zero_ahd":      189.3746,
-    "full_supply_ahd":      191.551,
-    "full_supply_ml":       4148.3,
-    "full_area_m2":         1202045.97,
-    "calibration_ahd":      190.047,
-    "calibration_area_m2":  1105748.28
+    "physical_bottom_ahd": 188.1,
+    "sensor_zero_ahd": 189.3746,
+    "full_supply_ahd": 191.551,
+    "full_supply_ml": 4148.3,
+    "full_area_m2": 1202045.97,
+    "calibration_ahd": 190.047,
+    "calibration_area_m2": 1105748.28
   },
-
   "zone_thresholds": [
-    { "zone": 1, "min_ahd": 190.250, "name": "Normal Operations",           "max_pump_ml_day": 1.50, "color_bg": "#00762A", "color_text": "#ffffff" },
-    { "zone": 2, "min_ahd": 190.050, "name": "Increased Monitoring",        "max_pump_ml_day": 1.00, "color_bg": "#8AC63F", "color_text": "#111111" },
-    { "zone": 3, "min_ahd": 189.850, "name": "Water Conservation Planning", "max_pump_ml_day": 0.75, "color_bg": "#FFDD00", "color_text": "#111111" },
-    { "zone": 4, "min_ahd": 189.650, "name": "Critical Warning",            "max_pump_ml_day": 0.50, "color_bg": "#F58E1E", "color_text": "#111111" },
-    { "zone": 5, "min_ahd": null,    "name": "Cease to Pump",               "max_pump_ml_day": 0.00, "color_bg": "#EB1E23", "color_text": "#ffffff" }
+    {
+      "zone": 1,
+      "min_ahd": 190.25,
+      "name": "Normal Operations",
+      "max_pump_ml_day": 1.5,
+      "color_bg": "#00762A",
+      "color_text": "#ffffff"
+    },
+    {
+      "zone": 2,
+      "min_ahd": 190.05,
+      "name": "Increased Monitoring",
+      "max_pump_ml_day": 1.0,
+      "color_bg": "#8AC63F",
+      "color_text": "#111111"
+    },
+    {
+      "zone": 3,
+      "min_ahd": 189.85,
+      "name": "Water Conservation Planning",
+      "max_pump_ml_day": 0.75,
+      "color_bg": "#FFDD00",
+      "color_text": "#111111"
+    },
+    {
+      "zone": 4,
+      "min_ahd": 189.65,
+      "name": "Critical Warning",
+      "max_pump_ml_day": 0.5,
+      "color_bg": "#F58E1E",
+      "color_text": "#111111"
+    },
+    {
+      "zone": 5,
+      "min_ahd": null,
+      "name": "Cease to Pump",
+      "max_pump_ml_day": 0.0,
+      "color_bg": "#EB1E23",
+      "color_text": "#ffffff"
+    }
   ],
-
   "evaporation": {
     "_note": "BOM Class A pan evaporation long-term monthly means for Wagga Wagga Airport (stn 072150), converted to mm/day. Update if BOM releases revised normals.",
-    "pan_factor": 0.70,
+    "pan_factor": 0.7,
     "monthly_pan_mm_day": {
-      "1":  8.97,
-      "2":  7.79,
-      "3":  5.84,
-      "4":  3.70,
-      "5":  2.16,
-      "6":  1.63,
-      "7":  1.97,
-      "8":  2.94,
-      "9":  4.37,
+      "1": 8.97,
+      "2": 7.79,
+      "3": 5.84,
+      "4": 3.7,
+      "5": 2.16,
+      "6": 1.63,
+      "7": 1.97,
+      "8": 2.94,
+      "9": 4.37,
       "10": 6.23,
       "11": 8.03,
-      "12": 9.10
+      "12": 9.1
     }
   },
-
   "town_water": {
-    "_note": "cost_per_kl = volume charge only (no fixed service fee). daily_kl_by_month derived from FarmBot tank delta-method Feb/Mar 2026, scaled by BOM pan for other months. Jun/Jul/Aug = 0 (no irrigation).",
+    "_note": "cost_per_kl = volume charge only (no fixed service fee). daily_kl_by_month derived from FarmBot tank delta-method Feb/Mar 2026, scaled by BOM pan for other months. May = 0: meter shows irrigation ends mid-May (last run 14 May 2026); replace with Toro actuals when monthly reports are imported. Jun/Jul/Aug = 0 (no irrigation).",
     "cost_per_kl": 1.77,
     "daily_kl_by_month": {
-      "1": 387, "2": 336, "3": 197, "4": 160, "5": 93,
-      "6": 0,   "7": 0,   "8": 0,
-      "9": 189, "10": 269, "11": 347, "12": 393
+      "1": 387,
+      "2": 336,
+      "3": 197,
+      "4": 160,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 189,
+      "10": 269,
+      "11": 347,
+      "12": 393
     }
   },
-
   "irrigation_season": {
-    "_note": "Months in which the course irrigates (no irrigation Jun/Jul/Aug; May is a reduced wind-down month). Used by cease-to-pump projection and town water cost calculation.",
-    "active_months": [1, 2, 3, 4, 5, 9, 10, 11, 12]
+    "_note": "Months in which the course irrigates. Meter data shows the season effectively ends mid-May, so May is excluded (its demand is 0 anyway). Used by cease-to-pump projection and town water cost calculation.",
+    "active_months": [
+      1,
+      2,
+      3,
+      4,
+      9,
+      10,
+      11,
+      12
+    ]
   }
 }
