@@ -839,9 +839,15 @@ const LAKE_SURFACE_M2 = 1202046;
 const LAKE_BOTTOM_AHD = 188.1;
 const LAKE_FULL_AHD   = 191.551;
 const LAKE_FULL_ML    = LAKE_SURFACE_M2 * (LAKE_FULL_AHD - LAKE_BOTTOM_AHD) / 1000;
-const SAFE_DEPTH_M    = 1.5;   // powerboat / general boating minimum
-const SAFE_DEPTH_SAIL = 1.2;   // sailing minimum (shallow-keel lake boats)
-const MARGINAL_DEPTH_M= 1.9;   // caution zone above safe minimum (SAFE_DEPTH_M + 0.4)
+// Authoritative Lake Albert depth bands (match lake_email_report.py):
+//   >= 1.8 m  All vessels permitted (incl. water skiing)
+//   >= 1.2 m  No water skiing - sailing & leisure craft OK
+//   >= 0.6 m  Sailboats & paddle craft only
+//   <  0.6 m  No boating
+const SAFE_DEPTH_M    = 1.8;   // all vessels / water skiing minimum
+const SAFE_DEPTH_SAIL = 1.2;   // sailing & leisure craft minimum
+const PADDLE_DEPTH_M  = 0.6;   // sailboats & paddle craft minimum
+const MARGINAL_DEPTH_M= 2.0;   // caution margin above the all-vessel minimum
 const RACE_DEPTH      = 2.0;   // competition water skiing minimum (Barry Carne Memorial etc.)
 const v2ApiKey        = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
 const v2ApiSecret     = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
@@ -900,7 +906,7 @@ function renderLevelSpark() {
     const vals = days.map(d => byDay[d].reduce((a, b) => a + b, 0) / byDay[d].length);
 
     const cur = vals[vals.length - 1];
-    const lineCol = cur >= MARGINAL_DEPTH_M ? '#27ae60' : cur >= SAFE_DEPTH_M ? '#d4ac0d' : '#e74c3c';
+    const lineCol = cur >= SAFE_DEPTH_M ? '#27ae60' : cur >= SAFE_DEPTH_SAIL ? '#e67e22' : cur >= PADDLE_DEPTH_M ? '#d4ac0d' : '#e74c3c';
     const note = document.getElementById('spark-note');
     if (note) note.textContent = Math.min(...vals).toFixed(2) + ' - ' + Math.max(...vals).toFixed(2) + ' m';
 
@@ -976,18 +982,28 @@ function updateBoatingBanner(depth) {
     if (depth >= MARGINAL_DEPTH_M) {
         banner.style.background='#0a2c14'; banner.style.borderColor='#27ae60';
         mainEl.style.color='#27ae60';
-        mainEl.textContent='✓  LAKE IS SAFE FOR BOATING';
-        subEl.textContent=`Current depth ${depth.toFixed(2)} m - ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the minimum safe depth`;
+        mainEl.textContent='✓  ALL VESSELS PERMITTED';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m - ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the ${SAFE_DEPTH_M} m all-vessel minimum`;
     } else if (depth >= SAFE_DEPTH_M) {
+        banner.style.background='#0a2c14'; banner.style.borderColor='#27ae60';
+        mainEl.style.color='#27ae60';
+        mainEl.textContent='✓  ALL VESSELS PERMITTED (near minimum)';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m - only ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the ${SAFE_DEPTH_M} m all-vessel minimum`;
+    } else if (depth >= SAFE_DEPTH_SAIL) {
+        banner.style.background='#2c1a00'; banner.style.borderColor='#e67e22';
+        mainEl.style.color='#e67e22';
+        mainEl.textContent='⚠  NO WATER SKIING - Sailing & Leisure OK';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_M} m water skiing minimum`;
+    } else if (depth >= PADDLE_DEPTH_M) {
         banner.style.background='#2c2000'; banner.style.borderColor='#d4ac0d';
         mainEl.style.color='#d4ac0d';
-        mainEl.textContent='⚠  CAUTION - Depth Approaching Minimum';
-        subEl.textContent=`Current depth ${depth.toFixed(2)} m - only ${(depth-SAFE_DEPTH_M).toFixed(2)} m above the ${SAFE_DEPTH_M} m minimum`;
+        mainEl.textContent='⚠  SAILBOATS & PADDLE CRAFT ONLY';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_SAIL} m sailing minimum`;
     } else {
         banner.style.background='#2c0a0a'; banner.style.borderColor='#e74c3c';
         mainEl.style.color='#e74c3c';
-        mainEl.textContent='✗  LAKE CLOSED FOR BOATING';
-        subEl.textContent=`Current depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_M} m minimum safe depth`;
+        mainEl.textContent='✗  NO BOATING';
+        subEl.textContent=`Current depth ${depth.toFixed(2)} m - below the ${PADDLE_DEPTH_M} m minimum for any craft`;
     }
 }
 
@@ -1004,10 +1020,18 @@ function updateOnwaterCard() {
 
     let bg,bc,mc,text,sub;
 
-    if (depth!=null && depth<SAFE_DEPTH_M) {
+    if (depth!=null && depth<PADDLE_DEPTH_M) {
         bg='#2c0a0a'; bc='#e74c3c'; mc='#e74c3c';
         text='✗  NOT SAFE - Insufficient Depth';
-        sub=`Lake depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_M} m minimum. Do not launch.`;
+        sub=`Lake depth ${depth.toFixed(2)} m - below the ${PADDLE_DEPTH_M} m minimum for any craft. Do not launch.`;
+    } else if (depth!=null && depth<SAFE_DEPTH_SAIL) {
+        bg='#2c2000'; bc='#d4ac0d'; mc='#d4ac0d';
+        text='⚠  SAILBOATS & PADDLE CRAFT ONLY';
+        sub=`Lake depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_SAIL} m sailing minimum.`;
+    } else if (depth!=null && depth<SAFE_DEPTH_M) {
+        bg='#2c1a00'; bc='#e67e22'; mc='#e67e22';
+        text='⚠  NO WATER SKIING - Sailing & Leisure OK';
+        sub=`Lake depth ${depth.toFixed(2)} m - below the ${SAFE_DEPTH_M} m water skiing minimum.`;
     } else if (kph!=null && kph>=38) {
         const bf=beaufort(kph);
         bg='#2c0a0a'; bc='#e74c3c'; mc='#e74c3c';
@@ -1156,8 +1180,8 @@ function updateLevelPills(ahd,depth,ml,pct) {
     const safeWrap=document.getElementById('pill-safe-wrap');
     const safeEl  =document.getElementById('pill-safe');
     if(safeEl&&depth!=null) {
-        safeEl.innerHTML=depth.toFixed(2)+'m  -  '+(depth>=MARGINAL_DEPTH_M?'\u2713 Safe':depth>=SAFE_DEPTH_M?'\u26a0 Marginal':'\u2717 Shallow');
-        safeEl.style.color=depth>=MARGINAL_DEPTH_M?'#27ae60':depth>=SAFE_DEPTH_M?'#d4ac0d':'#e74c3c';
+        safeEl.innerHTML=depth.toFixed(2)+'m  -  '+(depth>=SAFE_DEPTH_M?'\u2713 All vessels':depth>=SAFE_DEPTH_SAIL?'\u26a0 No skiing':depth>=PADDLE_DEPTH_M?'\u26a0 Paddle only':'\u2717 No boating');
+        safeEl.style.color=depth>=SAFE_DEPTH_M?'#27ae60':depth>=SAFE_DEPTH_SAIL?'#e67e22':depth>=PADDLE_DEPTH_M?'#d4ac0d':'#e74c3c';
         safeWrap.classList.remove('lake-pill-glow-green','lake-pill-glow-red');
         if     (depth<SAFE_DEPTH_M)       safeWrap.classList.add('lake-pill-glow-red');
         else if(depth<MARGINAL_DEPTH_M)   safeWrap.classList.add('lake-pill-glow-green');
