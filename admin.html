@@ -165,6 +165,20 @@
 <!-- WORKFLOWS -->
 <div class="panel" id="panel-workflows">
     <div class="card">
+        <h2>Manual Triggers</h2>
+        <div class="flexrow">
+            <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
+            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend')">Resend Daily Email</button>
+            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to me)</button>
+            <button onclick="wfTrigger('board-email.yml', { dry_run: 'true' }, 'board email dry run')">Board Email Dry Run</button>
+            <button onclick="wfTrigger('lake-report.yml', { dry_run: 'true' }, 'lake report dry run')">Lake Report Dry Run</button>
+        </div>
+        <div class="status" id="wf-trigger-status"></div>
+        <p class="note">Requires the device token to have Actions: Read and write permission on the
+        repository (edit the token on GitHub to add it). Runs appear in the table below within a
+        minute; dry runs write previews to data/reports/ without sending anything.</p>
+    </div>
+    <div class="card">
         <h2>Workflow Health - Last 14 Days</h2>
         <div id="wf-strips">Loading...</div>
     </div>
@@ -176,20 +190,6 @@
             <tbody id="wf-runs"><tr><td colspan="4">Loading...</td></tr></tbody>
         </table></div>
         <p class="note">Click a row to open that run's logs on GitHub.</p>
-    </div>
-    <div class="card">
-        <h2>Manual Triggers</h2>
-        <div class="flexrow">
-            <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
-            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend')">Resend Daily Email</button>
-            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to me)</button>
-            <button onclick="wfTrigger('board-email.yml', { dry_run: 'true' }, 'board email dry run')">Board Email Dry Run</button>
-            <button onclick="wfTrigger('lake-report.yml', { dry_run: 'true' }, 'lake report dry run')">Lake Report Dry Run</button>
-        </div>
-        <div class="status" id="wf-trigger-status"></div>
-        <p class="note">Requires the device token to have Actions: Read and write permission on the
-        repository (edit the token on GitHub to add it). Runs appear in the table above within a
-        minute; dry runs write previews to data/reports/ without sending anything.</p>
     </div>
 </div>
 
