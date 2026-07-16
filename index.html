@@ -1107,11 +1107,16 @@
         <!-- Tank Level History Graph -->
         <div class="card">
             <h2>&#128202; Tank Level History</h2>
-            <div class="tank-history-range">
+            <div class="tank-history-range" id="tank-range-controls">
                 <button class="tank-range-btn active" onclick="setTankRange(24)">24h</button>
+                <button class="tank-range-btn" onclick="setTankRange(48)">48h</button>
                 <button class="tank-range-btn" onclick="setTankRange(168)">7 Days</button>
                 <button class="tank-range-btn" onclick="setTankRange(720)">30 Days</button>
                 <button class="tank-range-btn" id="tank-custom-btn" onclick="showTankCustomRange()">Custom</button>
+                <button class="tank-range-btn" id="tank-fit-btn" onclick="toggleTankFit()"
+                    style="margin-left:auto" title="Toggle between zooming to the data and the full 0-100% scale">Fit: Data</button>
+                <button class="tank-range-btn" id="tank-smooth-btn" onclick="toggleTankSmooth()"
+                    title="4-hour averaging smooths the 15-minute readings on long ranges. Automatic for spans of 14 days or more.">Smooth: Off</button>
             </div>
             <div class="tank-custom-row" id="tank-custom-row">
                 <label>From <input type="date" id="tank-date-from"></label>
@@ -1126,7 +1131,7 @@
             <div class="tank-stat-row">
                 <div class="irr-metric"><div class="lbl">Min (period)</div><div class="val" id="tank-hist-min">--</div></div>
                 <div class="irr-metric"><div class="lbl">Max (period)</div><div class="val" id="tank-hist-max">--</div></div>
-                <div class="irr-metric"><div class="lbl">Change</div><div class="val" id="tank-hist-change">--</div></div>
+                <div class="irr-metric"><div class="lbl">Change (start &rarr; end)</div><div class="val" id="tank-hist-change">--</div><div style="font-size:0.68em;color:#566573;margin-top:2px" id="tank-hist-change-sub">--</div></div>
             </div>
         </div>
 
@@ -7305,6 +7310,29 @@ const LAKE_THRESHOLDS = [
 ];
 let   _tankCustomFrom   = null;
 let   _tankCustomTo     = null;
+let   _tankFitFull      = false;  // false = auto-zoom to data, true = full 0-100% scale
+let   _tankSmooth       = 'auto'; // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'
+
+function toggleTankFit() {
+    _tankFitFull = !_tankFitFull;
+    const b = document.getElementById('tank-fit-btn');
+    if (b) b.textContent = _tankFitFull ? 'Fit: Full' : 'Fit: Data';
+    fetchTankData();
+}
+function toggleTankSmooth() {
+    _tankSmooth = _tankSmoothEffective() ? 'off' : 'on';
+    fetchTankData();
+}
+function _tankSmoothEffective() {
+    let spanH;
+    if (_tankRange === null) {
+        spanH = (_tankCustomFrom && _tankCustomTo)
+            ? (new Date(_tankCustomTo) - new Date(_tankCustomFrom)) / 3600000 + 24 : 0;
+    } else {
+        spanH = _tankRange;
+    }
+    return _tankSmooth === 'on' || (_tankSmooth === 'auto' && spanH >= 14 * 24);
+}
 
 function _renderTankGauge(pct) {
     const clamped = Math.min(100, Math.max(0, pct));
@@ -7337,25 +7365,62 @@ function _renderTankGraph(samples) {
         return;
     }
 
-    const vals    = samples.map(s => parseFloat(s.pct ?? 0));
-    const volsKL  = samples.map(s => s.volume_l != null ? (s.volume_l / 1000).toFixed(1) : (parseFloat(s.pct ?? 0) / 100 * 250).toFixed(1));
-    const minV    = Math.min(...vals), maxV = Math.max(...vals);
-    const change  = vals[vals.length - 1] - vals[0];
-    const n       = samples.length;
+    // Sort ascending; stats always come from the RAW readings so smoothing
+    // never hides the true low before a refill
+    const sortedSamples = [...samples].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const rawVals = sortedSamples.map(s => parseFloat(s.pct ?? 0));
+    const minV    = Math.min(...rawVals), maxV = Math.max(...rawVals);
+    const change  = rawVals[rawVals.length - 1] - rawVals[0];
 
     const minEl = document.getElementById('tank-hist-min'); if (minEl) minEl.textContent = Math.round(minV) + '%';
     const maxEl = document.getElementById('tank-hist-max'); if (maxEl) maxEl.textContent = Math.round(maxV) + '%';
     const chEl  = document.getElementById('tank-hist-change');
     if (chEl) { chEl.textContent = (change >= 0 ? '+' : '') + Math.round(change) + '%'; chEl.style.color = change >= 0 ? '#2ecc71' : '#e74c3c'; }
+    const chSub = document.getElementById('tank-hist-change-sub');
+    if (chSub) chSub.textContent = rawVals[0].toFixed(1) + '% → ' + rawVals[rawVals.length - 1].toFixed(1) + '%';
 
-    const labels = samples.map(s => {
+    // 4-hour bucket averaging when smoothing is in effect
+    const smoothOn = _tankSmoothEffective() && (_tankRange === null || _tankRange > 24);
+    const smBtn = document.getElementById('tank-smooth-btn');
+    if (smBtn) smBtn.textContent = smoothOn ? 'Smooth: 4h' : 'Smooth: Off';
+    let plotSamples;
+    if (smoothOn) {
+        const buckets = new Map();
+        for (const s of sortedSamples) {
+            const key = Math.floor(new Date(s.date).getTime() / 14400000);
+            let b = buckets.get(key);
+            if (!b) { b = { t: key * 14400000, pctSum: 0, volSum: 0, volN: 0, n: 0 }; buckets.set(key, b); }
+            b.pctSum += parseFloat(s.pct ?? 0); b.n++;
+            if (s.volume_l != null) { b.volSum += s.volume_l; b.volN++; }
+        }
+        plotSamples = [...buckets.values()].sort((a, b) => a.t - b.t).map(b => ({
+            date: new Date(b.t).toISOString(),
+            pct: b.pctSum / b.n,
+            volume_l: b.volN ? b.volSum / b.volN : null,
+            _avgN: b.n,
+        }));
+    } else {
+        plotSamples = sortedSamples;
+    }
+    const vals   = plotSamples.map(s => parseFloat(s.pct ?? 0));
+    const volsKL = plotSamples.map(s => s.volume_l != null ? (s.volume_l / 1000).toFixed(1) : (parseFloat(s.pct ?? 0) / 100 * 250).toFixed(1));
+    const n      = plotSamples.length;
+
+    const labels = plotSamples.map(s => {
         const d = new Date(s.date);
-        return _tankRange <= 24
+        if (smoothOn) return d.toLocaleString('en-AU', { day:'numeric', month:'short', hour:'numeric', hour12:true });
+        return _tankRange !== null && _tankRange <= 24
             ? d.toLocaleTimeString('en-AU',  { hour:'2-digit', minute:'2-digit', hour12:false })
             : d.toLocaleDateString('en-AU',  { day:'numeric', month:'short' });
     });
-    const tooltipLabels = samples.map(s => {
+    const tooltipLabels = plotSamples.map(s => {
         const d = new Date(s.date);
+        if (s._avgN) {
+            const bEnd = new Date(d.getTime() + 14400000);
+            const fH = x => x.toLocaleTimeString('en-AU', { hour:'numeric', hour12:true });
+            return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+                + ', ' + fH(d) + ' - ' + fH(bEnd) + ' avg (' + s._avgN + ' readings)';
+        }
         return d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
     });
 
@@ -7439,13 +7504,32 @@ function _renderTankGraph(samples) {
                     grid:  { color:'rgba(255,255,255,0.05)' },
                     border:{ color:'rgba(255,255,255,0.08)' }
                 },
-                y: {
-                    min: 0,
-                    max: Math.ceil(Math.max(maxV, 100) + 3),
-                    ticks: { color:'#4a6070', font:{size:10}, callback: v => v + '%' },
-                    grid:  { color:'rgba(255,255,255,0.07)' },
-                    border:{ color:'rgba(255,255,255,0.08)' }
-                }
+                y: (() => {
+                    // Auto-zoom to the data (15% pad, minimum 2% span) unless
+                    // the Fit toggle is on the full 0-100% scale
+                    let yMin, yMax;
+                    if (_tankFitFull) {
+                        yMin = 0; yMax = Math.ceil(Math.max(maxV, 100) + 3);
+                    } else {
+                        const pad = Math.max((maxV - minV) * 0.15, 0.3);
+                        yMin = Math.max(0, minV - pad); yMax = Math.min(103, maxV + pad);
+                        const MIN_SPAN = 2;
+                        if (yMax - yMin < MIN_SPAN) {
+                            const mid = (yMin + yMax) / 2;
+                            yMin = Math.max(0, mid - MIN_SPAN / 2);
+                            yMax = Math.min(103, mid + MIN_SPAN / 2);
+                        }
+                    }
+                    const fitBtn = document.getElementById('tank-fit-btn');
+                    if (fitBtn) fitBtn.textContent = _tankFitFull ? 'Fit: Full' : 'Fit: Data';
+                    return {
+                        min: yMin,
+                        max: yMax,
+                        ticks: { color:'#4a6070', font:{size:10}, callback: v => (Math.round(v * 10) / 10) + '%' },
+                        grid:  { color:'rgba(255,255,255,0.07)' },
+                        border:{ color:'rgba(255,255,255,0.08)' }
+                    };
+                })()
             }
         },
         plugins: [thresholdPlugin]
@@ -8091,12 +8175,21 @@ async function fetchTankData() {
                 const hResp = await fetch('data/farmbot_readings.json?_=' + Date.now());
                 if (hResp.ok) _tankHistory = await hResp.json();
             }
-            const today    = new Date().toISOString().slice(0, 10);
-            const fromDate = _tankRange === null ? _tankCustomFrom : new Date(Date.now() - _tankRange * 3600000).toISOString().slice(0, 10);
-            const toDate   = _tankRange === null ? _tankCustomTo   : today;
+            // Clip to the exact requested window so the plot and the
+            // Min/Max/Change pills all describe the same period
+            let winFrom, winTo;
+            if (_tankRange === null) {
+                winFrom = new Date(_tankCustomFrom).getTime();
+                winTo   = new Date(_tankCustomTo + 'T23:59:59').getTime();
+            } else {
+                winTo   = Date.now();
+                winFrom = winTo - _tankRange * 3600000;
+            }
             // farmbot_readings.json entries: {date (UTC ISO), pct, volume_l}
-            samples = (_tankHistory || [])
-                .filter(d => d.date.slice(0, 10) >= fromDate && d.date.slice(0, 10) <= toDate);
+            samples = (_tankHistory || []).filter(d => {
+                const t = new Date(d.date).getTime();
+                return t >= winFrom && t <= winTo;
+            });
         }
         _renderTankGraph(samples);
 
@@ -8123,10 +8216,13 @@ function setTankRange(hours) {
     _tankCustomFrom = null;
     _tankCustomTo   = null;
     _tankHistory    = null;
+    _tankSmooth     = 'auto';
     const row = document.getElementById('tank-custom-row');
     if (row) row.classList.remove('visible');
-    document.querySelectorAll('.tank-range-btn').forEach(b => {
-        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
+    // Scoped to the tank row - an unscoped selector was also toggling the
+    // lake chart's identically-labelled range buttons
+    document.querySelectorAll('#tank-range-controls .tank-range-btn').forEach(b => {
+        const map = { 24:'24h', 48:'48h', 168:'7 Days', 720:'30 Days' };
         b.classList.toggle('active', map[hours] === b.textContent.trim());
     });
     fetchTankData();
@@ -8155,6 +8251,7 @@ function applyTankCustomRange() {
     _tankCustomFrom = fromEl.value;
     _tankCustomTo   = toEl.value;
     _tankRange      = null;
+    _tankSmooth     = 'auto';
     _tankHistory    = null;
     fetchTankData();
 }
