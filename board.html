@@ -1092,10 +1092,20 @@ async function loadAll() {
     try {
         const cb = '?_=' + Date.now();
 
+        // Fetch with one retry - GitHub Pages briefly 404s assets mid-deploy
+        const fetchRetry = async url => {
+            let r = await fetch(url + cb);
+            if (!r.ok) {
+                await new Promise(res => setTimeout(res, 2500));
+                r = await fetch(url + '?_=' + Date.now());
+            }
+            return r;
+        };
+
         // Load all data sources in parallel
         const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes] = await Promise.all([
-            fetch('data/lake_config.json'             + cb),
-            fetch('data/farmbot_lake_latest.json'     + cb),
+            fetchRetry('data/lake_config.json'),
+            fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
             fetch('data/farmbot_latest.json'          + cb),
             fetch('data/lake_zone_history.csv'        + cb),
@@ -1103,10 +1113,10 @@ async function loadAll() {
             fetch('data/farmbot_lake_readings.json'   + cb),
         ]);
 
-        if (!cfgRes.ok)  { showErr('lake_config.json not found'); return; }
-        if (!lakeRes.ok) { showErr('farmbot_lake_latest.json not found'); return; }
-
-        _cfg = await cfgRes.json();
+        // Keep the previously loaded config if a deploy blip 404s it
+        if (cfgRes.ok) _cfg = await cfgRes.json();
+        if (!_cfg)  { showErr('lake_config.json unavailable - retrying in 60s'); setTimeout(loadAll, 60000); return; }
+        if (!lakeRes.ok) { showErr('farmbot_lake_latest.json unavailable - retrying in 60s'); setTimeout(loadAll, 60000); return; }
         const lakeLatest    = await lakeRes.json();
         const zoneFile      = zoneRes.ok    ? await zoneRes.json()  : null;
         const tankLatest    = tankRes.ok    ? await tankRes.json()  : null;
@@ -1506,6 +1516,9 @@ async function loadAll() {
             : `<span class="col-red">${totalDiff.toFixed(1)} mm</span>`;
 
         renderRainfallChart(chartLabels, chartActuals, chartAvgs);
+
+        // Successful pass - clear any earlier transient error
+        errEl.style.display = 'none';
 
     } catch(e) {
         console.error(e);
