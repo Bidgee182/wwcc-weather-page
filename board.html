@@ -201,6 +201,7 @@
 <!-- ── Tab bar ────────────────────────────────────────────────────────────── -->
 <div class="tab-bar">
     <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+    <button class="tab-btn"        onclick="showTab('tank')">Water Tank</button>
     <button class="tab-btn"        onclick="showTab('savings')">Water Savings</button>
     <button class="tab-btn"        onclick="showTab('history')">Zone History</button>
     <button class="tab-btn"        onclick="showTab('rainfall')">Rainfall</button>
@@ -274,27 +275,6 @@
                 </div>
             </div>
 
-            <!-- Tank -->
-            <div class="card">
-                <h2>Water Tank</h2>
-                <div class="metric-grid metric-grid-3">
-                    <div class="metric">
-                        <div class="lbl">Tank Level</div>
-                        <div class="val" id="ov-tank-pct">--</div>
-                        <div class="sub" id="ov-tank-status">--</div>
-                    </div>
-                    <div class="metric">
-                        <div class="lbl">Volume Available</div>
-                        <div class="val" id="ov-tank-vol" style="font-size:1em;">--</div>
-                        <div class="sub">in tank now</div>
-                    </div>
-                    <div class="metric">
-                        <div class="lbl">Capacity</div>
-                        <div class="val" id="ov-tank-cap" style="font-size:1em;">--</div>
-                        <div class="sub">total</div>
-                    </div>
-                </div>
-            </div>
         </div><!-- end left col -->
 
         <!-- Outlook + This Month -->
@@ -432,6 +412,191 @@
     </div>
 
 </div><!-- end tab-overview -->
+
+<!-- ==========================================================================
+     TAB: WATER TANK
+     ====================================================================== -->
+<div id="tab-tank" class="tab-panel">
+
+    <div class="stat-bar">
+        <div class="stat-cell">
+            <div class="sc-lbl">Tank Level</div>
+            <div class="sc-val" id="tk-pct">--</div>
+            <div class="sc-sub" id="tk-status">--</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">Volume in Tank</div>
+            <div class="sc-val" id="tk-vol">--</div>
+            <div class="sc-sub">of 250 kL capacity</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">Space Remaining</div>
+            <div class="sc-val" id="tk-space">--</div>
+            <div class="sc-sub">headroom to full</div>
+        </div>
+        <div class="stat-cell">
+            <div class="sc-lbl">Cost to Refill Space</div>
+            <div class="sc-val col-green" id="tk-space-cost">--</div>
+            <div class="sc-sub" id="tk-space-cost-sub">at town water rate</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Tank Level History</h2>
+        <div class="lk-range-row">
+            <button class="lk-range-btn" onclick="setTkRange(24)" id="tk-btn-24">24h</button>
+            <button class="lk-range-btn" onclick="setTkRange(48)" id="tk-btn-48">48h</button>
+            <button class="lk-range-btn active" onclick="setTkRange(168)" id="tk-btn-168">7 Days</button>
+            <button class="lk-range-btn" onclick="setTkRange(720)" id="tk-btn-720">30 Days</button>
+            <button class="lk-range-btn" id="tk-btn-custom" onclick="toggleTkCustom()">Custom</button>
+            <button class="lk-range-btn" id="tk-fit-btn" onclick="toggleTkFit()"
+                style="margin-left:auto;" title="Toggle between zooming to the data and the full 0-100% scale">Fit: Data</button>
+            <button class="lk-range-btn" id="tk-smooth-btn" onclick="toggleTkSmooth()"
+                title="4-hour averaging smooths readings on long ranges. Automatic for spans of 14 days or more.">Smooth: Off</button>
+        </div>
+        <div class="lk-custom-row" id="tk-custom-row">
+            <label>From <input type="date" id="tk-from"></label>
+            <label>To <input type="date" id="tk-to"></label>
+            <button class="lk-apply-btn" onclick="applyTkCustom()">Apply</button>
+        </div>
+        <div class="data-notice">
+            <strong>Showing:</strong> <span id="tk-chart-note">loading...</span> &bull;
+            25 / 50 / 75 / 100% reference lines shown when in view.
+        </div>
+        <div class="chart-wrap" style="height:210px;position:relative;">
+            <canvas id="tk-chart"></canvas>
+        </div>
+        <div class="metric-grid metric-grid-4" style="margin-top:12px;margin-bottom:0;">
+            <div class="metric">
+                <div class="lbl">Min (period)</div>
+                <div class="val" id="tk-hist-min">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Max (period)</div>
+                <div class="val" id="tk-hist-max">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Change (start &rarr; end)</div>
+                <div class="val" id="tk-hist-change">--</div>
+                <div class="sub" id="tk-hist-change-sub">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Total Usage (period)</div>
+                <div class="val" id="tk-hist-usage">--</div>
+                <div class="sub" id="tk-hist-usage-sub">draw-downs, refills excluded</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <h2>Town Water Purchases - Tank Refills</h2>
+            <div class="metric-grid metric-grid-3">
+                <div class="metric">
+                    <div class="lbl">This Month</div>
+                    <div class="val col-green" id="tk-buy-month">--</div>
+                    <div class="sub" id="tk-buy-month-sub">--</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Last Month</div>
+                    <div class="val" id="tk-buy-last">--</div>
+                    <div class="sub" id="tk-buy-last-sub">--</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">FY To Date</div>
+                    <div class="val" id="tk-buy-fytd">--</div>
+                    <div class="sub" id="tk-buy-fytd-sub">since 1 Jul</div>
+                </div>
+            </div>
+            <p style="font-size:0.68em;color:#566573;margin-top:10px;" id="tk-buy-note">
+                Estimated from metered tank inflows x town water volume charge. No fixed service
+                fees included. Full tank = 250 kL. Tank readings begin 10 Feb 2026.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Usage at Town Water Rates</h2>
+            <div class="metric-grid metric-grid-2">
+                <div class="metric">
+                    <div class="lbl">Yesterday</div>
+                    <div class="val" id="tk-use-yest">--</div>
+                    <div class="sub" id="tk-use-yest-sub">--</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">7-Day Average</div>
+                    <div class="val" id="tk-use-7d">--</div>
+                    <div class="sub" id="tk-use-7d-sub">per day</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">30-Day Average</div>
+                    <div class="val" id="tk-use-30d">--</div>
+                    <div class="sub" id="tk-use-30d-sub">per day</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Month To Date</div>
+                    <div class="val" id="tk-use-mtd">--</div>
+                    <div class="sub" id="tk-use-mtd-sub">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Recent Refills</h2>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr>
+                    <th>Date</th>
+                    <th>Level Before &rarr; After</th>
+                    <th style="text-align:right;">Volume Added</th>
+                    <th style="text-align:right;">Est. Cost</th>
+                </tr></thead>
+                <tbody id="tk-refill-body">
+                    <tr><td colspan="4" style="color:#566573;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Water Rate Setting</h2>
+        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:0.72em;color:#7f8c8d;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Current Rate</div>
+                <div style="font-size:1.5em;font-weight:bold;" id="wr-current">--</div>
+            </div>
+            <label style="font-size:0.78em;color:#7f8c8d;">New rate ($/kL)<br>
+                <input type="number" id="wr-new" step="0.01" min="0.10" max="20"
+                    style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:6px 10px;width:110px;font-size:1.1em;margin-top:3px;">
+            </label>
+            <label style="font-size:0.78em;color:#7f8c8d;">Changed by<br>
+                <input type="text" id="wr-by" placeholder="name"
+                    style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:6px 10px;width:130px;margin-top:3px;">
+            </label>
+            <button class="lk-apply-btn" id="wr-save" onclick="saveWaterRate()">Save Rate</button>
+        </div>
+        <div id="wr-status" style="font-size:0.78em;color:#7f8c8d;margin-top:8px;"></div>
+        <div id="wr-token-row" style="display:none;margin-top:8px;">
+            <label style="font-size:0.78em;color:#7f8c8d;">GitHub token (same one as the screen-message panel)<br>
+                <input type="password" id="wr-token" style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:6px 10px;width:280px;margin-top:3px;">
+            </label>
+            <button class="lk-apply-btn" onclick="saveWrToken()" style="margin-left:8px;">Save Token</button>
+        </div>
+        <div class="sec-lbl" style="margin-top:14px;">Rate change log</div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Date</th><th>Old Rate</th><th>New Rate</th><th>Changed By</th></tr></thead>
+                <tbody id="wr-log-body"><tr><td colspan="4" style="color:#566573;">No changes logged yet.</td></tr></tbody>
+            </table>
+        </div>
+        <p style="font-size:0.68em;color:#566573;margin-top:8px;">
+            Saving updates data/lake_config.json in the repository - every savings and cost figure
+            across the dashboards and emails recalculates from the new rate. Changes are recorded in
+            data/water_rate_log.json. Allow a minute for the site to redeploy after saving.
+        </p>
+    </div>
+
+</div><!-- end tab-tank -->
 
 <!-- ══════════════════════════════════════════════════════════════════════════
      TAB 2: SAVINGS
@@ -1084,6 +1249,350 @@ function renderLakeChart(labels, values) {
     });
 }
 
+
+
+// ── Water rate editor (writes lake_config.json + water_rate_log.json) ────────
+const GITHUB_REPO = 'Bidgee182/wwcc-weather-page';
+
+function saveWrToken() {
+    const t = $('wr-token').value.trim();
+    if (t) { localStorage.setItem('wx_github_pat', t); $('wr-token-row').style.display = 'none';
+             _wrStatus('Token saved. Click Save Rate again.', '#27ae60'); }
+}
+function _wrStatus(msg, color) {
+    const el = $('wr-status'); el.textContent = msg; el.style.color = color || '#7f8c8d';
+}
+async function _ghGet(path, pat) {
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
+        { headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' } });
+    if (r.status === 404) return { sha: null, json: null };
+    if (!r.ok) throw new Error('GitHub read failed: ' + r.status);
+    const d = await r.json();
+    const text = decodeURIComponent(escape(atob(d.content.replace(/\n/g, ''))));
+    return { sha: d.sha, json: JSON.parse(text) };
+}
+async function _ghPut(path, obj, message, sha, pat) {
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(obj, null, 2))));
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
+        { method: 'PUT',
+          headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }) });
+    if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        if (r.status === 401) throw new Error('GitHub token invalid or expired.');
+        if (r.status === 403) throw new Error('Token lacks Contents: Write permission.');
+        throw new Error(e.message || r.statusText);
+    }
+}
+
+async function saveWaterRate() {
+    const newRate = parseFloat($('wr-new').value);
+    if (isNaN(newRate) || newRate < 0.10 || newRate > 20) {
+        _wrStatus('Enter a rate between $0.10 and $20.00 per kL.', '#e74c3c'); return;
+    }
+    const pat = localStorage.getItem('wx_github_pat') || '';
+    if (!pat) { $('wr-token-row').style.display = 'block';
+                _wrStatus('GitHub token needed - enter it below (stored only in this browser).', '#e67e22'); return; }
+    const by = ($('wr-by').value || '').trim() || 'unspecified';
+    const btn = $('wr-save'); btn.disabled = true;
+    _wrStatus('Saving...', '#5dade2');
+    try {
+        // Update the config
+        const cfgFile = await _ghGet('data/lake_config.json', pat);
+        if (!cfgFile.json) throw new Error('Could not load lake_config.json');
+        const oldRate = cfgFile.json.town_water.cost_per_kl;
+        if (Math.abs(oldRate - newRate) < 0.0001) { _wrStatus('Rate unchanged.', '#7f8c8d'); btn.disabled = false; return; }
+        cfgFile.json.town_water.cost_per_kl = newRate;
+        await _ghPut('data/lake_config.json', cfgFile.json,
+            `Water rate change: $${oldRate.toFixed(2)} -> $${newRate.toFixed(2)}/kL (by ${by})`,
+            cfgFile.sha, pat);
+
+        // Append to the change log
+        const logFile = await _ghGet('data/water_rate_log.json', pat);
+        const log = Array.isArray(logFile.json) ? logFile.json : [];
+        log.push({ date: new Date().toISOString(), old_rate: oldRate, new_rate: newRate, by });
+        await _ghPut('data/water_rate_log.json', log,
+            `Log water rate change: $${oldRate.toFixed(2)} -> $${newRate.toFixed(2)}/kL`,
+            logFile.sha, pat);
+
+        _wrStatus(`Saved: $${oldRate.toFixed(2)} -> $${newRate.toFixed(2)}/kL. Dashboards update after the site redeploys (~1 min).`, '#27ae60');
+        if (_cfg && _cfg.town_water) _cfg.town_water.cost_per_kl = newRate;
+        renderWaterRateCard(log);
+        $('wr-new').value = '';
+        setTimeout(loadAll, 90000);   // refresh once the deploy has landed
+    } catch (e) {
+        _wrStatus('Failed: ' + e.message, '#e74c3c');
+    }
+    btn.disabled = false;
+}
+
+function renderWaterRateCard(log) {
+    if (_cfg && _cfg.town_water) $('wr-current').textContent = '$' + _cfg.town_water.cost_per_kl.toFixed(2) + ' /kL';
+    const body = $('wr-log-body');
+    if (!log || !log.length) return;
+    body.innerHTML = [...log].reverse().slice(0, 8).map(e => {
+        const dt = new Date(e.date).toLocaleString('en-AU', { day:'numeric', month:'short', year:'numeric', hour:'numeric', minute:'2-digit' });
+        return '<tr><td>' + dt + '</td><td>$' + e.old_rate.toFixed(2) + '</td>'
+             + '<td style="font-weight:bold;">$' + e.new_rate.toFixed(2) + '</td><td>' + (e.by || '-') + '</td></tr>';
+    }).join('');
+}
+
+// ── Water Tank tab ────────────────────────────────────────────────────────────
+let _tkChart = null;
+let _tkReadings = [];
+let _tkRangeH = 168;      // 24/48/168/720, null when custom
+let _tkCustom = null;     // { from, to }
+let _tkFitFull = false;   // false = auto-zoom to data, true = full 0-100%
+let _tkSmooth = 'auto';   // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'
+const TK_CAP_L = 250000;
+const tkVolOf = s => s.volume_l != null ? s.volume_l : (parseFloat(s.pct ?? 0) / 100) * TK_CAP_L;
+
+function setTkRange(hours) {
+    _tkRangeH = hours; _tkCustom = null; _tkSmooth = 'auto';
+    document.querySelectorAll('#tab-tank .lk-range-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('tk-btn-' + hours);
+    if (btn) btn.classList.add('active');
+    $('tk-custom-row').classList.remove('open');
+    renderTkRange();
+}
+function toggleTkCustom() { $('tk-custom-row').classList.toggle('open'); }
+function applyTkCustom() {
+    const from = $('tk-from').value, to = $('tk-to').value;
+    if (!from || !to || from > to) return;
+    _tkCustom = { from, to }; _tkRangeH = null; _tkSmooth = 'auto';
+    document.querySelectorAll('#tab-tank .lk-range-btn').forEach(b => b.classList.remove('active'));
+    $('tk-btn-custom').classList.add('active');
+    renderTkRange();
+}
+function toggleTkFit() {
+    _tkFitFull = !_tkFitFull;
+    $('tk-fit-btn').textContent = _tkFitFull ? 'Fit: Full' : 'Fit: Data';
+    renderTkRange();
+}
+function _tkSmoothEff() {
+    const spanH = _tkCustom
+        ? (new Date(_tkCustom.to) - new Date(_tkCustom.from)) / 3600000 + 24
+        : _tkRangeH;
+    return _tkSmooth === 'on' || (_tkSmooth === 'auto' && spanH >= 14 * 24);
+}
+function toggleTkSmooth() { _tkSmooth = _tkSmoothEff() ? 'off' : 'on'; renderTkRange(); }
+
+function renderTkRange() {
+    if (!_tkReadings.length) return;
+    let winFrom, winTo, spanHours;
+    if (_tkCustom) {
+        winFrom = new Date(_tkCustom.from).getTime();
+        winTo   = new Date(_tkCustom.to + 'T23:59:59').getTime();
+        spanHours = (winTo - winFrom) / 3600000;
+    } else {
+        winTo = Date.now(); winFrom = winTo - _tkRangeH * 3600000;
+        spanHours = _tkRangeH;
+    }
+    const rows = _tkReadings.filter(r => {
+        const t = new Date(r.date).getTime();
+        return t >= winFrom && t <= winTo;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!rows.length) {
+        $('tk-chart-note').textContent = 'No readings in the selected period';
+        if (_tkChart) { _tkChart.destroy(); _tkChart = null; }
+        return;
+    }
+
+    // Stats always from raw readings; usage = sum of draw-downs
+    const rawVals = rows.map(r => parseFloat(r.pct ?? 0));
+    const minV = Math.min(...rawVals), maxV = Math.max(...rawVals);
+    const change = rawVals[rawVals.length - 1] - rawVals[0];
+    let useL = 0;
+    for (let i = 1; i < rows.length; i++) {
+        const d = tkVolOf(rows[i - 1]) - tkVolOf(rows[i]);
+        if (d > 0) useL += d;
+    }
+    $('tk-hist-min').textContent = minV.toFixed(1) + '%';
+    $('tk-hist-max').textContent = maxV.toFixed(1) + '%';
+    const chEl = $('tk-hist-change');
+    chEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(1) + '%';
+    chEl.style.color = change >= 0 ? '#27ae60' : '#e74c3c';
+    $('tk-hist-change-sub').textContent = rawVals[0].toFixed(1) + '% \u2192 ' + rawVals[rawVals.length - 1].toFixed(1) + '%';
+    $('tk-hist-usage').textContent = Math.round(useL).toLocaleString('en-AU') + ' L';
+    $('tk-hist-usage-sub').textContent = (useL / 1000).toFixed(1) + ' kL \u00b7 refills excluded';
+
+    // Plot values: raw, or 4-hour averages when smoothing
+    const smoothOn = _tkSmoothEff() && spanHours > 24;
+    $('tk-smooth-btn').textContent = smoothOn ? 'Smooth: 4h' : 'Smooth: Off';
+    let labels, values, note;
+    if (smoothOn) {
+        const buckets = new Map();
+        for (const r of rows) {
+            const key = Math.floor(new Date(r.date).getTime() / 14400000);
+            let b = buckets.get(key);
+            if (!b) { b = { t: key * 14400000, sum: 0, n: 0 }; buckets.set(key, b); }
+            b.sum += parseFloat(r.pct ?? 0); b.n++;
+        }
+        const blocks = [...buckets.values()].sort((a, b) => a.t - b.t);
+        labels = blocks.map(b => new Date(b.t).toLocaleString('en-AU', { day:'numeric', month:'short', hour:'numeric' }));
+        values = blocks.map(b => parseFloat((b.sum / b.n).toFixed(2)));
+        note = '4-hour averages, ' + blocks.length + ' points';
+    } else {
+        labels = rows.map(r => new Date(r.date).toLocaleString('en-AU',
+            spanHours <= 24 ? { hour:'numeric', minute:'2-digit' }
+            : spanHours <= 72 ? { weekday:'short', hour:'numeric' }
+            : { day:'numeric', month:'short', hour:'numeric' }));
+        values = rows.map(r => parseFloat(parseFloat(r.pct).toFixed(2)));
+        note = rows.length + ' readings';
+    }
+    const fD = d => new Date(d).toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+    $('tk-chart-note').textContent = fD(rows[0].date) + ' to ' + fD(rows[rows.length - 1].date) + ' (' + note + ')';
+
+    // Y window: auto-zoom (2% minimum span) or full 0-100%
+    let yMin, yMax;
+    if (_tkFitFull) {
+        yMin = 0; yMax = Math.max(maxV, 100) + 3;
+    } else {
+        const pad = Math.max((maxV - minV) * 0.15, 0.3);
+        yMin = Math.max(0, minV - pad); yMax = Math.min(103, maxV + pad);
+        if (yMax - yMin < 2) {
+            const mid = (yMin + yMax) / 2;
+            yMin = Math.max(0, mid - 1); yMax = Math.min(103, mid + 1);
+        }
+    }
+    // Reference lines only when inside the window
+    const refDs = [100, 75, 50, 25].filter(v => v >= yMin && v <= yMax).map(v => ({
+        label: v + '%', data: values.map(() => v), type: 'line',
+        borderColor: v === 100 ? '#ecf0f1' : v === 75 ? '#27ae60' : v === 50 ? '#e67e22' : '#e74c3c',
+        borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: false, tension: 0,
+    }));
+
+    const ctx = $('tk-chart').getContext('2d');
+    if (_tkChart) _tkChart.destroy();
+    _tkChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [
+            { label: 'Tank Level', data: values, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.12)',
+              borderWidth: 2, pointRadius: (values.length > 60 ? 0 : 3), pointHoverRadius: 5, fill: true, tension: 0.2 },
+            ...refDs,
+        ]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#7f8c8d', font: { size: 11 } } },
+                tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } },
+            },
+            scales: {
+                x: { ticks: { color: '#7f8c8d', maxTicksLimit: 12 }, grid: { color: '#1e3040' } },
+                y: { min: parseFloat(yMin.toFixed(1)), max: parseFloat(yMax.toFixed(1)),
+                     ticks: { color: '#7f8c8d', callback: v => (Math.round(v * 10) / 10) + '%' }, grid: { color: '#1e3040' },
+                     title: { display: true, text: 'Tank level (%)', color: '#566573' } },
+            },
+        },
+    });
+}
+
+// Daily inflow/usage summaries for the cost cards (Sydney days)
+function buildTkDaily(readings) {
+    const byDay = new Map();
+    const offsetMs = 10 * 3600000; // AEST; close enough for day bucketing
+    for (const r of readings || []) {
+        const t = new Date(r.date);
+        if (isNaN(t) || r.pct == null) continue;
+        const key = new Date(t.getTime() + offsetMs).toISOString().slice(0, 10);
+        if (!byDay.has(key)) byDay.set(key, []);
+        byDay.get(key).push(r);
+    }
+    const out = [];
+    for (const key of [...byDay.keys()].sort()) {
+        const rows = byDay.get(key).sort((a, b) => new Date(a.date) - new Date(b.date));
+        let useL = 0, inflowL = 0;
+        for (let i = 1; i < rows.length; i++) {
+            const d = tkVolOf(rows[i - 1]) - tkVolOf(rows[i]);
+            if (d > 0) useL += d; else inflowL += -d;
+        }
+        out.push({ date: key, useL, inflowL,
+                   startPct: parseFloat(rows[0].pct), endPct: parseFloat(rows[rows.length - 1].pct) });
+    }
+    return out;
+}
+
+function renderTankTab(tankLatest, costPerKl) {
+    // Stat bar
+    if (tankLatest) {
+        const pct = tankLatest.tank_pct;
+        if (pct != null) {
+            $('tk-pct').textContent = pct.toFixed(1) + '%';
+            $('tk-pct').style.color = pct > 50 ? '#27ae60' : pct > 20 ? '#e67e22' : '#e74c3c';
+        }
+        $('tk-status').textContent = tankLatest.tank_status || '';
+        const volL = tankLatest.tank_volume_l != null ? tankLatest.tank_volume_l
+                   : (pct != null ? pct / 100 * TK_CAP_L : null);
+        if (volL != null) {
+            $('tk-vol').textContent = (volL / 1000).toFixed(0) + ' kL';
+            const spaceL = Math.max(0, TK_CAP_L - volL);
+            $('tk-space').textContent = (spaceL / 1000).toFixed(1) + ' kL';
+            $('tk-space-cost').textContent = '$' + (spaceL / 1000 * costPerKl).toFixed(2);
+            $('tk-space-cost-sub').textContent = 'at $' + costPerKl.toFixed(2) + '/kL';
+        }
+    }
+    if (!_tkReadings.length) return;
+
+    const daily = buildTkDaily(_tkReadings);
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const thisMonth = todayKey.slice(0, 7);
+    const lastMonthD = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = lastMonthD.getFullYear() + '-' + String(lastMonthD.getMonth() + 1).padStart(2, '0');
+    const fyStart = (now.getMonth() + 1 >= 7 ? now.getFullYear() : now.getFullYear() - 1) + '-07-01';
+
+    const sumL = (rows, field) => rows.reduce((s, d) => s + d[field], 0);
+    const fmtBuy = (L) => '$' + (L / 1000 * costPerKl).toFixed(L / 1000 * costPerKl >= 100 ? 0 : 2);
+    const fmtKl = (L) => (L / 1000).toFixed(1) + ' kL';
+
+    const buyM  = sumL(daily.filter(d => d.date.slice(0, 7) === thisMonth), 'inflowL');
+    const buyLM = sumL(daily.filter(d => d.date.slice(0, 7) === lastMonth), 'inflowL');
+    const buyFY = sumL(daily.filter(d => d.date >= fyStart), 'inflowL');
+    $('tk-buy-month').textContent = fmtBuy(buyM);
+    $('tk-buy-month-sub').textContent = fmtKl(buyM) + ' inflow';
+    $('tk-buy-last').textContent = fmtBuy(buyLM);
+    $('tk-buy-last-sub').textContent = fmtKl(buyLM) + ' inflow';
+    $('tk-buy-fytd').textContent = fmtBuy(buyFY);
+    $('tk-buy-fytd-sub').textContent = fmtKl(buyFY) + ' since 1 Jul';
+    $('tk-buy-note').textContent = 'Estimated from metered tank inflows x $' + costPerKl.toFixed(2)
+        + '/kL town water volume charge. No fixed service fees included. Full tank = 250 kL = $'
+        + (250 * costPerKl).toFixed(2) + '. Tank readings begin 10 Feb 2026.';
+
+    // Usage at town rates
+    const past = daily.filter(d => d.date < todayKey);
+    const yest = past.length ? past[past.length - 1] : null;
+    const avgOf = rows => rows.length ? sumL(rows, 'useL') / rows.length : null;
+    const avg7 = avgOf(past.slice(-7)), avg30 = avgOf(past.slice(-30));
+    const mtdL = sumL(daily.filter(d => d.date.slice(0, 7) === thisMonth), 'useL');
+    const setUse = (id, L, subId, subPrefix) => {
+        $(id).textContent = L != null ? fmtKl(L) : '--';
+        if (subId) $(subId).textContent = L != null ? (subPrefix || '') + '$' + (L / 1000 * costPerKl).toFixed(2) + ' at town rate' : '--';
+    };
+    setUse('tk-use-yest', yest ? yest.useL : null, 'tk-use-yest-sub');
+    setUse('tk-use-7d',  avg7,  'tk-use-7d-sub');
+    setUse('tk-use-30d', avg30, 'tk-use-30d-sub');
+    setUse('tk-use-mtd', mtdL,  'tk-use-mtd-sub');
+
+    // Refill log: days with meaningful inflow (> 2% of capacity)
+    const refills = daily.filter(d => d.inflowL > TK_CAP_L * 0.02).slice(-8).reverse();
+    const body = $('tk-refill-body');
+    if (!refills.length) {
+        body.innerHTML = '<tr><td colspan="4" style="color:#566573;">No refills recorded in the tracked period.</td></tr>';
+    } else {
+        body.innerHTML = refills.map(r => {
+            const dt = new Date(r.date + 'T12:00:00').toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
+            return '<tr>'
+                + '<td>' + dt + '</td>'
+                + '<td>' + r.startPct.toFixed(0) + '% \u2192 ' + r.endPct.toFixed(0) + '%</td>'
+                + '<td style="text-align:right;">' + Math.round(r.inflowL).toLocaleString('en-AU') + ' L</td>'
+                + '<td style="text-align:right;color:#27ae60;">$' + (r.inflowL / 1000 * costPerKl).toFixed(2) + '</td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    renderTkRange();
+}
+
 // ── Main data loader ──────────────────────────────────────────────────────────
 async function loadAll() {
     const errEl = $('err-bar');
@@ -1103,7 +1612,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -1111,6 +1620,7 @@ async function loadAll() {
             fetch('data/lake_zone_history.csv'        + cb),
             fetch('data/daily_log.csv'                + cb),
             fetch('data/farmbot_lake_readings.json'   + cb),
+            fetch('data/farmbot_readings.json'        + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -1123,6 +1633,7 @@ async function loadAll() {
         const histText      = histRes.ok    ? await histRes.text()  : '';
         const wxText        = wxRes.ok      ? await wxRes.text()    : '';
         const lakeReadings  = lakeReadRes.ok ? await lakeReadRes.json() : [];
+        _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
 
         // ── Parse data ────────────────────────────────────────────────────────
         const histRows = histText ? parseCsv(histText) : [];
@@ -1217,17 +1728,10 @@ async function loadAll() {
             thBody.appendChild(tr);
         }
 
-        // Tank
-        if (tankLatest) {
-            const pct = tankLatest.tank_pct;
-            $('ov-tank-pct').textContent  = pct != null ? pct.toFixed(1)+'%' : '--';
-            $('ov-tank-pct').style.color  = pct > 50 ? '#27ae60' : pct > 20 ? '#e67e22' : '#e74c3c';
-            $('ov-tank-status').textContent = tankLatest.tank_status || '';
-            const vol = tankLatest.tank_volume_l;
-            $('ov-tank-vol').textContent  = vol != null ? (vol/1000).toFixed(0)+' kL' : '--';
-            const cap = tankLatest.tank_total_volume || 250000;
-            $('ov-tank-cap').textContent  = (cap/1000).toFixed(0)+' kL';
-        }
+        // Water Tank tab (stat bar, chart, cost cards, refill log)
+        renderTankTab(tankLatest, costPerKl);
+        fetch('data/water_rate_log.json' + cb).then(r => r.ok ? r.json() : [])
+            .then(renderWaterRateCard).catch(() => renderWaterRateCard([]));
 
         // Outlook card
         if (daysNxtZone != null) {
