@@ -65,8 +65,12 @@
         .sparklbl { font-size:0.68em; color:rgba(255,255,255,0.6); margin-top:6px; text-transform:uppercase; letter-spacing:1px; }
         .dotstrip { display:flex; gap:3px; flex-wrap:wrap; margin:4px 0 12px; }
         .dot { width:10px; height:10px; border-radius:50%; }
-        .quicknav { font-size:0.78em; margin:0 0 12px; color:#566573; }
-        .quicknav a { color:#5dade2; text-decoration:none; margin-right:14px; }
+        .quicknav { margin:0 0 16px; }
+        .quicknav-label { font-size:0.72em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-bottom:6px; }
+        .quicknav a { display:inline-block; background:#1a252f; border:1px solid #3d5166; color:#5dade2;
+            text-decoration:none; font-size:0.82em; padding:6px 16px; border-radius:20px;
+            margin:0 8px 8px 0; transition:border-color .15s, color .15s; }
+        .quicknav a:hover { border-color:#5dade2; color:#85c1e9; }
         .galert { display:none; background:#40120f; border:1px solid #e74c3c; border-left:5px solid #e74c3c; color:#f5b7b1; border-radius:8px; padding:10px 14px; font-size:0.85em; margin-bottom:14px; }
         .gwarn  { display:none; background:#332900; border:1px solid #d4ac0d; border-left:5px solid #d4ac0d; color:#f9e79f; border-radius:8px; padding:10px 14px; font-size:0.85em; margin-bottom:14px; }
         @media print {
@@ -99,8 +103,12 @@
 </div>
 
 <div class="quicknav">
-    <a href="index.html">Golfers</a><a href="index.html?gk=1">Greenkeeper</a>
-    <a href="board.html">Board</a><a href="lake-albert.html">Lake Albert</a><a href="tv2.html">TV2</a>
+    <div class="quicknav-label">Quick Links</div>
+    <a href="index.html" target="_blank" rel="noopener">Golfer Page &#8599;</a>
+    <a href="index.html?gk=1" target="_blank" rel="noopener">Greenkeeper Page &#8599;</a>
+    <a href="board.html" target="_blank" rel="noopener">Board Dashboard &#8599;</a>
+    <a href="lake-albert.html" target="_blank" rel="noopener">Lake Albert &#8599;</a>
+    <a href="tv2.html" target="_blank" rel="noopener">TV Kiosk &#8599;</a>
 </div>
 <div class="galert" id="global-alert"></div>
 <div class="gwarn" id="global-warn"></div>
@@ -539,6 +547,8 @@ async function completeSetup() {
 }
 
 function enterApp() {
+    // Survive a browser refresh: session lives until the tab closes or Log out
+    try { sessionStorage.setItem('wwcc_admin_ses', JSON.stringify({ email: SES.email, token: SES.token })); } catch {}
     $('login-card').style.display = 'none';
     $('main').style.display = 'block';
     $('session-box').style.display = 'block';
@@ -558,7 +568,7 @@ function enterApp() {
     } catch {}
     loadHealth(); loadAllLogs(); loadControls(); admRender();
 }
-function logout() { location.reload(); }
+function logout() { try { sessionStorage.removeItem('wwcc_admin_ses'); } catch {} location.reload(); }
 
 function showPanel(p) {
     document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
@@ -1341,6 +1351,11 @@ async function recSave() {
 // Enter key submits login
 document.addEventListener('DOMContentLoaded', () => {
     $('li-pin').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    // Restore the session after a refresh instead of showing the login page
+    try {
+        const s = JSON.parse(sessionStorage.getItem('wwcc_admin_ses') || 'null');
+        if (s && s.email) { SES.email = s.email; SES.token = s.token || null; enterApp(); }
+    } catch {}
 });
 </script>
 </body>
