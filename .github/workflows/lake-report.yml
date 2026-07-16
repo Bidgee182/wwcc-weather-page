@@ -97,7 +97,7 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add data/lake_sent_today.json || true
+          git add data/lake_sent_today.json data/email_log.csv || true
           if git diff --staged --quiet; then
             echo "No sent-today changes to commit"
           else

@@ -9,6 +9,31 @@ import json
 from pathlib import Path
 
 
+# ── Email audit log ───────────────────────────────────────────────────────────
+
+def log_email(email_type, subject, recipients, status):
+    """Append one row to data/email_log.csv - the audit trail of every send.
+
+    Never raises: a logging failure must not break an email send.
+    """
+    import csv
+    from datetime import datetime, timezone
+    try:
+        path = Path(__file__).parent.parent / 'data' / 'email_log.csv'
+        new = not path.exists() or path.stat().st_size == 0
+        recips = recipients if isinstance(recipients, (list, tuple)) else [recipients]
+        recips = [str(r) for r in recips if r]
+        with path.open('a', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow(['timestamp_utc', 'email_type', 'subject',
+                            'recipient_count', 'recipients', 'status'])
+            w.writerow([datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                        email_type, subject, len(recips), '; '.join(recips), status])
+    except Exception:
+        pass
+
+
 # ── Email plain-text part ─────────────────────────────────────────────────────
 
 def html_to_text(html_str):

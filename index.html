@@ -357,6 +357,7 @@
         #tank-fill-rect { transition:height 0.7s ease, fill 0.4s; }
         .tank-history-range { display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; cursor:pointer; transition:background 0.2s,color 0.2s; }
+        @media (max-width:480px) { #lake-fit-btn, #tank-fit-btn { margin-left:0 !important; } }
         .tank-range-btn.active { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
         .tank-custom-row { display:none; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
         .tank-custom-row.visible { display:flex; }
@@ -5173,6 +5174,33 @@ async function _writeKiosk(messages) {
         if (r.status === 409) throw new Error('Save conflict — another device saved simultaneously. Reload and retry.');
         throw new Error(msg);
     }
+    // Audit trail: append a snapshot to the change log (best-effort; a
+    // logging failure must never block the message save itself)
+    _logKioskChange(messages).catch(() => {});
+}
+
+async function _logKioskChange(messages) {
+    const pat = localStorage.getItem('wx_github_pat') || '';
+    if (!pat) return;
+    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/kiosk_message_log.json`;
+    let sha = null, logArr = [];
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json' } });
+    if (r.ok) {
+        const d = await r.json();
+        sha = d.sha;
+        try { logArr = JSON.parse(decodeURIComponent(escape(atob(d.content.replace(/\n/g, ''))))); } catch {}
+    }
+    if (!Array.isArray(logArr)) logArr = [];
+    logArr.push({
+        ts: new Date().toISOString(),
+        count: messages.length,
+        messages: messages.map(m => ({ type: m.type, text: String(m.text || '').slice(0, 120) })),
+    });
+    if (logArr.length > 200) logArr = logArr.slice(-200);
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(logArr, null, 2))));
+    await fetch(url, { method: 'PUT',
+        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Log screen message change', content, ...(sha ? { sha } : {}) }) });
 }
 
 async function addKioskMessage() {
@@ -7302,6 +7330,8 @@ let   _lakeChart          = null;
 let   _lakeCustomFrom     = null;
 let   _lakeCustomTo       = null;
 
+// MUST MATCH data/lake_config.json zone_thresholds (also duplicated in
+// lake_level_alert.py and daily_report.py — change all copies together)
 const LAKE_THRESHOLDS = [
     { ahd: 190.25, rate: '1.50 ML/day', level: 1, name: 'Normal Operations',          bg: '#00762A', color: '#FFFFFF' },
     { ahd: 190.05, rate: '1.00 ML/day', level: 2, name: 'Increased Monitoring',        bg: '#8AC63F', color: '#111111' },

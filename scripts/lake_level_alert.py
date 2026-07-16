@@ -52,7 +52,9 @@ EMAIL_GK_RECIPIENTS       = [a.strip() for a in os.environ.get('EMAIL_GK_RECIPIE
 EMAIL_COMMITTEE_RECIPIENTS = [a.strip() for a in os.environ.get('EMAIL_COMMITTEE_RECIPIENTS', '').split(',') if a.strip()]
 EMAIL_RECIPIENTS_ALL      = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
 
-# Level definitions — must match _LAKE_LEVELS in daily_report.py
+# Level definitions — MUST MATCH data/lake_config.json zone_thresholds
+# (also duplicated in daily_report.py and index.html LAKE_THRESHOLDS —
+# change all copies together)
 # (min_ahd, level_num, rate_str, bg_hex, fg_hex)
 LAKE_LEVELS = [
     (190.250, 1, '1.50 ML/day', '#00762A', '#ffffff'),
@@ -429,9 +431,16 @@ def send_email(subject, html, recipients):
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)
         log.info(f'Sent "{subject}" — {resp.status_code} — to {recipients}')
+        from lake_utils import log_email
+        log_email('lake_alert', subject, recipients, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'Send error: {e}')
+        try:
+            from lake_utils import log_email
+            log_email('lake_alert', subject, recipients, f'failed: {e}')
+        except Exception:
+            pass
         return False
 
 

@@ -8,6 +8,8 @@ Runs every 15 minutes via GitHub Actions.
 - Converts lake sensor reading to AHD (Australian Height Datum)
 - Sends SendGrid alert emails when tank crosses threshold levels
 - Backfill mode: fetches all history from a start date into data/farmbot_history.json
+  (LEGACY: dashboards now derive daily summaries client-side from
+  farmbot_readings.json; farmbot_history.json is only a fallback)
 """
 
 import os, sys, json, logging, argparse
@@ -200,6 +202,11 @@ def send_alert(pct, volume_l, state):
         mail.add_to(To(addr))
     sg.send(mail)
     log.info(f'Alert email sent ({state}) to {len(recipients)} recipient(s)')
+    try:
+        from lake_utils import log_email
+        log_email('tank_alert', subject, recipients, 'sent')
+    except Exception:
+        pass
 
 # ── Fetch graph samples ────────────────────────────────────────────────────────
 def fetch_graph_samples(token, total_height, hours=24):

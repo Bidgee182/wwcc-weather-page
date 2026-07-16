@@ -2025,6 +2025,7 @@ def send_email(subject, html_content, test_mode=False):
     try:
         resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
         log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
+        lu.log_email('board_report', subject, to_list + cc_list + bcc_list, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'SendGrid error: {e}')

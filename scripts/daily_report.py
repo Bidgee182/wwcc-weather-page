@@ -1127,15 +1127,34 @@ def _gk_kv_table(rows):
 
 # ─────────────────────────── LAKE ALBERT HELPERS ────────────────────────────
 
-LAKE_SURFACE_M2 = 1_202_046      # m² - matches lake-albert.html
+# Refined to the area at the current lake level inside the lake sections (via
+# lake_utils linear model) so change->ML figures match the board dashboard.
+LAKE_SURFACE_M2 = 1_202_046      # m² fallback (full supply)
 LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD - matches lake-albert.html
 LAKE_FULL_AHD_V = 191.551        # full supply level AHD - matches lake-albert.html
 LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
 
 
 def _ahd_to_ml(ahd):
-    """Convert AHD to volume in ML. Identical to ahdToML() in lake-albert.html."""
-    return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+    """Volume in ML via the shared linear area model (lake_utils)."""
+    try:
+        import lake_utils as _lu
+        return _lu.vol_between_ml(LAKE_VOL_BOTTOM, ahd)
+    except Exception:
+        return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+
+
+def _chg_ml(delta_m, ahd):
+    """Depth change (m) -> ML using the surface area at the given level, so
+    figures agree with the board dashboard's linear area model."""
+    if delta_m is None:
+        return None
+    try:
+        import lake_utils as _lu
+        area = _lu.lake_area_m2(float(ahd)) if ahd is not None else LAKE_SURFACE_M2
+    except Exception:
+        area = LAKE_SURFACE_M2
+    return delta_m * area / 1000
 
 
 _WHITE_LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
@@ -1391,7 +1410,7 @@ def _build_lake_section_daily(lake_data, target_date, section_num=7):
     today_ahd_r   = float(today_rdgs[-1].get('ahd', 0)) if today_rdgs else ahd
     prev_ahd_r    = float(prev_rdgs[-1].get('ahd', 0))  if prev_rdgs  else None
     daily_chg_ahd = (today_ahd_r - prev_ahd_r) if (prev_ahd_r and prev_ahd_r > 0 and today_ahd_r > 0) else None
-    daily_chg_ml  = (daily_chg_ahd * LAKE_SURFACE_M2 / 1000) if daily_chg_ahd is not None else None
+    daily_chg_ml  = _chg_ml(daily_chg_ahd, ahd)
 
     # Volume
     vol_ml  = _ahd_to_ml(ahd)
@@ -1526,7 +1545,7 @@ def _build_lake_section_weekly(lake_data, week_end_date, section_num=4):
     first_ahd    = week_ahd_vals[0]  if week_ahd_vals else ahd
     last_ahd     = week_ahd_vals[-1] if week_ahd_vals else ahd
     week_change  = last_ahd - first_ahd
-    week_chg_ml  = week_change * LAKE_SURFACE_M2 / 1000
+    week_chg_ml  = _chg_ml(week_change, last_ahd)
 
     total_pump_ml = sum(float(p.get('ml', 0)) for p in week_pumping)
 
@@ -1854,7 +1873,7 @@ def _build_lake_section_monthly(lake_data, month_label, section_num=5):
     first_ahd_m   = ahd_vals[0]  if ahd_vals else ahd
     last_ahd_m    = ahd_vals[-1] if ahd_vals else ahd
     month_change  = last_ahd_m - first_ahd_m
-    month_chg_ml  = month_change * LAKE_SURFACE_M2 / 1000
+    month_chg_ml  = _chg_ml(month_change, ahd)
 
     total_pump_ml = sum(float(p.get('ml', 0)) for p in month_pumping)
 
@@ -1969,7 +1988,7 @@ def _build_lake_section_yearly(lake_data, year_label, section_num=3):
     first_ahd_y   = ahd_vals[0]  if ahd_vals else ahd
     last_ahd_y    = ahd_vals[-1] if ahd_vals else ahd
     year_change   = last_ahd_y - first_ahd_y
-    year_chg_ml   = year_change * LAKE_SURFACE_M2 / 1000
+    year_chg_ml   = _chg_ml(year_change, ahd)
 
     total_pump_ml = sum(float(p.get('ml', 0)) for p in year_pumping)
 
@@ -3428,7 +3447,7 @@ def send_email(subject, html_body, recipients):
     if not recipients or recipients == ['']:
         log.warning('No email recipients configured.')
         return
-    from lake_utils import html_to_text
+    from lake_utils import html_to_text, log_email
     message = Mail(
         from_email=Email(EMAIL_FROM, 'WWCC Weather'),
         subject=subject,
@@ -3443,8 +3462,10 @@ def send_email(subject, html_body, recipients):
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
         log.info(f'Email sent: {response.status_code} to {recipients}')
+        log_email('gk_report', subject, recipients, f'sent ({response.status_code})')
     except Exception as e:
         log.error(f'Email send error: {e}')
+        log_email('gk_report', subject, recipients, f'failed: {e}')
 
 
 # ─────────────────────────────────────────────────────────────────────────────

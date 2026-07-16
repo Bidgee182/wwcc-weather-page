@@ -38,17 +38,37 @@ log = logging.getLogger(__name__)
 
 SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
 DATA_DIR    = Path(__file__).parent.parent / 'data'
-LAKE_SURFACE_M2 = 1_202_046      # m² — matches lake-albert.html
+# Refined at runtime to the surface area at the CURRENT lake level using the
+# linear area model in lake_utils (full-supply value is only the fallback), so
+# depth-change -> ML conversions match the board dashboard and board email.
+LAKE_SURFACE_M2 = 1_202_046      # m² fallback (full supply)
 LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
 LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
 LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
 
 
 def _ahd_to_ml(ahd):
-    """Convert AHD to volume in ML. Identical to ahdToML() in lake-albert.html."""
+    """Volume in ML via the shared linear area model (lake_utils)."""
     if ahd is None:
         return None
-    return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+    try:
+        import lake_utils as _lu
+        return _lu.vol_between_ml(LAKE_VOL_BOTTOM, ahd)
+    except Exception:
+        return max(0.0, LAKE_SURFACE_M2 * (ahd - LAKE_VOL_BOTTOM) / 1000)
+
+
+def _use_area_at_current_level(latest):
+    """Point LAKE_SURFACE_M2 at the area for the current lake level so all
+    depth-change -> ML conversions agree with the board dashboard."""
+    global LAKE_SURFACE_M2
+    try:
+        import lake_utils as _lu
+        ahd = (latest or {}).get('lake_ahd')
+        if ahd is not None:
+            LAKE_SURFACE_M2 = _lu.lake_area_m2(float(ahd))
+    except Exception:
+        pass
 
 
 _WHITE_LOGO_URL = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
@@ -814,9 +834,16 @@ def send_email(subject, html_content, test_mode=False):
         log.info(f'Sent "{subject}" — status {resp.status_code} — to: {", ".join(to_list)}')
         if cc_list:
             log.info(f'  CC: {", ".join(cc_list)}')
+        from lake_utils import log_email
+        log_email('lake_report', subject, to_list + cc_list, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'SendGrid error sending "{subject}": {e}')
+        try:
+            from lake_utils import log_email
+            log_email('lake_report', subject, to_list + cc_list, f'failed: {e}')
+        except Exception:
+            pass
         return False
 
 
@@ -846,6 +873,7 @@ def main():
     log.info(f'Sydney date/time: {now_syd.strftime("%Y-%m-%d %H:%M %Z")}')
 
     data = load_data()
+    _use_area_at_current_level(data.get('latest'))
 
     # Determine which reports to run
     if args.force_all:

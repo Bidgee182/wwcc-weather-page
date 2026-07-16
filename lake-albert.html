@@ -57,7 +57,9 @@
         .lake-pill-glow-red   { animation:pillGlowRed 1.5s ease-in-out infinite; }
 
         .tank-history-range { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+        /* On phones the right-aligned Smooth button flows with the row */
         .tank-range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
+        @media (max-width:480px) { #la-smooth-btn { margin-left:0 !important; } }
         .tank-range-btn.active, .tank-range-btn:hover { background:#2980b9; border-color:#2980b9; color:white; font-weight:bold; }
         .tank-custom-row { display:none; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
         .tank-custom-row.visible { display:flex; }
@@ -1302,8 +1304,9 @@ function renderLevelChart(samples) {
         const total2=Math.ceil((toMs2-fromMs2)/slotMs2);
         for(let i=0;i<=total2;i++) slotSamples.push(slotMap2.get(i)||null);
     }
+    const _manualR = (typeof window !== 'undefined' && window.innerWidth <= 480) ? 4 : 6;
     const useSlot = !is24h && slotSamples.length === plotVals.length;
-    const ptRadii  = plotVals.map((_,i) => { const s=useSlot?slotSamples[i]:null; return s?.manual?6:(plotVals.length>60?0:3); });
+    const ptRadii  = plotVals.map((_,i) => { const s=useSlot?slotSamples[i]:null; return s?.manual?_manualR:(plotVals.length>60?0:3); });
     const ptColors = plotVals.map((_,i) => { const s=useSlot?slotSamples[i]:null; return s?.manual?'#f39c12':'#4a90b8'; });
 
     const chartData={labels:plotLabels,datasets:[{
