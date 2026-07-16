@@ -379,6 +379,8 @@
             <button class="lk-range-btn" id="lk-btn-custom" onclick="toggleLakeCustom()">Custom</button>
             <button class="lk-range-btn" id="lk-fit-btn" onclick="toggleLakeFit()"
                 style="margin-left:auto;" title="Toggle between zooming to the data and showing the full zone ladder">Fit: Data</button>
+            <button class="lk-range-btn" id="lk-smooth-btn" onclick="toggleLakeSmooth()"
+                title="4-hour averaging smooths sensor jitter on long ranges. Automatic for spans of 14 days or more.">Smooth: Off</button>
         </div>
         <div class="lk-custom-row" id="lk-custom-row">
             <label>From <input type="date" id="lk-from"></label>
@@ -914,6 +916,19 @@ function buildDailyLake(readings) {
 let _lakeChart = null;
 let _lakeReadingsAll = [];
 let _lakeFitZones = false;   // false = auto-zoom to data, true = show full zone ladder
+let _lakeSmooth   = 'auto';  // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'
+
+function toggleLakeSmooth() {
+    // Tap flips to the opposite of whatever is currently in effect
+    _lakeSmooth = _lakeSmoothEffective() ? 'off' : 'on';
+    renderLakeRange();
+}
+function _lakeSmoothEffective() {
+    const spanH = _lakeCustom
+        ? (new Date(_lakeCustom.to) - new Date(_lakeCustom.from)) / 3600000 + 24
+        : _lakeRangeHours;
+    return _lakeSmooth === 'on' || (_lakeSmooth === 'auto' && spanH >= 14 * 24);
+}
 
 function toggleLakeFit() {
     _lakeFitZones = !_lakeFitZones;
@@ -927,6 +942,7 @@ let _lakeCustom      = null;  // { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }
 function setLakeRange(hours) {
     _lakeRangeHours = hours;
     _lakeCustom = null;
+    _lakeSmooth = 'auto';
     document.querySelectorAll('.lk-range-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById('lk-btn-' + hours) ||
         [...document.querySelectorAll('.lk-range-btn')].find(b => b.getAttribute('onclick') === `setLakeRange(${hours})`);
@@ -944,6 +960,7 @@ function applyLakeCustom() {
     if (!from || !to || from > to) return;
     _lakeCustom = { from, to };
     _lakeRangeHours = null;
+    _lakeSmooth = 'auto';
     document.querySelectorAll('.lk-range-btn').forEach(b => b.classList.remove('active'));
     $('lk-btn-custom').classList.add('active');
     renderLakeRange();
@@ -969,20 +986,36 @@ function renderLakeRange() {
         return;
     }
 
-    // Short ranges plot individual readings; longer ranges use daily averages
+    // Granularity: raw readings for short ranges, 4-hour bucket averages when
+    // smoothing is in effect (automatic for spans of 14 days or more)
+    const smoothOn = spanHours > 72 && _lakeSmoothEffective();
+    const smoothBtn = $('lk-smooth-btn');
+    if (smoothBtn) smoothBtn.textContent = smoothOn ? 'Smooth: 4h' : 'Smooth: Off';
     let labels, values, note;
-    if (spanHours <= 72) {
-        const sorted = [...rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sorted = [...rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (smoothOn) {
+        const buckets = new Map();  // epoch 4h block -> {sum, n, t}
+        for (const r of sorted) {
+            const t = new Date(r.date).getTime();
+            const key = Math.floor(t / 14400000);
+            let b = buckets.get(key);
+            if (!b) { b = { sum:0, n:0, t: key * 14400000 }; buckets.set(key, b); }
+            b.sum += parseFloat(r.ahd); b.n++;
+        }
+        const blocks = [...buckets.values()].sort((a, b) => a.t - b.t);
+        labels = blocks.map(b => new Date(b.t).toLocaleString('en-AU',{day:'numeric',month:'short',hour:'numeric'}));
+        values = blocks.map(b => parseFloat((b.sum / b.n).toFixed(3)));
+        note = '4-hour averages, ' + blocks.length + ' points';
+    } else if (spanHours <= 72) {
         labels = sorted.map(r => new Date(r.date).toLocaleString('en-AU',
             spanHours <= 24 ? { hour:'numeric', minute:'2-digit' }
                             : { weekday:'short', hour:'numeric' }));
         values = sorted.map(r => parseFloat(parseFloat(r.ahd).toFixed(3)));
         note = sorted.length + ' readings';
     } else {
-        const daily = buildDailyLake(rows);
-        labels = daily.map(r => new Date(r.day+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-        values = daily.map(r => parseFloat(r.ahd.toFixed(3)));
-        note = 'daily average AHD, ' + daily.length + ' days';
+        labels = sorted.map(r => new Date(r.date).toLocaleString('en-AU',{day:'numeric',month:'short',hour:'numeric'}));
+        values = sorted.map(r => parseFloat(parseFloat(r.ahd).toFixed(3)));
+        note = 'every reading, ' + sorted.length + ' points';
     }
     const first = new Date(rows.reduce((a,b) => a.date < b.date ? a : b).date);
     const last  = new Date(rows.reduce((a,b) => a.date > b.date ? a : b).date);

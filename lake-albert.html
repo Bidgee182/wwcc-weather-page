@@ -271,6 +271,8 @@
             <button class="tank-range-btn" onclick="setRange(720)">30 Days</button>
             <button class="tank-range-btn" onclick="setRange(2160)">90 Days</button>
             <button class="tank-range-btn" id="custom-btn" onclick="showCustom()">Custom</button>
+            <button class="tank-range-btn" id="la-smooth-btn" onclick="toggleLaSmooth()"
+                style="margin-left:auto" title="4-hour averaging smooths sensor jitter on long ranges. Automatic for spans of 14 days or more.">Smooth: Off</button>
         </div>
         <div class="tank-custom-row" id="custom-row">
             <label>From <input type="date" id="from-date"></label>
@@ -1036,8 +1038,20 @@ function showTab(name) {
 }
 
 // ── Range controls (level tab) ────────────────────────────────────────────
+let _laSmooth='auto'; // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'
+function _laSmoothEffective() {
+    const spanH=_range===null
+        ? ((_customFrom&&_customTo)?(new Date(_customTo)-new Date(_customFrom))/3600000+24:0)
+        : _range;
+    return _laSmooth==='on'||(_laSmooth==='auto'&&spanH>=14*24);
+}
+function toggleLaSmooth() {
+    _laSmooth=_laSmoothEffective()?'off':'on';
+    fetchLevel();
+}
+
 function setRange(hours) {
-    _range=hours; _customFrom=null; _customTo=null; _lakeHistory=null;
+    _range=hours; _customFrom=null; _customTo=null; _lakeHistory=null; _laSmooth='auto';
     document.getElementById('custom-row').classList.remove('visible');
     document.querySelectorAll('#level-range-row .tank-range-btn').forEach(b=>{
         const map={24:'24h',168:'7 Days',720:'30 Days',2160:'90 Days'};
@@ -1060,7 +1074,7 @@ function showCustom() {
 function applyCustom() {
     const f=document.getElementById('from-date').value,t=document.getElementById('to-date').value;
     if(!f||!t) return;
-    _range=null; _customFrom=f; _customTo=t; _lakeHistory=null;
+    _range=null; _customFrom=f; _customTo=t; _lakeHistory=null; _laSmooth='auto';
     fetchLevel();
 }
 
@@ -1165,21 +1179,36 @@ function renderLevelChart(samples) {
         let fromMs,toMs;
         if(_range===null){fromMs=new Date(_customFrom).getTime();toMs=new Date(_customTo+'T23:59:59').getTime();}
         else             {toMs=Date.now();fromMs=toMs-_range*3600000;}
-        const slotMs=3600000, slotMap=new Map();
+        // 4-hour averaged slots when smoothing (auto on spans >= 14 days)
+        const smoothOn=_laSmoothEffective();
+        const slotMs=smoothOn?14400000:3600000, slotMap=new Map();
         for(const s of(samples||[])){
             const key=Math.floor((new Date(s.date).getTime()-fromMs)/slotMs);
-            if(key>=0) slotMap.set(key,{ahd:parseFloat(s.ahd??0),date:s.date});
+            if(key<0) continue;
+            let a=slotMap.get(key);
+            if(!a){a={sum:0,n:0,date:s.date,manual:false};slotMap.set(key,a);}
+            a.sum+=parseFloat(s.ahd??0);a.n++;a.date=s.date;
+            if(s.manual)a.manual=true;
         }
         plotLabels=[];plotVals=[];plotTooltips=[];
         const total=Math.ceil((toMs-fromMs)/slotMs);
         for(let i=0;i<=total;i++){
             const t=new Date(fromMs+i*slotMs),entry=slotMap.get(i);
             plotLabels.push(t.toLocaleDateString('en-AU',{day:'numeric',month:'short'}));
-            plotVals.push(entry?entry.ahd:null);
-            plotTooltips.push(entry
-                ?new Date(entry.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})
-                :t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+'  -  no data');
+            plotVals.push(entry?entry.sum/entry.n:null);
+            if(!entry){
+                plotTooltips.push(t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})+'  -  no data');
+            } else if(smoothOn){
+                const bEnd=new Date(fromMs+(i+1)*slotMs);
+                const fH=d=>d.toLocaleTimeString('en-AU',{hour:'numeric',hour12:true});
+                plotTooltips.push(t.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})
+                    +', '+fH(t)+' - '+fH(bEnd)+' avg ('+entry.n+' readings)');
+            } else {
+                plotTooltips.push(new Date(entry.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}));
+            }
         }
+        const smBtn=document.getElementById('la-smooth-btn');
+        if(smBtn) smBtn.textContent=smoothOn?'Smooth: 4h':'Smooth: Off';
     } else {
         if(!samples||samples.length<2){
             if(_levelChart){_levelChart.destroy();_levelChart=null;}
@@ -1191,7 +1220,8 @@ function renderLevelChart(samples) {
         plotTooltips=samples.map(s=>new Date(s.date).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}));
     }
 
-    const realVals=plotVals.filter(v=>v!==null);
+    const rawStatVals=(samples||[]).map(s=>parseFloat(s.ahd??NaN)).filter(v=>!isNaN(v));
+    const realVals=rawStatVals.length?rawStatVals:plotVals.filter(v=>v!==null);
     const minV=realVals.length?Math.min(...realVals):190.0;
     const maxV=realVals.length?Math.max(...realVals):190.0;
     const firstV=plotVals.find(v=>v!==null),lastV=[...plotVals].reverse().find(v=>v!==null);
@@ -1219,10 +1249,13 @@ function renderLevelChart(samples) {
         let fromMs2,toMs2;
         if(_range===null){fromMs2=new Date(_customFrom).getTime();toMs2=new Date(_customTo+'T23:59:59').getTime();}
         else             {toMs2=Date.now();fromMs2=toMs2-_range*3600000;}
-        const slotMs2=3600000, slotMap2=new Map();
+        const slotMs2=_laSmoothEffective()?14400000:3600000, slotMap2=new Map();
         for(const s of(samples||[])){
             const key=Math.floor((new Date(s.date).getTime()-fromMs2)/slotMs2);
-            if(key>=0) slotMap2.set(key,s);
+            if(key<0) continue;
+            const prev=slotMap2.get(key);
+            // keep any manual flag seen in the slot so manual dots stay visible
+            slotMap2.set(key,(prev&&prev.manual&&!s.manual)?prev:s);
         }
         const total2=Math.ceil((toMs2-fromMs2)/slotMs2);
         for(let i=0;i<=total2;i++) slotSamples.push(slotMap2.get(i)||null);

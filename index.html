@@ -1212,6 +1212,8 @@
                 <button class="tank-range-btn" id="lake-custom-btn" onclick="showLakeCustomRange()">Custom</button>
                 <button class="tank-range-btn" id="lake-fit-btn" onclick="toggleGkLakeFit()"
                     style="margin-left:auto" title="Toggle between zooming to the data and showing the full zone ladder">Fit: Data</button>
+                <button class="tank-range-btn" id="lake-smooth-btn" onclick="toggleGkLakeSmooth()"
+                    title="4-hour averaging smooths sensor jitter on long ranges. Automatic for spans of 14 days or more.">Smooth: Off</button>
             </div>
             <div class="tank-custom-row" id="lake-custom-row">
                 <label>From <input type="date" id="lake-date-from"></label>
@@ -7286,6 +7288,7 @@ let   _tankChart        = null;
 let   _tankMonthlyChart = null;
 let   _lakeRange          = 24;
 let   _lakeFitZones       = false;  // false = auto-zoom to data, true = full zone ladder
+let   _lakeSmooth         = 'auto'; // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'
 let   _lakeLatest         = null;
 let   _lakeHistory        = null;
 let   _lakeReadingsCache  = null;   // persistent cache for pills (not cleared on range change)
@@ -7629,14 +7632,21 @@ function _renderLakeGraph(samples) {
             toMs   = Date.now();
             fromMs = toMs - _lakeRange * 3600000;
         }
-        const slotMs   = 3600000; // always hourly — show every reading
+        // Slot size: hourly normally; 4-hour blocks with per-slot averaging when
+        // smoothing is in effect (auto for spans of 14 days or more)
+        const smoothOn = _gkSmoothEffective();
+        const slotMs   = smoothOn ? 14400000 : 3600000;
 
-        // Map each reading to the slot it falls in (last reading wins per slot)
+        // Aggregate readings into slots (mean per slot when smoothing;
+        // hourly slots typically hold a single reading anyway)
         const slotMap = new Map();
         for (const s of (samples || [])) {
             const t   = new Date(s.date).getTime();
             const key = Math.floor((t - fromMs) / slotMs);
-            if (key >= 0) slotMap.set(key, { ahd: parseFloat(s.ahd ?? 0), date: s.date });
+            if (key < 0) continue;
+            let a = slotMap.get(key);
+            if (!a) { a = { sum: 0, n: 0, date: s.date }; slotMap.set(key, a); }
+            a.sum += parseFloat(s.ahd ?? 0); a.n++; a.date = s.date;
         }
 
         plotLabels = []; plotVals = []; plotTooltips = [];
@@ -7645,11 +7655,20 @@ function _renderLakeGraph(samples) {
             const t = new Date(fromMs + i * slotMs);
             plotLabels.push(t.toLocaleDateString('en-AU', { day:'numeric', month:'short' }));
             const entry = slotMap.get(i);
-            plotVals.push(entry ? entry.ahd : null);
-            plotTooltips.push(entry
-                ? new Date(entry.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false })
-                : t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' — no data');
+            plotVals.push(entry ? entry.sum / entry.n : null);
+            if (!entry) {
+                plotTooltips.push(t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' — no data');
+            } else if (smoothOn) {
+                const bStart = new Date(fromMs + i * slotMs), bEnd = new Date(fromMs + (i + 1) * slotMs);
+                const fH = d => d.toLocaleTimeString('en-AU', { hour:'numeric', hour12:true });
+                plotTooltips.push(bStart.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' })
+                    + ', ' + fH(bStart) + ' - ' + fH(bEnd) + ' avg (' + entry.n + ' readings)');
+            } else {
+                plotTooltips.push(new Date(entry.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hour12:false }));
+            }
         }
+        const smBtn = document.getElementById('lake-smooth-btn');
+        if (smBtn) smBtn.textContent = smoothOn ? 'Smooth: 4h' : 'Smooth: Off';
     } else {
         // 24h: use samples directly
         if (!samples || samples.length < 2) {
@@ -7662,8 +7681,10 @@ function _renderLakeGraph(samples) {
         plotTooltips = samples.map(s => new Date(s.date).toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }));
     }
 
-    // Stats from non-null values only
-    const realVals = plotVals.filter(v => v !== null);
+    // Stats from the RAW readings (not slot averages) so smoothing never
+    // shaves the true min/max the greenkeeper acts on
+    const rawStatVals = (samples || []).map(s => parseFloat(s.ahd ?? NaN)).filter(v => !isNaN(v));
+    const realVals = rawStatVals.length ? rawStatVals : plotVals.filter(v => v !== null);
     if (realVals.length === 0) {
         if (_lakeChart) { _lakeChart.destroy(); _lakeChart = null; }
         ['lake-hist-min','lake-hist-max','lake-hist-change'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '--'; });
@@ -7961,15 +7982,32 @@ function toggleGkLakeFit() {
     fetchLakeData();
 }
 
+function toggleGkLakeSmooth() {
+    // Tap flips to the opposite of whatever is currently in effect
+    _lakeSmooth = _gkSmoothEffective() ? 'off' : 'on';
+    fetchLakeData();
+}
+function _gkSmoothEffective() {
+    let spanH;
+    if (_lakeRange === null) {
+        spanH = (_lakeCustomFrom && _lakeCustomTo)
+            ? (new Date(_lakeCustomTo) - new Date(_lakeCustomFrom)) / 3600000 + 24 : 0;
+    } else {
+        spanH = _lakeRange;
+    }
+    return _lakeSmooth === 'on' || (_lakeSmooth === 'auto' && spanH >= 14 * 24);
+}
+
 function setLakeRange(hours) {
     _lakeRange      = hours;
     _lakeCustomFrom = null;
     _lakeCustomTo   = null;
     _lakeHistory    = null;
+    _lakeSmooth     = 'auto';
     const row = document.getElementById('lake-custom-row');
     if (row) row.classList.remove('visible');
     document.querySelectorAll('#lake-range-controls .tank-range-btn').forEach(b => {
-        const map = { 24:'24h', 168:'7 Days', 720:'30 Days' };
+        const map = { 24:'24h', 48:'48h', 168:'7 Days', 720:'30 Days' };
         b.classList.toggle('active', map[hours] === b.textContent.trim());
     });
     fetchLakeData();
@@ -7997,6 +8035,7 @@ function applyLakeCustomRange() {
     if (fromEl.value > toEl.value) { alert('From date must be before To date'); return; }
     _lakeCustomFrom = fromEl.value;
     _lakeCustomTo   = toEl.value;
+    _lakeSmooth     = 'auto';
     _lakeRange      = null;
     _lakeHistory    = null;
     fetchLakeData();
