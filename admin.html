@@ -10,6 +10,10 @@
         body { font-family:Arial, sans-serif; background:#1a252f; color:white; min-height:100vh; padding:20px; }
         @media (max-width:480px){ body{padding:10px;} }
         h1 { font-size:1.4em; letter-spacing:2px; color:#ecf0f1; }
+        .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
+        .logo-wrap img { display:block; height:56px; width:auto; }
+        .logo-wrap .logo-top  { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
+        .logo-wrap .logo-base { filter:grayscale(1) contrast(200) invert(1); }
         .subtitle { font-size:0.8em; color:#7f8c8d; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
         .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
@@ -27,9 +31,9 @@
         th { color:#7f8c8d; font-weight:600; font-size:0.85em; text-transform:uppercase; letter-spacing:0.5px; padding:7px 8px; border-bottom:1px solid #3d5166; text-align:left; }
         td { padding:7px 8px; border-bottom:1px solid #243344; vertical-align:top; }
         .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-        .light { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+        .light { display:inline-block; width:20px; height:20px; border-radius:50%; margin-right:10px; vertical-align:middle; box-shadow:0 0 6px rgba(0,0,0,0.4) inset; }
         .lg { background:#27ae60; } .ly { background:#d4ac0d; } .lr { background:#e74c3c; } .lgrey { background:#566573; }
-        .hrow { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #243344; font-size:0.88em; flex-wrap:wrap; gap:6px; }
+        .hrow { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #243344; font-size:0.98em; flex-wrap:wrap; gap:6px; }
         .hrow .sub { color:#566573; font-size:0.85em; }
         .pill { display:inline-block; font-size:0.75em; font-weight:700; padding:2px 10px; border-radius:10px; }
         .ok  { background:#12401f; color:#2ecc71; } .fail { background:#40120f; color:#e74c3c; }
@@ -45,9 +49,15 @@
 <body>
 
 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 14px;flex-wrap:wrap;gap:8px;">
-    <div>
-        <h1>ADMIN &mdash; WEATHER SYSTEMS</h1>
-        <div class="subtitle">Wagga Wagga Country Club &bull; logs, controls &amp; health</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+        <div class="logo-wrap">
+            <img class="logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC">
+            <img class="logo-top"  src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
+        </div>
+        <div>
+            <h1>ADMIN &mdash; WEATHER SYSTEMS</h1>
+            <div class="subtitle">Wagga Wagga Country Club &bull; logs, controls &amp; health</div>
+        </div>
     </div>
     <div id="session-box" style="display:none;font-size:0.8em;color:#7f8c8d;text-align:right;">
         <span id="session-email" style="color:#27ae60;font-weight:bold;"></span><br>
@@ -425,18 +435,36 @@ function light(okMins, warnMins, iso) {
 async function loadHealth() {
     const cb = '?_=' + Date.now();
     try {
-        const [tank, lake] = await Promise.all([
+        const [tank, lake, davisHist] = await Promise.all([
             fetch('data/farmbot_latest.json' + cb).then(r => r.json()),
             fetch('data/farmbot_lake_latest.json' + cb).then(r => r.json()),
+            fetch('data/davis_weather_history.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
+        // FarmBot's API typically lags 4-6 hours behind real time - that is
+        // normal, so readings only go amber beyond 8h and red beyond 16h.
         const rows = [
-            ['Tank reading',   tank.tank_date,  30, 120],
-            ['Lake reading',   lake.lake_date,  90, 240],
-            ['Poll committed', tank.updated_at, 30, 120],
+            ['Tank reading (FarmBot)', tank.tank_date,  8 * 60, 16 * 60],
+            ['Lake reading (FarmBot)', lake.lake_date,  8 * 60, 16 * 60],
+            ['Poll committed',         tank.updated_at, 30,     120],
         ];
+        // Davis: history file newest record (updated by the poll) and the
+        // daily log's latest row (written each morning for yesterday)
+        if (Array.isArray(davisHist) && davisHist.length) {
+            const newest = davisHist[davisHist.length - 1].date || davisHist[0].date;
+            rows.push(['Davis history file', newest + 'T23:59:00+10:00', 36 * 60, 60 * 60]);
+        }
+        try {
+            const csvTxt = await fetch('data/daily_log.csv' + cb).then(r => r.text());
+            const lastLine = csvTxt.trim().split('
+').pop();
+            const lastDate = lastLine.slice(0, 10);
+            rows.push(['Davis daily log (yesterday row)', lastDate + 'T23:59:00+10:00', 36 * 60, 60 * 60]);
+        } catch {}
         $('health-lights').innerHTML = rows.map(([n, iso, ok, warn]) =>
             `<div class="hrow"><span><span class="light ${light(ok, warn, iso)}"></span>${n}</span>
-             <span class="sub">${ago(iso) || 'no data'}</span></div>`).join('');
+             <span class="sub">${ago(iso) || 'no data'}</span></div>`).join('')
+            + '<p class="note">FarmBot readings normally lag 4-6 hours behind real time - amber only past 8 h. '
+            + 'Davis rows go amber if the morning report has not written yesterday's row.</p>';
     } catch { $('health-lights').textContent = 'Could not load data files.'; }
 
     // Last email per type
