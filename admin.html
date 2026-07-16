@@ -44,6 +44,30 @@
         label input, label select { display:block; margin-top:4px; }
         .flexrow { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
         .secinv td:first-child { color:#5dade2; font-family:monospace; font-size:0.95em; }
+        /* health hero + system cards */
+        .hero { border-radius:12px; padding:20px 24px; text-align:center; margin-bottom:16px; font-weight:bold; letter-spacing:2px; }
+        .hero-ok  { background:linear-gradient(135deg,#0d3d1a,#1e8449); border:2px solid #27ae60; color:#2ecc71; }
+        .hero-bad { background:linear-gradient(135deg,#40120f,#922b21); border:2px solid #e74c3c; color:#f5b7b1; animation:heroPulse 2.2s ease-in-out infinite; }
+        .hero-warn{ background:linear-gradient(135deg,#3d2e00,#9a7d0a); border:2px solid #d4ac0d; color:#f9e79f; }
+        .hero .big { font-size:1.7em; }
+        .hero .sub { font-size:0.7em; font-weight:normal; letter-spacing:1px; margin-top:6px; opacity:0.85; }
+        @keyframes heroPulse { 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.45);} }
+        @media (prefers-reduced-motion:reduce){ .hero-bad{animation:none;} }
+        .syscards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:16px; }
+        .syscard { border-radius:12px; padding:14px 16px; border:2px solid #3d5166; background:linear-gradient(160deg,#22303e,#2c3e50); }
+        .syscard.s-ok   { border-color:#27ae60; background:linear-gradient(160deg,#12301c,#1a4a2c); }
+        .syscard.s-warn { border-color:#d4ac0d; background:linear-gradient(160deg,#332900,#584a00); }
+        .syscard.s-bad  { border-color:#e74c3c; background:linear-gradient(160deg,#3a100c,#6e211a); animation:heroPulse 2.2s ease-in-out infinite; }
+        .syscard h3 { font-size:0.75em; text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.75); margin-bottom:10px; }
+        .syscard .hrow { border-bottom:1px solid rgba(255,255,255,0.08); font-size:0.85em; padding:7px 0; }
+        .syscard .light { width:14px; height:14px; }
+        .spark { width:100%; height:44px; display:block; margin-top:8px; background:rgba(0,0,0,0.25); border-radius:6px; }
+        .sparklbl { font-size:0.68em; color:rgba(255,255,255,0.6); margin-top:6px; text-transform:uppercase; letter-spacing:1px; }
+        .dotstrip { display:flex; gap:3px; flex-wrap:wrap; margin:4px 0 12px; }
+        .dot { width:10px; height:10px; border-radius:50%; }
+        .quicknav { font-size:0.78em; margin:0 0 12px; color:#566573; }
+        .quicknav a { color:#5dade2; text-decoration:none; margin-right:14px; }
+        .galert { display:none; background:#40120f; border:1px solid #e74c3c; border-left:5px solid #e74c3c; color:#f5b7b1; border-radius:8px; padding:10px 14px; font-size:0.85em; margin-bottom:14px; }
     </style>
 </head>
 <body>
@@ -55,7 +79,7 @@
             <img class="logo-top"  src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
         </div>
         <div>
-            <h1>ADMIN &mdash; WEATHER SYSTEMS</h1>
+            <h1>ADMIN - WEATHER SYSTEMS</h1>
             <div class="subtitle">Wagga Wagga Country Club &bull; logs, controls &amp; health</div>
         </div>
     </div>
@@ -64,6 +88,12 @@
         <a href="#" onclick="logout();return false;" style="color:#7f8c8d;">Log out</a>
     </div>
 </div>
+
+<div class="quicknav">
+    <a href="index.html">Golfers</a><a href="index.html?gk=1">Greenkeeper</a>
+    <a href="board.html">Board</a><a href="lake-albert.html">Lake Albert</a><a href="tv2.html">TV2</a>
+</div>
+<div class="galert" id="global-alert"></div>
 
 <!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
 <div class="card" id="login-card" style="max-width:460px;margin:40px auto;">
@@ -96,6 +126,7 @@
 <div class="tab-bar">
     <button class="tab-btn active" data-p="health" onclick="showPanel('health')">Health</button>
     <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
+    <button class="tab-btn" data-p="workflows" onclick="showPanel('workflows')">Workflows</button>
     <button class="tab-btn" data-p="controls" onclick="showPanel('controls')">Controls</button>
     <button class="tab-btn" data-p="recipients" onclick="showPanel('recipients')">Recipients</button>
     <button class="tab-btn" data-p="admins" onclick="showPanel('admins')">Admins</button>
@@ -104,22 +135,29 @@
 
 <!-- HEALTH -->
 <div class="panel active" id="panel-health">
-    <div class="grid2">
-        <div class="card">
-            <h2>Data Freshness</h2>
-            <div id="health-lights">Loading...</div>
-        </div>
-        <div class="card">
-            <h2>Last Email Sent (per type)</h2>
-            <div id="health-emails">Loading...</div>
-        </div>
+    <div class="hero hero-ok" id="hero"><div class="big">CHECKING SYSTEMS...</div></div>
+    <div class="syscards" id="sys-cards"></div>
+    <div class="card">
+        <h2>Next Scheduled Emails</h2>
+        <div id="next-sends">Loading...</div>
+        <p class="note">Times are targets in Sydney time; GitHub's scheduler can run up to ~50 minutes late at peak.</p>
+    </div>
+</div>
+
+<!-- WORKFLOWS -->
+<div class="panel" id="panel-workflows">
+    <div class="card">
+        <h2>Workflow Health - Last 14 Days</h2>
+        <div id="wf-strips">Loading...</div>
     </div>
     <div class="card">
-        <h2>Recent Workflow Runs</h2>
+        <h2>Recent Runs</h2>
+        <select id="wf-filter" onchange="renderWorkflows()" style="margin-bottom:10px;"><option value="">All workflows</option></select>
         <div class="table-wrap"><table>
             <thead><tr><th>Workflow</th><th>Started</th><th>Status</th><th>Trigger</th></tr></thead>
             <tbody id="wf-runs"><tr><td colspan="4">Loading...</td></tr></tbody>
         </table></div>
+        <p class="note">Click a row to open that run's logs on GitHub.</p>
     </div>
 </div>
 
@@ -135,7 +173,10 @@
             <button class="tab-btn" data-l="kiosk" onclick="showLog('kiosk')">Kiosk</button>
             <button class="tab-btn" data-l="admin" onclick="showLog('admin')">Admin Actions</button>
         </div>
-        <input type="text" id="log-filter" placeholder="Filter rows..." style="width:100%;max-width:340px;margin-bottom:10px;" oninput="renderCurrentLog()">
+        <div class="flexrow" style="margin-bottom:10px;">
+            <input type="text" id="log-filter" placeholder="Filter rows..." style="width:100%;max-width:340px;" oninput="renderCurrentLog()">
+            <button class="ghost" onclick="downloadLog()">Download</button>
+        </div>
         <div class="table-wrap" id="log-table">Loading...</div>
     </div>
 </div>
@@ -166,9 +207,20 @@
     </div>
     <div class="card">
         <h2>Kiosk Screen Messages</h2>
-        <div id="ctl-kiosk-list">Loading...</div>
-        <p class="note">Messages are managed from the greenkeeper page's message panel (megaphone button).
-        Current messages shown here for reference; all changes are captured in the Kiosk log.</p>
+        <div class="flexrow">
+            <label style="flex:1;min-width:220px;">Message<br>
+                <input type="text" id="km-text" style="width:100%;" maxlength="200" placeholder="Shows on the TV ticker and dashboards"></label>
+            <label>Type<br><select id="km-type">
+                <option value="alert">Timed</option>
+                <option value="default">Persistent</option>
+            </select></label>
+            <label>Hours<br><input type="number" id="km-hours" value="24" min="1" max="336" style="width:80px;"></label>
+            <button onclick="kmPost()">Post</button>
+        </div>
+        <div class="status" id="km-status"></div>
+        <div id="ctl-kiosk-list" style="margin-top:10px;">Loading...</div>
+        <p class="note">Changes reach the TVs within ~30 seconds and are recorded in the Kiosk log.
+        The greenkeeper page's message panel edits the same list.</p>
     </div>
 </div>
 
@@ -432,74 +484,247 @@ function light(okMins, warnMins, iso) {
     const m = (Date.now() - new Date(iso).getTime()) / 60000;
     return m <= okMins ? 'lg' : m <= warnMins ? 'ly' : 'lr';
 }
+// Tiny hand-drawn sparkline (no chart library needed)
+function drawSpark(canvas, vals, color) {
+    if (!canvas || !vals || vals.length < 2) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || 240, h = canvas.clientHeight || 44;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    const span = (mx - mn) || 1, pad = 6;
+    const x = i => pad + i * (w - 2 * pad) / (vals.length - 1);
+    const y = v => h - pad - (v - mn) / span * (h - 2 * pad);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.beginPath();
+    vals.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)));
+    ctx.stroke();
+    ctx.fillStyle = color; ctx.beginPath();
+    ctx.arc(x(vals.length - 1), y(vals[vals.length - 1]), 2.6, 0, 7); ctx.fill();
+}
+
+function sydNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' })); }
+function fmtCountdown(ms) {
+    const m = Math.max(0, Math.round(ms / 60000));
+    return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' m' : m + ' m';
+}
+
+// Shared workflow runs cache (health card + workflows tab)
+let _wfRuns = null, _wfPromise = null;
+function ensureWfRuns() {
+    if (_wfPromise) return _wfPromise;
+    const h = SES.token ? { Authorization: 'Bearer ' + SES.token } : {};
+    _wfPromise = fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=100`, { headers: h })
+        .then(r => r.json()).then(d => { _wfRuns = d.workflow_runs || []; return _wfRuns; })
+        .catch(() => { _wfRuns = []; return _wfRuns; });
+    return _wfPromise;
+}
+
+const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts' };
+
 async function loadHealth() {
     const cb = '?_=' + Date.now();
+    const issues = [];
+    const rowHtml = (n, cls, sub) =>
+        `<div class="hrow"><span><span class="light ${cls}"></span>${n}</span><span class="sub">${sub}</span></div>`;
+    const worst = arr => arr.includes('lr') ? 'bad' : arr.includes('ly') ? 'warn' : 'ok';
+    const cards = [];
+
+    // ── FarmBot card (readings normally lag 4-6 h; amber past 8 h) ──
+    let tank = null, lake = null;
     try {
-        const [tank, lake, davisHist] = await Promise.all([
+        [tank, lake] = await Promise.all([
             fetch('data/farmbot_latest.json' + cb).then(r => r.json()),
             fetch('data/farmbot_lake_latest.json' + cb).then(r => r.json()),
-            fetch('data/davis_weather_history.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
-        // FarmBot's API typically lags 4-6 hours behind real time - that is
-        // normal, so readings only go amber beyond 8h and red beyond 16h.
-        const rows = [
-            ['Tank reading (FarmBot)', tank.tank_date,  8 * 60, 16 * 60],
-            ['Lake reading (FarmBot)', lake.lake_date,  8 * 60, 16 * 60],
-            ['Poll committed',         tank.updated_at, 30,     120],
+        const fRows = [
+            ['Tank reading', tank.tank_date, 8 * 60, 16 * 60],
+            ['Lake reading', lake.lake_date, 8 * 60, 16 * 60],
+            ['Poll committed', tank.updated_at, 30, 120],
         ];
-        // Davis: history file newest record (updated by the poll) and the
-        // daily log's latest row (written each morning for yesterday)
-        if (Array.isArray(davisHist) && davisHist.length) {
-            const newest = davisHist[davisHist.length - 1].date || davisHist[0].date;
-            rows.push(['Davis history file', newest + 'T23:59:00+10:00', 36 * 60, 60 * 60]);
-        }
-        try {
-            const csvTxt = await fetch('data/daily_log.csv' + cb).then(r => r.text());
-            const lastLine = csvTxt.trim().split(String.fromCharCode(10)).pop();
-            const lastDate = lastLine.slice(0, 10);
-            rows.push(['Davis daily log (yesterday row)', lastDate + 'T23:59:00+10:00', 36 * 60, 60 * 60]);
-        } catch {}
-        $('health-lights').innerHTML = rows.map(([n, iso, ok, warn]) =>
-            `<div class="hrow"><span><span class="light ${light(ok, warn, iso)}"></span>${n}</span>
-             <span class="sub">${ago(iso) || 'no data'}</span></div>`).join('')
-            + '<p class="note">FarmBot readings normally lag 4-6 hours behind real time - amber only past 8 h. '
-            + 'Davis rows go amber if the morning report has not written the previous day.</p>';
-    } catch { $('health-lights').textContent = 'Could not load data files.'; }
+        const cls = fRows.map(([n, iso, ok, warn]) => {
+            const c = light(ok, warn, iso);
+            if (c === 'lr') issues.push(n + ' stale');
+            return c;
+        });
+        cards.push({
+            title: 'FarmBot (lag 4-6 h is normal)', state: worst(cls),
+            html: fRows.map(([n, iso], i) => rowHtml(n, cls[i], ago(iso) || 'no data')).join('')
+                + '<canvas class="spark" id="spark-tank"></canvas><div class="sparklbl">Tank % - last 24 h</div>'
+                + '<canvas class="spark" id="spark-lake"></canvas><div class="sparklbl">Lake AHD - last 24 h</div>',
+        });
+    } catch { cards.push({ title: 'FarmBot', state: 'bad', html: 'Could not load data files.' }); issues.push('FarmBot data unreadable'); }
 
-    // Last email per type
+    // ── Davis card ──
     try {
-        const txt = await fetch('data/email_log.csv?_=' + Date.now()).then(r => r.text());
-        const rows = txt.trim().split('\n').slice(1).map(l => l.split(','));
+        const dRows = [];
+        const hist = await fetch('data/davis_weather_history.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null);
+        if (Array.isArray(hist) && hist.length) {
+            const newest = hist[hist.length - 1].date;
+            dRows.push(['History file', newest + 'T23:59:00+10:00']);
+        }
+        const csvTxt = await fetch('data/daily_log.csv' + cb).then(r => r.text());
+        const lastDate = parseCsvText(csvTxt).pop()[0];
+        dRows.push(['Daily log row', lastDate + 'T23:59:00+10:00']);
+        const cls = dRows.map(([n, iso]) => {
+            const c = light(36 * 60, 60 * 60, iso);
+            if (c === 'lr') issues.push('Davis ' + n.toLowerCase() + ' stale');
+            return c;
+        });
+        cards.push({ title: 'Davis Weather Station', state: worst(cls),
+            html: dRows.map(([n, iso], i) => rowHtml(n, cls[i], ago(iso) || 'no data')).join('') });
+    } catch { cards.push({ title: 'Davis Weather Station', state: 'warn', html: 'Could not load.' }); }
+
+    // ── Emails card ──
+    try {
+        const txt = await fetch('data/email_log.csv' + cb).then(r => r.text());
+        const { rows } = csvRows(txt);
         const last = {};
         for (const r of rows) if (r.length > 5) last[r[1]] = r;
-        const names = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts' };
-        $('health-emails').innerHTML = Object.keys(names).map(t => {
+        const parts = [], cls = [];
+        for (const t of Object.keys(EMAIL_NAMES)) {
             const r = last[t];
-            return `<div class="hrow"><span><span class="light ${r ? (String(r[5]).startsWith('sent') ? 'lg' : 'lr') : 'lgrey'}"></span>${names[t]}</span>
-                <span class="sub">${r ? ago(r[0]) + (String(r[5]).startsWith('sent') ? '' : ' - FAILED') : 'none logged yet'}</span></div>`;
-        }).join('');
-    } catch { $('health-emails').textContent = 'Email log unavailable.'; }
+            const sent = r && String(r[5]).startsWith('sent');
+            const c = r ? (sent ? 'lg' : 'lr') : 'lgrey';
+            cls.push(c === 'lgrey' ? 'lg' : c);
+            if (c === 'lr') issues.push(EMAIL_NAMES[t] + ' last send FAILED');
+            parts.push(rowHtml(EMAIL_NAMES[t], c, r ? ago(r[0]) + (sent ? '' : ' - FAILED') : 'none logged yet'));
+        }
+        cards.push({ title: 'Emails', state: worst(cls), html: parts.join('') });
+    } catch { cards.push({ title: 'Emails', state: 'warn', html: 'Email log unavailable.' }); }
 
-    // Workflow runs (public API; token used when present)
+    // ── Workflows card (latest run per workflow) ──
     try {
-        const h = SES.token ? { Authorization:'Bearer ' + SES.token } : {};
-        const d = await fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=20`, { headers: h }).then(r => r.json());
-        $('wf-runs').innerHTML = (d.workflow_runs || []).map(r => `
-            <tr><td>${r.name}</td>
-                <td>${ago(r.run_started_at) || ''}</td>
-                <td><span class="pill ${r.conclusion === 'success' ? 'ok' : r.conclusion ? 'fail' : 'ok'}">${r.conclusion || r.status}</span></td>
-                <td>${r.event}</td></tr>`).join('') || '<tr><td colspan="4">No runs returned.</td></tr>';
-    } catch { $('wf-runs').innerHTML = '<tr><td colspan="4">Could not reach the GitHub API.</td></tr>'; }
+        const runs = await ensureWfRuns();
+        const latest = new Map();
+        for (const r of runs) if (!latest.has(r.name)) latest.set(r.name, r);
+        const parts = [], cls = [];
+        for (const [name, r] of latest) {
+            const okRun = r.conclusion === 'success' || r.conclusion === null;
+            cls.push(okRun ? 'lg' : 'lr');
+            if (!okRun) issues.push(name + ' failing');
+            parts.push(rowHtml(name, okRun ? 'lg' : 'lr', (r.conclusion || r.status) + ' - ' + (ago(r.run_started_at) || '')));
+        }
+        cards.push({ title: 'Workflows', state: worst(cls), html: parts.join('') || 'No runs found.' });
+    } catch { cards.push({ title: 'Workflows', state: 'warn', html: 'GitHub API unavailable.' }); }
+
+    // ── Render cards, hero, global alert ──
+    $('sys-cards').innerHTML = cards.map(c =>
+        `<div class="syscard s-${c.state}"><h3>${c.title}</h3>${c.html}</div>`).join('');
+    const anyBad = cards.some(c => c.state === 'bad') || issues.length > 0;
+    const anyWarn = cards.some(c => c.state === 'warn');
+    const hero = $('hero');
+    if (anyBad) {
+        hero.className = 'hero hero-bad';
+        hero.innerHTML = `<div class="big">${issues.length || 1} ISSUE${issues.length === 1 ? '' : 'S'} DETECTED</div>
+            <div class="sub">${issues.join(' &bull; ') || 'see cards below'}</div>`;
+    } else if (anyWarn) {
+        hero.className = 'hero hero-warn';
+        hero.innerHTML = '<div class="big">MOSTLY HEALTHY</div><div class="sub">amber items below are worth a look</div>';
+    } else {
+        hero.className = 'hero hero-ok';
+        hero.innerHTML = '<div class="big">ALL SYSTEMS GO</div><div class="sub">every feed, email and workflow is healthy</div>';
+    }
+    const ga = $('global-alert');
+    const emailFails = issues.filter(i => i.includes('FAILED') || i.includes('failing'));
+    if (emailFails.length) { ga.style.display = 'block'; ga.textContent = 'Attention: ' + emailFails.join(' - '); }
+    else ga.style.display = 'none';
+
+    // Sparklines from the 24 h graphs the poll maintains
+    try {
+        const tg = (tank && tank.tank_graph || []).map(s => parseFloat(s.pct)).filter(v => !isNaN(v));
+        drawSpark($('spark-tank'), tg, '#3498db');
+        const lg = (lake && lake.lake_graph || []).map(s => parseFloat(s.ahd)).filter(v => !isNaN(v));
+        drawSpark($('spark-lake'), lg, '#1abc9c');
+    } catch {}
+
+    // Next scheduled emails
+    try {
+        const now = sydNow();
+        const at = (base, h, m) => { const d = new Date(base); d.setHours(h, m, 0, 0); return d; };
+        const nextDaily = t => { let d = at(now, t, 0); if (d <= now) d.setDate(d.getDate() + 1); return d; };
+        const nextMonday = () => { let d = at(now, 7, 0); while (d.getDay() !== 1 || d <= now) d.setDate(d.getDate() + 1); return d; };
+        const nextFirst = () => { let d = new Date(now.getFullYear(), now.getMonth(), 1, 7, 0); if (d <= now) d = new Date(now.getFullYear(), now.getMonth() + 1, 1, 7, 0); return d; };
+        const sends = [
+            ['Greenkeeper daily', nextDaily(6)],
+            ['Lake Albert daily', nextDaily(7)],
+            ['Board weekly (Mon)', nextMonday()],
+            ['Board + GK monthly (1st)', nextFirst()],
+        ];
+        $('next-sends').innerHTML = sends.map(([n, d]) =>
+            `<div class="hrow"><span>${n}</span><span class="sub">${d.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit' })}
+             &nbsp;&bull;&nbsp; in ${fmtCountdown(d - now)}</span></div>`).join('');
+    } catch { $('next-sends').textContent = 'Could not compute.'; }
+
+    renderWorkflows();
+}
+
+// ── Workflows tab ─────────────────────────────────────────────────────────────
+async function renderWorkflows() {
+    const runs = await ensureWfRuns();
+    const names = [...new Set(runs.map(r => r.name))];
+    const sel = $('wf-filter');
+    if (sel.options.length <= 1) names.forEach(n => sel.add(new Option(n, n)));
+    const f = sel.value;
+
+    // 14-day dot strips per workflow
+    const cutoff = Date.now() - 14 * 86400000;
+    $('wf-strips').innerHTML = names.map(n => {
+        const dots = runs.filter(r => r.name === n && new Date(r.run_started_at).getTime() >= cutoff)
+            .sort((a, b) => new Date(a.run_started_at) - new Date(b.run_started_at))
+            .map(r => `<span class="dot" style="background:${r.conclusion === 'success' ? '#27ae60' : r.conclusion ? '#e74c3c' : '#d4ac0d'}"
+                        title="${(r.conclusion || r.status)} - ${new Date(r.run_started_at).toLocaleString('en-AU')}"></span>`).join('');
+        return `<div style="margin-bottom:10px;"><div style="font-size:0.8em;color:#bdc3c7;margin-bottom:3px;">${n}</div>
+                <div class="dotstrip">${dots || '<span class="sub" style="color:#566573;">no runs in 14 days</span>'}</div></div>`;
+    }).join('');
+
+    const shown = runs.filter(r => !f || r.name === f).slice(0, 50);
+    $('wf-runs').innerHTML = shown.map(r => `
+        <tr style="cursor:pointer;" onclick="window.open('${r.html_url}','_blank')">
+            <td>${r.name}</td>
+            <td>${ago(r.run_started_at) || ''}</td>
+            <td><span class="pill ${r.conclusion === 'success' ? 'ok' : r.conclusion ? 'fail' : 'ok'}">${r.conclusion || r.status}</span></td>
+            <td>${r.event}</td></tr>`).join('') || '<tr><td colspan="4">No runs.</td></tr>';
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
-function csvRows(txt) {
-    const lines = txt.trim().split('\n');
-    return { head: lines[0].split(','), rows: lines.slice(1).map(l => l.split(',')) };
+// Quote-aware CSV parser (the Python side writes proper quoted CSV, so any
+// field containing a comma would break a naive split)
+function parseCsvText(txt) {
+    const rows = []; let row = [], cur = '', q = false;
+    const NL = String.fromCharCode(10), CR = String.fromCharCode(13);
+    for (let i = 0; i < txt.length; i++) {
+        const c = txt[i];
+        if (q) {
+            if (c === '"') { if (txt[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+            else cur += c;
+        } else if (c === '"') q = true;
+        else if (c === ',') { row.push(cur); cur = ''; }
+        else if (c === NL || c === CR) {
+            if (c === CR && txt[i + 1] === NL) i++;
+            row.push(cur); if (row.length > 1 || row[0] !== '') rows.push(row);
+            row = []; cur = '';
+        } else cur += c;
+    }
+    row.push(cur);
+    if (row.length > 1 || row[0] !== '') rows.push(row);
+    return rows;
 }
+function csvRows(txt) {
+    const r = parseCsvText(txt);
+    return { head: r[0] || [], rows: r.slice(1) };
+}
+let _rawLogs = {};
 async function loadAllLogs() {
     const cb = '?_=' + Date.now();
-    const get = async (u, kind) => { const r = await fetch(u + cb); return r.ok ? (kind === 'csv' ? csvRows(await r.text()) : await r.json()) : null; };
+    const get = async (u, kind) => {
+        const r = await fetch(u + cb);
+        if (!r.ok) return null;
+        const t = await r.text();
+        _rawLogs[u.split('/').pop().split('.')[0].replace('lake_zone_history', 'zone').replace('email_log', 'email')
+            .replace('water_rate_log', 'rate').replace('tank_fill_source', 'fill')
+            .replace('kiosk_message_log', 'kiosk').replace('admin_actions_log', 'admin')] = t;
+        return kind === 'csv' ? csvRows(t) : JSON.parse(t);
+    };
     _logs.email = await get('data/email_log.csv', 'csv');
     _logs.zone  = await get('data/lake_zone_history.csv', 'csv');
     _logs.rate  = await get('data/water_rate_log.json', 'json');
@@ -539,12 +764,77 @@ async function loadControls() {
           $('ctl-rate-cur').textContent = '$' + _cfg.town_water.cost_per_kl.toFixed(2); } catch {}
     try { _sources = await fetch('data/tank_fill_source.json' + cb).then(r => r.json());
           renderSrc(); } catch {}
+    kmRender();
+}
+
+// ── Kiosk message manager ─────────────────────────────────────────────────────
+async function kmRender() {
     try {
-        const msgs = await fetch('data/kiosk_message.json' + cb).then(r => r.json());
+        const msgs = await fetch('data/kiosk_message.json?_=' + Date.now()).then(r => r.ok ? r.json() : []);
         $('ctl-kiosk-list').innerHTML = (msgs || []).length
-            ? msgs.map(m => `<div class="hrow"><span>${String(m.text).replace(/</g, '&lt;').slice(0, 120)}</span><span class="sub">${m.type}</span></div>`).join('')
+            ? msgs.map(m => {
+                const exp = m.expires_at ? 'expires ' + new Date(m.expires_at).toLocaleString('en-AU', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit' }) : 'persistent';
+                return `<div class="hrow"><span>${String(m.text).replace(/</g, '&lt;').slice(0, 140)}</span>
+                    <span class="sub">${exp} &nbsp;
+                    <button class="danger" style="padding:2px 10px;font-size:0.85em;" onclick="kmDelete(${m.id})">Delete</button></span></div>`;
+              }).join('')
             : '<div class="sub" style="color:#566573;">No messages currently posted.</div>';
     } catch { $('ctl-kiosk-list').textContent = 'Could not load.'; }
+}
+async function _kmWrite(msgs, actionDesc) {
+    const f = await ghGet('data/kiosk_message.json');
+    await ghPut('data/kiosk_message.json', JSON.stringify(msgs, null, 2), 'Update screen messages (admin: ' + SES.email + ')', f.sha);
+    // Append to the kiosk change log (best-effort)
+    try {
+        const lf = await ghGet('data/kiosk_message_log.json');
+        let arr = []; try { arr = JSON.parse(lf.text) || []; } catch {}
+        arr.push({ ts: new Date().toISOString(), by: SES.email, action: actionDesc, count: msgs.length,
+                   messages: msgs.map(m => ({ type: m.type, text: String(m.text || '').slice(0, 120) })) });
+        if (arr.length > 200) arr = arr.slice(-200);
+        await ghPut('data/kiosk_message_log.json', JSON.stringify(arr, null, 2), 'Log screen message change', lf.sha);
+    } catch {}
+    logAction('kiosk_' + actionDesc.split(' ')[0], actionDesc);
+}
+async function kmPost() {
+    const text = $('km-text').value.trim();
+    if (!text) { $('km-status').textContent = 'Enter a message.'; return; }
+    if (!SES.token) { $('km-status').textContent = 'No token on this device.'; return; }
+    const type = $('km-type').value;
+    const hours = parseFloat($('km-hours').value) || 24;
+    $('km-status').textContent = 'Posting...';
+    try {
+        const f = await ghGet('data/kiosk_message.json');
+        let msgs = []; try { msgs = JSON.parse(f.text) || []; } catch {}
+        msgs.push({ id: Date.now(), text, type,
+                    expires_at: type === 'default' ? null : new Date(Date.now() + hours * 3600000).toISOString() });
+        await _kmWrite(msgs, 'post: ' + text.slice(0, 60));
+        $('km-status').textContent = 'Posted - TVs update within ~30 seconds.';
+        $('km-text').value = '';
+        kmRender();
+    } catch (e) { $('km-status').textContent = 'Failed: ' + e.message; }
+}
+async function kmDelete(id) {
+    if (!SES.token) { $('km-status').textContent = 'No token on this device.'; return; }
+    try {
+        const f = await ghGet('data/kiosk_message.json');
+        let msgs = []; try { msgs = JSON.parse(f.text) || []; } catch {}
+        const gone = msgs.find(m => m.id === id);
+        msgs = msgs.filter(m => m.id !== id);
+        await _kmWrite(msgs, 'delete: ' + String(gone && gone.text || id).slice(0, 60));
+        kmRender();
+    } catch (e) { $('km-status').textContent = 'Failed: ' + e.message; }
+}
+
+function downloadLog() {
+    const raw = _rawLogs[_curLog];
+    if (!raw) return;
+    const isCsv = _curLog === 'email' || _curLog === 'zone';
+    const blob = new Blob([raw], { type: isCsv ? 'text/csv' : 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wwcc_' + _curLog + '_log.' + (isCsv ? 'csv' : 'json');
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 function curSource() {
     const today = new Date().toISOString().slice(0, 10);

@@ -1,5 +1,5 @@
 """
-lake_utils.py — Shared lake calculation utilities for board email.
+lake_utils.py - Shared lake calculation utilities for board email.
 
 All constants loaded from data/lake_config.json. To change surface areas,
 evaporation rates, zone thresholds, or pump rates, edit that file only.
@@ -196,7 +196,7 @@ def days_to_next_zone(ahd, month):
         return None, None
 
     # Threshold is the BOTTOM of the current zone (where you exit it), not the
-    # bottom of the next zone — those differ by one full zone's depth.
+    # bottom of the next zone - those differ by one full zone's depth.
     threshold   = current_zone_info(ahd)['min_ahd']
     vol_ml      = vol_between_ml(threshold, ahd)
     pump_ml     = current_zone_info(ahd)['max_pump_ml_day']

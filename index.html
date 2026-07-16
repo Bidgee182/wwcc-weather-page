@@ -760,7 +760,7 @@
                     <div class="sp-val" id="spray-deltat-val">--</div>
                     <div class="sp-unit">°C</div>
                     <div class="sp-lbl">Delta T</div>
-                    <div class="sp-range" id="sp-deltat-range">Ideal 2 – 8°C</div>
+                    <div class="sp-range" id="sp-deltat-range">Ideal 2 - 8°C</div>
                 </div>
                 <div class="spray-param sp-idle" id="sp-temp">
                     <div class="sp-val" id="spray-temp-val">--</div>
@@ -790,7 +790,7 @@
             <div class="wind-strip" id="gk-wind-strip"><div style="color:#7f8c8d;font-size:0.85em">Loading...</div></div>
             <div style="font-size:0.72em;color:#7f8c8d;margin-top:8px">
                 <span style="color:#27ae60">&#9646;</span> &lt;15 km/h - Good &nbsp;
-                <span style="color:#d4ac0d">&#9646;</span> 15–20 km/h - Marginal &nbsp;
+                <span style="color:#d4ac0d">&#9646;</span> 15-20 km/h - Marginal &nbsp;
                 <span style="color:#e74c3c">&#9646;</span> &gt;20 km/h - Too windy
             </div>
         </div>
@@ -807,7 +807,7 @@
             </div>
             <div class="irr-metrics">
                 <div class="irr-metric"><div class="lbl">Wet Hours (24h)</div><div class="val" id="dr-lwd">--</div></div>
-                <div class="irr-metric"><div class="lbl">Night Min (8pm–8am)</div><div class="val" id="dr-mintemp">--</div></div>
+                <div class="irr-metric"><div class="lbl">Night Min (8pm-8am)</div><div class="val" id="dr-mintemp">--</div></div>
                 <div class="irr-metric"><div class="lbl">Mean RH (24h)</div><div class="val" id="dr-rh">--</div></div>
             </div>
             <div style="overflow-x:auto">
@@ -936,7 +936,7 @@
         <!-- Yesterday's full sensor data from Davis v2 CSV -->
         <div class="card">
             <h2>&#128202; Yesterday's Station Data</h2>
-            <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:10px">Full sensor record from yesterday's Davis v2 archive — richer than real-time readings</div>
+            <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:10px">Full sensor record from yesterday's Davis v2 archive - richer than real-time readings</div>
 
             <div class="section-title">&#127777;&#65039; Apparent Temperatures</div>
             <div class="gk-pill-grid">
@@ -1009,7 +1009,7 @@
         <div class="card">
             <h2>&#128231; Automated Daily Report</h2>
             <p style="font-size:0.82em;color:#7f8c8d;margin-bottom:14px;line-height:1.5;">
-                The GitHub Actions script runs each morning and sends the full rich-HTML briefing to the greenkeeper. Use the button below to preview yesterday's automated report in a new window — exactly as it was emailed.
+                The GitHub Actions script runs each morning and sends the full rich-HTML briefing to the greenkeeper. Use the button below to preview yesterday's automated report in a new window - exactly as it was emailed.
             </p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
                 <button onclick="viewAutomatedReport()" style="background:#1a4a2e;border:none;color:white;border-radius:8px;padding:12px 10px;font-size:0.88em;font-weight:bold;cursor:pointer;letter-spacing:0.3px;">
@@ -1021,8 +1021,8 @@
                 </a>
             </div>
             <div style="font-size:0.75em;color:#7f8c8d;line-height:1.5;">
-                <strong style="color:#95a5a6;">View Yesterday's Report</strong> — opens the saved HTML email from the last automated run.<br>
-                <strong style="color:#95a5a6;">Run Test Now</strong> — opens GitHub Actions. Click <em>WWCC Daily Weather Report</em> &rarr; <em>Run workflow</em> to trigger a test send immediately.
+                <strong style="color:#95a5a6;">View Yesterday's Report</strong> - opens the saved HTML email from the last automated run.<br>
+                <strong style="color:#95a5a6;">Run Test Now</strong> - opens GitHub Actions. Click <em>WWCC Daily Weather Report</em> &rarr; <em>Run workflow</em> to trigger a test send immediately.
             </div>
         </div>
 
@@ -1060,22 +1060,22 @@
 
         <!-- Live Tank Level -->
         <div class="card">
-            <h2>&#128167; Water Tank &mdash; Live Level</h2>
+            <h2>&#128167; Water Tank - Live Level</h2>
             <div id="tank-error" style="display:none;background:#3d1a1a;border-left:3px solid #e74c3c;padding:8px 10px;border-radius:4px;font-size:0.8em;color:#e74c3c;margin-bottom:10px"></div>
             <div id="tank-unconfigured" style="display:none"></div>
             <div id="tank-live-content">
                 <!-- Semicircular arc gauge (Home Assistant style) -->
                 <div class="tank-gauge-wrap">
                     <svg id="tank-gauge-svg" viewBox="0 0 200 130" width="100%" style="max-width:280px;display:block;margin:0 auto">
-                        <!-- Background arc: centre (100,110), r=80 — round caps at ends -->
+                        <!-- Background arc: centre (100,110), r=80 - round caps at ends -->
                         <path d="M 20,110 A 80,80 0 0,1 180,110" fill="none" stroke="#1a2d3d" stroke-width="16" stroke-linecap="round"/>
-                        <!-- Red   0–25%  180°→135°  end=(43.4,53.4) -->
+                        <!-- Red   0-25%  180°→135°  end=(43.4,53.4) -->
                         <path d="M 20,110 A 80,80 0 0,1 43.4,53.4"   fill="none" stroke="#c0392b" stroke-width="14" stroke-linecap="butt"/>
-                        <!-- Orange 25–50% 135°→90°  end=(100,30) -->
+                        <!-- Orange 25-50% 135°→90°  end=(100,30) -->
                         <path d="M 43.4,53.4 A 80,80 0 0,1 100,30"   fill="none" stroke="#e67e22" stroke-width="14" stroke-linecap="butt"/>
-                        <!-- Amber  50–75% 90°→45°   end=(156.6,53.4) -->
+                        <!-- Amber  50-75% 90°→45°   end=(156.6,53.4) -->
                         <path d="M 100,30 A 80,80 0 0,1 156.6,53.4"  fill="none" stroke="#d4ac0d" stroke-width="14" stroke-linecap="butt"/>
-                        <!-- Green  75–100% 45°→0°   end=(180,110) -->
+                        <!-- Green  75-100% 45°→0°   end=(180,110) -->
                         <path d="M 156.6,53.4 A 80,80 0 0,1 180,110" fill="none" stroke="#27ae60" stroke-width="14" stroke-linecap="butt"/>
                         <!-- Needle (updated by JS) -->
                         <line id="tank-needle" x1="115" y1="110" x2="35" y2="110" stroke="#ecf0f1" stroke-width="2.5" stroke-linecap="round"/>
@@ -1154,7 +1154,7 @@
 
         <!-- Monthly Usage Chart -->
         <div class="card">
-            <h2>&#127869; Monthly Usage — Last 6 Months</h2>
+            <h2>&#127869; Monthly Usage - Last 6 Months</h2>
             <div style="position:relative;height:200px;width:100%">
                 <canvas id="tank-monthly-canvas"></canvas>
             </div>
@@ -1177,7 +1177,7 @@
 
         <!-- Live AHD Reading -->
         <div class="card">
-            <h2>&#127754; Lake Albert &mdash; Live Water Level</h2>
+            <h2>&#127754; Lake Albert - Live Water Level</h2>
             <!-- Big AHD hero number -->
             <div style="text-align:center;padding:18px 0 10px">
                 <div id="lake-ahd-display" style="font-size:2.8em;font-weight:700;color:#ecf0f1;letter-spacing:-1px;line-height:1">-- m</div>
@@ -1438,7 +1438,7 @@
     <!-- Weather Station Details Card -->
     <div class="card" id="go-station-card">
         <h2>&#128225; Live Weather Station</h2>
-        <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:12px">Davis WeatherLink v2 &mdash; on-course sensor readings</div>
+        <div style="font-size:0.75em;color:#7f8c8d;margin-bottom:12px">Davis WeatherLink v2 - on-course sensor readings</div>
 
         <!-- Current conditions row -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px" id="go-st-live-grid">
@@ -1789,7 +1789,7 @@ let _tickerActive   = [];
 let _tickerIdx      = 0;
 let _editingMsgId   = null; // id of message being edited, or null
 let _msgFilter      = 'all'; // 'all' | 'urgent' | 'alert' | 'default'
-let _lastWriteTime  = 0;    // timestamp of last successful GitHub write — suppress polls for 5 min after
+let _lastWriteTime  = 0;    // timestamp of last successful GitHub write - suppress polls for 5 min after
 let _tickerTimer    = null;
 if (localStorage.getItem('wx_storage_ver') !== STORAGE_VERSION) {
     localStorage.removeItem('wx_daily');
@@ -1832,7 +1832,7 @@ function getDailyStore() {
     return merged;
 }
 function getFullDailyStore() {
-    // Full history — no date cutoff. Used for seasonal GDD accumulation.
+    // Full history - no date cutoff. Used for seasonal GDD accumulation.
     const local = JSON.parse(localStorage.getItem('wx_daily') || '{}');
     return Object.assign({}, _csvDaily, local);
 }
@@ -2133,7 +2133,7 @@ function setSprayProduct(key) {
     localStorage.setItem('spray_product', key);
     const p = getSprayProduct();
     const rangeEl = document.getElementById('sp-deltat-range');
-    if (rangeEl) rangeEl.textContent = `Ideal ${p.dtMin}–${p.dtMax}°C`;
+    if (rangeEl) rangeEl.textContent = `Ideal ${p.dtMin}-${p.dtMax}°C`;
     refreshSprayStatus();
     updateNextSprayWindow();
 }
@@ -2147,11 +2147,11 @@ function initSprayProductSelect() {
     SPRAY_PRODUCTS.forEach(p => { if (!seen[p.group]) { seen[p.group] = []; groups.push(p.group); } seen[p.group].push(p); });
     sel.innerHTML = groups.map(g =>
         `<optgroup label="${g}">${seen[g].map(p =>
-            `<option value="${p.key}"${p.key === selectedProductKey ? ' selected' : ''}>${p.label} (${p.dtMin}–${p.dtMax}°C)</option>`
+            `<option value="${p.key}"${p.key === selectedProductKey ? ' selected' : ''}>${p.label} (${p.dtMin}-${p.dtMax}°C)</option>`
         ).join('')}</optgroup>`
     ).join('');
     const prod = getSprayProduct();
-    const rangeEl = document.getElementById('sp-deltat-range'); if (rangeEl) rangeEl.textContent = `Ideal ${prod.dtMin}–${prod.dtMax}°C`;
+    const rangeEl = document.getElementById('sp-deltat-range'); if (rangeEl) rangeEl.textContent = `Ideal ${prod.dtMin}-${prod.dtMax}°C`;
     const tRng = document.getElementById('sp-temp-range');      if (tRng)   tRng.textContent = `Ideal < ${prod.tempMax}°C`;
     const wRng = document.getElementById('sp-wind-range');      if (wRng)   wRng.textContent = `Ideal < ${prod.windMax} km/h`;
 }
@@ -2714,7 +2714,7 @@ function _rptSpray() {
 
     html += _sec('Selected Product', [
         _row('Product',        p.label),
-        _row('Delta T Range',  `${p.dtMin}–${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`),
+        _row('Delta T Range',  `${p.dtMin}-${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`),
         _row('Max Temperature', `${p.tempMax}°C (warn ${p.tempWarnMax}°C)`),
         _row('Max Wind Speed', `${p.windMax} km/h (warn ${p.windWarnMax} km/h)`),
     ].join(''));
@@ -2733,7 +2733,7 @@ function _rptSpray() {
     if (windows.length > 0) {
         let trows = '<table class="rpt-table"><thead><tr><th>Date</th><th>Window</th><th>Quality</th></tr></thead><tbody>';
         windows.forEach(w => {
-            trows += `<tr><td>${w.day}</td><td>${w.start}–${w.end}</td><td>${w.good ? _badge('good','Ideal') : _badge('warn','Marginal')}</td></tr>`;
+            trows += `<tr><td>${w.day}</td><td>${w.start}-${w.end}</td><td>${w.good ? _badge('good','Ideal') : _badge('warn','Marginal')}</td></tr>`;
         });
         trows += '</tbody></table>';
         html += `<div class="rpt-section"><div class="rpt-section-title">48h Spray Windows</div>${trows}</div>`;
@@ -2809,7 +2809,7 @@ function _rptDisease() {
 
     html += _sec('Conditions (24h)', [
         _row('Leaf Wetness Hours', wetHoursEl ? wetHoursEl.textContent : '--'),
-        _row('Night Min Temp (8pm–8am)', nightMinEl ? nightMinEl.textContent : '--'),
+        _row('Night Min Temp (8pm-8am)', nightMinEl ? nightMinEl.textContent : '--'),
         _row('Mean Relative Humidity',   meanRHEl  ? meanRHEl.textContent  : '--'),
         _row('Current Temp',  wx.temp !== null ? `${wx.temp.toFixed(1)}°C` : '--'),
         _row('Current RH',    wx.rh   !== null ? `${wx.rh.toFixed(0)}%`    : '--'),
@@ -3089,7 +3089,7 @@ function viewAutomatedReport() {
     const reportUrl = `https://bidgee182.github.io/wwcc-weather-page/data/reports/${y}/${m}/${y}-${m}-${d}.html`;
 
     const win = window.open('', '_blank', 'width=740,height=860');
-    if (!win) { alert('Popup blocked — please allow popups for this page.'); return; }
+    if (!win) { alert('Popup blocked - please allow popups for this page.'); return; }
 
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Loading\u2026</title>
 <style>body{margin:0;background:#1a2a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:Arial,sans-serif;color:#a8e6bf;}
@@ -3338,7 +3338,7 @@ function _emailSpray() {
     let i = 0;
     const prod = [
         _eRow('Product', p.label, i++),
-        _eRow('Delta T Range', `${p.dtMin}–${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`, i++),
+        _eRow('Delta T Range', `${p.dtMin}-${p.dtMax}°C (warn to ${p.dtWarnMax}°C)`, i++),
         _eRow('Max Temp', `${p.tempMax}°C (warn ${p.tempWarnMax}°C)`, i++),
         _eRow('Max Wind', `${p.windMax} km/h (warn ${p.windWarnMax} km/h)`, i++),
     ].join('');
@@ -3355,7 +3355,7 @@ function _emailSpray() {
     let windowContent = '';
     if (windows.length > 0) {
         const wRows = windows.map(w => ([
-            { v: w.day }, { v: `${w.start} – ${w.end}` }, { v: _eBadge(w.good ? 'good' : 'warn', w.good ? 'Ideal' : 'Marginal') }
+            { v: w.day }, { v: `${w.start} - ${w.end}` }, { v: _eBadge(w.good ? 'good' : 'warn', w.good ? 'Ideal' : 'Marginal') }
         ]));
         windowContent = _eDataTable(['Date', 'Window', 'Quality'], wRows, null);
     } else {
@@ -3434,7 +3434,7 @@ function _emailDisease() {
     let i = 0;
     const condRows = [
         _eRow('Leaf Wetness Hours',   wetH,  i++),
-        _eRow('Night Min (8pm–8am)', nightM, i++),
+        _eRow('Night Min (8pm-8am)', nightM, i++),
         _eRow('Mean RH (24h)',        meanRH, i++),
         _eRow('Current Temp',  wx.temp !== null ? `${wx.temp.toFixed(1)}°C` : '--', i++),
         _eRow('Current RH',    wx.rh   !== null ? `${wx.rh.toFixed(0)}%`    : '--', i++),
@@ -3826,8 +3826,8 @@ function updateNextSprayWindow() {
     const endLabel = `${endH % 12 || 12}${endH >= 12 ? 'PM' : 'AM'}`;
     const cls   = w.ideal ? 'rec-ok' : 'rec-hold';
     const title = w.ideal
-        ? `Ideal: ${w.startLabel} – ${endLabel} (${w.hours}h)`
-        : `Marginal: ${w.startLabel} – ${endLabel} (${w.hours}h)`;
+        ? `Ideal: ${w.startLabel} - ${endLabel} (${w.hours}h)`
+        : `Marginal: ${w.startLabel} - ${endLabel} (${w.hours}h)`;
     const more  = windows.length > 1 ? `<div style="font-size:0.78em;color:#7f8c8d;margin-top:5px">+ ${windows.length - 1} more window${windows.length > 2 ? 's' : ''} in the next 48h</div>` : '';
     el.innerHTML = `<div class="recommendation ${cls}" style="margin-top:0">
         <div class="rec-title">${title}</div>
@@ -4067,8 +4067,8 @@ function updateGolferStation() {
         if (adNote) {
             const diff = ad - 1.225;
             if (Math.abs(diff) < 0.005) adNote.textContent = 'Normal ball flight';
-            else if (diff < 0) adNote.textContent = `↑ ${Math.abs(diff * 100).toFixed(1)}% less dense — ball flies further`;
-            else adNote.textContent = `↓ ${Math.abs(diff * 100).toFixed(1)}% more dense — ball flies shorter`;
+            else if (diff < 0) adNote.textContent = `↑ ${Math.abs(diff * 100).toFixed(1)}% less dense - ball flies further`;
+            else adNote.textContent = `↓ ${Math.abs(diff * 100).toFixed(1)}% more dense - ball flies shorter`;
         }
     } else if (adEl) { adEl.textContent = '--'; }
 }
@@ -4089,7 +4089,7 @@ function updateGDD() {
     const seasonStart = gddSeasonStart();
     const todayStr    = todayKey();
 
-    // Days into current season (shared — same for all grass types)
+    // Days into current season (shared - same for all grass types)
     const daysIntoSeason = Math.floor(
         (Date.now() + offsetMs - new Date(seasonStart + 'T00:00:00Z').getTime()) / 86400000
     );
@@ -4146,13 +4146,13 @@ function updateGDD() {
     const mo    = parseInt(new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', month: 'numeric' }).format(new Date()), 10) - 1;
     let seasonNote, seasonColor;
     if (mo >= 5 && mo <= 7) {
-        seasonNote  = `It's ${month} - mid-winter in Wagga Wagga. Mean daily temperatures are typically only just above the 10°C base, so low GDD accumulation each day (2–4 GDD) is completely normal. Bentgrass is in minimal growth mode and disease pressure is low. Kikuyu fairways will be dormant or very slow.`;
+        seasonNote  = `It's ${month} - mid-winter in Wagga Wagga. Mean daily temperatures are typically only just above the 10°C base, so low GDD accumulation each day (2-4 GDD) is completely normal. Bentgrass is in minimal growth mode and disease pressure is low. Kikuyu fairways will be dormant or very slow.`;
         seasonColor = '#5dade2';
     } else if (mo >= 8 && mo <= 10) {
         seasonNote  = `It's ${month} - spring in Wagga Wagga. Temperatures are rising and GDD will start accumulating faster as days warm up. Watch for a jump in disease risk as bentgrass transitions into active growth - fungicide timing becomes more critical through this period.`;
         seasonColor = '#27ae60';
     } else if (mo >= 11 || mo <= 1) {
-        seasonNote  = `It's ${month} - summer in Wagga Wagga. High temperatures drive rapid GDD accumulation (15–20+ GDD/day). Disease pressure on bentgrass greens is at its peak. Heat stress risk is elevated - prioritise morning spraying and ensure adequate soil moisture.`;
+        seasonNote  = `It's ${month} - summer in Wagga Wagga. High temperatures drive rapid GDD accumulation (15-20+ GDD/day). Disease pressure on bentgrass greens is at its peak. Heat stress risk is elevated - prioritise morning spraying and ensure adequate soil moisture.`;
         seasonColor = '#e74c3c';
     } else {
         seasonNote  = `It's ${month} - autumn in Wagga Wagga. GDD accumulation is slowing as temperatures drop. Good period for recovery work on greens. Disease pressure begins to ease for bentgrass, but dollar spot can still be active while nights remain warm.`;
@@ -4220,7 +4220,7 @@ function updateGDD() {
                     </div>`;
                 } else {
                     return `<div style="background:#1a252f;border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:0.76em;color:#566573">
-                        &#9432; No prior season data &mdash; year-on-year comparison will appear from 1&nbsp;Sep&nbsp;2026
+                        &#9432; No prior season data - year-on-year comparison will appear from 1&nbsp;Sep&nbsp;2026
                     </div>`;
                 }
             })()}`;
@@ -5169,9 +5169,9 @@ async function _writeKiosk(messages) {
     if (!r.ok) {
         const errBody = await r.json().catch(() => ({}));
         const msg = errBody.message || r.statusText;
-        if (r.status === 401) throw new Error('GitHub token invalid or expired — re-enter your token below.');
-        if (r.status === 403) throw new Error('GitHub token lacks write permission — ensure it has Contents: Write scope.');
-        if (r.status === 409) throw new Error('Save conflict — another device saved simultaneously. Reload and retry.');
+        if (r.status === 401) throw new Error('GitHub token invalid or expired - re-enter your token below.');
+        if (r.status === 403) throw new Error('GitHub token lacks write permission - ensure it has Contents: Write scope.');
+        if (r.status === 409) throw new Error('Save conflict - another device saved simultaneously. Reload and retry.');
         throw new Error(msg);
     }
     // Audit trail: append a snapshot to the change log (best-effort; a
@@ -5210,7 +5210,7 @@ async function addKioskMessage() {
     const btn  = document.getElementById('panel-add-btn');
     const msg  = ta?.value?.trim();
     if (!msg) { _panelStatus('Please enter a message.', 'warn'); return; }
-    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
+    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set - enter it in the Token field below.', 'err'); return; }
     btn.disabled = true;
     const isEdit = _editingMsgId !== null;
     _panelStatus(isEdit ? 'Updating...' : 'Posting...', 'info');
@@ -5232,7 +5232,7 @@ async function addKioskMessage() {
         _renderMsgPanel();
         _panelStatus(isEdit ? 'Updating on GitHub...' : 'Saving to GitHub...', 'info');
 
-        // Derive write content from local _customMessages — avoids stale GitHub Pages cache
+        // Derive write content from local _customMessages - avoids stale GitHub Pages cache
         const now = new Date();
         const toWrite = _customMessages
             .filter(m => m.expires_at === null || new Date(m.expires_at) > now)
@@ -5250,7 +5250,7 @@ async function addKioskMessage() {
 }
 
 async function removeKioskMessage(id) {
-    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set — enter it in the Token field below.', 'err'); return; }
+    if (!localStorage.getItem('wx_github_pat')) { _panelStatus('GitHub token not set - enter it in the Token field below.', 'err'); return; }
     // Remove immediately from local list
     _customMessages = _customMessages.filter(m => m.id !== id);
     if (_editingMsgId === id) _cancelEdit();
@@ -5271,7 +5271,7 @@ async function removeKioskMessage(id) {
 }
 
 async function checkKioskMessage() {
-    // GitHub Pages CDN can take 5–10 min to reflect a write — suppress poll overwrite
+    // GitHub Pages CDN can take 5-10 min to reflect a write - suppress poll overwrite
     // for 5 min after any save/delete to avoid reverting local edits.
     if (Date.now() - _lastWriteTime < 300000) return;
     try {
@@ -5335,7 +5335,7 @@ function editKioskMessage(id) {
     const cancelBtn = document.getElementById('panel-edit-cancel');
     if (cancelBtn) cancelBtn.style.display = 'block';
     document.getElementById('panel-msg-text').focus();
-    _panelStatus('Editing — make changes and click Update.', 'info');
+    _panelStatus('Editing - make changes and click Update.', 'info');
 }
 
 function _cancelEdit() {
@@ -5661,7 +5661,7 @@ function findBestPlayingWindow() {
             const dirStr = degreesToCompass(w.wd);
             return `${Math.round(w.t)}°C · UV ${Math.round(w.uv)} · ${Math.round(w.ws)} km/h${dirStr ? ' ' + dirStr : ''} wind`;
           })();
-    return { timeStr: `${fmtH(w.hour)} – ${fmtH(hours[bestIdx+2].hour + 1)}`, quality, pillClass, note };
+    return { timeStr: `${fmtH(w.hour)} - ${fmtH(hours[bestIdx+2].hour + 1)}`, quality, pillClass, note };
 }
 
 function updateBestTime() {
@@ -6202,7 +6202,7 @@ async function fetchHistoricalWeather() {
 // ── Disease Risk - Leaf Wetness (CART + Smith-Kerns) ─────────────
 
 // Smith-Kerns Dollar Spot model: 5-day rolling logistic regression
-// Returns probability 0–1, or null if insufficient data.
+// Returns probability 0-1, or null if insufficient data.
 function getSmithKerns5Day() {
     const store    = getDailyStore();
     const offsetMs = sydneyOffsetMs();
@@ -6272,12 +6272,12 @@ async function fetchTodayWetness() {
     }
 
     // Group records by Sydney hour, then count distinct wet hours.
-    // The v2 API returns sub-hourly records (e.g. every 5–10 min), so we must
+    // The v2 API returns sub-hourly records (e.g. every 5-10 min), so we must
     // not count each record as a separate hour.
     let minTempC  = Infinity;
     let rhSum     = 0, rhCount = 0;
     const wetHourSet    = new Set();   // distinct Sydney hours that are wet
-    const nightHourSet  = new Set();   // distinct night hours (20–08) that are wet
+    const nightHourSet  = new Set();   // distinct night hours (20-08) that are wet
     const highRHHourSet = new Set();   // hours where any reading RH ≥ 90% (Fusarium)
     let anyRain = false;               // any rain in 24h window (Fusarium rain-day track)
 
@@ -6287,7 +6287,7 @@ async function fetchTodayWetness() {
         const h  = rec.hum  ?? rec.hum_out;
         if (tF != null) {
             const tC = (parseFloat(tF) - 32) / 1.8;
-            // Only track night min temp (8pm–8am Sydney time)
+            // Only track night min temp (8pm-8am Sydney time)
             const recHr = new Date(rec.ts * 1000 + offsetMs).getUTCHours();
             if (recHr >= 20 || recHr < 8) {
                 if (tC < minTempC) minTempC = tC;
@@ -6337,7 +6337,7 @@ async function fetchTodayWetness() {
     document.getElementById('dr-rh').textContent      = meanRHtod != null ? `${meanRHtod}%`  : '--';
 
     // ── Score each disease ──────────────────────────────────────────
-    const skProb  = getSmithKerns5Day();   // null | 0–1
+    const skProb  = getSmithKerns5Day();   // null | 0-1
     const skWarnEl = document.getElementById('sk-data-warn');
     if (skWarnEl) skWarnEl.style.display = skProb === null ? '' : 'none';
     const tempC   = wx.temp;               // current live temp
@@ -6345,7 +6345,7 @@ async function fetchTodayWetness() {
     const diseases = [];
 
     // 1 - Dollar Spot (Sclerotinia homoeocarpa)
-    //     Infection: 10–12h wet @ 15–30°C
+    //     Infection: 10-12h wet @ 15-30°C
     {
         const active = tempC != null && tempC >= 15 && tempC <= 30;
         const skPct  = skProb != null ? Math.round(skProb * 100) : null;
@@ -6353,7 +6353,7 @@ async function fetchTodayWetness() {
         if (wetHours >= 12 && active)       { risk = 'HIGH';     cls = 'dr-high';   note = `${wetHours}h wet, temp in range`; }
         else if (wetHours >= 8 && active)   { risk = 'MODERATE'; cls = 'dr-mod';    note = `${wetHours}h wet, temp in range`; }
         else if (wetHours >= 4 && active)   { risk = 'LOW-MOD';  cls = 'dr-mod';    note = `${wetHours}h wet`; }
-        else                                { risk = 'LOW';       cls = 'dr-low';    note = active ? `Only ${wetHours}h wet` : 'Temp outside 15–30°C'; }
+        else                                { risk = 'LOW';       cls = 'dr-low';    note = active ? `Only ${wetHours}h wet` : 'Temp outside 15-30°C'; }
         // Boost with Smith-Kerns if available
         if (skPct != null && skPct > 20 && cls === 'dr-low')   { risk = 'LOW-MOD'; cls = 'dr-mod'; }
         if (skPct != null && skPct > 40 && cls !== 'dr-high')  { risk = 'MODERATE'; cls = 'dr-mod'; }
@@ -6362,7 +6362,7 @@ async function fetchTodayWetness() {
     }
 
     // 2 - Brown Patch (Rhizoctonia solani)
-    //     Infection: 10–12h wet nights >15°C, day >25°C
+    //     Infection: 10-12h wet nights >15°C, day >25°C
     {
         const nightOk = nightMinC != null && nightMinC > 15;
         const dayOk   = tempC != null && tempC > 25;
@@ -6387,8 +6387,8 @@ async function fetchTodayWetness() {
         diseases.push({ name: 'Pythium Blight', risk, cls, note });
     }
 
-    // 4 - Fusarium Patch (Microdochium nivale) - cool-wet season, May–Oct Wagga
-    //     Primary trigger: RH ≥ 90% for ≥ 20 consecutive hours; temp range 0–21°C
+    // 4 - Fusarium Patch (Microdochium nivale) - cool-wet season, May-Oct Wagga
+    //     Primary trigger: RH ≥ 90% for ≥ 20 consecutive hours; temp range 0-21°C
     {
         const inRange  = tempC != null && tempC >= 0 && tempC <= 21;
         const peakTemp = tempC != null && tempC >= 6 && tempC <= 13;
@@ -6404,7 +6404,7 @@ async function fetchTodayWetness() {
         let risk, cls, note;
         if (!inRange) {
             risk = 'LOW'; cls = 'dr-low';
-            note = tempC != null ? `Temp ${tempC}°C – outside 0–21°C range` : 'Temp unavailable';
+            note = tempC != null ? `Temp ${tempC}°C - outside 0-21°C range` : 'Temp unavailable';
         } else {
             let score = 0;
             const noteArr = [];
@@ -6450,7 +6450,7 @@ async function fetchTodayWetness() {
     } else if (hasMod) {
         const list = modDiseases.join(' &amp; ');
         recEl.className = 'recommendation rec-hold';
-        recEl.innerHTML = `<div class="rec-title">&#9432; ${list} - Moderate Risk</div><div class="rec-detail">${modDiseases.map(n=>n.toLowerCase()).join(' and ')} pressure building. Watch closely over the next 24–48h. Avoid irrigation during damp nights. Fungicide may be warranted if wet conditions persist.</div>`;
+        recEl.innerHTML = `<div class="rec-title">&#9432; ${list} - Moderate Risk</div><div class="rec-detail">${modDiseases.map(n=>n.toLowerCase()).join(' and ')} pressure building. Watch closely over the next 24-48h. Avoid irrigation during damp nights. Fungicide may be warranted if wet conditions persist.</div>`;
     } else {
         recEl.className = 'recommendation rec-ok';
         recEl.innerHTML = '<div class="rec-title">&#10003; Low Disease Risk</div><div class="rec-detail">Current leaf wetness hours and temperatures are below infection thresholds. Continue normal management.</div>';
@@ -6810,7 +6810,7 @@ async function checkForUpdates() {
     }
 }
 
-// ══════════════ TV2 MODE (?tv2=1) — 3 giant pills per rotating screen ══════════════
+// ══════════════ TV2 MODE (?tv2=1) - 3 giant pills per rotating screen ══════════════
 // Readability-first kiosk layout. All values are synced from the elements the
 // normal golfer page already renders, so there is no duplicated weather logic.
 let tv2Timer = null, tv2Current = 0;
@@ -7063,7 +7063,7 @@ function renderTV2() {
     // ── Screen 1: Playability (solo) ──
     renderTV2Playability();
 
-    // ── Screen 2: Right Now — each pill mirrors its golfer-page tile exactly
+    // ── Screen 2: Right Now - each pill mirrors its golfer-page tile exactly
     // (same value, same comment, same colour), with extra context in the sub.
     _tv2SetPill('tv2-p-temp', { lbl:'Feels Like', icon:'&#127777;&#65039;', val:_tv2Txt('tile-feelslike-val'),
         sub:[_tv2Txt('tile-feelslike-explain', ''), 'Actual: ' + _tv2Txt('cc-temp')],
@@ -7331,7 +7331,7 @@ let   _lakeCustomFrom     = null;
 let   _lakeCustomTo       = null;
 
 // MUST MATCH data/lake_config.json zone_thresholds (also duplicated in
-// lake_level_alert.py and daily_report.py — change all copies together)
+// lake_level_alert.py and daily_report.py - change all copies together)
 const LAKE_THRESHOLDS = [
     { ahd: 190.25, rate: '1.50 ML/day', level: 1, name: 'Normal Operations',          bg: '#00762A', color: '#FFFFFF' },
     { ahd: 190.05, rate: '1.00 ML/day', level: 2, name: 'Increased Monitoring',        bg: '#8AC63F', color: '#111111' },
@@ -7732,7 +7732,7 @@ function renderTankMonthlyChart(history) {
     const peakEl = document.getElementById('tank-monthly-peak');
     if (peakEl && peakDay) {
         const peakDate = new Date(peakDay.date + 'T12:00:00').toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' });
-        peakEl.textContent = `Peak usage day: ${peakDate} — ${(peakDay.used_l / 1000).toFixed(1)} kL (${peakDay.used_pct?.toFixed(1) || '--'}% of tank)`;
+        peakEl.textContent = `Peak usage day: ${peakDate} - ${(peakDay.used_l / 1000).toFixed(1)} kL (${peakDay.used_pct?.toFixed(1) || '--'}% of tank)`;
     }
 
     // Value labels above each bar - winter months are real but sub-pixel
@@ -7785,25 +7785,25 @@ function renderTankMonthlyChart(history) {
 // Tank battery: ~3.6V lithium primary cell
 function tankBatteryLabel(v) {
     if (v == null) return '--';
-    if (v >= 3.5)  return `<span style="color:#27ae60">${v.toFixed(2)}V &mdash; Good</span>`;
-    if (v >= 3.3)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V &mdash; OK</span>`;
-    return              `<span style="color:#e74c3c">${v.toFixed(2)}V &mdash; Low &mdash; Replace soon</span>`;
+    if (v >= 3.5)  return `<span style="color:#27ae60">${v.toFixed(2)}V - Good</span>`;
+    if (v >= 3.3)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V - OK</span>`;
+    return              `<span style="color:#e74c3c">${v.toFixed(2)}V - Low - Replace soon</span>`;
 }
 // Lake/weather monitor battery: ~7.2V solar/NiMH pack
 function lakeBatteryLabel(v) {
     if (v == null) return '--';
-    if (v >= 6.8)  return `<span style="color:#27ae60">${v.toFixed(2)}V &mdash; Good</span>`;
-    if (v >= 6.0)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V &mdash; OK</span>`;
-    return              `<span style="color:#e74c3c">${v.toFixed(2)}V &mdash; Low &mdash; Check solar</span>`;
+    if (v >= 6.8)  return `<span style="color:#27ae60">${v.toFixed(2)}V - Good</span>`;
+    if (v >= 6.0)  return `<span style="color:#d4ac0d">${v.toFixed(2)}V - OK</span>`;
+    return              `<span style="color:#e74c3c">${v.toFixed(2)}V - Low - Check solar</span>`;
 }
 
 function lakeExtractionInfo(ahd) {
     if (ahd === null || ahd === undefined) return { rate: '--', label: '--', color: '#ecf0f1', bg: '#1a252f' };
-    if (ahd >= 190.25) return { rate: '1.50 ML/day', label: 'Level 1 \u2014 Normal Operations',           color: '#FFFFFF', bg: '#00762A' };
-    if (ahd >= 190.05) return { rate: '1.00 ML/day', label: 'Level 2 \u2014 Increased Monitoring',         color: '#111111', bg: '#8AC63F' };
-    if (ahd >= 189.85) return { rate: '0.75 ML/day', label: 'Level 3 \u2014 Water Conservation Planning',  color: '#111111', bg: '#FFDD00' };
-    if (ahd >= 189.65) return { rate: '0.50 ML/day', label: ahd < 189.75 ? 'Level 4 \u2014 Critical Warning \u26a0' : 'Level 4 \u2014 Critical Warning', color: '#111111', bg: '#F58E1E' };
-    return                    { rate: '0 ML/day \u2014 No Extraction', label: 'Level 5 \u2014 Cease to Pump', color: '#FFFFFF', bg: '#EB1E23' };
+    if (ahd >= 190.25) return { rate: '1.50 ML/day', label: 'Level 1 - Normal Operations',           color: '#FFFFFF', bg: '#00762A' };
+    if (ahd >= 190.05) return { rate: '1.00 ML/day', label: 'Level 2 - Increased Monitoring',         color: '#111111', bg: '#8AC63F' };
+    if (ahd >= 189.85) return { rate: '0.75 ML/day', label: 'Level 3 - Water Conservation Planning',  color: '#111111', bg: '#FFDD00' };
+    if (ahd >= 189.65) return { rate: '0.50 ML/day', label: ahd < 189.75 ? 'Level 4 - Critical Warning \u26a0' : 'Level 4 - Critical Warning', color: '#111111', bg: '#F58E1E' };
+    return                    { rate: '0 ML/day - No Extraction', label: 'Level 5 - Cease to Pump', color: '#FFFFFF', bg: '#EB1E23' };
 }
 
 function _renderLakeGraph(samples) {
@@ -7850,7 +7850,7 @@ function _renderLakeGraph(samples) {
             const entry = slotMap.get(i);
             plotVals.push(entry ? entry.sum / entry.n : null);
             if (!entry) {
-                plotTooltips.push(t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' — no data');
+                plotTooltips.push(t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }) + ' - no data');
             } else if (smoothOn) {
                 const bStart = new Date(fromMs + i * slotMs), bEnd = new Date(fromMs + (i + 1) * slotMs);
                 const fH = d => d.toLocaleTimeString('en-AU', { hour:'numeric', hour12:true });
@@ -7968,11 +7968,11 @@ function _renderLakeGraph(samples) {
                 c.fillText(lbl, left + 6, yPx - 4);
                 c.restore();
             };
-            drawLine(190.25, '#00762A', 'L1 190.25 — 1.50 ML/day');
-            drawLine(190.05, '#8AC63F', 'L2 190.05 — 1.00 ML/day');
-            drawLine(189.85, '#FFDD00', 'L3 189.85 — 0.75 ML/day');
+            drawLine(190.25, '#00762A', 'L1 190.25 - 1.50 ML/day');
+            drawLine(190.05, '#8AC63F', 'L2 190.05 - 1.00 ML/day');
+            drawLine(189.85, '#FFDD00', 'L3 189.85 - 0.75 ML/day');
             drawLine(189.75, '#F58E1E', 'Early warning 189.75 (not a licence line)');
-            drawLine(189.65, '#EB1E23', 'L5 189.65 — Cease to Pump');
+            drawLine(189.65, '#EB1E23', 'L5 189.65 - Cease to Pump');
         }
     };
 
@@ -8029,7 +8029,7 @@ function _renderLakeGraph(samples) {
 }
 
 function _updateLakePills(ahd, readings) {
-    // Calculate 7-day trend rate first — used to drive urgency on all pills
+    // Calculate 7-day trend rate first - used to drive urgency on all pills
     const ago7d  = Date.now() - 7 * 86400000;
     const recent = (readings || []).filter(r => new Date(r.date).getTime() >= ago7d)
                                    .sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -8266,7 +8266,7 @@ async function fetchTankData() {
         const volTextEl = document.getElementById('tank-vol-text');
         if (volTextEl) volTextEl.textContent = volL != null ? (volL / 1000).toFixed(1) + ' kL' : '-- kL';
         const stEl = document.getElementById('tank-status');
-        if (stEl) stEl.textContent = pct == null ? '\u2014 No Data' : pct >= 90 ? '\uD83D\uDFE2 Full' : pct >= 60 ? '\uD83D\uDFE2 Good' : pct >= 25 ? '\uD83D\uDFE1 Low' : '\uD83D\uDD34 Critical';
+        if (stEl) stEl.textContent = pct == null ? '- No Data' : pct >= 90 ? '\uD83D\uDFE2 Full' : pct >= 60 ? '\uD83D\uDFE2 Good' : pct >= 25 ? '\uD83D\uDFE1 Low' : '\uD83D\uDD34 Critical';
         const lrEl = document.getElementById('tank-last-reading');
         if (lrEl && td) lrEl.textContent = new Date(td).toLocaleString('en-AU', { hour:'2-digit', minute:'2-digit', day:'numeric', month:'short' });
         const updEl2 = document.getElementById('tank-upd-inline');
@@ -8279,7 +8279,7 @@ async function fetchTankData() {
         if (_tankRange !== null && _tankRange <= 24) {
             samples = (_tankLatest.tank_graph || []).slice();
         } else {
-            // Use farmbot_readings.json — all individual readings
+            // Use farmbot_readings.json - all individual readings
             if (!_tankHistory) {
                 const hResp = await fetch('data/farmbot_readings.json?_=' + Date.now());
                 if (hResp.ok) _tankHistory = await hResp.json();
@@ -8375,7 +8375,7 @@ function applyTankCustomRange() {
     fetchTankData();
 }
 
-// ── FarmBot Lake Weather — wind replaces Davis wind on all views ──────
+// ── FarmBot Lake Weather - wind replaces Davis wind on all views ──────
 let _lakeWind = { kph: null, deg: null, dir: null }; // last good reading
 
 async function fetchLakeWeather() {
@@ -8388,7 +8388,7 @@ async function fetchLakeWeather() {
         _lakeWind.deg = d.wind_deg;
         _lakeWind.dir = d.wind_deg != null ? degreesToCompass(d.wind_deg) : '--';
         applyLakeWind();
-    } catch(e) { /* lake weather unavailable — silently skip */ }
+    } catch(e) { /* lake weather unavailable - silently skip */ }
 }
 
 function applyLakeWind() {
@@ -8468,9 +8468,9 @@ setInterval(checkForUpdates, 300000);
         <div style="margin-bottom:10px;">
             <label style="font-size:0.8em;color:#7f8c8d;display:block;margin-bottom:5px;">Type:</label>
             <select id="panel-msg-type" onchange="_onMsgTypeChange()" style="width:100%;background:#1a252f;color:#ecf0f1;border:1px solid #3d5166;border-radius:6px;padding:7px 10px;font-size:0.85em;cursor:pointer;">
-                <option value="default">💬 Default — always scrolls, no expiry</option>
-                <option value="alert" selected>📢 Alert — timed message</option>
-                <option value="urgent">🚨 Urgent — flashing red background while scrolling</option>
+                <option value="default">💬 Default - always scrolls, no expiry</option>
+                <option value="alert" selected>📢 Alert - timed message</option>
+                <option value="urgent">🚨 Urgent - flashing red background while scrolling</option>
             </select>
         </div>
 

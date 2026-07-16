@@ -220,7 +220,7 @@
         <div class="stat-cell">
             <div class="sc-lbl">Season Saving</div>
             <div class="sc-val col-green" id="ov-season-saving">--</div>
-            <div class="sc-sub" id="ov-season-label">Sep – now</div>
+            <div class="sc-sub" id="ov-season-label">Sep - now</div>
         </div>
         <div class="stat-cell">
             <div class="sc-lbl">This Month</div>
@@ -349,9 +349,9 @@
 
     </div><!-- end two-col -->
 
-    <!-- Lake level chart — full width below the two-col -->
+    <!-- Lake level chart - full width below the two-col -->
     <div class="card">
-        <h2>Lake Albert Level — Sensor History</h2>
+        <h2>Lake Albert Level - Sensor History</h2>
         <div class="lk-range-row">
             <button class="lk-range-btn" onclick="setLakeRange(24)">24h</button>
             <button class="lk-range-btn" onclick="setLakeRange(48)">48h</button>
@@ -380,7 +380,7 @@
 
     <!-- Licence compliance summary -->
     <div class="card">
-        <h2>Licence Compliance — NSW Water</h2>
+        <h2>Licence Compliance - NSW Water</h2>
         <div class="metric-grid metric-grid-4">
             <div class="metric">
                 <div class="lbl">Tracking Since</div>
@@ -785,7 +785,7 @@
     <div class="card">
         <h2>Water Balance - Evapotranspiration vs Rainfall</h2>
         <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:14px;">
-            Positive deficit means irrigation demand exceeded rainfall — lake water was required.
+            Positive deficit means irrigation demand exceeded rainfall - lake water was required.
         </p>
         <div class="table-wrap">
         <table class="data-table">
@@ -1805,7 +1805,7 @@ async function loadAll() {
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
         const seaStart  = seasonStart(now);
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        // Savings tracked from first zone history entry — not season start (pre-entry data is unknown)
+        // Savings tracked from first zone history entry - not season start (pre-entry data is unknown)
         const savFrom = timeline.length > 0 ? timeline[0].date : monthStart;
 
         // ── Lake / zone state ─────────────────────────────────────────────────
@@ -1921,7 +1921,7 @@ async function loadAll() {
         $('ol-cost').textContent      = fmt$(costToMarch);
         $('ol-daily-cost').textContent = '$' + Math.round(dailyCost) + '/day';
 
-        // This month at a glance — demand-based estimate headline, licence max as context
+        // This month at a glance - demand-based estimate headline, licence max as context
         $('ov-ml-month').textContent      = fmtMl(monthSav.totalMlDemand);
         $('ov-ml-month-max').textContent  = 'licence max ' + fmtMl(monthSav.totalMl);
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
@@ -2014,7 +2014,7 @@ async function loadAll() {
             totSaving   += row.saving;
         }
         if (monthKeys.length === 0) {
-            svBody.innerHTML = `<tr><td colspan="6" style="color:#566573;padding:16px;">No zone history data yet — tracking will build up over time.</td></tr>`;
+            svBody.innerHTML = `<tr><td colspan="6" style="color:#566573;padding:16px;">No zone history data yet - tracking will build up over time.</td></tr>`;
         }
         $('sv-total-days').textContent   = totDays;
         $('sv-total-ml').textContent     = totMlDemand.toFixed(1) + ' ML';

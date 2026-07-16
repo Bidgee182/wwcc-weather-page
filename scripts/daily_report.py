@@ -360,7 +360,7 @@ def process_davis_records(records):
     thsw_vals       = []   # thsw_index (°F → °C)
     emc_vals        = []   # equilibrium moisture content (%)
     air_density_vals = []  # air_density (lb/ft³ → kg/m³)
-    cloud_cover_vals = []  # night_cloud_cover (0–1)
+    cloud_cover_vals = []  # night_cloud_cover (0-1)
     reception_vals   = []  # iss_reception (%)
     hourly = {}  # hour_int -> {'wet': bool, 'night': bool, 'rh': float}
 
@@ -475,7 +475,7 @@ def process_davis_records(records):
         if ad is not None:
             air_density_vals.append(float(ad) * 16.0185)
 
-        # Night cloud cover (fraction 0–1)
+        # Night cloud cover (fraction 0-1)
         cc = rec.get('night_cloud_cover')
         if cc is not None:
             cloud_cover_vals.append(float(cc))
@@ -586,7 +586,7 @@ def process_davis_records(records):
 
     wet_hours       = sum(1 for h in hourly.values() if h['wet'])
     night_wet_hours = sum(1 for h in hourly.values() if h['wet'] and h['night'])
-    # True overnight minimum (8 PM–8 AM only); falls back to daily minimum if no night data
+    # True overnight minimum (8 PM-8 AM only); falls back to daily minimum if no night data
     night_min       = round(min(night_temps), 1) if night_temps else temp_min
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
     consec_rh90     = rh90_hours  # conservative - full consecutive calc needs ordering
@@ -724,8 +724,8 @@ def fetch_openmeteo_forecast(target_date):
     """
     Fetch today's hourly weather_code forecast from Open-Meteo.
     Returns (fog_flag, lightning_flag):
-      fog_flag       - fog forecast during morning hours (5–10 AM)
-      lightning_flag - thunderstorm forecast during daytime hours (6 AM–8 PM)
+      fog_flag       - fog forecast during morning hours (5-10 AM)
+      lightning_flag - thunderstorm forecast during daytime hours (6 AM-8 PM)
     """
     date_str = target_date.strftime('%Y-%m-%d')
     url = 'https://api.open-meteo.com/v1/forecast'
@@ -826,7 +826,7 @@ def fetch_5day_forecast(today_date):
 def fetch_hourly_forecast(today_date):
     """
     Fetch hourly weather for today from Open-Meteo forecast API.
-    Returns a list of dicts for hours 6–18 (6 AM to 6 PM), each:
+    Returns a list of dicts for hours 6-18 (6 AM to 6 PM), each:
       {'hour': int, 'label': '6 AM', 'temp_c': float, 'precip_pct': int,
        'wind_kmh': float, 'icon': str, 'desc': str}
     Returns empty list on failure.
@@ -2328,7 +2328,7 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
                                       'No spray-safe windows forecast between 6 AM and 6 PM today.</div>')
 
         hourly_html = f"""
-  {sec_header('4', "Today's 12-Hour Forecast", 'Hourly conditions 6 AM – 6 PM &bull; Open-Meteo')}
+  {sec_header('4', "Today's 12-Hour Forecast", 'Hourly conditions 6 AM - 6 PM &bull; Open-Meteo')}
   <tr><td style="background:white;padding:16px 24px 24px;border-radius:0 0 10px 10px;">
     <table width="100%" cellpadding="0" cellspacing="0"
         style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">

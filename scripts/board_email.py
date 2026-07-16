@@ -365,7 +365,7 @@ def build_html(now_syd):
     tank_readings = _load_json(_DATA_DIR / 'farmbot_readings.json')
 
     if any(v is None for v in (lake_latest, readings, tank, tank_readings)):
-        log.error('One or more required data files could not be loaded — aborting email build')
+        log.error('One or more required data files could not be loaded - aborting email build')
         return None, None
 
     wx_rows = []
@@ -463,7 +463,7 @@ def build_html(now_syd):
     cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
     last_proj     = _get_last_week_projection()
 
-    # Rainfall savings (two-component method — see town-water-cost-report.html)
+    # Rainfall savings (two-component method - see town-water-cost-report.html)
     cfg_tw      = lu.get_config()['town_water']
     irrig_kl    = cfg_tw['daily_kl_by_month']
     cost_per_kl = cfg_tw['cost_per_kl']
@@ -1248,7 +1248,7 @@ def _zone_pill_html(zone_num, zone_cfg):
 
 
 def _month_lake_chart(readings, month_start, month_end, zone_cfg):
-    """QuickChart.io PNG — daily average AHD for a calendar month."""
+    """QuickChart.io PNG - daily average AHD for a calendar month."""
     by_day = defaultdict(list)
     ms, me = month_start.isoformat(), month_end.isoformat()
     for r in readings:
@@ -1840,7 +1840,7 @@ def build_monthly_html(now_syd):
         + _card_close()
     )
 
-    # 6. Outlook card (always show — board needs forward view)
+    # 6. Outlook card (always show - board needs forward view)
     if days_to_cease is not None and days_to_cease <= 0:
         days_disp = '<span style="color:#EB1E23;font-weight:700;">Already at cease level</span>'
         cease_col = '#EB1E23'

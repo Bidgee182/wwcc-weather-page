@@ -290,7 +290,7 @@ def _process_davis_day(records):
             bp = r.get('bar_sea_level_in') or r.get('bar_sea_level') or r.get('bar_hi_in') or r.get('bar')
             if bp is not None:
                 bp_f = float(bp)
-                # inHg values are typically 28–32; mb/hPa values are 950–1050
+                # inHg values are typically 28-32; mb/hPa values are 950-1050
                 hpa = bp_f * 33.8639 if bp_f < 200 else bp_f
                 bar_sum += hpa; bar_count += 1
     # Derive prevailing wind direction from vector average

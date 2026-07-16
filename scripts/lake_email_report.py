@@ -6,10 +6,10 @@ Sends daily / weekly / monthly / yearly lake condition reports
 to council and club stakeholders via SendGrid.
 
 Schedule (Sydney time):
-  Daily   — every morning
-  Weekly  — Monday only
-  Monthly — 1st of each month
-  Yearly  — 1 January (calendar year)
+  Daily   - every morning
+  Weekly  - Monday only
+  Monthly - 1st of each month
+  Yearly  - 1 January (calendar year)
 
 Usage:
     python scripts/lake_email_report.py                    # auto (date-based)
@@ -18,10 +18,10 @@ Usage:
     python scripts/lake_email_report.py --dry-run          # preview HTML, no send
 
 Secrets required:
-    SENDGRID_API_KEY   — SendGrid API key
-    EMAIL_FROM         — sender address
-    EMAIL_LAKE_TO      — comma-separated To addresses
-    EMAIL_LAKE_CC      — comma-separated CC addresses (optional)
+    SENDGRID_API_KEY   - SendGrid API key
+    EMAIL_FROM         - sender address
+    EMAIL_LAKE_TO      - comma-separated To addresses
+    EMAIL_LAKE_CC      - comma-separated CC addresses (optional)
 """
 
 import json, os, sys, logging, argparse
@@ -42,8 +42,8 @@ DATA_DIR    = Path(__file__).parent.parent / 'data'
 # linear area model in lake_utils (full-supply value is only the fallback), so
 # depth-change -> ML conversions match the board dashboard and board email.
 LAKE_SURFACE_M2 = 1_202_046      # m² fallback (full supply)
-LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD — matches lake-albert.html
-LAKE_FULL_AHD_V = 191.551        # full supply level AHD — matches lake-albert.html
+LAKE_VOL_BOTTOM = 188.1          # physical lake bed AHD - matches lake-albert.html
+LAKE_FULL_AHD_V = 191.551        # full supply level AHD - matches lake-albert.html
 LAKE_FULL_ML    = 4148.3         # full capacity in ML (pre-computed)
 
 
@@ -176,10 +176,10 @@ def fmt_month(d):
 # ── HTML building blocks ──────────────────────────────────────────────────────
 
 # Colour palette
-HDR_BG   = '#1a5276'   # deep navy — header bar
-SEC_BG   = '#2471a3'   # mid blue — section headers
-ROW_A    = '#d6eaf8'   # light blue — alternating row
-ROW_B    = '#eaf4fb'   # very light blue — alternating row
+HDR_BG   = '#1a5276'   # deep navy - header bar
+SEC_BG   = '#2471a3'   # mid blue - section headers
+ROW_A    = '#d6eaf8'   # light blue - alternating row
+ROW_B    = '#eaf4fb'   # very light blue - alternating row
 BODY_BG  = '#f0f4f8'   # page background
 BORDER   = '#a9cce3'   # table border colour
 
@@ -337,7 +337,7 @@ def build_daily(data, now_syd):
     vol_ml  = _ahd_to_ml(ahd)
     vol_pct = min(100.0, vol_ml / LAKE_FULL_ML * 100) if vol_ml is not None else None
 
-    # Daily level change — compare yesterday vs day before
+    # Daily level change - compare yesterday vs day before
     pumping_data = data.get('pumping', [])
     pump_today = next((p for p in pumping_data if p['date'] == str(yesterday)), None)
     pump_ml_today = float(pump_today['ml']) if pump_today else 0.0
@@ -347,7 +347,7 @@ def build_daily(data, now_syd):
     rdgs_today = [r for r in data['readings'] if r.get('_date') == yesterday]
     rdgs_prev  = [r for r in data['readings'] if r.get('_date') == prev_day]
 
-    # Readings may not have _date populated yet — fall back to parsing
+    # Readings may not have _date populated yet - fall back to parsing
     if not rdgs_today:
         rdgs_today = [r for r in readings_in_range(data['readings'], yesterday, yesterday)]
     if not rdgs_prev:
@@ -373,7 +373,7 @@ def build_daily(data, now_syd):
         evap_ml  = None
         evap_str = '-'
 
-    # Yesterday snapshot — volume/change/evap based on yesterday's last reading
+    # Yesterday snapshot - volume/change/evap based on yesterday's last reading
     yday_vol_ml  = _ahd_to_ml(today_ahd_r)
     yday_vol_pct = (min(100.0, yday_vol_ml / LAKE_FULL_ML * 100)
                     if yday_vol_ml is not None else None)
@@ -431,7 +431,7 @@ def build_weekly(data, now_syd):
     readings = readings_in_range(data['readings'], week_start, week_end)
     wx_week  = history_in_range(data['history'], week_start, week_end)
 
-    # One row per day — last reading of day
+    # One row per day - last reading of day
     day_range = [week_start + timedelta(days=i) for i in range(7)]
     daily_levels = []
     for d in day_range:
@@ -524,7 +524,7 @@ def build_weekly(data, now_syd):
 
     body += _footer(now_syd)
     subject = (f"Lake Albert Weekly Report - "
-               f"{week_start.day} {week_start.strftime('%b')}\u2013{fmt_date(week_end)}")
+               f"{week_start.day} {week_start.strftime('%b')}-{fmt_date(week_end)}")
     return _wrap(body), subject
 
 
@@ -792,13 +792,13 @@ def build_yearly(data, now_syd):
 
 def send_email(subject, html_content, test_mode=False):
     if not SENDGRID_API_KEY:
-        log.error('SENDGRID_API_KEY not set — cannot send')
+        log.error('SENDGRID_API_KEY not set - cannot send')
         return False
     if not EMAIL_FROM:
-        log.error('EMAIL_FROM not set — cannot send')
+        log.error('EMAIL_FROM not set - cannot send')
         return False
     if not test_mode and not EMAIL_LAKE_TO:
-        log.error('EMAIL_LAKE_TO not set — cannot send')
+        log.error('EMAIL_LAKE_TO not set - cannot send')
         return False
 
     try:
@@ -832,7 +832,7 @@ def send_email(subject, html_content, test_mode=False):
     try:
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)
-        log.info(f'Sent "{subject}" — status {resp.status_code} — to: {", ".join(to_list)}')
+        log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
         if cc_list:
             log.info(f'  CC: {", ".join(cc_list)}')
         from lake_utils import log_email
@@ -919,7 +919,7 @@ def main():
 
     for report_type in to_send:
         if not args.dry_run and not args.force_all and report_type in already_sent:
-            log.info(f'[skip] {report_type} already sent today — skipping')
+            log.info(f'[skip] {report_type} already sent today - skipping')
             continue
 
         html, subject = BUILDERS[report_type](data, now_syd)

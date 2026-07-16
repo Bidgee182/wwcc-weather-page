@@ -59,8 +59,8 @@ EMAIL_GK_RECIPIENTS       = _recips('gk', 'EMAIL_GK_RECIPIENTS')
 EMAIL_COMMITTEE_RECIPIENTS = _recips('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
 EMAIL_RECIPIENTS_ALL      = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
 
-# Level definitions — MUST MATCH data/lake_config.json zone_thresholds
-# (also duplicated in daily_report.py and index.html LAKE_THRESHOLDS —
+# Level definitions - MUST MATCH data/lake_config.json zone_thresholds
+# (also duplicated in daily_report.py and index.html LAKE_THRESHOLDS -
 # change all copies together)
 # (min_ahd, level_num, rate_str, bg_hex, fg_hex)
 LAKE_LEVELS = [
@@ -76,7 +76,7 @@ CEASE_AHD = 189.650
 
 # Hysteresis deadband: lake must move this far past a threshold before a zone
 # change is registered. Prevents alert spam when the level oscillates at a boundary.
-# Zone 5 (cease/resume pumping) transitions always bypass this — compliance-critical.
+# Zone 5 (cease/resume pumping) transitions always bypass this - compliance-critical.
 HYSTERESIS_M = 0.01   # 10 mm
 
 # Minimum hours between non-critical zone change alerts.
@@ -88,7 +88,7 @@ _ZONE_INFO = {n: (m, r, bg, fg) for m, n, r, bg, fg in LAKE_LEVELS}
 
 
 def _level_info_raw(ahd):
-    """Return (num, rate, bg, fg) with no hysteresis — used for first-run init and test mode."""
+    """Return (num, rate, bg, fg) with no hysteresis - used for first-run init and test mode."""
     for min_ahd, num, rate, bg, fg in LAKE_LEVELS:
         if ahd >= min_ahd:
             return num, rate, bg, fg
@@ -100,14 +100,14 @@ def _level_info(ahd, current_zone=None):
 
     - Dropping to a worse zone: AHD must be HYSTERESIS_M below the current zone's lower boundary.
     - Rising to a better zone: AHD must be HYSTERESIS_M above the better zone's lower boundary.
-    - Zone 5 (cease/resume) transitions always use raw thresholds — compliance-critical.
+    - Zone 5 (cease/resume) transitions always use raw thresholds - compliance-critical.
     """
     raw_num, raw_rate, raw_bg, raw_fg = _level_info_raw(ahd)
 
     if current_zone is None or raw_num == current_zone:
         return raw_num, raw_rate, raw_bg, raw_fg
 
-    # Never buffer cease or resume transitions — they are licence compliance events
+    # Never buffer cease or resume transitions - they are licence compliance events
     if raw_num == 5 or current_zone == 5:
         return raw_num, raw_rate, raw_bg, raw_fg
 
@@ -423,10 +423,10 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
 
 def send_email(subject, html, recipients):
     if not SENDGRID_API_KEY:
-        log.warning('No SENDGRID_API_KEY — skipping send.')
+        log.warning('No SENDGRID_API_KEY - skipping send.')
         return False
     if not recipients:
-        log.warning('No recipients — skipping send.')
+        log.warning('No recipients - skipping send.')
         return False
     try:
         from sendgrid import SendGridAPIClient
@@ -437,7 +437,7 @@ def send_email(subject, html, recipients):
         mail.to = [To(e) for e in recipients]
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)
-        log.info(f'Sent "{subject}" — {resp.status_code} — to {recipients}')
+        log.info(f'Sent "{subject}" - {resp.status_code} - to {recipients}')
         from lake_utils import log_email
         log_email('lake_alert', subject, recipients, f'sent ({resp.status_code})')
         return True
@@ -455,7 +455,7 @@ def main():
     now_syd = datetime.now(tz=SYDNEY_TZ)
     ahd = _load_current_ahd()
     if ahd is None:
-        log.info('No lake AHD available — skipping alert check.')
+        log.info('No lake AHD available - skipping alert check.')
         return
 
     saved = _load_zone()
@@ -463,7 +463,7 @@ def main():
     if saved is None:
         # First run: initialise zone file silently without sending an alert
         new_num, new_rate, new_bg, new_fg = _level_info_raw(ahd)
-        log.info(f'No zone file — initialising to Level {new_num} ({ahd:.3f}m AHD). No alert sent.')
+        log.info(f'No zone file - initialising to Level {new_num} ({ahd:.3f}m AHD). No alert sent.')
         _save_zone(new_num, new_rate, ahd)
         _append_history(now_syd, None, new_num, '', new_rate, ahd, 'initialised', False, [])
         return
@@ -474,7 +474,7 @@ def main():
     new_num, new_rate, new_bg, new_fg = _level_info(ahd, current_zone=old_num)
 
     if new_num == old_num:
-        log.info(f'Zone unchanged: Level {new_num} ({ahd:.3f}m AHD) — no alert.')
+        log.info(f'Zone unchanged: Level {new_num} ({ahd:.3f}m AHD) - no alert.')
         return
 
     # Determine event type for logging and email subject
@@ -485,7 +485,7 @@ def main():
     else:
         event_type = 'zone_change'
 
-    # Cease (->Zone 5) and resume (from Zone 5) always send immediately — no buffer
+    # Cease (->Zone 5) and resume (from Zone 5) always send immediately - no buffer
     is_critical = (new_num == 5 or old_num == 5)
 
     if not is_critical:
@@ -499,12 +499,12 @@ def main():
                 if hours_since < MIN_ALERT_HOURS:
                     log.info(
                         f'Alert suppressed: {hours_since:.1f}h since last alert '
-                        f'(min {MIN_ALERT_HOURS}h) — Level {old_num} -> {new_num} '
+                        f'(min {MIN_ALERT_HOURS}h) - Level {old_num} -> {new_num} '
                         f'at {ahd:.3f}m AHD. Zone file unchanged; will retry next poll.'
                     )
                     _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
                                     'suppressed', False, [])
-                    return  # Don't update zone file — preserves pending change for next check
+                    return  # Don't update zone file - preserves pending change for next check
             except Exception as e:
                 log.warning(f'Could not parse last_alert_at: {e}')
 
@@ -520,7 +520,7 @@ def main():
         except Exception as e:
             log.warning(f'Could not parse changed_at: {e}')
 
-    log.info(f'Zone changed: Level {old_num} -> Level {new_num} ({ahd:.3f}m AHD) — sending alert.')
+    log.info(f'Zone changed: Level {old_num} -> Level {new_num} ({ahd:.3f}m AHD) - sending alert.')
     html, subject = _build_email(ahd, new_num, new_rate, new_bg, new_fg,
                                   old_num, old_rate, now_syd,
                                   days_in_prev=days_in_prev)
@@ -532,7 +532,7 @@ def main():
         _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
                         event_type, True, EMAIL_RECIPIENTS_ALL)
     else:
-        log.warning('Email failed — zone file not updated; will retry on next poll.')
+        log.warning('Email failed - zone file not updated; will retry on next poll.')
         _append_history(now_syd, old_num, new_num, old_rate, new_rate, ahd,
                         event_type, False, EMAIL_RECIPIENTS_ALL)
 

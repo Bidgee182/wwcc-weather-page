@@ -531,7 +531,7 @@
             <button class="wxd-btn active" id="wxd-btn-lakeLevel"  data-ds="lakeLevel"  onclick="toggleWxDataset('lakeLevel')">&#127754; Lake Level</button>
             <button class="wxd-btn active" id="wxd-btn-lakeChange" data-ds="lakeChange" onclick="toggleWxDataset('lakeChange')">&#128200; Lake Change</button>
         </div>
-        <div style="font-size:0.65em;color:#566573;margin-bottom:6px">&#9432; Weather data: Davis station (daily). Lake level: FarmBot sensor — gaps appear during outages.</div>
+        <div style="font-size:0.65em;color:#566573;margin-bottom:6px">&#9432; Weather data: Davis station (daily). Lake level: FarmBot sensor - gaps appear during outages.</div>
         <div id="wxh-loading" class="chart-loader">
             <div class="chart-loader-bar">
                 <div class="chart-loader-water">
@@ -771,7 +771,7 @@
 
     <div class="card">
         <h2>&#127777; Conditions Overview</h2>
-        <div style="font-size:0.65em;color:#566573;margin-bottom:8px">&#9432; Feeding times are approximations based on time of day, moon phase, and weather — not a precise solunar calculation.</div>
+        <div style="font-size:0.65em;color:#566573;margin-bottom:8px">&#9432; Feeding times are approximations based on time of day, moon phase, and weather - not a precise solunar calculation.</div>
         <div class="lake-pill-row">
             <div class="lake-pill" id="fish-time-wrap">
                 <div class="lake-pill-lbl">&#128336; Best Feeding Time</div>
@@ -833,7 +833,7 @@
     <div style="text-align:center;font-size:0.68em;color:#566573;padding:12px 0" id="fish-updated"></div>
 </div>
 
-<div class="page-footer">Lake Albert monitoring &mdash; Wagga Wagga Country Club &mdash; Data updated every 30 minutes</div>
+<div class="page-footer">Lake Albert monitoring - Wagga Wagga Country Club - Data updated every 30 minutes</div>
 
 <script>
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -1904,7 +1904,7 @@ async function fetchWeather() {
 
         const dco=wx.davis_current_observation||{};
 
-        // Wind speed & direction — FarmBot lake sensor (at the lake, no CORS proxy)
+        // Wind speed & direction - FarmBot lake sensor (at the lake, no CORS proxy)
         try {
             const fw=await fetch('data/farmbot_lake_weather.json?_='+Date.now());
             if(!fw.ok) throw new Error('unavailable');
@@ -1917,7 +1917,7 @@ async function fetchWeather() {
             _windKph=windMph*1.60934;
             _windDeg=parseFloat(wx.wind_degrees!==undefined&&wx.wind_degrees!==null?wx.wind_degrees:0)||0;
         }
-        // Gust — Davis v1 only (FarmBot lake sensor doesn't record gusts)
+        // Gust - Davis v1 only (FarmBot lake sensor doesn't record gusts)
         const gustMph=parseFloat(dco.wind_gust_10_min_mph??0)||0;
         _windGustKph=gustMph>0?gustMph*1.60934:null;
 
@@ -2325,7 +2325,7 @@ function _renderLakeHourly(hourly) {
             nowInserted = true;
             count++;
             if (count >= 12) break;
-            continue; // skip regular pill for this hour — Now already covers it
+            continue; // skip regular pill for this hour - Now already covers it
         }
         const h = parseInt(hourly.time[i].slice(11, 13), 10);
         const label = h === 0 ? '12am' : h < 12 ? h+'am' : h === 12 ? '12pm' : (h-12)+'pm';
