@@ -7558,17 +7558,58 @@ function _renderTankGraph(samples) {
     }
 }
 
+// Build daily tank summaries client-side from farmbot_readings.json.
+// farmbot_history.json was only refreshed by manual backfills (frozen since
+// 30 Jun), which left the Yesterday stat permanently blank. Usage per day is
+// the sum of draw-downs between consecutive readings (refill rises excluded
+// from the sum but the day still counts), which also fixes the old
+// morning-minus-evening method understating usage on refill days.
+function buildTankDailySummaries(readings) {
+    const offsetMs = sydneyOffsetMs();
+    const volOf = s => s.volume_l != null ? s.volume_l : (parseFloat(s.pct ?? 0) / 100) * 250000;
+    const byDay = new Map();
+    for (const r of readings || []) {
+        const t = new Date(r.date);
+        if (isNaN(t) || r.pct == null) continue;
+        const key = new Date(t.getTime() + offsetMs).toISOString().slice(0, 10);
+        if (!byDay.has(key)) byDay.set(key, []);
+        byDay.get(key).push(r);
+    }
+    const out = [];
+    for (const key of [...byDay.keys()].sort()) {
+        const rows = byDay.get(key).sort((a, b) => new Date(a.date) - new Date(b.date));
+        let used = 0, refill = false;
+        for (let i = 1; i < rows.length; i++) {
+            const diff = volOf(rows[i - 1]) - volOf(rows[i]);
+            if (diff > 0) used += diff;
+            if (parseFloat(rows[i].pct) > parseFloat(rows[i - 1].pct) + 2) refill = true;
+        }
+        out.push({
+            date: key, used_l: Math.round(used),
+            used_pct: Math.round(used / 250000 * 1000) / 10,
+            refill, readings: rows.length, _drawdown: true,
+            morning_pct: parseFloat(rows[0].pct),
+            evening_pct: parseFloat(rows[rows.length - 1].pct),
+            min_pct: Math.min(...rows.map(r => parseFloat(r.pct))),
+            max_pct: Math.max(...rows.map(r => parseFloat(r.pct))),
+        });
+    }
+    return out;
+}
+
 function renderTankUsageStats(history, currentVolL) {
     if (!history || !history.length) return;
     const offsetMs     = sydneyOffsetMs();
     const todayStr     = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
     const yesterdayStr = new Date(Date.now() + offsetMs - 86400000).toISOString().slice(0, 10);
 
-    // Only non-refill days with usage data before today
-    const usageDays = history.filter(d => !d.refill && d.used_l != null && d.date < todayStr);
+    // Drawdown-method summaries are valid on refill days too; the legacy
+    // morning-minus-evening file is not, so refill days are excluded there
+    const usable = d => d.used_l != null && (d._drawdown || !d.refill);
+    const usageDays = history.filter(d => usable(d) && d.date < todayStr);
 
     const yesterday    = history.find(d => d.date === yesterdayStr);
-    const yesterdayL   = yesterday && !yesterday.refill ? yesterday.used_l : null;
+    const yesterdayL   = yesterday && usable(yesterday) ? yesterday.used_l : null;
 
     const last7    = usageDays.slice(-7);
     const prev7    = usageDays.slice(-14, -7);
@@ -7627,9 +7668,10 @@ function renderTankMonthlyChart(history) {
     const canvas = document.getElementById('tank-monthly-canvas');
     if (!canvas || !history) return;
 
-    // Aggregate usage by month (exclude refill days)
+    // Aggregate usage by month (refill days count with the drawdown method;
+    // excluded for the legacy net-change file where they read as zero)
     const monthly = {};
-    history.filter(d => !d.refill && d.used_l != null).forEach(d => {
+    history.filter(d => d.used_l != null && (d._drawdown || !d.refill)).forEach(d => {
         const m = d.date.slice(0, 7);
         if (!monthly[m]) monthly[m] = { total: 0, days: 0 };
         monthly[m].total += d.used_l;
@@ -8208,14 +8250,24 @@ async function fetchTankData() {
         _renderTankGraph(samples);
 
         // ── Usage stats / refill history / monthly chart (GK only) ──
-        if (!_tankDailyHistory) {
-            const dhResp = await fetch('data/farmbot_history.json?_=' + Date.now());
-            if (dhResp.ok) _tankDailyHistory = await dhResp.json();
+        // Daily summaries now derived from the always-current readings file
+        if (!_tankHistory) {
+            const hResp = await fetch('data/farmbot_readings.json?_=' + Date.now());
+            if (hResp.ok) _tankHistory = await hResp.json();
         }
-        if (_tankDailyHistory) {
-            renderTankUsageStats(_tankDailyHistory, volL);
-            renderTankRefillHistory(_tankDailyHistory);
-            renderTankMonthlyChart(_tankDailyHistory);
+        let dailySummaries = _tankHistory ? buildTankDailySummaries(_tankHistory) : null;
+        if (!dailySummaries || !dailySummaries.length) {
+            // Fallback: the old (manually backfilled) daily summary file
+            if (!_tankDailyHistory) {
+                const dhResp = await fetch('data/farmbot_history.json?_=' + Date.now());
+                if (dhResp.ok) _tankDailyHistory = await dhResp.json();
+            }
+            dailySummaries = _tankDailyHistory;
+        }
+        if (dailySummaries) {
+            renderTankUsageStats(dailySummaries, volL);
+            renderTankRefillHistory(dailySummaries);
+            renderTankMonthlyChart(dailySummaries);
         }
 
         if (errEl) errEl.style.display = 'none';
