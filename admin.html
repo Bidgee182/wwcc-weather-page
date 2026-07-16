@@ -1912,10 +1912,19 @@ async function secSave() {
     if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) { st('Secret name must be UPPER_SNAKE_CASE (letters, digits, underscores).'); return; }
     if (!val) { st('Enter the new value.'); return; }
     if (!SES.token) { st('No token on this device.'); return; }
-    if (!confirm('Overwrite the secret ' + name + '? The old value cannot be recovered.')) return;
-    st('Encrypting and saving...');
+    st('Checking...');
     try {
         const hdrs = { Authorization: 'Bearer ' + SES.token, Accept: 'application/vnd.github+json' };
+        // Ask GitHub whether the name exists so the confirm says what will really happen
+        let exists = false;
+        try {
+            const chk = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/${name}`, { headers: hdrs });
+            exists = chk.status === 200;
+        } catch {}
+        if (!confirm(exists
+            ? 'OVERWRITE the existing secret ' + name + '? The old value cannot be recovered.'
+            : 'Create the new secret ' + name + '?')) { st(''); return; }
+        st('Encrypting and saving...');
         const pkr = await fetch(`https://api.github.com/repos/${REPO}/actions/secrets/public-key`, { headers: hdrs });
         if (pkr.status === 403 || pkr.status === 404) { st('Not permitted: the token needs "Secrets: Read and write" on the repository.'); return; }
         if (!pkr.ok) { st('Could not fetch the repository public key (' + pkr.status + ').'); return; }
