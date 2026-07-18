@@ -1288,7 +1288,12 @@ async function loadHealth() {
             const okRun = r.conclusion === 'success' || r.conclusion === 'skipped' || r.conclusion === null;
             cls.push(okRun ? 'lg' : 'lr');
             if (!okRun) issues.push(name + ' failing');
-            parts.push(rowHtml(name, okRun ? 'lg' : 'lr', (r.conclusion || r.status) + ' - ' + (ago(r.run_started_at) || '')));
+            // GitHub says "skipped" when the watchdog checked a run and found
+            // nothing to fix - translate that into what actually happened
+            const concl = r.conclusion === 'skipped'
+                ? (name === 'Watchdog' ? 'checked - all OK' : 'skipped (nothing to do)')
+                : (r.conclusion || r.status);
+            parts.push(rowHtml(name, okRun ? 'lg' : 'lr', concl + ' - ' + (ago(r.run_started_at) || '')));
         }
         cards.push({ title: 'Workflows', state: worst(cls), html: parts.join('') || 'No runs found.' });
     } catch { cards.push({ title: 'Workflows', state: 'warn', html: 'GitHub API unavailable.' }); }
@@ -1360,8 +1365,8 @@ async function renderWorkflows() {
     $('wf-strips').innerHTML = names.map(n => {
         const dots = runs.filter(r => r.name === n && new Date(r.run_started_at).getTime() >= cutoff)
             .sort((a, b) => new Date(a.run_started_at) - new Date(b.run_started_at))
-            .map(r => `<span class="dot" style="background:${r.conclusion === 'success' ? '#27ae60' : r.conclusion === 'skipped' ? '#566573' : r.conclusion ? '#e74c3c' : '#d4ac0d'}"
-                        title="${(r.conclusion || r.status)} - ${new Date(r.run_started_at).toLocaleString('en-AU')}"></span>`).join('');
+            .map(r => `<span class="dot" style="background:${r.conclusion === 'success' ? '#27ae60' : r.conclusion === 'skipped' ? '#2980b9' : r.conclusion ? '#e74c3c' : '#d4ac0d'}"
+                        title="${r.conclusion === 'skipped' ? 'checked - all OK' : (r.conclusion || r.status)} - ${new Date(r.run_started_at).toLocaleString('en-AU')}"></span>`).join('');
         return `<div style="margin-bottom:10px;"><div style="font-size:0.8em;color:#bdc3c7;margin-bottom:3px;">${n}</div>
                 <div class="dotstrip">${dots || '<span class="sub" style="color:#566573;">no runs in 14 days</span>'}</div></div>`;
     }).join('');
@@ -1371,7 +1376,7 @@ async function renderWorkflows() {
         <tr style="cursor:pointer;" onclick="window.open('${r.html_url}','_blank')">
             <td>${r.name}</td>
             <td>${ago(r.run_started_at) || ''}</td>
-            <td><span class="pill ${r.conclusion === 'success' || r.conclusion === 'skipped' || !r.conclusion ? 'ok' : 'fail'}">${r.conclusion || r.status}</span></td>
+            <td><span class="pill ${r.conclusion === 'success' || r.conclusion === 'skipped' || !r.conclusion ? 'ok' : 'fail'}">${r.conclusion === 'skipped' ? 'checked - OK' : (r.conclusion || r.status)}</span></td>
             <td>${r.event}</td></tr>`).join('') || '<tr><td colspan="4">No runs.</td></tr>';
 }
 
