@@ -28,17 +28,22 @@ RUN_ATTEMPT = int(os.environ["WF_RUN_ATTEMPT"])
 CONCLUSION = os.environ["WF_CONCLUSION"]
 WF_NAME = os.environ["WF_NAME"]
 RUN_URL = os.environ["WF_RUN_URL"]
+WORKFLOW_ID = os.environ.get("WF_WORKFLOW_ID", "")
 MAX_ATTEMPTS = 3
 
 # Data-only workflow: a re-run can never send anything, always safe to retry
 ALWAYS_SAFE = {"FarmBot Tank Poll"}
 
 
-def gh(path, method="GET"):
+def gh(path, method="GET", body=None):
+    if body is not None:
+        data = json.dumps(body).encode()
+    else:
+        data = b"" if method == "POST" else None
     req = urllib.request.Request(
         "https://api.github.com" + path,
         method=method,
-        data=b"" if method == "POST" else None,
+        data=data,
         headers={
             "Authorization": "Bearer " + TOKEN,
             "Accept": "application/vnd.github+json",
@@ -123,8 +128,31 @@ def main():
                 % (WF_NAME, was, RUN_ATTEMPT, RUN_URL))
         return
 
+    if CONCLUSION == "cancelled":
+        # Under the shared repo-writes concurrency group, a QUEUED run gets
+        # cancelled when a newer run queues behind it. A dropped email run must
+        # be re-dispatched; a dropped poll is covered by the next schedule.
+        # A run a person cancelled mid-execution (it has executed steps) is
+        # left alone - overriding a deliberate cancel would be wrong.
+        if WF_NAME in ALWAYS_SAFE:
+            print("cancelled poll - next scheduled poll covers it")
+            return
+        try:
+            jobs = gh("/repos/%s/actions/runs/%s/jobs?filter=latest"
+                      % (REPO, RUN_ID)).get("jobs", [])
+        except Exception:  # noqa: BLE001
+            jobs = []
+        if any(j.get("steps") for j in jobs):
+            print("cancelled mid-run (likely by a person) - leaving it alone")
+            return
+        if WORKFLOW_ID:
+            gh("/repos/%s/actions/workflows/%s/dispatches" % (REPO, WORKFLOW_ID),
+               method="POST", body={"ref": "main"})
+            print("re-dispatched: run was cancelled from the queue before starting")
+        return
+
     if CONCLUSION != "failure":
-        return  # cancelled / skipped: not the watchdog's business
+        return  # skipped / neutral: not the watchdog's business
 
     steps = failed_steps()
 

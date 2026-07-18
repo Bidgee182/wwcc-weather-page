@@ -36,8 +36,10 @@ on:
         default: '2025-01-01'
 
 concurrency:
-  group: farmbot-poll
-  cancel-in-progress: false   # let the current run finish; skip the queued one
+  # Shared with all repo-writing workflows: GitHub queues them so a poll can
+  # never push mid-way through an email run (and vice versa)
+  group: repo-writes
+  cancel-in-progress: false
 
 jobs:
   poll:
@@ -104,6 +106,10 @@ jobs:
             echo "No data changes — skipping commit and push"
           else
             git commit -m "FarmBot poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git pull --rebase -X theirs origin main
-            git push
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
           fi

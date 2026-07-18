@@ -48,8 +48,10 @@ on:
           - 'true'
 
 concurrency:
-  group: lake-report
-  cancel-in-progress: false   # let the current run finish; skip the queued one
+  # Shared with all repo-writing workflows: GitHub queues them so a poll can
+  # never push mid-way through an email run (and vice versa)
+  group: repo-writes
+  cancel-in-progress: false
 
 jobs:
   lake-report:
@@ -103,9 +105,12 @@ jobs:
             echo "No sent-today changes to commit"
           else
             git commit -m "Lake email sent guard $(date -u +%Y-%m-%d)"
+            ok=""
             for i in 1 2 3; do
-              git pull --rebase -X theirs origin main && git push && break || echo "Push attempt $i failed, retrying..."
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
             done
+            [ -n "$ok" ]
           fi
 
       - name: Commit dry-run previews (if any)

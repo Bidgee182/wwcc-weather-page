@@ -943,13 +943,22 @@ async function ghGet(path) {
 }
 async function ghPut(path, text, message, sha) {
     const content = btoa(String.fromCharCode(...enc.encode(text)));
-    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
-        method:'PUT',
-        headers: { Authorization:'Bearer ' + SES.token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
-    });
-    if (!r.ok) {
+    for (let attempt = 0; ; attempt++) {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+            method:'PUT',
+            headers: { Authorization:'Bearer ' + SES.token, 'Content-Type':'application/json' },
+            body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
+        });
+        if (r.ok) return;
         const e = await r.json().catch(() => ({}));
+        // 409 (or a sha-mismatch 422) = another writer, usually the FarmBot
+        // poll, pushed while we were saving - re-read the sha and retry
+        const conflict = r.status === 409 || (r.status === 422 && /sha/i.test(e.message || ''));
+        if (conflict && attempt < 2) {
+            const f = await ghGet(path);
+            sha = f.sha;
+            continue;
+        }
         if (r.status === 401) throw new Error('Token invalid or expired');
         if (r.status === 403) throw new Error('Token lacks write permission');
         throw new Error(e.message || r.statusText);

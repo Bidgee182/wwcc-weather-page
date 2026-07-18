@@ -39,8 +39,11 @@ on:
           - all
 
 concurrency:
-  group: daily-report
-  cancel-in-progress: false   # let the current run finish; script guards duplicate CSV rows on DST days
+  # Shared with all repo-writing workflows: GitHub queues them so a poll can
+  # never push mid-way through an email run (and vice versa). The script still
+  # guards duplicate CSV rows on DST days.
+  group: repo-writes
+  cancel-in-progress: false
 
 jobs:
   daily-report:
@@ -90,7 +93,14 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
           git add data/daily_log.csv data/reports/ data/email_log.csv
-          git diff --staged --quiet || git commit -m "Daily log $(date -u +%Y-%m-%d)"
-          for i in 1 2 3; do
-            git pull --rebase -X theirs origin main && git push && break || echo "Push attempt $i failed, retrying..."
-          done
+          if git diff --staged --quiet; then
+            echo "No data changes to commit"
+          else
+            git commit -m "Daily log $(date -u +%Y-%m-%d)"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi

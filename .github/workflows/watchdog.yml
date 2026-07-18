@@ -20,10 +20,12 @@ permissions:
 
 jobs:
   watchdog:
-    # Act on failures, and on successes that only happened thanks to a retry
-    # (those get the "self-healed" email)
+    # Act on failures, cancellations (a queued email run replaced under the
+    # shared repo-writes concurrency group gets re-dispatched), and successes
+    # that only happened thanks to a retry (those get the "self-healed" email)
     if: >-
       github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'cancelled' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.run_attempt > 1)
     runs-on: ubuntu-latest
 
@@ -40,6 +42,7 @@ jobs:
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WF_NAME: ${{ github.event.workflow_run.name }}
           WF_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WF_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: python scripts/watchdog.py
