@@ -143,10 +143,10 @@
 
 <div class="tab-bar">
     <button class="tab-btn active" data-p="health" onclick="showPanel('health')">Health</button>
-    <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
+    <button class="tab-btn" data-p="emails" onclick="showPanel('emails')">Emails</button>
     <button class="tab-btn" data-p="workflows" onclick="showPanel('workflows')">Workflows</button>
+    <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
     <button class="tab-btn" data-p="controls" onclick="showPanel('controls')">Controls</button>
-    <button class="tab-btn" data-p="recipients" onclick="showPanel('recipients')">Recipients</button>
     <button class="tab-btn" data-p="admins" onclick="showPanel('admins')">Admins</button>
     <button class="tab-btn" data-p="reference" onclick="showPanel('reference')">Reference</button>
     <button class="ghost" style="margin-left:auto;" onclick="window.print()" title="Print the tab you are viewing">Print</button>
@@ -163,12 +163,11 @@
     </div>
 </div>
 
-<!-- WORKFLOWS -->
-<div class="panel" id="panel-workflows">
+<!-- EMAILS -->
+<div class="panel" id="panel-emails">
     <div class="card">
-        <h2>Manual Triggers</h2>
+        <h2>Send Tests &amp; Dry Runs</h2>
         <div class="flexrow" style="margin-bottom:12px;">
-            <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
             <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend', 'This re-sends the daily email to the FULL greenkeeper list. Continue?')">Resend Daily Email (full list)</button>
         </div>
         <div class="flexrow" style="margin-bottom:12px;">
@@ -195,9 +194,78 @@
         </div>
         <div class="status" id="wf-trigger-status"></div>
         <p class="note">Dry runs build the email HTML without sending anything - the preview appears
-        in the Logs tab list a minute or two after the run finishes. Tests send a real email to
-        Andrew only. Resend goes to the full list (confirm required). Requires the device token to
-        have Actions: Read and write on the repository.</p>
+        in the list below a minute or two after the run finishes. Tests send a real email to Andrew
+        only. Resend goes to the full list (confirm required).</p>
+    </div>
+    <div class="card">
+        <h2>Email Previews</h2>
+        <div id="prev-list">Loading...</div>
+        <p class="note">Dry runs and the daily send commit their HTML here - open one to see exactly
+        how an email rendered. Greenkeeper entries are the routine daily archive; board and lake
+        entries appear when you run them above.</p>
+    </div>
+    <div class="grid2">
+        <div class="card">
+            <h2>Send Log</h2>
+            <div class="flexrow" style="margin-bottom:10px;">
+                <input type="text" id="email-log-filter" placeholder="Filter..." style="width:100%;max-width:260px;" oninput="renderEmailLog()">
+                <button class="ghost" onclick="downloadLog('email')">Download</button>
+            </div>
+            <div class="table-wrap" id="email-log-table">Loading...</div>
+        </div>
+        <div class="card">
+            <h2>Sends by Month</h2>
+            <div class="table-wrap" id="email-stats">Loading...</div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>Email Recipients</h2>
+        <div id="rec-locked">
+            <p style="font-size:0.85em;color:#bdc3c7;line-height:1.5;">Recipient lists are stored encrypted
+            (this is a public repository - plain text would publish members' addresses). Enter the
+            recipients key to unlock the editor. It is remembered on this device, protected by your PIN.</p>
+            <div class="flexrow" style="margin-top:10px;">
+                <label>Recipients key<br><input type="password" id="rec-key" style="width:300px;"></label>
+                <button onclick="recUnlock()">Unlock</button>
+                <button class="ghost" onclick="recFirstTime()">First-time setup</button>
+            </div>
+            <div class="status" id="rec-status"></div>
+        </div>
+        <div id="rec-editor" style="display:none;">
+            <div id="rec-streams"></div>
+            <div style="margin-top:14px;"><button onclick="recSave()">Save All Recipient Lists</button></div>
+            <div class="status" id="rec-save-status"></div>
+            <div class="note" id="rec-log-note"></div>
+        </div>
+        <div id="rec-setup" style="display:none;border-top:1px solid #3d5166;margin-top:14px;padding-top:12px;">
+            <p style="font-size:0.85em;color:#d4ac0d;">First-time setup - do this once:</p>
+            <ol style="font-size:0.82em;color:#bdc3c7;line-height:1.7;margin:8px 0 8px 20px;">
+                <li>Click Generate to create a key. <strong>Copy it somewhere safe.</strong></li>
+                <li>Add it as a repository secret named <code style="color:#5dade2;">RECIPIENTS_KEY</code>
+                    <a href="https://github.com/Bidgee182/wwcc-weather-page/settings/secrets/actions" target="_blank" style="color:#5dade2;">here</a>.</li>
+                <li>Come back, unlock with the key, type in the recipient lists, and Save.</li>
+            </ol>
+            <div class="flexrow">
+                <button onclick="recGenKey()">Generate Key</button>
+                <input type="text" id="rec-genkey" readonly style="width:320px;" placeholder="key appears here - copy it">
+            </div>
+            <p class="note">Until the encrypted file exists AND the secret is set, the emails keep using
+            the recipient lists already stored in GitHub secrets - nothing breaks in the meantime.</p>
+        </div>
+    </div>
+</div>
+
+<!-- WORKFLOWS -->
+<div class="panel" id="panel-workflows">
+    <div class="card">
+        <h2>Manual Triggers</h2>
+        <div class="flexrow">
+            <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll', null, 'wf-poll-status')">Force FarmBot Poll</button>
+        </div>
+        <div class="status" id="wf-poll-status"></div>
+        <p class="note">Polls the tank and lake sensors immediately instead of waiting for the
+        schedule. Email tests and dry runs live on the Emails tab. Triggering requires the device
+        token to have Actions: Read and write on the repository.</p>
     </div>
     <div class="card">
         <h2>Workflow Health - Last 14 Days</h2>
@@ -219,8 +287,7 @@
     <div class="card">
         <h2>Audit Logs</h2>
         <div class="tab-bar" style="margin-top:0;">
-            <button class="tab-btn active" data-l="email" onclick="showLog('email')">Email</button>
-            <button class="tab-btn" data-l="zone" onclick="showLog('zone')">Zone History</button>
+            <button class="tab-btn active" data-l="zone" onclick="showLog('zone')">Zone History</button>
             <button class="tab-btn" data-l="rate" onclick="showLog('rate')">Water Rate</button>
             <button class="tab-btn" data-l="fill" onclick="showLog('fill')">Fill Source</button>
             <button class="tab-btn" data-l="kiosk" onclick="showLog('kiosk')">Kiosk</button>
@@ -231,18 +298,7 @@
             <button class="ghost" onclick="downloadLog()">Download</button>
         </div>
         <div class="table-wrap" id="log-table">Loading...</div>
-    </div>
-    <div class="grid2">
-        <div class="card">
-            <h2>Generated Email Previews</h2>
-            <div id="prev-list">Loading...</div>
-            <p class="note">HTML files committed to data/reports/ by the daily run and dry runs -
-            open one to see exactly how an email rendered.</p>
-        </div>
-        <div class="card">
-            <h2>Email Sends by Month</h2>
-            <div class="table-wrap" id="email-stats">Loading...</div>
-        </div>
+        <p class="note">The email send log lives on the Emails tab.</p>
     </div>
 </div>
 
@@ -308,45 +364,6 @@
         <div class="status" id="pump-status"></div>
         <p class="note">Writes data/pumping_usage.json - used by the lake email reports. This is where
         Toro monthly figures get entered until the flow meter arrives.</p>
-    </div>
-</div>
-
-<!-- RECIPIENTS -->
-<div class="panel" id="panel-recipients">
-    <div class="card">
-        <h2>Email Recipients</h2>
-        <div id="rec-locked">
-            <p style="font-size:0.85em;color:#bdc3c7;line-height:1.5;">Recipient lists are stored encrypted
-            (this is a public repository - plain text would publish members' addresses). Enter the
-            recipients key to unlock the editor. It is remembered on this device, protected by your PIN.</p>
-            <div class="flexrow" style="margin-top:10px;">
-                <label>Recipients key<br><input type="password" id="rec-key" style="width:300px;"></label>
-                <button onclick="recUnlock()">Unlock</button>
-                <button class="ghost" onclick="recFirstTime()">First-time setup</button>
-            </div>
-            <div class="status" id="rec-status"></div>
-        </div>
-        <div id="rec-editor" style="display:none;">
-            <div id="rec-streams"></div>
-            <div style="margin-top:14px;"><button onclick="recSave()">Save All Recipient Lists</button></div>
-            <div class="status" id="rec-save-status"></div>
-            <div class="note" id="rec-log-note"></div>
-        </div>
-        <div id="rec-setup" style="display:none;border-top:1px solid #3d5166;margin-top:14px;padding-top:12px;">
-            <p style="font-size:0.85em;color:#d4ac0d;">First-time setup - do this once:</p>
-            <ol style="font-size:0.82em;color:#bdc3c7;line-height:1.7;margin:8px 0 8px 20px;">
-                <li>Click Generate to create a key. <strong>Copy it somewhere safe.</strong></li>
-                <li>Add it as a repository secret named <code style="color:#5dade2;">RECIPIENTS_KEY</code>
-                    <a href="https://github.com/Bidgee182/wwcc-weather-page/settings/secrets/actions" target="_blank" style="color:#5dade2;">here</a>.</li>
-                <li>Come back, unlock with the key, type in the recipient lists, and Save.</li>
-            </ol>
-            <div class="flexrow">
-                <button onclick="recGenKey()">Generate Key</button>
-                <input type="text" id="rec-genkey" readonly style="width:320px;" placeholder="key appears here - copy it">
-            </div>
-            <p class="note">Until the encrypted file exists AND the secret is set, the emails keep using
-            the recipient lists already stored in GitHub secrets - nothing breaks in the meantime.</p>
-        </div>
     </div>
 </div>
 
@@ -925,7 +942,7 @@ module.exports = {
 const REPO = 'Bidgee182/wwcc-weather-page';
 const $ = id => document.getElementById(id);
 let SES = { email: null, pin: null, token: null };
-let _users = [], _logs = {}, _curLog = 'email', _cfg = null, _sources = [], _recData = null, _recKey = null;
+let _users = [], _logs = {}, _curLog = 'zone', _cfg = null, _sources = [], _recData = null, _recKey = null;
 
 // ── Crypto helpers (WebCrypto) ────────────────────────────────────────────────
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -1113,6 +1130,7 @@ function showPanel(p) {
 function ago(iso) {
     if (!iso) return null;
     const m = (Date.now() - new Date(iso).getTime()) / 60000;
+    if (m < 0) return 'up to date';
     if (m < 90) return Math.round(m) + ' min ago';
     if (m < 48 * 60) return (m / 60).toFixed(1) + ' h ago';
     return Math.round(m / 1440) + ' days ago';
@@ -1220,7 +1238,13 @@ async function loadHealth() {
         const hist = await fetch('data/davis_weather_history.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null);
         if (Array.isArray(hist) && hist.length) {
             const newest = hist[hist.length - 1].date;
-            dRows.push(['History file', newest + 'T23:59:00+10:00']);
+            const t = sydNow();
+            const todayStr = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0')
+                + '-' + String(t.getDate()).padStart(2, '0');
+            // Today's row is a live running total the poll updates all day -
+            // treat it as fresh now, not "due at 23:59" (reads as negative age)
+            dRows.push(['History file',
+                newest === todayStr ? new Date().toISOString() : newest + 'T23:59:00+10:00']);
         }
         const csvTxt = await fetch('data/daily_log.csv' + cb).then(r => r.text());
         const lastDate = parseCsvText(csvTxt).pop()[0];
@@ -1397,6 +1421,7 @@ async function loadAllLogs() {
     _logs.kiosk = await get('data/kiosk_message_log.json', 'json');
     _logs.admin = await get('data/admin_actions_log.json', 'json');
     renderCurrentLog();
+    renderEmailLog();
     loadPreviews();
     loadEmailStats();
 }
@@ -1575,14 +1600,15 @@ async function kmDelete(id) {
     } catch (e) { $('km-status').textContent = 'Failed: ' + e.message; }
 }
 
-function downloadLog() {
-    const raw = _rawLogs[_curLog];
+function downloadLog(key) {
+    const k = key || _curLog;
+    const raw = _rawLogs[k];
     if (!raw) return;
-    const isCsv = _curLog === 'email' || _curLog === 'zone';
+    const isCsv = k === 'email' || k === 'zone';
     const blob = new Blob([raw], { type: isCsv ? 'text/csv' : 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'wwcc_' + _curLog + '_log.' + (isCsv ? 'csv' : 'json');
+    a.download = 'wwcc_' + k + '_log.' + (isCsv ? 'csv' : 'json');
     a.click();
     URL.revokeObjectURL(a.href);
 }
@@ -1723,8 +1749,8 @@ async function admResetPin(email) {
 }
 
 // ── Manual workflow triggers ──────────────────────────────────────────────────
-async function wfTrigger(file, inputs, label, confirmMsg) {
-    const st = m => $('wf-trigger-status').textContent = m;
+async function wfTrigger(file, inputs, label, confirmMsg, statusId) {
+    const st = m => $(statusId || 'wf-trigger-status').textContent = m;
     if (confirmMsg && !confirm(confirmMsg)) return;
     if (!SES.token) { st('No token on this device.'); return; }
     st('Triggering ' + label + '...');
@@ -1769,10 +1795,30 @@ async function loadPreviews() {
         }
         const fdate = n => (n.match(/\d{4}-\d{2}-\d{2}/) || [''])[0];
         files.sort((a, b) => fdate(b.name).localeCompare(fdate(a.name)) || b.name.localeCompare(a.name));
-        el.innerHTML = files.slice(0, 12).map(f =>
-            `<div class="hrow"><a href="${f.path}" target="_blank" style="color:#5dade2;">${f.name}</a></div>`).join('')
-            || '<span class="sub" style="color:#566573;">No previews found.</span>';
+        // Grouped by email family so board/lake previews are not buried
+        // under the greenkeeper daily archive
+        const fam = f => f.name.startsWith('board') ? 'Board'
+                       : f.name.startsWith('lake') ? 'Lake Albert' : 'Greenkeeper';
+        const groups = { 'Board': [], 'Lake Albert': [], 'Greenkeeper': [] };
+        for (const f of files) groups[fam(f)].push(f);
+        el.innerHTML = Object.entries(groups).map(([g, fs]) => {
+            const items = fs.slice(0, 6).map(f =>
+                `<div class="hrow"><a href="${f.path}" target="_blank" style="color:#5dade2;">${f.name}</a></div>`).join('')
+                || '<div class="sub" style="color:#566573;padding:6px 0;">none yet - run a dry run above</div>';
+            return `<div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#7f8c8d;margin:12px 0 2px;">${g}</div>` + items;
+        }).join('');
     } catch { el.textContent = 'Could not list previews.'; }
+}
+function renderEmailLog() {
+    const el = $('email-log-table');
+    const d = _logs.email;
+    if (!d || !d.rows || !d.rows.length) { el.innerHTML = '<span class="sub" style="color:#566573;">No sends logged yet.</span>'; return; }
+    const f = ($('email-log-filter').value || '').toLowerCase();
+    const rows = [...d.rows].reverse()
+        .filter(r => !f || r.join(' ').toLowerCase().includes(f)).slice(0, 50);
+    el.innerHTML = '<table><thead><tr>' + d.head.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>'
+        + rows.map(r => '<tr>' + r.map(c => `<td>${String(c).replace(/</g, '&lt;')}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
 }
 function loadEmailStats() {
     const el = $('email-stats');
