@@ -81,6 +81,125 @@ def _get_last_week_projection():
     return None
 
 
+def _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m):
+    """Compare BOM-predicted weekly lake losses against the lake level sensor.
+
+    Ground truth: over 7 days, actual net losses (evaporation + seepage - any
+    catchment inflow) = rain that fell on the lake minus the measured level
+    change. Uses 24 h averaging windows at each end to smooth sensor noise;
+    returns None whenever the data is too thin or the numbers look like a
+    sensor glitch rather than weather.
+    """
+    try:
+        readings = json.loads((_DATA_DIR / 'farmbot_lake_readings.json').read_text())
+        now_utc = datetime.now(timezone.utc)
+
+        def _mean_near(target, half_h=12):
+            vals = []
+            for r in readings:
+                if r.get('manual'):
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(r['date']).replace('Z', '+00:00'))
+                except ValueError:
+                    continue
+                if abs((dt - target).total_seconds()) <= half_h * 3600:
+                    vals.append(float(r['ahd']))
+            return sum(vals) / len(vals) if vals else None
+
+        ahd_now  = _mean_near(now_utc)
+        ahd_then = _mean_near(now_utc - timedelta(days=7))
+        if ahd_now is None or ahd_then is None:
+            return None
+
+        cfg  = lu.get_config()
+        pf   = cfg['evaporation']['pan_factor']
+        pan  = float(cfg['evaporation']['monthly_pan_mm_day'][str(month)])
+        area = lu.lake_area_m2(ahd)
+        if area <= 0:
+            return None
+
+        pump_ml_day  = (float(irrig_kl.get(str(month), 0)) / 1000.0
+                        if month in active_m else 0.0)
+        pump_mm_wk   = pump_ml_day * 7 * 1_000_000.0 / area
+        predicted_mm = pan * pf * 7 + pump_mm_wk
+
+        drop_mm     = (ahd_then - ahd_now) * 1000.0   # positive = lake fell
+        actual_mm   = rain_7 + drop_mm                # net losses actually seen
+        variance_mm = actual_mm - predicted_mm
+
+        # A wildly implausible number is a sensor glitch, not weather
+        if predicted_mm <= 0 or abs(variance_mm) > 50:
+            return None
+
+        variance_ml = variance_mm * area / 1_000_000.0
+        days_shift  = None
+        if cease_date:
+            bm      = cease_date.month
+            bm_draw = (lu.evap_ml_day(ahd, bm)
+                       + float(irrig_kl.get(str(bm), 0)) / 1000.0)
+            if bm_draw > 0:
+                # Below-average losses (negative variance) push the date OUT
+                days_shift = -variance_ml / bm_draw
+
+        return {
+            'predicted_mm': predicted_mm, 'actual_mm': actual_mm,
+            'variance_mm': variance_mm,
+            'variance_pct': variance_mm / predicted_mm * 100.0,
+            'days_shift': days_shift, 'drop_mm': drop_mm,
+            'ahd_then': ahd_then, 'ahd_now': ahd_now,
+        }
+    except Exception as e:  # noqa: BLE001 - the email must never die over this
+        log.warning('sensor evap check unavailable: %s', e)
+        return None
+
+
+def _build_daily_lake_rows(wx_7):
+    """Day-by-day lake movement: sensor level at the start and end of each
+    Sydney day, rain, BOM evap estimate, and the measured change.
+
+    "Start" is the first sensor reading of the day; "end" is the first reading
+    of the following day (true midnight boundary) so daily changes add up to
+    the weekly total, falling back to the day's last reading at the series end.
+    """
+    try:
+        readings = json.loads((_DATA_DIR / 'farmbot_lake_readings.json').read_text())
+    except Exception:
+        return None
+    cfg = lu.get_config()['evaporation']
+    pf  = cfg['pan_factor']
+    firsts, lasts = {}, {}
+    for r in readings:
+        if r.get('manual'):
+            continue
+        try:
+            dt = datetime.fromisoformat(str(r['date']).replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+        except ValueError:
+            continue
+        k = dt.date().isoformat()
+        v = (dt, float(r['ahd']))
+        if k not in firsts or dt < firsts[k][0]:
+            firsts[k] = v
+        if k not in lasts or dt > lasts[k][0]:
+            lasts[k] = v
+    rows = []
+    for w in wx_7:
+        d   = w['date']
+        nxt = (datetime.fromisoformat(d) + timedelta(days=1)).date().isoformat()
+        start = firsts.get(d)
+        end   = firsts.get(nxt) or lasts.get(d)
+        pan   = float(cfg['monthly_pan_mm_day'][str(int(d[5:7]))])
+        rows.append({
+            'date':  d,
+            'start': start[1] if start else None,
+            'end':   end[1] if end else None,
+            'rain':  float(w.get('rain_mm') or 0),
+            'evap':  pan * pf,
+            'chg':   (end[1] - start[1]) * 1000.0 if (start and end) else None,
+        })
+    return rows
+
+
 def _mark_sent_this_week(now_syd, proj=None):
     iso_week = now_syd.strftime('%G-W%V')
     payload  = {'sent_week': iso_week}
@@ -495,6 +614,34 @@ def build_html(now_syd):
             rain_days_saved  = total_rain_ml / bm_draw
             rainfall_savings = rain_days_saved * bm_tw_day
 
+    # ── Predicted vs actual lake losses (sensor check, past 7 days) ────────────
+    evap_check = _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m)
+
+    # Weekly predicted-vs-actual log: the evidence base for recalibrating
+    # pan_factor once a consistent bias shows up (needs 8-12 weeks of data)
+    if evap_check:
+        try:
+            _vlog_p = _DATA_DIR / 'evap_variance_log.json'
+            try:
+                _vlog = json.loads(_vlog_p.read_text())
+            except Exception:
+                _vlog = []
+            _wk = now_syd.strftime('%G-W%V')
+            _vlog = [e for e in _vlog if e.get('week') != _wk]
+            _vlog.append({
+                'week': _wk, 'date': now_syd.date().isoformat(), 'month': month,
+                'predicted_mm': round(evap_check['predicted_mm'], 2),
+                'actual_mm':    round(evap_check['actual_mm'], 2),
+                'variance_pct': round(evap_check['variance_pct'], 1),
+                'rain_mm':      round(rain_7, 1),
+                'ahd_start':    round(evap_check['ahd_then'], 3),
+                'ahd_end':      round(evap_check['ahd_now'], 3),
+                'pan_factor':   lu.get_config()['evaporation']['pan_factor'],
+            })
+            _vlog_p.write_text(json.dumps(_vlog[-208:], indent=2))
+        except Exception as e:
+            log.warning('variance log write failed: %s', e)
+
     # Projection data to persist for next week's comparison
     proj_data = None
     if cease_date and cost_to_march is not None:
@@ -600,6 +747,7 @@ def build_html(now_syd):
     # ── Cease-to-pump projection banner ───────────────────────────────────────
     projection_banner = ''
     if lv_num >= 2:  # show when not at Normal Operations (Level 1)
+        _pb_move_html = ''
         if cease_date is None:
             # Already at or below cease level
             _pb_date_html = '<span style="color:#b83c3c;">CEASE LEVEL REACHED</span>'
@@ -610,6 +758,29 @@ def build_html(now_syd):
             _cease_str    = f'{cease_date.day} {cease_date.strftime("%b %Y")}'
             _days_away    = (cease_date - now_syd.date()).days
             _pb_date_html = _cease_str
+            # Week-over-week movement with attribution (rain vs evap variance)
+            _pb_move_html = ''
+            if last_proj:
+                try:
+                    _last_cd = datetime.fromisoformat(last_proj['cease_date']).date()
+                    _mv = (cease_date - _last_cd).days
+                    if _mv == 0:
+                        _pb_move_html = 'unchanged from last week'
+                    elif abs(_mv) <= 60:
+                        _why = []
+                        if rain_days_saved and rain_days_saved >= 0.1:
+                            _why.append(f'~{rain_days_saved:.1f}d rainfall')
+                        if (evap_check and evap_check.get('days_shift') is not None
+                                and abs(evap_check['days_shift']) >= 0.1):
+                            _ds = evap_check['days_shift']
+                            _why.append(f'~{abs(_ds):.1f}d '
+                                        f'{"below" if _ds > 0 else "above"}-average losses')
+                        _pb_move_html = (
+                            f'{abs(_mv)} day{"s" if abs(_mv) != 1 else ""} '
+                            f'{"later" if _mv > 0 else "earlier"} than last week'
+                            + (' (' + ', '.join(_why) + ')' if _why else ''))
+                except Exception:
+                    pass
             _pb_days_html = f'{_days_away:,} days from today'
             _end_yr       = cease_date.year + (1 if cease_date.month > 3 else 0)
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
@@ -704,6 +875,46 @@ def build_html(now_syd):
                     f'<strong>~${_week_cost:,.0f}</strong>.'
                 )
 
+            # Sensor check row: BOM prediction vs what the lake actually did
+            _sensor_row = ''
+            if evap_check:
+                _ec = evap_check
+                if _ec['actual_mm'] >= 0:
+                    _dirw = 'below' if _ec['variance_mm'] < 0 else 'above'
+                    _meas = (f"the lake sensor measured <strong>{_ec['actual_mm']:.1f}&nbsp;mm</strong> "
+                             f"of actual net losses (evaporation, seepage and inflows combined) - "
+                             f"<strong>{abs(_ec['variance_pct']):.0f}% {_dirw}</strong> the seasonal average")
+                else:
+                    _meas = (f"the lake sensor measured a net <strong>gain</strong> of "
+                             f"{abs(_ec['actual_mm']):.1f}&nbsp;mm - catchment inflows exceeded all losses")
+                _shift_txt = ''
+                if _ec['days_shift'] is not None and abs(_ec['days_shift']) >= 0.1:
+                    _shift_txt = (f" This alone moved the projected cease date about "
+                                  f"<strong>{abs(_ec['days_shift']):.1f}&nbsp;days "
+                                  f"{'later' if _ec['days_shift'] > 0 else 'earlier'}</strong>.")
+                _sensor_row = f"""
+            <tr>
+              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
+                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
+                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                  Sensor Check - Predicted vs Actual
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="background:#fff5f5;padding:10px 16px;
+                  border-bottom:1px solid #fca5a5;">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
+                    color:#1b2631;line-height:1.7;">
+                  BOM averages predicted <strong>{_ec['predicted_mm']:.1f}&nbsp;mm</strong> of lake losses
+                  this week; after counting {rain_7:.1f}&nbsp;mm of rain, {_meas}.{_shift_txt}
+                  The projection keeps using long-term BOM averages (stable planning basis) and restarts
+                  from the measured lake level each Monday, so real weather corrects it automatically.
+                </p>
+              </td>
+            </tr>"""
+
             _rain_row = f"""
       <tr>
         <td colspan="2" style="padding:0;border-top:1px solid #fca5a5;">
@@ -744,7 +955,7 @@ def build_html(now_syd):
                   <strong>Net: {_net_lake_str}</strong>
                 </p>
               </td>
-            </tr>
+            </tr>{_sensor_row}
             <tr>
               <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
                   padding:6px 16px;border-bottom:1px solid #fca5a5;">
@@ -795,6 +1006,7 @@ def build_html(now_syd):
                 font-weight:700;color:#b83c3c;">{_pb_date_html}</p>
             <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
                 color:#991b1b;">{_pb_days_html}</p>
+            {f'<p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:10px;color:#b45309;">{_pb_move_html}</p>' if _pb_move_html else ''}
           </td>
           <td width="50%" style="background:#fef2f2;padding:12px 16px;vertical-align:top;">
             <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
@@ -981,6 +1193,68 @@ def build_html(now_syd):
 </table>"""
 
     # ── Assemble body ──────────────────────────────────────────────────────────
+    # ── Daily lake movement table (sensor start/end per day) ──────────────────
+    _dl_rows = _build_daily_lake_rows(wx_7)
+    _daily_lake_html = ''
+    if _dl_rows and any(r['start'] is not None for r in _dl_rows):
+        def _f3(v):
+            return f'{v:.3f}' if v is not None else '-'
+        _dl_cells = ''
+        for _i, _r in enumerate(_dl_rows):
+            _bg = _ROW_A if _i % 2 == 0 else _ROW_B
+            _dt = datetime.fromisoformat(_r['date'])
+            _day_lbl = f'{_dt.strftime("%a")} {_dt.day} {_dt.strftime("%b")}'
+            if _r['chg'] is None:
+                _chg_html = '-'
+            else:
+                _col = ('#1e8449' if _r['chg'] > 0.5
+                        else '#b83c3c' if _r['chg'] < -0.5 else '#475569')
+                _chg_html = f'<span style="color:{_col};font-weight:700;">{_r["chg"]:+.0f}&nbsp;mm</span>'
+            _td = ('padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;'
+                   'color:#1b2631;border-right:1px solid ' + _BORDER + ';')
+            _dl_cells += f"""
+  <tr bgcolor="{_bg}">
+    <td style="{_td}">{_day_lbl}</td>
+    <td style="{_td}text-align:right;">{_f3(_r['start'])}</td>
+    <td style="{_td}text-align:right;">{_f3(_r['end'])}</td>
+    <td style="{_td}text-align:right;">{_r['rain']:.1f}</td>
+    <td style="{_td}text-align:right;">{_r['evap']:.1f}</td>
+    <td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;
+        text-align:right;">{_chg_html}</td>
+  </tr>"""
+        _dl_th = ('background-color:' + _HDR_BG + ';padding:7px 10px;'
+                  'font-family:Arial,sans-serif;font-size:11px;color:#ffffff;'
+                  'font-weight:700;border-right:1px solid ' + _BORDER + ';')
+        _daily_lake_html = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td colspan="6" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">Daily Lake Movement - Past 7 Days</p>
+    </td>
+  </tr>
+  <tr>
+    <th style="{_dl_th}text-align:left;">Day</th>
+    <th style="{_dl_th}text-align:right;">Start (m&nbsp;AHD)</th>
+    <th style="{_dl_th}text-align:right;">End (m&nbsp;AHD)</th>
+    <th style="{_dl_th}text-align:right;">Rain (mm)</th>
+    <th style="{_dl_th}text-align:right;">Est. Evap (mm)</th>
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Change</th>
+  </tr>{_dl_cells}
+  <tr>
+    <td colspan="6" style="padding:6px 16px;background:#f8fafc;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#64748b;line-height:1.5;">
+        Start and end levels come from the lake sensor (first reading of the day to first reading
+        of the next). Est. Evap is the BOM seasonal average; Change is what the sensor actually
+        measured, which also includes seepage and catchment inflows.
+      </p>
+    </td>
+  </tr>
+</table>"""
+
     body = (
         _header(f'Week ending {date_str}')
 
@@ -1009,6 +1283,7 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>
+{_daily_lake_html}
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
   <tr>

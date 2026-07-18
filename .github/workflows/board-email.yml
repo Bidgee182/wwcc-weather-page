@@ -104,7 +104,7 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add data/board_sent_week.json data/board_sent_month.json data/email_log.csv || true
+          git add data/board_sent_week.json data/board_sent_month.json data/email_log.csv data/evap_variance_log.json || true
           if git diff --staged --quiet; then
             echo "No guard changes to commit"
           else
