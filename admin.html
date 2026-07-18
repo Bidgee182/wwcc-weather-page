@@ -167,17 +167,37 @@
 <div class="panel" id="panel-workflows">
     <div class="card">
         <h2>Manual Triggers</h2>
-        <div class="flexrow">
+        <div class="flexrow" style="margin-bottom:12px;">
             <button onclick="wfTrigger('farmbot-poll.yml', {}, 'FarmBot poll')">Force FarmBot Poll</button>
-            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend', 'This re-sends the daily email to the FULL greenkeeper list. Continue?')">Resend Daily Email</button>
-            <button onclick="wfTrigger('daily-report.yml', { test_email: 'daily' }, 'daily test email')">Test Daily Email (to Andrew)</button>
-            <button onclick="wfTrigger('board-email.yml', { dry_run: 'true' }, 'board email dry run')">Board Email Dry Run</button>
-            <button onclick="wfTrigger('lake-report.yml', { dry_run: 'true' }, 'lake report dry run')">Lake Report Dry Run</button>
+            <button onclick="wfTrigger('daily-report.yml', { resend: 'true' }, 'daily email resend', 'This re-sends the daily email to the FULL greenkeeper list. Continue?')">Resend Daily Email (full list)</button>
+        </div>
+        <div class="flexrow" style="margin-bottom:12px;">
+            <label>Greenkeeper report<br><select id="wf-gk-type">
+                <option value="daily">Daily</option><option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option><option value="annual">Annual</option>
+            </select></label>
+            <button onclick="wfTrigger('daily-report.yml', { test_email: $('wf-gk-type').value }, 'greenkeeper ' + $('wf-gk-type').value + ' test email')">Send Test (to Andrew)</button>
+        </div>
+        <div class="flexrow" style="margin-bottom:12px;">
+            <label>Lake Albert report<br><select id="wf-lake-type">
+                <option value="daily">Daily</option><option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option><option value="yearly">Yearly</option>
+            </select></label>
+            <button onclick="wfTrigger('lake-report.yml', { report: $('wf-lake-type').value, dry_run: 'true' }, 'lake ' + $('wf-lake-type').value + ' dry run')">Dry Run (preview only)</button>
+            <button onclick="wfTrigger('lake-report.yml', { report: $('wf-lake-type').value, test: 'true' }, 'lake ' + $('wf-lake-type').value + ' test email')">Send Test (to Andrew)</button>
+        </div>
+        <div class="flexrow">
+            <label>Board report<br><select id="wf-board-type">
+                <option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+            </select></label>
+            <button onclick="wfTrigger('board-email.yml', { report: $('wf-board-type').value, dry_run: 'true' }, 'board ' + $('wf-board-type').value + ' dry run')">Dry Run (preview only)</button>
+            <button onclick="wfTrigger('board-email.yml', { report: $('wf-board-type').value, test: 'true' }, 'board ' + $('wf-board-type').value + ' test email')">Send Test (to Andrew)</button>
         </div>
         <div class="status" id="wf-trigger-status"></div>
-        <p class="note">Requires the device token to have Actions: Read and write permission on the
-        repository (edit the token on GitHub to add it). Runs appear in the table below within a
-        minute; dry runs write previews to data/reports/ without sending anything.</p>
+        <p class="note">Dry runs build the email HTML without sending anything - the preview appears
+        in the Logs tab list a minute or two after the run finishes. Tests send a real email to
+        Andrew only. Resend goes to the full list (confirm required). Requires the device token to
+        have Actions: Read and write on the repository.</p>
     </div>
     <div class="card">
         <h2>Workflow Health - Last 14 Days</h2>
