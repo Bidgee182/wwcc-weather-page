@@ -114,4 +114,16 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
           git add data/reports/
-          git diff --staged --quiet || (git pull --rebase -X theirs origin main && git commit -m "Lake report preview $(date -u +%Y-%m-%d)" && git push)
+          # Commit BEFORE pull --rebase: rebasing with a staged-but-uncommitted
+          # index makes git die (exit 128) whenever another push lands mid-run
+          if git diff --staged --quiet; then
+            echo "No preview changes to commit"
+          else
+            git commit -m "Lake report preview $(date -u +%Y-%m-%d)"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi
