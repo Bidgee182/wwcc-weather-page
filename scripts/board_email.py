@@ -349,20 +349,28 @@ def _deg_to_compass(deg):
 
 # ── Charts ─────────────────────────────────────────────────────────────────────
 
-def _seven_day_chart(readings):
-    """QuickChart.io PNG - daily average AHD for past 7 days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-    by_day = defaultdict(list)
-    for r in readings:
-        try:
-            ts = datetime.fromisoformat(r['date'].replace('Z', '+00:00'))
-            if ts >= cutoff and r.get('ahd'):
-                by_day[ts.date().isoformat()].append(float(r['ahd']))
-        except Exception:
-            pass
+def _syd_date(iso_utc):
+    """Sydney calendar date (ISO string) of a UTC reading timestamp."""
+    try:
+        return (datetime.fromisoformat(str(iso_utc).replace('Z', '+00:00'))
+                .astimezone(SYDNEY_TZ).date().isoformat())
+    except ValueError:
+        return str(iso_utc)[:10]
 
-    days   = sorted(by_day.keys())
-    vals   = [round(sum(by_day[d]) / len(by_day[d]), 3) for d in days]
+
+def _seven_day_chart(dl_rows):
+    """QuickChart.io PNG - end-of-day lake level for the SAME 7 Sydney days as
+    the daily movement table, so every chart point equals the table's End
+    column exactly (one source of truth for the board)."""
+    if not dl_rows:
+        return ''
+    days, vals = [], []
+    for r in dl_rows:
+        v = r['end'] if r['end'] is not None else r['start']
+        if v is None:
+            continue
+        days.append(r['date'])
+        vals.append(round(v, 3))
     labels = [f'{datetime.fromisoformat(d).day} {datetime.fromisoformat(d).strftime("%b")}' for d in days]
 
     if not vals:
@@ -407,14 +415,17 @@ def _seven_day_chart(readings):
 
 
 def _tank_chart_html(readings):
-    """QuickChart.io PNG - daily average tank fill % for past 7 days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    """QuickChart.io PNG - daily average tank fill % for the 7 complete Sydney
+    days ending yesterday (same day convention as the lake chart/table)."""
+    today  = datetime.now(timezone.utc).astimezone(SYDNEY_TZ).date().isoformat()
+    cutoff = (datetime.now(timezone.utc).astimezone(SYDNEY_TZ).date()
+              - timedelta(days=7)).isoformat()
     by_day = defaultdict(list)
     for r in readings:
         try:
-            ts = datetime.fromisoformat(r['date'].replace('Z', '+00:00'))
-            if ts >= cutoff and r.get('pct') is not None:
-                by_day[ts.date().isoformat()].append(float(r['pct']))
+            d = _syd_date(r['date'])
+            if cutoff <= d < today and r.get('pct') is not None:
+                by_day[d].append(float(r['pct']))
         except Exception:
             pass
 
@@ -515,14 +526,8 @@ def build_html(now_syd):
     nxt     = lu.next_zone_below(ahd)
     days, _ = lu.days_to_next_zone(ahd, month)
 
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=7)
-    recent_lake = sorted(
-        [r for r in readings
-         if datetime.fromisoformat(r['date'].replace('Z', '+00:00')) >= cutoff_dt
-         and r.get('ahd')],
-        key=lambda r: r['date']
-    )
-    week_change = (ahd - float(recent_lake[0]['ahd'])) if recent_lake else None
+    week_change = None  # computed below from the daily table rows, so the
+    # trend arrow, the chart and the table all describe the same 7 days
 
     cfg      = lu.get_config()
     pan_mm   = cfg['evaporation']['monthly_pan_mm_day'][str(month)]
@@ -546,14 +551,7 @@ def build_html(now_syd):
         days_sub     = f'days until {next_name}'
         days_col     = '#00762A' if days_int > 90 else ('#F58E1E' if days_int > 30 else '#EB1E23')
 
-    if week_change is not None:
-        arrow     = '&uarr;' if week_change > 0.001 else ('&darr;' if week_change < -0.001 else '&rarr;')
-        trend_str = f'{arrow} {abs(week_change):.3f}&nbsp;m past 7&nbsp;days'
-    else:
-        trend_str = ''
-
     date_str   = f'{now_syd.day} {now_syd.strftime("%B %Y")}'
-    chart_html = _seven_day_chart(readings)
 
     # ── Weather calculations ───────────────────────────────────────────────────
     today_str   = now_syd.date().isoformat()
@@ -576,6 +574,23 @@ def build_html(now_syd):
     # Water balance: ET - rain (positive = deficit, negative = surplus)
     bal_7   = et_7   - rain_7
     bal_mtd = et_mtd - rain_mtd
+
+    # ── One source of truth for the week: the daily lake rows ─────────────────
+    # Sydney days, manual readings excluded, 7 complete days ending yesterday.
+    # The chart plots these rows' End column and the trend arrow is their net
+    # change, so chart, table and arrow can never disagree.
+    _dl_rows   = _build_daily_lake_rows(wx_7)
+    chart_html = _seven_day_chart(_dl_rows)
+    if _dl_rows:
+        _wk_s = next((r['start'] for r in _dl_rows if r['start'] is not None), None)
+        _wk_e = next((r['end'] for r in reversed(_dl_rows) if r['end'] is not None), None)
+        if _wk_s is not None and _wk_e is not None:
+            week_change = _wk_e - _wk_s
+    if week_change is not None:
+        arrow     = '&uarr;' if week_change > 0.001 else ('&darr;' if week_change < -0.001 else '&rarr;')
+        trend_str = f'{arrow} {abs(week_change):.3f}&nbsp;m past 7&nbsp;days'
+    else:
+        trend_str = ''
 
     # ── Cease-to-pump projection ───────────────────────────────────────────────
     cease_date    = lu.project_to_cease(ahd, now_syd.date())
@@ -908,7 +923,8 @@ def build_html(now_syd):
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
                     color:#1b2631;line-height:1.7;">
                   BOM averages predicted <strong>{_ec['predicted_mm']:.1f}&nbsp;mm</strong> of lake losses
-                  this week; after counting {rain_7:.1f}&nbsp;mm of rain, {_meas}.{_shift_txt}
+                  over the rolling 7 days to this morning; after counting {rain_7:.1f}&nbsp;mm of rain, {_meas}.{_shift_txt}
+                  (Endpoints use 24&nbsp;h smoothing windows, so they differ slightly from the daily table.)
                   The projection keeps using long-term BOM averages (stable planning basis) and restarts
                   from the measured lake level each Monday, so real weather corrects it automatically.
                 </p>
@@ -1193,8 +1209,7 @@ def build_html(now_syd):
 </table>"""
 
     # ── Assemble body ──────────────────────────────────────────────────────────
-    # ── Daily lake movement table (sensor start/end per day) ──────────────────
-    _dl_rows = _build_daily_lake_rows(wx_7)
+    # ── Daily lake movement table (same _dl_rows the chart plots) ─────────────
     _daily_lake_html = ''
     if _dl_rows and any(r['start'] is not None for r in _dl_rows):
         def _f3(v):
@@ -1528,7 +1543,7 @@ def _month_lake_chart(readings, month_start, month_end, zone_cfg):
     ms, me = month_start.isoformat(), month_end.isoformat()
     for r in readings:
         try:
-            d = r['date'][:10]
+            d = _syd_date(r['date'])
             if ms <= d <= me and r.get('ahd'):
                 by_day[d].append(float(r['ahd']))
         except Exception:
@@ -1730,7 +1745,7 @@ def build_monthly_html(now_syd):
     ms_iso, me_iso = month_start.isoformat(), month_end.isoformat()
     month_readings = sorted(
         [r for r in readings_raw
-         if r.get('date', '')[:10] >= ms_iso and r.get('date', '')[:10] <= me_iso
+         if ms_iso <= _syd_date(r.get('date', '')) <= me_iso
          and r.get('ahd')],
         key=lambda r: r['date']
     )
@@ -1753,7 +1768,7 @@ def build_monthly_html(now_syd):
     ly_ms = month_start.replace(year=year - 1).isoformat()
     ly_me = month_end.replace(year=year - 1).isoformat()
     ly_readings = [r for r in readings_raw
-                   if r.get('date', '')[:10] >= ly_ms and r.get('date', '')[:10] <= ly_me
+                   if ly_ms <= _syd_date(r.get('date', '')) <= ly_me
                    and r.get('ahd')]
     ly_avg = (sum(float(r['ahd']) for r in ly_readings) / len(ly_readings)) if ly_readings else None
 
