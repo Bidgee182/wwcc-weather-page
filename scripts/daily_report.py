@@ -3442,13 +3442,18 @@ def build_meter_submission_html(now_sydney):
 # EMAIL SENDING
 # ─────────────────────────────────────────────────────────────────────────────
 
+SEND_FAILURES = []  # subjects of sends that failed; makes the run exit red
+
+
 def send_email(subject, html_body, recipients):
     """Send HTML email via SendGrid."""
     if not SENDGRID_API_KEY:
         log.warning('No SendGrid API key - skipping email send.')
+        SEND_FAILURES.append(subject)
         return
     if not recipients or recipients == ['']:
         log.warning('No email recipients configured.')
+        SEND_FAILURES.append(subject)
         return
     from lake_utils import html_to_text, log_email
     message = Mail(
@@ -3469,6 +3474,7 @@ def send_email(subject, html_body, recipients):
     except Exception as e:
         log.error(f'Email send error: {e}')
         log_email('gk_report', subject, recipients, f'failed: {e}')
+        SEND_FAILURES.append(subject)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -4094,3 +4100,9 @@ if __name__ == '__main__':
 
     else:
         main()
+
+    # Any failed send turns the run red so the watchdog alerts the admins -
+    # a silent green run is how a dead email goes unnoticed for weeks
+    if SEND_FAILURES:
+        log.error(f'{len(SEND_FAILURES)} email send(s) FAILED: ' + '; '.join(SEND_FAILURES))
+        sys.exit(1)

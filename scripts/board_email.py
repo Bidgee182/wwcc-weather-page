@@ -2352,7 +2352,7 @@ def main():
 
         if html is None:
             log.error('Could not build monthly report - missing data')
-            return
+            sys.exit(1)  # red run -> watchdog alerts; silent success hid this before
 
         if args.dry_run:
             out = (_DATA_DIR / 'reports'
@@ -2367,6 +2367,9 @@ def main():
         if sent and not args.test:
             _mark_sent_this_month(now_syd)
             log.info('Monthly sent-this-month guard updated')
+        if not sent:
+            log.error('Monthly board email did NOT send - failing the run')
+            sys.exit(1)
         return
 
     # ── Weekly report ─────────────────────────────────────────────────────────
@@ -2380,7 +2383,7 @@ def main():
 
     if html is None:
         log.error('Could not build email - no lake data')
-        return
+        sys.exit(1)  # red run -> watchdog alerts; silent success hid this before
 
     if args.dry_run:
         out = (_DATA_DIR / 'reports'
@@ -2396,6 +2399,9 @@ def main():
     if sent and not args.test:
         _mark_sent_this_week(now_syd, proj)
         log.info('Sent-this-week guard updated')
+    if not sent:
+        log.error('Weekly board email did NOT send - failing the run')
+        sys.exit(1)
 
 
 if __name__ == '__main__':

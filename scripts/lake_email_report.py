@@ -916,6 +916,7 @@ def main():
         return updated
 
     already_sent = _load_sent()
+    failed = []
 
     for report_type in to_send:
         if not args.dry_run and not args.force_all and report_type in already_sent:
@@ -934,6 +935,13 @@ def main():
             ok = send_email(subject, html, test_mode=args.test)
             if ok and not args.test:
                 already_sent = _mark_sent(report_type, already_sent)
+            if not ok:
+                failed.append(report_type)
+
+    if failed:
+        # Red run -> watchdog alerts; a silent success would hide a dead send
+        log.error(f'Send FAILED for: {", ".join(failed)} - failing the run')
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
