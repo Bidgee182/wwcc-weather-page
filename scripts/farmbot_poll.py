@@ -145,11 +145,11 @@ STATE_ORDER = {'unknown': -1, 'ok': 0, 'warning': 1, 'low': 2, 'critical': 3}
 
 # ── Alert email ───────────────────────────────────────────────────────────────
 def send_alert(pct, volume_l, state):
-    if not SENDGRID_API_KEY or not EMAIL_GK_RECIPIENTS:
+    if not SENDGRID_API_KEY:
         log.warning('SendGrid not configured - skipping alert email')
         return
     from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, To, Email
+    from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
 
     volume_kl = (volume_l or 0) / 1000
     color     = '#dc2626' if state in ('critical', 'low') else '#d97706'
@@ -194,21 +194,30 @@ def send_alert(pct, volume_l, state):
 </body></html>"""
 
     try:
-        from lake_utils import recipients_for
-        recipients = recipients_for('gk', EMAIL_GK_RECIPIENTS)
+        from lake_utils import recipients_tcb
+        to_list, cc_list, bcc_list = recipients_tcb('gk', EMAIL_GK_RECIPIENTS)
     except Exception:
-        recipients = [r.strip() for r in EMAIL_GK_RECIPIENTS.split(',') if r.strip()]
+        to_list = [r.strip() for r in EMAIL_GK_RECIPIENTS.split(',') if r.strip()]
+        cc_list, bcc_list = [], []
+    if not to_list:
+        log.warning('No alert recipients configured - skipping alert email')
+        return
     sg   = SendGridAPIClient(SENDGRID_API_KEY)
     from lake_utils import html_to_text
     mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
                 plain_text_content=html_to_text(html), html_content=html)
-    for addr in recipients:
+    for addr in to_list:
         mail.add_to(To(addr))
+    if cc_list:
+        mail.cc = [Cc(a) for a in cc_list]
+    if bcc_list:
+        mail.bcc = [Bcc(a) for a in bcc_list]
     sg.send(mail)
-    log.info(f'Alert email sent ({state}) to {len(recipients)} recipient(s)')
+    everyone = to_list + cc_list + bcc_list
+    log.info(f'Alert email sent ({state}) to {len(everyone)} recipient(s)')
     try:
         from lake_utils import log_email
-        log_email('tank_alert', subject, recipients, 'sent')
+        log_email('tank_alert', subject, everyone, 'sent')
     except Exception:
         pass
 

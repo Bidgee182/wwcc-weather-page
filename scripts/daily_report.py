@@ -51,18 +51,31 @@ EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 # Comma-separated list of email addresses from secret, e.g.:
 # "greenkeeper@wwcc.com.au,committee@wwcc.com.au"
 # Greenkeeper addresses (daily + weekly + monthly + annual)
-def _recips(stream, env_name):
+def _tcb(base, env_name):
+    """(to, cc, bcc) for a recipient family, encrypted file first, env fallback."""
     try:
-        from lake_utils import recipients_for
-        return recipients_for(stream, os.environ.get(env_name, ''))
+        from lake_utils import recipients_tcb
+        return recipients_tcb(base, os.environ.get(env_name, ''))
     except Exception:
-        return [a.strip() for a in os.environ.get(env_name, '').split(',') if a.strip()]
+        return ([a.strip() for a in os.environ.get(env_name, '').split(',') if a.strip()], [], [])
 
-EMAIL_GK_RECIPIENTS = _recips('gk', 'EMAIL_GK_RECIPIENTS')
+def _merge(a, b, *exclude):
+    seen = {x for lst in exclude for x in lst}
+    out = []
+    for x in a + b:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+_GK_TO, _GK_CC, _GK_BCC = _tcb('gk', 'EMAIL_GK_RECIPIENTS')
 # Committee addresses (weekly + monthly + annual only)
-EMAIL_COMMITTEE_RECIPIENTS = _recips('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
-EMAIL_RECIPIENTS_ALL     = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
-EMAIL_RECIPIENTS_GK_ONLY = EMAIL_GK_RECIPIENTS
+_CM_TO, _CM_CC, _CM_BCC = _tcb('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
+# Each is (to, cc, bcc) - send_email accepts either a plain list or a 3-tuple
+EMAIL_RECIPIENTS_GK_ONLY = (_GK_TO, _GK_CC, _GK_BCC)
+EMAIL_RECIPIENTS_ALL     = (_merge(_GK_TO, _CM_TO),
+                            _merge(_GK_CC, _CM_CC, _merge(_GK_TO, _CM_TO)),
+                            _merge(_GK_BCC, _CM_BCC, _merge(_GK_TO, _CM_TO), _GK_CC, _CM_CC))
 
 CLUB_LAT = -35.1082
 CLUB_LON =  147.3598
@@ -3446,34 +3459,48 @@ SEND_FAILURES = []  # subjects of sends that failed; makes the run exit red
 
 
 def send_email(subject, html_body, recipients):
-    """Send HTML email via SendGrid."""
+    """Send HTML email via SendGrid.
+
+    recipients is either a plain To list (tests, resends) or a
+    (to, cc, bcc) tuple from the recipient-family constants.
+    """
+    if isinstance(recipients, tuple):
+        to_list, cc_list, bcc_list = recipients
+    else:
+        to_list, cc_list, bcc_list = recipients, [], []
     if not SENDGRID_API_KEY:
         log.warning('No SendGrid API key - skipping email send.')
         SEND_FAILURES.append(subject)
         return
-    if not recipients or recipients == ['']:
+    if not to_list or to_list == ['']:
         log.warning('No email recipients configured.')
         SEND_FAILURES.append(subject)
         return
+    everyone = [a.strip() for a in list(to_list) + list(cc_list) + list(bcc_list) if a and a.strip()]
     from lake_utils import html_to_text, log_email
+    from sendgrid.helpers.mail import Cc, Bcc
     message = Mail(
         from_email=Email(EMAIL_FROM, 'WWCC Weather'),
         subject=subject,
         plain_text_content=html_to_text(html_body),
         html_content=html_body,
     )
-    for addr in recipients:
+    for addr in to_list:
         addr = addr.strip()
         if addr:
             message.add_to(To(addr))
+    if cc_list:
+        message.cc = [Cc(a.strip()) for a in cc_list if a.strip()]
+    if bcc_list:
+        message.bcc = [Bcc(a.strip()) for a in bcc_list if a.strip()]
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
-        log.info(f'Email sent: {response.status_code} to {recipients}')
-        log_email('gk_report', subject, recipients, f'sent ({response.status_code})')
+        log.info(f'Email sent: {response.status_code} to {everyone}')
+        log_email('gk_report', subject, everyone, f'sent ({response.status_code})')
     except Exception as e:
         log.error(f'Email send error: {e}')
-        log_email('gk_report', subject, recipients, f'failed: {e}')
+        log_email('gk_report', subject, everyone, f'failed: {e}')
         SEND_FAILURES.append(subject)
 
 

@@ -67,6 +67,29 @@ def recipients_for(stream, env_value=''):
     return [a.strip() for a in (env_value or '').split(',') if a.strip()]
 
 
+def recipients_tcb(base, env_to='', env_cc='', env_bcc=''):
+    """(to, cc, bcc) lists for a report family.
+
+    Looks up '<base>_to' / '<base>_cc' / '<base>_bcc' in the encrypted file;
+    a bare '<base>' key is honoured as the legacy To list (pre-split format).
+    Env values are the GitHub-secret fallbacks per slot. CC drops addresses
+    already in To, BCC drops addresses in To or CC - SendGrid rejects the
+    same address appearing twice across slots.
+    """
+    data = load_recipients() or {}
+
+    def pick(suffix, env_v, legacy=False):
+        lst = data.get(base + suffix) or (data.get(base) if legacy else None)
+        if lst:
+            return [a.strip() for a in lst if a and a.strip()]
+        return [a.strip() for a in (env_v or '').split(',') if a.strip()]
+
+    to  = pick('_to', env_to, legacy=True)
+    cc  = [a for a in pick('_cc', env_cc) if a not in to]
+    bcc = [a for a in pick('_bcc', env_bcc) if a not in to and a not in cc]
+    return to, cc, bcc
+
+
 # ── Email plain-text part ─────────────────────────────────────────────────────
 
 def html_to_text(html_str):

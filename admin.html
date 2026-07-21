@@ -1881,14 +1881,21 @@ async function pumpAdd() {
 
 // ── Recipients (encrypted) ────────────────────────────────────────────────────
 const STREAMS = [
-    ['gk',        'Greenkeeper reports + tank alerts'],
-    ['committee', 'Lake level alerts (committee)'],
-    ['lake_to',   'Lake Albert reports - To'],
-    ['lake_cc',   'Lake Albert reports - CC'],
-    ['board_to',  'Board reports - To'],
-    ['board_cc',  'Board reports - CC'],
-    ['board_bcc', 'Board reports - BCC'],
+    ['gk_to',         'Greenkeeper reports + tank alerts - To'],
+    ['gk_cc',         'Greenkeeper reports + tank alerts - CC'],
+    ['gk_bcc',        'Greenkeeper reports + tank alerts - BCC'],
+    ['committee_to',  'Lake level alerts - To'],
+    ['committee_cc',  'Lake level alerts - CC'],
+    ['committee_bcc', 'Lake level alerts - BCC'],
+    ['lake_to',       'Lake Albert reports - To'],
+    ['lake_cc',       'Lake Albert reports - CC'],
+    ['lake_bcc',      'Lake Albert reports - BCC'],
+    ['board_to',      'Board reports - To'],
+    ['board_cc',      'Board reports - CC'],
+    ['board_bcc',     'Board reports - BCC'],
 ];
+// Pre-split files stored single lists under these names - shown as the To list
+const STREAM_LEGACY = { gk_to: 'gk', committee_to: 'committee' };
 const REC_SALT = 'wwcc-recipients-v1';
 function recFirstTime() { $('rec-setup').style.display = 'block'; }
 function recGenKey() {
@@ -1938,10 +1945,15 @@ async function recUnlock() {
 }
 function recRenderEditor() {
     $('rec-editor').style.display = 'block';
-    $('rec-streams').innerHTML = STREAMS.map(([s, label]) => `
+    $('rec-streams').innerHTML = STREAMS.map(([s, label]) => {
+        const v = (_recData.streams[s] && _recData.streams[s].length)
+            ? _recData.streams[s]
+            : (_recData.streams[STREAM_LEGACY[s]] || []);
+        return `
         <label style="display:block;margin-top:10px;">${label}<br>
         <input type="text" id="rec-${s}" style="width:100%;" placeholder="comma-separated addresses"
-            value="${(_recData.streams[s] || []).join(', ')}"></label>`).join('');
+            value="${v.join(', ')}"></label>`;
+    }).join('');
     const cl = _recData.change_log || [];
     $('rec-log-note').textContent = cl.length
         ? 'Last change: ' + cl[cl.length - 1].ts.slice(0, 16).replace('T', ' ') + ' by ' + cl[cl.length - 1].by
@@ -1958,7 +1970,7 @@ async function recSave() {
         streams[s] = list;
     }
     if (bad.length) { $('rec-save-status').textContent = 'Invalid address: ' + bad.join(', '); return; }
-    if (!streams.gk.length) { $('rec-save-status').textContent = 'Greenkeeper list cannot be empty.'; return; }
+    if (!streams.gk_to.length) { $('rec-save-status').textContent = 'The Greenkeeper To list cannot be empty.'; return; }
     $('rec-save-status').textContent = 'Encrypting and saving...';
     try {
         const summary = STREAMS.map(([s]) => s + ':' + streams[s].length).join(' ');

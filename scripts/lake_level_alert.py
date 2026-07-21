@@ -48,16 +48,30 @@ def _white_logo_html():
 
 SENDGRID_API_KEY          = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM                = os.environ.get('EMAIL_FROM', '')
-def _recips(stream, env_name):
+def _tcb(base, env_name):
     try:
-        from lake_utils import recipients_for
-        return recipients_for(stream, os.environ.get(env_name, ''))
+        from lake_utils import recipients_tcb
+        return recipients_tcb(base, os.environ.get(env_name, ''))
     except Exception:
-        return [a.strip() for a in os.environ.get(env_name, '').split(',') if a.strip()]
+        return ([a.strip() for a in os.environ.get(env_name, '').split(',') if a.strip()], [], [])
 
-EMAIL_GK_RECIPIENTS       = _recips('gk', 'EMAIL_GK_RECIPIENTS')
-EMAIL_COMMITTEE_RECIPIENTS = _recips('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
-EMAIL_RECIPIENTS_ALL      = EMAIL_GK_RECIPIENTS + EMAIL_COMMITTEE_RECIPIENTS
+def _merge(a, b, *exclude):
+    seen = {x for lst in exclude for x in lst}
+    out = []
+    for x in a + b:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+# Alerts go to the greenkeeper family AND the committee family (each with
+# their own To/CC/BCC slots in the encrypted recipients file)
+_GK_TO, _GK_CC, _GK_BCC = _tcb('gk', 'EMAIL_GK_RECIPIENTS')
+_CM_TO, _CM_CC, _CM_BCC = _tcb('committee', 'EMAIL_COMMITTEE_RECIPIENTS')
+ALERT_TO  = _merge(_GK_TO, _CM_TO)
+ALERT_CC  = _merge(_GK_CC, _CM_CC, ALERT_TO)
+ALERT_BCC = _merge(_GK_BCC, _CM_BCC, ALERT_TO, ALERT_CC)
+EMAIL_RECIPIENTS_ALL = ALERT_TO + ALERT_CC + ALERT_BCC   # flat list for history log
 
 # Level definitions - MUST MATCH data/lake_config.json zone_thresholds
 # (also duplicated in daily_report.py and index.html LAKE_THRESHOLDS -
@@ -421,31 +435,37 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
     return html, subject
 
 
-def send_email(subject, html, recipients):
+def send_email(subject, html, recipients, cc=None, bcc=None):
+    cc, bcc = cc or [], bcc or []
     if not SENDGRID_API_KEY:
         log.warning('No SENDGRID_API_KEY - skipping send.')
         return False
     if not recipients:
         log.warning('No recipients - skipping send.')
         return False
+    everyone = recipients + cc + bcc
     try:
         from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Email
+        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
         from lake_utils import html_to_text
         mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
                     plain_text_content=html_to_text(html), html_content=html)
         mail.to = [To(e) for e in recipients]
+        if cc:
+            mail.cc = [Cc(e) for e in cc]
+        if bcc:
+            mail.bcc = [Bcc(e) for e in bcc]
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
         resp = sg.send(mail)
-        log.info(f'Sent "{subject}" - {resp.status_code} - to {recipients}')
+        log.info(f'Sent "{subject}" - {resp.status_code} - to {everyone}')
         from lake_utils import log_email
-        log_email('lake_alert', subject, recipients, f'sent ({resp.status_code})')
+        log_email('lake_alert', subject, everyone, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'Send error: {e}')
         try:
             from lake_utils import log_email
-            log_email('lake_alert', subject, recipients, f'failed: {e}')
+            log_email('lake_alert', subject, everyone, f'failed: {e}')
         except Exception:
             pass
         return False
@@ -524,7 +544,7 @@ def main():
     html, subject = _build_email(ahd, new_num, new_rate, new_bg, new_fg,
                                   old_num, old_rate, now_syd,
                                   days_in_prev=days_in_prev)
-    sent = send_email(subject, html, EMAIL_RECIPIENTS_ALL)
+    sent = send_email(subject, html, ALERT_TO, ALERT_CC, ALERT_BCC)
     if sent:
         _save_zone(new_num, new_rate, ahd,
                    changed_at=now_syd,

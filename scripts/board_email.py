@@ -2296,9 +2296,10 @@ def send_email(subject, html_content, test_mode=False):
         subject  = f'[TEST] {subject}'
         log.info(f'TEST MODE - sending only to {to_list[0]}')
     else:
-        to_list  = [e for e in lu.recipients_for('board_to',  EMAIL_BOARD_TO)  if '@' in e]
-        cc_list  = [e for e in lu.recipients_for('board_cc',  EMAIL_BOARD_CC)  if '@' in e]
-        bcc_list = [e for e in lu.recipients_for('board_bcc', EMAIL_BOARD_BCC) if '@' in e]
+        _to, _cc, _bcc = lu.recipients_tcb('board', EMAIL_BOARD_TO, EMAIL_BOARD_CC, EMAIL_BOARD_BCC)
+        to_list  = [e for e in _to  if '@' in e]
+        cc_list  = [e for e in _cc  if '@' in e]
+        bcc_list = [e for e in _bcc if '@' in e]
 
     if not to_list:
         log.error('No To recipients - cannot send')

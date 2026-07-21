@@ -83,6 +83,7 @@ SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 EMAIL_LAKE_TO    = os.environ.get('EMAIL_LAKE_TO', '')
 EMAIL_LAKE_CC    = os.environ.get('EMAIL_LAKE_CC', '')
+EMAIL_LAKE_BCC   = os.environ.get('EMAIL_LAKE_BCC', '')
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
@@ -797,27 +798,29 @@ def send_email(subject, html_content, test_mode=False):
     if not EMAIL_FROM:
         log.error('EMAIL_FROM not set - cannot send')
         return False
-    if not test_mode and not EMAIL_LAKE_TO:
-        log.error('EMAIL_LAKE_TO not set - cannot send')
-        return False
-
     try:
         from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Cc, Email
+        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
     except ImportError:
         log.error('sendgrid package not installed (pip install sendgrid)')
         return False
 
     if test_mode:
-        to_list = ['andrew@bidgeepumps.com.au']
-        cc_list = []
+        to_list, cc_list, bcc_list = ['andrew@bidgeepumps.com.au'], [], []
         subject = f'[TEST] {subject}'
         log.info(f'[TEST MODE] Sending only to {to_list[0]}')
     else:
-        from lake_utils import recipients_for
-        to_list = recipients_for('lake_to', EMAIL_LAKE_TO)
-        cc_list = recipients_for('lake_cc', EMAIL_LAKE_CC)
+        # Encrypted recipients file first, env secrets as fallback - checking
+        # the env var alone here once blocked sends even with a valid file
+        from lake_utils import recipients_tcb
+        to_list, cc_list, bcc_list = recipients_tcb(
+            'lake', EMAIL_LAKE_TO, EMAIL_LAKE_CC, EMAIL_LAKE_BCC)
 
+    if not to_list:
+        log.error('No To recipients - cannot send')
+        return False
+
+    everyone = to_list + cc_list + bcc_list
     from lake_utils import html_to_text
     mail = Mail(
         from_email=Email(EMAIL_FROM),
@@ -828,6 +831,8 @@ def send_email(subject, html_content, test_mode=False):
     mail.to = [To(e) for e in to_list]
     if cc_list:
         mail.cc = [Cc(e) for e in cc_list]
+    if bcc_list:
+        mail.bcc = [Bcc(e) for e in bcc_list]
 
     try:
         sg   = SendGridAPIClient(SENDGRID_API_KEY)
@@ -835,14 +840,16 @@ def send_email(subject, html_content, test_mode=False):
         log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
         if cc_list:
             log.info(f'  CC: {", ".join(cc_list)}')
+        if bcc_list:
+            log.info(f'  BCC: {len(bcc_list)} address(es)')
         from lake_utils import log_email
-        log_email('lake_report', subject, to_list + cc_list, f'sent ({resp.status_code})')
+        log_email('lake_report', subject, everyone, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'SendGrid error sending "{subject}": {e}')
         try:
             from lake_utils import log_email
-            log_email('lake_report', subject, to_list + cc_list, f'failed: {e}')
+            log_email('lake_report', subject, everyone, f'failed: {e}')
         except Exception:
             pass
         return False
