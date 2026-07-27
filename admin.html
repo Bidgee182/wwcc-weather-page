@@ -1383,6 +1383,15 @@ async function renderWorkflows() {
 // ── Logs ──────────────────────────────────────────────────────────────────────
 // Quote-aware CSV parser (the Python side writes proper quoted CSV, so any
 // field containing a comma would break a naive split)
+// Logs are STORED in UTC; display them in Sydney time. The timeZone option
+// uses the IANA database, so AEST/AEDT switching is automatic.
+function sydTs(s) {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(s))) return null;
+    const d = new Date(s);
+    if (isNaN(d)) return null;
+    return d.toLocaleString('en-AU', { timeZone: 'Australia/Sydney',
+        day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 function parseCsvText(txt) {
     const rows = []; let row = [], cur = '', q = false;
     const NL = String.fromCharCode(10), CR = String.fromCharCode(13);
@@ -1450,7 +1459,7 @@ function renderCurrentLog() {
     }
     rows = rows.filter(r => !f || r.join(' ').toLowerCase().includes(f)).slice(0, 200);
     el.innerHTML = '<table><thead><tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>'
-        + rows.map(r => '<tr>' + r.map(c => `<td>${String(c).replace(/</g, '&lt;')}</td>`).join('') + '</tr>').join('')
+        + rows.map(r => '<tr>' + r.map(c => `<td>${(sydTs(c) || String(c)).replace(/</g, '&lt;')}</td>`).join('') + '</tr>').join('')
         + '</tbody></table>';
 }
 
@@ -1822,7 +1831,7 @@ function renderEmailLog() {
     const rows = [...d.rows].reverse()
         .filter(r => !f || r.join(' ').toLowerCase().includes(f)).slice(0, 50);
     el.innerHTML = '<table><thead><tr>' + d.head.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>'
-        + rows.map(r => '<tr>' + r.map(c => `<td>${String(c).replace(/</g, '&lt;')}</td>`).join('') + '</tr>').join('')
+        + rows.map(r => '<tr>' + r.map(c => `<td>${(sydTs(c) || String(c)).replace(/</g, '&lt;')}</td>`).join('') + '</tr>').join('')
         + '</tbody></table>';
 }
 function loadEmailStats() {
