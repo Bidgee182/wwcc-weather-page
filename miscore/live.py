@@ -36,6 +36,15 @@ from .webscrape import BASE, _get, _parse_holes, list_competitions
 
 log = logging.getLogger("miscore.live")
 
+# WWCC course note: hole 18 is out of play; hole 20 is a substitute played
+# immediately after hole 14.  The scorecard lists 18 sequential positions but
+# the actual hole numbers differ from position 15 onward:
+#   scorecard pos 15 → actual hole 20 (substitute)
+#   scorecard pos 16 → actual hole 15
+#   scorecard pos 17 → actual hole 16
+#   scorecard pos 18 → actual hole 17
+HOLE_MAP: dict[int, int] = {15: 20, 16: 15, 17: 16, 18: 17}
+
 # ---------------------------------------------------------------------------
 # board + scorecard parsing (live-aware; the shared webscrape helpers assume
 # completed rounds and read the board's "Total", which is useless mid-round)
@@ -157,6 +166,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     events: list[dict] = []
     for base_, page_c in zip(field_, pages):
         holes = _parse_holes(page_c) if page_c else []
+        if HOLE_MAP:
+            holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
         shape_holes, shape_par = _course_shape(page_c) if page_c else (0, 0)
         hole_count = max(hole_count, shape_holes)
         par_total = max(par_total, shape_par)
