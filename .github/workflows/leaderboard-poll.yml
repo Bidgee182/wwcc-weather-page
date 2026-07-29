@@ -3,6 +3,7 @@ name: Live Golf Leaderboard Poll
 on:
   schedule:
     # Every 5 minutes during comp hours: 6am-6pm AEST (UTC+10) = 8pm-8am UTC
+    # Each run loops 5 times with 55s gaps -> ~1 min polling resolution
     - cron: '*/5 20-23,0-7 * * *'
 
   workflow_dispatch:   # manual trigger from GitHub Actions UI
@@ -27,22 +28,31 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Poll MiClub leaderboard
-        run: python -m miscore.live --once
-
-      - name: Commit updated leaderboard JSON
+      - name: Configure git
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add out/live-leaderboard.json
-          if git diff --staged --quiet; then
-            echo "No changes to leaderboard data - skipping commit"
-          else
-            git commit -m "Live leaderboard update $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            ok=""
-            for i in 1 2 3; do
-              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
-              echo "Push attempt $i failed, retrying..."; sleep 5
-            done
-            [ -n "$ok" ]
-          fi
+
+      - name: Poll and commit (5 rounds, ~1 min apart)
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== Poll $i/5 at $(date -u +%H:%M:%S) ==="
+            python -m miscore.live --once
+
+            git add out/live-leaderboard.json
+            if git diff --staged --quiet; then
+              echo "No score changes in poll $i"
+            else
+              git commit -m "Leaderboard $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              ok=""
+              for j in 1 2 3; do
+                if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+                echo "Push attempt $j failed, retrying..."; sleep 3
+              done
+              if [ -z "$ok" ]; then
+                echo "WARNING: push failed in poll $i after 3 attempts"
+              fi
+            fi
+
+            [ "$i" -lt 5 ] && sleep 55
+          done

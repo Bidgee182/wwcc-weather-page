@@ -499,13 +499,8 @@ function renderLeaderboard(players, holeCount, started) {
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
 
-    // Grade calculations (use full field for boundaries, active for leaders)
+    // Grade calculations (use full field for boundaries, active for grade strip leaders)
     const grades = computeGrades(players);
-    const byGrade = { A: [], B: [], C: [] };
-    active.forEach(p => {
-        const g = getGrade(p.hcp, grades);
-        if (g && byGrade[g].length < 3) byGrade[g].push(p.player);
-    });
 
     if (!active.length) {
         inner.classList.remove('scrolling');
@@ -533,16 +528,9 @@ function renderLeaderboard(players, holeCount, started) {
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         const hcpTxt  = p.hcp != null ? p.hcp : '';
 
-        const g = getGrade(p.hcp, grades);
-        const gPos = g ? byGrade[g].indexOf(p.player) + 1 : 0;
-        const gMedals = ['🥇', '🥈', '🥉'];
-        const gradeBadge = (gPos >= 1 && g)
-            ? '<span class="grade-badge">' + g + gMedals[gPos - 1] + '</span>'
-            : '';
-
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + gradeBadge + esc(p.player) + '</span>' +
+            '<span class="r-name">' + esc(p.player) + '</span>' +
             '<span class="r-hcp">' + hcpTxt + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
@@ -595,11 +583,9 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
 
 function renderHeaters(heaters) {
     const rows = heaters.map(h => {
-        const parts = h.player.trim().split(/\s+/);
-        const displayName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
         return '<div class="heater-row">' +
             '<div style="flex:1;min-width:0">' +
-                '<div class="heater-name heater-name-flash">' + esc(displayName) + '</div>' +
+                '<div class="heater-name heater-name-flash">' + esc(h.player) + '</div>' +
                 '<div class="heater-note">🔥 ' + esc(h.note) + '</div>' +
             '</div>' +
             '<div class="heater-right">' +
