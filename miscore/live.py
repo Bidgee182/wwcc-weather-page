@@ -89,7 +89,10 @@ def _board_players(page: str) -> list[dict]:
 
 
 def _played(holes: list[dict]) -> list[dict]:
-    return [h for h in holes if isinstance(h.get("strokes"), int)]
+    # Include holes where either strokes OR points is recorded.
+    # MiClub sometimes uploads stableford points before raw strokes (app sync lag),
+    # so requiring strokes alone misses those holes and undercounts the score.
+    return [h for h in holes if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
 def _course_shape(page: str) -> tuple[int, int]:
@@ -177,7 +180,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         played = _played(holes)
         thru = len(played)
         points = sum(h.get("points") or 0 for h in played)
-        birdies = sum(1 for h in played if h.get("par") and h["strokes"] < h["par"])
+        birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
         last = played[-3:]
         p = {
             **base_,

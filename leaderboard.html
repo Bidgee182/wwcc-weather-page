@@ -69,7 +69,7 @@ html, body {
 
 .col-hdr {
     display: grid;
-    grid-template-columns: 3em 1fr 3em 3.5em 3.2em;
+    grid-template-columns: 3em 1fr 3.5em 3.2em;
     gap: 6px; padding: 5px 16px;
     background: rgba(0,0,0,0.25); flex-shrink: 0;
     font-size: 1.02em; font-weight: bold; letter-spacing: 1.5px;
@@ -393,7 +393,7 @@ document.getElementById('lb-inner').addEventListener('animationiteration', () =>
     if (_pendingData) {
         const d = _pendingData;
         _pendingData = null;
-        renderLeaderboard(d.players || [], d.holeCount || 9, d.started || false);
+        renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
     }
 });
 
@@ -444,7 +444,20 @@ function computeGrades(players) {
     if (n < 3) return null;
     const aEnd = Math.floor(n / 3);
     const bEnd = Math.floor(n * 2 / 3);
-    return { aMax: withHcp[aEnd - 1].hcp, bMax: withHcp[bEnd - 1].hcp };
+    // If the boundary HCP is shared by the next player, push the whole tie group
+    // into the higher grade so no handicap value straddles a grade boundary.
+    // This matches MiClub's official grade calculation.
+    function boundaryHcp(idx) {
+        const hcp = withHcp[idx].hcp;
+        if (idx + 1 < n && withHcp[idx + 1].hcp === hcp) {
+            // Walk back to find the highest HCP that is strictly below the tie group
+            let i = idx - 1;
+            while (i >= 0 && withHcp[i].hcp === hcp) i--;
+            return i >= 0 ? withHcp[i].hcp : hcp - 1;
+        }
+        return hcp;
+    }
+    return { aMax: boundaryHcp(aEnd - 1), bMax: boundaryHcp(bEnd - 1) };
 }
 
 function getGrade(hcp, grades) {
