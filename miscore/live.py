@@ -110,6 +110,7 @@ def _thru(holes: list[dict]) -> int:
 def _course_shape(page: str) -> tuple[int, int]:
     """True (holeCount, par) for the course from a scorecard page."""
     holes = par = 0
+    seen_pars: set[int] = set()  # 4BBB scorecards have 2 player sections - deduplicate
     for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
         cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", m.group(1))]
         cells = [c for c in cells if c]
@@ -119,6 +120,9 @@ def _course_shape(page: str) -> tuple[int, int]:
         if not nums:
             continue
         subtotal = nums[-1]
+        if subtotal in seen_pars:
+            continue
+        seen_pars.add(subtotal)
         par += subtotal
         holes += 18 if subtotal >= 60 else 9
     return holes, par
