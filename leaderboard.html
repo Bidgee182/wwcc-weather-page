@@ -169,6 +169,8 @@ html, body {
     font-size: 1.08em; color: #7f8c8d;
 }
 .ftr-updated { color: #bdc3c7; }
+.ftr-results { color: #4a6a84; font-size: 0.75em; text-decoration: none; }
+.ftr-results:hover { color: #7f8c8d; }
 
 /* ── No-data placeholder ─────────────────────────────────────────── */
 .no-data-msg {
@@ -329,6 +331,7 @@ html, body {
     <span class="ftr-updated" id="ftr-updated">Not yet loaded</span>
     <span id="ftr-status"></span>
     <span id="ftr-countdown">Fetching data...</span>
+    <a href="results.html" class="ftr-results">Past Results</a>
   </footer>
 
 </div>
@@ -382,10 +385,7 @@ async function fetchData() {
             _pendingData = data;
             updateHeader(data);
             renderHeaters(data.heaters || []);
-            const _bb = isBlueBallComp(data.competition);
-            const _lc = document.querySelector('.last-card');
-            if (_lc) _lc.style.display = _bb ? '' : 'none';
-            if (_bb) renderComingLast(data.comingLast || [], data.holeCount || 18);
+            renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
     } catch (e) {
@@ -424,10 +424,7 @@ function render(d) {
     setFooter(d.generatedAt, '');
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
     renderHeaters(d.heaters || []);
-    const blueBall = isBlueBallComp(d.competition);
-    const lastCard = document.querySelector('.last-card');
-    if (lastCard) lastCard.style.display = blueBall ? '' : 'none';
-    if (blueBall) renderComingLast(d.comingLast || [], d.holeCount || 18);
+    renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
 function updateHeader(d) {
@@ -442,12 +439,6 @@ function updateHeader(d) {
     if (players.length) meta.push(players.length + ' players');
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
     setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
-}
-
-function isBlueBallComp(name) {
-    if (!name) return false;
-    const n = name.toLowerCase();
-    return (n.includes('wednesday') || n.includes('saturday')) && n.includes('men');
 }
 
 // ── Grade helpers ─────────────────────────────────────────────────

@@ -22,10 +22,61 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Write empty leaderboard JSON
+      - name: Archive today's leaderboard then reset
         run: |
           python3 - << 'PYEOF'
-          import json, datetime
+          import json, datetime, os, pathlib
+
+          live_path = "out/live-leaderboard.json"
+          history_dir = pathlib.Path("out/history")
+          index_path = history_dir / "index.json"
+
+          with open(live_path) as f:
+              data = json.load(f)
+
+          # Only archive if there was a real competition today
+          if data.get("competition") and data.get("players"):
+              history_dir.mkdir(exist_ok=True)
+
+              date_str = data.get("date") or datetime.date.today().isoformat()
+              lb_id    = data.get("leaderboardId", "unknown")
+              archive_name = f"{date_str}-{lb_id}.json"
+              archive_path = history_dir / archive_name
+
+              with open(archive_path, "w") as f:
+                  json.dump(data, f, separators=(",", ":"))
+              print(f"Archived to {archive_path}")
+
+              # Update index
+              index = []
+              if index_path.exists():
+                  with open(index_path) as f:
+                      index = json.load(f)
+
+              # Skip if already indexed (idempotent re-runs)
+              if not any(e.get("leaderboardId") == lb_id for e in index):
+                  players = data.get("players", [])
+                  leaders = data.get("leaders", [])
+                  leader      = leaders[0]["player"] if leaders else (players[0]["player"] if players else "")
+                  leader_pts  = leaders[0]["points"] if leaders else (players[0]["points"] if players else 0)
+                  index.insert(0, {
+                      "date":         date_str,
+                      "competition":  data["competition"],
+                      "type":         data.get("type"),
+                      "playerCount":  data.get("playerCount", len(players)),
+                      "holeCount":    data.get("holeCount", 0),
+                      "leader":       leader,
+                      "leaderPts":    leader_pts,
+                      "leaderboardId": lb_id,
+                      "file":         f"out/history/{archive_name}",
+                  })
+                  with open(index_path, "w") as f:
+                      json.dump(index, f, indent=2)
+                  print(f"Index updated: {len(index)} competitions")
+          else:
+              print("No competition data to archive - skipping")
+
+          # Write the blank reset JSON
           payload = {
               "competition": None,
               "type": None,
@@ -42,7 +93,7 @@ jobs:
               "comingLast": [],
               "events": [],
           }
-          with open("out/live-leaderboard.json", "w") as f:
+          with open(live_path, "w") as f:
               json.dump(payload, f, indent=2)
           print("Leaderboard reset complete")
           PYEOF
@@ -54,11 +105,11 @@ jobs:
 
       - name: Commit and push
         run: |
-          git add out/live-leaderboard.json
+          git add out/live-leaderboard.json out/history/ 2>/dev/null || true
           if git diff --staged --quiet; then
-            echo "Nothing to reset"
+            echo "Nothing to commit"
           else
-            git commit -m "Leaderboard daily reset $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git commit -m "Leaderboard archive + reset $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             for i in 1 2 3; do
               if git pull --rebase -X theirs origin main && git push; then break; fi
               echo "Push attempt $i failed, retrying..."; sleep 3
