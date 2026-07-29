@@ -76,6 +76,7 @@ jobs:
                       "type":         data.get("type"),
                       "playerCount":  data.get("playerCount", len(players)),
                       "holeCount":    data.get("holeCount", 0),
+                      "courseHoles":  data.get("courseHoles") or data.get("holeCount", 0),
                       "leader":       leader,
                       "leaderPts":    leader_pts,
                       "leaderboardId": lb_id,

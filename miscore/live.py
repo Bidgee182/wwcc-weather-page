@@ -213,6 +213,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                     events.append({"player": name, "note": note, "hole": h["hole"]})
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
 
+    course_holes = hole_count  # actual holes from scorecard (before finished-threshold override)
     if HOLE_COUNT_OVERRIDE is not None:
         hole_count = HOLE_COUNT_OVERRIDE
 
@@ -250,6 +251,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "date": board.get("date"),
         "leaderboardId": board_id,
         "holeCount": hole_count or None,
+        "courseHoles": course_holes or hole_count or None,
         "par": par_total or None,
         "generatedAt": now.isoformat(),
         "playerCount": len(players),

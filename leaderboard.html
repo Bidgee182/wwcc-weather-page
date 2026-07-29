@@ -231,7 +231,10 @@ html, body {
     /* Stack side panels vertically so names have full width */
     .side-panels { flex: none; flex-direction: column; height: auto; gap: 8px; }
     .side-card { flex: none; }
-    .side-list { height: 220px; padding: 6px 10px 4px; }
+    /* On mobile disable the infinite-scroll animation - just regular scroll so names don't duplicate */
+    .side-list { height: 220px; padding: 6px 10px 4px; overflow-y: auto; }
+    .side-list-inner.scrolling { animation: none; }
+    .side-list-inner { padding: 0; }
 
     .grade-strip { display: none !important; }
 
@@ -621,7 +624,8 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     }
     const html = rows.join('');
     inner.classList.remove('scrolling');
-    if (rows.length >= minForScroll) {
+    const mobile = window.matchMedia('(max-width: 900px)').matches;
+    if (!mobile && rows.length >= minForScroll) {
         inner.innerHTML = html + html; // duplicate for seamless loop
         void inner.offsetHeight;
         const dur = Math.max(15, rows.length * 2.5);

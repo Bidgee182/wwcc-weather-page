@@ -203,7 +203,7 @@ async function loadIndex() {
                 <div class="comp-left">
                   <div class="comp-date">${esc(fmtDate(c.date))}</div>
                   <div class="comp-name">${esc(c.competition)}</div>
-                  <div class="comp-meta">${c.playerCount} players &bull; ${c.holeCount} holes</div>
+                  <div class="comp-meta">${c.playerCount} players &bull; ${c.courseHoles || c.holeCount} holes</div>
                 </div>
                 <div class="comp-right">
                   <div class="comp-leader-pts">${c.leaderPts}pts</div>
@@ -222,7 +222,7 @@ async function loadIndex() {
 async function loadDetail(idx) {
     const entry = window._index[idx];
     document.getElementById('list-view').style.display = 'none';
-    document.getElementById('detail').style.display = '';
+    document.getElementById('detail').style.display = 'block';
     document.getElementById('det-comp').textContent = entry.competition;
     document.getElementById('det-info').textContent = fmtDate(entry.date) + ' - ' + entry.playerCount + ' players';
     document.getElementById('det-grades').innerHTML = '<div class="loading">Loading...</div>';
@@ -299,7 +299,7 @@ function renderDetail(data) {
 
 function showList() {
     document.getElementById('detail').style.display = 'none';
-    document.getElementById('list-view').style.display = '';
+    document.getElementById('list-view').style.display = 'block';
 }
 
 loadIndex();
