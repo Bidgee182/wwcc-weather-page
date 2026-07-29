@@ -43,9 +43,20 @@ jobs:
               archive_name = f"{date_str}-{lb_id}.json"
               archive_path = history_dir / archive_name
 
+              # Strip per-hole detail (holes/last/events) - not needed for past results display.
+              # Reduces archive from ~180KB to ~10KB per competition.
+              slim = {k: v for k, v in data.items() if k not in ("events",)}
+              slim["players"] = [
+                  {k: v for k, v in p.items() if k not in ("holes", "last")}
+                  for p in data.get("players", [])
+              ]
+              slim["leaders"] = [
+                  {k: v for k, v in p.items() if k not in ("holes", "last")}
+                  for p in data.get("leaders", [])
+              ]
               with open(archive_path, "w") as f:
-                  json.dump(data, f, separators=(",", ":"))
-              print(f"Archived to {archive_path}")
+                  json.dump(slim, f, separators=(",", ":"))
+              print(f"Archived to {archive_path} ({archive_path.stat().st_size} bytes)")
 
               # Update index
               index = []
