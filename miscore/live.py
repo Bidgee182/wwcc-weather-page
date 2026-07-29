@@ -42,8 +42,11 @@ log = logging.getLogger("miscore.live")
 #   scorecard pos 15 → actual hole 20 (substitute)
 #   scorecard pos 16 → actual hole 15
 #   scorecard pos 17 → actual hole 16
-#   scorecard pos 18 → actual hole 17
+#   scorecard pos 18 → actual hole 17 (always blank - not played)
+# Because pos 18 is never scored, only 17 holes are playable despite the
+# course shape reporting 18.
 HOLE_MAP: dict[int, int] = {15: 20, 16: 15, 17: 16, 18: 17}
+HOLE_COUNT_OVERRIDE: int | None = 17  # set None when hole 18 returns to play
 
 # ---------------------------------------------------------------------------
 # board + scorecard parsing (live-aware; the shared webscrape helpers assume
@@ -194,6 +197,9 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 if note:
                     events.append({"player": name, "note": note, "hole": h["hole"]})
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
+
+    if HOLE_COUNT_OVERRIDE is not None:
+        hole_count = HOLE_COUNT_OVERRIDE
 
     ranked = sorted(players, key=lambda p: (-p["points"], -p["thru"], p["player"]))
     for i, p in enumerate(ranked, 1):

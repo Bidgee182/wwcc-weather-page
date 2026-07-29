@@ -77,7 +77,6 @@ html, body {
     border-bottom: 1px solid #2a3f52;
 }
 .col-hdr-rank { text-align: center; }
-.col-hdr-hcp  { text-align: center; }
 .col-hdr-pts  { text-align: right; }
 .col-hdr-thru { text-align: right; }
 
@@ -95,7 +94,7 @@ html, body {
 
 .lb-row {
     display: grid;
-    grid-template-columns: 3em 1fr 3em 3.5em 3.2em;
+    grid-template-columns: 3em 1fr 3.5em 3.2em;
     gap: 6px; padding: 10px 16px;
     align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -108,7 +107,6 @@ html, body {
 .r-rank.silver { color: #bdc3c7; }
 .r-rank.bronze { color: #cd7f32; }
 .r-name  { font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.r-hcp   { text-align: center; font-size: 1.17em; color: #7f8c8d; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; }
 .r-pts.dim { color: #4a6a84; }
 .r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
@@ -230,11 +228,8 @@ html, body {
     .side-card { flex: 1; }
     .grade-strip { display: none !important; }
 
-    /* Hide HCP column on small screens */
     .col-hdr { grid-template-columns: 2.5em 1fr 3.5em 3em; }
     .lb-row  { grid-template-columns: 2.5em 1fr 3.5em 3em; padding: 6px 10px; }
-    .col-hdr-hcp { display: none; }
-    .r-hcp       { display: none; }
     .lb-row .r-pts  { font-size: 1em; }
 
     .panel-title-bar { padding: 5px 10px; }
@@ -282,7 +277,6 @@ html, body {
       <div class="col-hdr">
         <span class="col-hdr-rank">#</span>
         <span class="col-hdr-name">Player</span>
-        <span class="col-hdr-hcp">HCP</span>
         <span class="col-hdr-pts">Pts</span>
         <span class="col-hdr-thru">Thru</span>
       </div>
@@ -518,11 +512,9 @@ function renderGradeStrip(activeSorted, grades, holeCount) {
             const nextPts = (all[i + 1] || {}).points;
             const usedCB = (p.points === nextPts || (i > 0 && p.points === top[i - 1].points))
                 && p.thru >= holeCount;
-            const hcpStr = fmtHcp(p.hcp);
-            const nameHcp = esc(p.player.trim()) + (hcpStr ? ' <span style="color:#4a6a84;font-size:0.85em">[' + hcpStr + ']</span>' : '');
             return '<div class="grade-item">' +
                 '<span class="grade-medal-sm">' + medals[i] + (usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '') + '</span>' +
-                '<span class="grade-name-sm">' + nameHcp + '</span>' +
+                '<span class="grade-name-sm">' + esc(p.player.trim()) + '</span>' +
                 '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
                 '</div>';
         }).join('');
@@ -567,12 +559,9 @@ function renderLeaderboard(players, holeCount, started) {
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
-        const hcpTxt  = p.hcp != null ? fmtHcp(p.hcp) : '';
-
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
             '<span class="r-name">' + esc(p.player) + '</span>' +
-            '<span class="r-hcp">' + hcpTxt + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
