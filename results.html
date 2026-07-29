@@ -68,8 +68,8 @@ html, body {
 .grade-label { font-size: 0.68em; color: #4a6a84; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
 .grade-winner { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
 .grade-medal  { font-size: 1em; flex-shrink: 0; }
-.grade-wname  { font-size: 0.85em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.grade-wpts   { font-size: 0.78em; color: #f1c40f; margin-top: 1px; text-align: center; }
+.grade-wname  { font-size: 0.82em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.grade-wpts   { font-size: 0.78em; color: #f1c40f; flex-shrink: 0; }
 
 /* ── Standings table ── */
 .standings-title { font-size: 0.72em; color: #4a6a84; text-transform: uppercase; letter-spacing: 1px; padding: 6px 0 8px; }
@@ -259,9 +259,9 @@ function renderDetail(data) {
             return '<div class="grade-label">' + g + ' Grade</div>' +
                 top.map((p, i) =>
                     '<div class="grade-winner"><span class="grade-medal">' + medals[i] + '</span>' +
-                    '<span class="grade-wname">' + esc(p.player.trim()) + '</span></div>'
-                ).join('') +
-                '<div class="grade-wpts">' + top[0].points + 'pts</div>';
+                    '<span class="grade-wname">' + esc(p.player.trim()) + '</span>' +
+                    '<span class="grade-wpts">' + p.points + 'pts</span></div>'
+                ).join('');
         };
 
         gradeEl.innerHTML = '<div class="grade-title">Grade Winners</div>' +

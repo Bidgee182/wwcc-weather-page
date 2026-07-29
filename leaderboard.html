@@ -508,6 +508,7 @@ function renderGradeStrip(activeSorted, grades, holeCount) {
     const strip = document.getElementById('grade-strip');
     if (!strip) return;
     if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
+    if (!activeSorted.some(p => p.thru >= holeCount)) { strip.classList.remove('visible'); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {

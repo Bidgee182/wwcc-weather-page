@@ -27,7 +27,7 @@ import logging
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from time import sleep
@@ -141,6 +141,8 @@ def _hole_note(h: dict) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+_AEST = timezone(timedelta(hours=10))
+
 def find_board(club: str, comp: str | None, days: int) -> dict | None:
     """Newest board today (or newest matching `comp`)."""
     comps = list_competitions(club, days)
@@ -148,7 +150,7 @@ def find_board(club: str, comp: str | None, days: int) -> dict | None:
         return None
     if comp:
         comps = [c for c in comps if comp.lower() in c["name"].lower()]
-    today = date.today().isoformat()
+    today = datetime.now(_AEST).date().isoformat()  # AEST date - runner is UTC
     todays = [c for c in comps if c.get("date") == today]
     pool = todays or comps
     return pool[0] if pool else None
