@@ -107,6 +107,7 @@ html, body {
 .r-rank.silver { color: #bdc3c7; }
 .r-rank.bronze { color: #cd7f32; }
 .r-name  { font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; }
 .r-pts.dim { color: #4a6a84; }
 .r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
@@ -559,9 +560,10 @@ function renderLeaderboard(players, holeCount, started) {
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
+        const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + esc(p.player) + '</span>' +
+            '<span class="r-name">' + esc(p.player) + hcpTag + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
