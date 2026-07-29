@@ -95,6 +95,18 @@ def _played(holes: list[dict]) -> list[dict]:
     return [h for h in holes if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
+def _thru(holes: list[dict]) -> int:
+    # Use the last hole index that has ANY data, not just len(played).
+    # Stableford pickups (no return) show as strokes=None, points=None in MiClub
+    # but the player DID play the hole. If later holes have data, the blank must
+    # be a pickup, so count up to the last hole with any real data.
+    last = -1
+    for i, h in enumerate(holes):
+        if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int):
+            last = i
+    return last + 1 if last >= 0 else 0
+
+
 def _course_shape(page: str) -> tuple[int, int]:
     """True (holeCount, par) for the course from a scorecard page."""
     holes = par = 0
@@ -178,7 +190,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         hole_count = max(hole_count, shape_holes)
         par_total = max(par_total, shape_par)
         played = _played(holes)
-        thru = len(played)
+        thru = _thru(holes)
         points = sum(h.get("points") or 0 for h in played)
         birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
         last = played[-3:]
