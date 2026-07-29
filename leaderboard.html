@@ -380,7 +380,10 @@ async function fetchData() {
             _pendingData = data;
             updateHeader(data);
             renderHeaters(data.heaters || []);
-            renderComingLast(data.comingLast || [], data.holeCount || 18);
+            const _bb = isBlueBallComp(data.competition);
+            const _lc = document.querySelector('.last-card');
+            if (_lc) _lc.style.display = _bb ? '' : 'none';
+            if (_bb) renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
     } catch (e) {
@@ -419,7 +422,10 @@ function render(d) {
     setFooter(d.generatedAt, '');
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
     renderHeaters(d.heaters || []);
-    renderComingLast(d.comingLast || [], d.holeCount || 18);
+    const blueBall = isBlueBallComp(d.competition);
+    const lastCard = document.querySelector('.last-card');
+    if (lastCard) lastCard.style.display = blueBall ? '' : 'none';
+    if (blueBall) renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
 function updateHeader(d) {
@@ -434,6 +440,12 @@ function updateHeader(d) {
     if (players.length) meta.push(players.length + ' players');
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
     setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
+}
+
+function isBlueBallComp(name) {
+    if (!name) return false;
+    const n = name.toLowerCase();
+    return (n.includes('wednesday') || n.includes('saturday')) && n.includes('men');
 }
 
 // ── Grade helpers ─────────────────────────────────────────────────

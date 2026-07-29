@@ -1,0 +1,66 @@
+name: Leaderboard Daily Reset
+
+on:
+  schedule:
+    # 1am AEST (UTC+10) = 2am AEDT (UTC+11) - safely overnight year-round
+    - cron: '0 15 * * *'
+
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write empty leaderboard JSON
+        run: |
+          python3 - << 'PYEOF'
+          import json, datetime
+          payload = {
+              "competition": None,
+              "type": None,
+              "date": None,
+              "leaderboardId": None,
+              "holeCount": 0,
+              "par": 0,
+              "generatedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "playerCount": 0,
+              "started": False,
+              "players": [],
+              "leaders": [],
+              "heaters": [],
+              "comingLast": [],
+              "events": [],
+          }
+          with open("out/live-leaderboard.json", "w") as f:
+              json.dump(payload, f, indent=2)
+          print("Leaderboard reset complete")
+          PYEOF
+
+      - name: Configure git
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+
+      - name: Commit and push
+        run: |
+          git add out/live-leaderboard.json
+          if git diff --staged --quiet; then
+            echo "Nothing to reset"
+          else
+            git commit -m "Leaderboard daily reset $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 3
+            done
+          fi

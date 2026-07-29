@@ -3,10 +3,10 @@ name: Live Golf Leaderboard Poll
 on:
   schedule:
     # Wide cron covering all year-round daylight hours for Wagga Wagga.
-    # Actual window (sunrise-30min to sunset+30min) is enforced by the
+    # Actual window (sunrise-60min to sunset+30min) is enforced by the
     # Python time-check step below, which exits early outside the window.
-    # UTC 18-23 = AEDT 5am-10am | UTC 0-11 = AEDT 11am-10pm
-    - cron: '*/5 18-23,0-11 * * *'
+    # UTC 17-23 = AEDT 4am-10am | UTC 0-11 = AEDT 11am-10pm
+    - cron: '*/5 17-23,0-11 * * *'
 
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
           python3 - << 'PYEOF'
           import math, datetime, zoneinfo, os
 
-          LAT, LON, MARGIN_MIN = -35.12, 147.37, 30
+          LAT, LON, MARGIN_MIN = -35.12, 147.37, 60
           TZ = zoneinfo.ZoneInfo("Australia/Sydney")
 
           def sun_local_hours(lat, lon, tz, local_date):
@@ -109,5 +109,5 @@ jobs:
               fi
             fi
 
-            [ "$i" -lt 5 ] && sleep 55
+            if [ "$i" -lt 5 ]; then sleep 55; fi
           done
