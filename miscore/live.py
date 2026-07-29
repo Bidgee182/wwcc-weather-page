@@ -57,7 +57,7 @@ def _board_players(page: str) -> list[dict]:
             if re.fullmatch(r"\d+", c.strip()):
                 rank = int(c.strip())
                 break
-        hcp_m = re.search(r"\[(\+?\d+)\]", row)
+        hcp_m = re.search(r"\[(\+?\d+(?:\.\d+)?)\]", row)
         home = ""
         name_txt = html.unescape(link.group(2)).strip()
         for i, c in enumerate(cells):
@@ -68,7 +68,7 @@ def _board_players(page: str) -> list[dict]:
             {
                 "playerNo": link.group(1),
                 "player": name_txt,
-                "hcp": int(hcp_m.group(1).replace("+", "")) if hcp_m else None,
+                "hcp": round(float(hcp_m.group(1).replace("+", ""))) if hcp_m else None,
                 "homeClub": home,
                 "rank": rank,
             }
