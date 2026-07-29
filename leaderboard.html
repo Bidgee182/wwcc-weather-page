@@ -213,8 +213,10 @@ html, body {
 
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
-    html, body { font-size: 16px; }
-    #root { padding: 10px 12px 8px; gap: 8px; }
+    /* Allow the page to scroll on mobile - TV keeps its 100vh lock */
+    html, body { font-size: 16px; overflow-y: auto; height: auto; }
+    #root { height: auto; min-height: 100vh; overflow: visible; padding: 10px 12px 8px; gap: 8px; }
+    .main { overflow: visible; flex-direction: column; gap: 8px; }
 
     .hdr { grid-template-columns: 1fr auto; gap: 12px; }
     .hdr-logo { display: none; }
@@ -222,12 +224,13 @@ html, body {
     .hdr-clock { font-size: 1.8em; }
     .hdr-date  { font-size: 0.72em; }
 
-    .main { flex-direction: column; gap: 8px; }
-
     .lb-panel { flex: none; height: 55vh; }
 
-    .side-panels { flex: none; flex-direction: row; height: calc(45vh - 100px); gap: 8px; }
-    .side-card { flex: 1; }
+    /* Stack side panels vertically so names have full width */
+    .side-panels { flex: none; flex-direction: column; height: auto; gap: 8px; }
+    .side-card { flex: none; }
+    .side-list { height: 220px; padding: 6px 10px 4px; }
+
     .grade-strip { display: none !important; }
 
     .col-hdr { grid-template-columns: 2.5em 1fr 3.5em 3em; }
@@ -237,7 +240,6 @@ html, body {
     .panel-title-bar { padding: 5px 10px; }
     .col-hdr { padding: 4px 10px; }
     .side-title-bar { padding: 5px 10px; font-size: 0.72em; }
-    .side-list { padding: 6px 10px 4px; }
     .heater-row { padding: 5px 0; }
     .last-row   { padding: 5px 0; }
 }
@@ -247,7 +249,7 @@ html, body {
     .hdr-comp { font-size: 1em; }
     .hdr-clock { font-size: 1.5em; }
     .lb-panel { height: 52vh; }
-    .side-panels { height: calc(48vh - 90px); }
+    .side-list { height: 200px; }
     .ftr { font-size: 0.65em; }
 }
 </style>
