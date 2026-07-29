@@ -192,13 +192,12 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         if p["thru"] == 0:
             return None
         last = p["last"]
-        if last and last[-1].get("par") and last[-1]["strokes"] < last[-1]["par"]:
-            return _hole_note({"par": last[-1]["par"], "strokes": last[-1]["strokes"], "hole": last[-1]["hole"]})
-        big = [h for h in last if (h.get("points") or 0) >= 3]
-        if len(big) >= 2:
-            return f"{len(big)} big holes on the trot"
-        if p["birdies"] >= 2:
-            return f"{p['birdies']} birdies out there"
+        if not last:
+            return None
+        last_hole = last[-1]
+        pts = last_hole.get("points") or 0
+        if pts >= 4:
+            return f"{pts} pts on hole {last_hole['hole']}"
         return None
 
     heaters = []
@@ -208,7 +207,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             heaters.append({"player": p["player"], "note": note, "points": p["points"], "thru": p["thru"]})
 
     coming_last = sorted(
-        [p for p in players if p["thru"] >= 2],
+        [p for p in players if p["thru"] >= 12],
         key=lambda p: (p["points"], -p["thru"], p["player"]),
     )
 
@@ -228,7 +227,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "heaters": heaters[:8],
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
-            for p in coming_last[:5]
+            for p in coming_last[:10]
         ],
         "events": events,
     }

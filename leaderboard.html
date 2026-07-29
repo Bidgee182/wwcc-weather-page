@@ -141,7 +141,7 @@ html, body {
     padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .heater-row:last-child { border-bottom: none; }
-.heater-name { font-size: 0.9em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.heater-name { font-size: 0.9em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .heater-note { font-size: 0.73em; color: #e74c3c; margin-top: 2px; }
 .heater-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
 .heater-pts   { font-size: 0.95em; font-weight: bold; color: #27ae60; }
@@ -181,6 +181,36 @@ html, body {
 .no-data-sub   { font-size: 0.75em; color: #7f8c8d; line-height: 1.5; white-space: pre-line; }
 .no-data-err   { font-size: 0.7em; color: #e74c3c; margin-top: 8px; }
 
+/* ── Grade leader strip ──────────────────────────────────────────── */
+.grade-strip {
+    flex-shrink: 0; display: none;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 2px solid #2a3f52;
+}
+.grade-strip.visible { display: block; }
+.grade-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 3px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.grade-row:last-child { border-bottom: none; }
+.grade-label {
+    font-size: 0.6em; font-weight: bold; letter-spacing: 1px;
+    color: #4a6a84; width: 6em; flex-shrink: 0; text-transform: uppercase;
+}
+.grade-leaders-list { display: flex; gap: 18px; min-width: 0; overflow: hidden; align-items: center; }
+.grade-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.grade-medal-sm { font-size: 0.78em; }
+.grade-name-sm  { font-size: 0.72em; color: #ecf0f1; }
+.grade-pts-sm   { font-size: 0.72em; font-weight: bold; color: #27ae60; }
+
+/* Grade badge in scrolling rows */
+.grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
+
+/* Heater name pulse */
+@keyframes heater-flash { 0%,100% { color: #ecf0f1; } 50% { color: #e74c3c; } }
+.heater-name-flash { animation: heater-flash 1.4s ease-in-out infinite; }
+
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
     html, body { font-size: 16px; }
@@ -198,6 +228,7 @@ html, body {
 
     .side-panels { flex: none; flex-direction: row; height: calc(45vh - 100px); gap: 8px; }
     .side-card { flex: 1; }
+    .grade-strip { display: none !important; }
 
     /* Hide HCP column on small screens */
     .col-hdr { grid-template-columns: 2.5em 1fr 3.5em 3em; }
@@ -254,6 +285,20 @@ html, body {
         <span class="col-hdr-hcp">HCP</span>
         <span class="col-hdr-pts">Pts</span>
         <span class="col-hdr-thru">Thru</span>
+      </div>
+      <div class="grade-strip" id="grade-strip">
+        <div class="grade-row">
+          <span class="grade-label">A Grade</span>
+          <div class="grade-leaders-list" id="grade-a"></div>
+        </div>
+        <div class="grade-row">
+          <span class="grade-label">B Grade</span>
+          <div class="grade-leaders-list" id="grade-b"></div>
+        </div>
+        <div class="grade-row">
+          <span class="grade-label">C Grade</span>
+          <div class="grade-leaders-list" id="grade-c"></div>
+        </div>
       </div>
       <div class="lb-scroll-clip" id="lb-clip">
         <div class="lb-scroll-inner" id="lb-inner">
@@ -395,6 +440,56 @@ function updateHeader(d) {
     setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
 }
 
+// ── Grade helpers ─────────────────────────────────────────────────
+// Grades are dynamic: sort all players by HCP, split into thirds.
+// A Grade = lowest third, B Grade = middle third, C Grade = top third.
+function computeGrades(players) {
+    const withHcp = players.filter(p => p.hcp != null).sort((a, b) => a.hcp - b.hcp);
+    const n = withHcp.length;
+    if (n < 3) return null;
+    const aEnd = Math.floor(n / 3);
+    const bEnd = Math.floor(n * 2 / 3);
+    return { aMax: withHcp[aEnd - 1].hcp, bMax: withHcp[bEnd - 1].hcp };
+}
+
+function getGrade(hcp, grades) {
+    if (hcp == null || !grades) return null;
+    if (hcp <= grades.aMax) return 'A';
+    if (hcp <= grades.bMax) return 'B';
+    return 'C';
+}
+
+function renderGradeStrip(activeSorted, grades) {
+    const strip = document.getElementById('grade-strip');
+    if (!strip) return;
+    if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
+
+    const byGrade = { A: [], B: [], C: [] };
+    for (const p of activeSorted) {
+        const g = getGrade(p.hcp, grades);
+        if (g && byGrade[g].length < 3) byGrade[g].push(p);
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+    ['a', 'b', 'c'].forEach(gk => {
+        const el = document.getElementById('grade-' + gk);
+        if (!el) return;
+        const top = byGrade[gk.toUpperCase()];
+        if (!top.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
+        el.innerHTML = top.map((p, i) => {
+            const parts = p.player.trim().split(/\s+/);
+            const name = parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+            return '<div class="grade-item">' +
+                '<span class="grade-medal-sm">' + medals[i] + '</span>' +
+                '<span class="grade-name-sm">' + esc(name) + '</span>' +
+                '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
+                '</div>';
+        }).join('');
+    });
+
+    strip.classList.add('visible');
+}
+
 // ── Leaderboard ───────────────────────────────────────────────────
 function renderLeaderboard(players, holeCount, started) {
     const clip  = document.getElementById('lb-clip');
@@ -403,6 +498,14 @@ function renderLeaderboard(players, holeCount, started) {
 
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
+
+    // Grade calculations (use full field for boundaries, active for leaders)
+    const grades = computeGrades(players);
+    const byGrade = { A: [], B: [], C: [] };
+    active.forEach(p => {
+        const g = getGrade(p.hcp, grades);
+        if (g && byGrade[g].length < 3) byGrade[g].push(p.player);
+    });
 
     if (!active.length) {
         inner.classList.remove('scrolling');
@@ -430,9 +533,16 @@ function renderLeaderboard(players, holeCount, started) {
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         const hcpTxt  = p.hcp != null ? p.hcp : '';
 
+        const g = getGrade(p.hcp, grades);
+        const gPos = g ? byGrade[g].indexOf(p.player) + 1 : 0;
+        const gMedals = ['🥇', '🥈', '🥉'];
+        const gradeBadge = (gPos >= 1 && g)
+            ? '<span class="grade-badge">' + g + gMedals[gPos - 1] + '</span>'
+            : '';
+
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + esc(p.player) + '</span>' +
+            '<span class="r-name">' + gradeBadge + esc(p.player) + '</span>' +
             '<span class="r-hcp">' + hcpTxt + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
@@ -450,6 +560,7 @@ function renderLeaderboard(players, holeCount, started) {
         inner.classList.add('scrolling');
         _animRunning = true;
         if (clip) clip.style.opacity = '1';
+        renderGradeStrip(active, grades);
     }, 250);
 }
 
@@ -483,19 +594,21 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
 }
 
 function renderHeaters(heaters) {
-    const rows = heaters.map(h =>
-        '<div class="heater-row">' +
-            '<div style="min-width:0">' +
-                '<div class="heater-name">' + esc(h.player) + '</div>' +
+    const rows = heaters.map(h => {
+        const parts = h.player.trim().split(/\s+/);
+        const displayName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+        return '<div class="heater-row">' +
+            '<div style="flex:1;min-width:0">' +
+                '<div class="heater-name heater-name-flash">' + esc(displayName) + '</div>' +
                 '<div class="heater-note">🔥 ' + esc(h.note) + '</div>' +
             '</div>' +
             '<div class="heater-right">' +
                 '<div class="heater-pts">' + h.points + 'pts</div>' +
                 '<div class="heater-thru">thru ' + h.thru + '</div>' +
             '</div>' +
-        '</div>'
-    );
-    renderSidePanel('heater-list', rows, 'No hot streaks yet', 6);
+        '</div>';
+    });
+    renderSidePanel('heater-list', rows, 'No 4+ point holes yet', 6);
 }
 
 function renderComingLast(comingLast) {
