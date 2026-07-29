@@ -30,6 +30,13 @@ def list_competitions(club: str, days: int = 3) -> list[dict]:
             continue
         lb_id = link.group(1)
         name  = _html.unescape(link.group(2)).strip()
+        # Gender is in a separate <td> (e.g. "Womens", "Mens") - append if not "All"
+        tds = re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)
+        for td in tds:
+            gender = _html.unescape(re.sub(r"<[^>]+>", "", td)).strip()
+            if gender in ("Womens", "Mens", "Ladies", "Mixed"):
+                name = name + " " + gender
+                break
         date_m = re.search(r"(\d{2}/\d{2}/\d{4})", row)
         date_str = None
         if date_m:

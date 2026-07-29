@@ -62,6 +62,13 @@ def _board_players(page: str) -> list[dict]:
         link = re.search(r'scorecard\?[^"]*player=(\d+)"[^>]*>([^<]+)<', row)
         if not link:
             continue
+        player_no = link.group(1)
+        # Find ALL names linked to this player number (4BBB has 2 players, same scorecard)
+        all_names = re.findall(
+            r'scorecard\?[^"]*player=' + re.escape(player_no) + r'"[^>]*>([^<]+)<', row
+        )
+        all_names = list(dict.fromkeys(html.unescape(n).strip() for n in all_names if n.strip()))
+        name_txt = ' / '.join(all_names) if all_names else html.unescape(link.group(2)).strip()
         cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)]
         cells = [c for c in cells if c is not None]
         rank = None
@@ -69,18 +76,20 @@ def _board_players(page: str) -> list[dict]:
             if re.fullmatch(r"\d+", c.strip()):
                 rank = int(c.strip())
                 break
-        hcp_m = re.search(r"\[(\+?\d+(?:\.\d+)?)\]", row)
+        # All handicaps in row; 4BBB has 2 - use first player's hcp
+        hcp_ms = re.findall(r"\[(\+?\d+(?:\.\d+)?)\]", row)
+        hcp = float(hcp_ms[0].replace("+", "")) if hcp_ms else None
         home = ""
-        name_txt = html.unescape(link.group(2)).strip()
+        first_name = all_names[0] if all_names else name_txt
         for i, c in enumerate(cells):
-            if name_txt in c and i + 1 < len(cells):
+            if first_name in c and i + 1 < len(cells):
                 home = cells[i + 1]
                 break
         out.append(
             {
-                "playerNo": link.group(1),
+                "playerNo": player_no,
                 "player": name_txt,
-                "hcp": float(hcp_m.group(1).replace("+", "")) if hcp_m else None,
+                "hcp": hcp,
                 "homeClub": home,
                 "rank": rank,
             }
