@@ -661,9 +661,15 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
 
 function renderHeaters(heaters) {
     const rows = heaters.map(h => {
+        // 4BBB teams come through as "PlayerA / PlayerB" - show both names
+        const parts = h.player.split(' / ');
+        const nameHtml = parts.length === 2
+            ? '<div class="heater-name heater-name-flash">' + esc(parts[0].trim()) + '</div>' +
+              '<div class="heater-name" style="font-size:1.1em;color:#bdc3c7">' + esc(parts[1].trim()) + '</div>'
+            : '<div class="heater-name heater-name-flash">' + esc(h.player) + '</div>';
         return '<div class="heater-row">' +
             '<div style="flex:1;min-width:0">' +
-                '<div class="heater-name heater-name-flash">' + esc(h.player) + '</div>' +
+                nameHtml +
                 '<div class="heater-note">🔥 ' + esc(h.note) + '</div>' +
             '</div>' +
             '<div class="heater-right">' +
@@ -672,7 +678,7 @@ function renderHeaters(heaters) {
             '</div>' +
         '</div>';
     });
-    renderSidePanel('heater-list', rows, 'No 4+ point holes yet', 6);
+    renderSidePanel('heater-list', rows, '', 6);
 }
 
 function renderComingLast(comingLast, holeCount) {
