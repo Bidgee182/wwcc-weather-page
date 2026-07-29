@@ -154,6 +154,7 @@ html, body {
 .last-left  { min-width: 0; }
 .last-name  { font-size: 1.32em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .last-thru  { font-size: 1.02em; color: #7f8c8d; margin-top: 2px; }
+.last-thru.fin { color: #27ae60; font-weight: bold; }
 .last-pts   { font-size: 1.43em; font-weight: bold; color: #f39c12; flex-shrink: 0; padding-left: 8px; }
 
 .empty-note {
@@ -379,7 +380,7 @@ async function fetchData() {
             _pendingData = data;
             updateHeader(data);
             renderHeaters(data.heaters || []);
-            renderComingLast(data.comingLast || []);
+            renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
     } catch (e) {
@@ -416,15 +417,15 @@ function render(d) {
 
     updateHeader(d);
     setFooter(d.generatedAt, '');
-    renderLeaderboard(d.players || [], d.holeCount || 9, d.started || false);
+    renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
     renderHeaters(d.heaters || []);
-    renderComingLast(d.comingLast || []);
+    renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
 function updateHeader(d) {
     const started = d.started || false;
     const players = d.players || [];
-    const hc      = d.holeCount || 9;
+    const hc      = d.holeCount || 18;
 
     const meta = ['Wagga Wagga Country Club'];
     if (d.type) meta.push(d.type);
@@ -642,16 +643,20 @@ function renderHeaters(heaters) {
     renderSidePanel('heater-list', rows, 'No 4+ point holes yet', 6);
 }
 
-function renderComingLast(comingLast) {
-    const rows = comingLast.map(p =>
-        '<div class="last-row">' +
+function renderComingLast(comingLast, holeCount) {
+    const hc = holeCount || 18;
+    const rows = comingLast.map(p => {
+        const fin = p.thru >= hc;
+        const thruTxt = fin ? 'Finished' : 'thru ' + p.thru;
+        const thruCls = fin ? 'last-thru fin' : 'last-thru';
+        return '<div class="last-row">' +
             '<div class="last-left">' +
                 '<div class="last-name">' + esc(p.player) + '</div>' +
-                '<div class="last-thru">thru ' + p.thru + '</div>' +
+                '<div class="' + thruCls + '">' + thruTxt + '</div>' +
             '</div>' +
             '<div class="last-pts">' + p.points + 'pts</div>' +
-        '</div>'
-    );
+        '</div>';
+    });
     renderSidePanel('last-list', rows, 'No data yet', 5);
 }
 
