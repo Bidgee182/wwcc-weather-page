@@ -44,9 +44,10 @@ def list_competitions(club: str, days: int = 3) -> list[dict]:
 def _parse_holes(page: str) -> list[dict]:
     """Parse a scorecard page into [{hole, par, strokes, points}].
 
-    Groups rows by nine (each 'hole' header row starts a new nine). Uses the
-    column indices of actual hole numbers (1-18) to align par/strokes/score
-    values, naturally skipping subtotal and total columns.
+    Handles two scorecard formats:
+    - With a 'Hole' header row: use column-index alignment to skip subtotals.
+    - Without a 'Hole' header row (WWCC format): group Par/Strokes/Score rows
+      into nines; the last value in each row is the nine subtotal and is dropped.
     """
     # Collect labeled rows: [(label, [cell, ...])]
     labeled: list[tuple[str, list[str]]] = []
@@ -62,36 +63,79 @@ def _parse_holes(page: str) -> list[dict]:
         if label in ("hole", "par", "strokes", "score"):
             labeled.append((label, cells[1:]))
 
-    # Group into nines: each 'hole' row starts a new nine
-    nines: list[dict] = []
-    current: dict | None = None
-    for label, vals in labeled:
-        if label == "hole":
-            current = {"hole_cols": [], "par": [], "strokes": [], "score": []}
-            for i, v in enumerate(vals):
-                if re.fullmatch(r"\d+", v) and 1 <= int(v) <= 18:
-                    current["hole_cols"].append((i, int(v)))
-            nines.append(current)
-        elif current is not None and label in ("par", "strokes", "score"):
-            col_set = {i for i, _ in current["hole_cols"]}
-            extracted = []
-            for i, v in enumerate(vals):
-                if i in col_set:
-                    extracted.append(int(v) if re.fullmatch(r"\d+", v) else None)
-            current[label] = extracted
+    if not labeled:
+        return []
 
-    # Flatten into a single list
-    result: list[dict] = []
-    for nine in nines:
-        holes = [h for _, h in nine["hole_cols"]]
-        pars    = nine.get("par",     [])
-        strokes = nine.get("strokes", [])
-        points  = nine.get("score",   [])
-        for i, hole in enumerate(holes):
-            result.append({
-                "hole":    hole,
-                "par":     pars[i]    if i < len(pars)    else None,
-                "strokes": strokes[i] if i < len(strokes) else None,
-                "points":  points[i]  if i < len(points)  else None,
-            })
-    return result
+    has_hole_row = any(lbl == "hole" for lbl, _ in labeled)
+
+    if has_hole_row:
+        # Column-index approach: use the Hole row to identify which columns
+        # are real holes (1-18) vs subtotal columns.
+        nines: list[dict] = []
+        current: dict | None = None
+        for label, vals in labeled:
+            if label == "hole":
+                current = {"hole_cols": [], "par": [], "strokes": [], "score": []}
+                for i, v in enumerate(vals):
+                    if re.fullmatch(r"\d+", v) and 1 <= int(v) <= 18:
+                        current["hole_cols"].append((i, int(v)))
+                nines.append(current)
+            elif current is not None and label in ("par", "strokes", "score"):
+                col_set = {i for i, _ in current["hole_cols"]}
+                extracted = []
+                for i, v in enumerate(vals):
+                    if i in col_set:
+                        extracted.append(int(v) if re.fullmatch(r"\d+", v) else None)
+                current[label] = extracted
+
+        result: list[dict] = []
+        for nine in nines:
+            holes = [h for _, h in nine["hole_cols"]]
+            pars    = nine.get("par",     [])
+            strokes = nine.get("strokes", [])
+            points  = nine.get("score",   [])
+            for i, hole in enumerate(holes):
+                result.append({
+                    "hole":    hole,
+                    "par":     pars[i]    if i < len(pars)    else None,
+                    "strokes": strokes[i] if i < len(strokes) else None,
+                    "points":  points[i]  if i < len(points)  else None,
+                })
+        return result
+
+    else:
+        # Positional approach: each Par row starts a new nine; the last value
+        # in every row is the nine subtotal - drop it to get per-hole values.
+        def _nine_vals(vals: list[str]) -> list:
+            out = []
+            for v in vals:
+                if re.fullmatch(r"\d+", v):
+                    out.append(int(v))
+                else:
+                    out.append(None)  # "-" or blank = not played
+            return out[:-1] if out else []  # drop last = subtotal
+
+        nines_pos: list[dict] = []
+        cur: dict | None = None
+        for label, vals in labeled:
+            if label == "par":
+                cur = {"par": vals, "strokes": [], "score": []}
+                nines_pos.append(cur)
+            elif cur is not None and label in ("strokes", "score"):
+                cur[label] = vals
+
+        out: list[dict] = []
+        hole_num = 1
+        for nine in nines_pos:
+            pars    = _nine_vals(nine.get("par",     []))
+            strokes = _nine_vals(nine.get("strokes", []))
+            points  = _nine_vals(nine.get("score",   []))
+            for i in range(len(pars)):
+                out.append({
+                    "hole":    hole_num,
+                    "par":     pars[i]    if i < len(pars)    else None,
+                    "strokes": strokes[i] if i < len(strokes) else None,
+                    "points":  points[i]  if i < len(points)  else None,
+                })
+                hole_num += 1
+        return out

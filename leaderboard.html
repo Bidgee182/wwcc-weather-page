@@ -27,7 +27,7 @@ html, body {
     flex-shrink: 0;
 }
 .hdr-logo { height: 58px; width: auto; }
-.hdr-center { text-align: center; }
+.hdr-center { text-align: center; min-width: 0; }
 .hdr-comp {
     font-size: 1.45em; font-weight: bold; letter-spacing: 3px;
     color: #ecf0f1; text-transform: uppercase; line-height: 1.15;
@@ -44,7 +44,7 @@ html, body {
 /* ── Main layout ─────────────────────────────────────────────────── */
 .main { flex: 1; display: flex; gap: 14px; min-height: 0; overflow: hidden; }
 
-/* ── Leaderboard panel (left, ~65%) ──────────────────────────────── */
+/* ── Leaderboard panel ───────────────────────────────────────────── */
 .lb-panel {
     flex: 3; display: flex; flex-direction: column; min-height: 0;
     background: #1e2f3e; border: 2px solid #4a6a84; border-top: 4px solid #27ae60;
@@ -55,7 +55,7 @@ html, body {
     display: flex; align-items: center; justify-content: space-between;
     background: rgba(0,0,0,0.4); padding: 7px 16px; flex-shrink: 0;
 }
-.panel-title { font-size: 0.78em; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; color: #fff; }
+.panel-title { font-size: 0.78em; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; }
 
 .live-badge {
     font-size: 0.65em; font-weight: bold; letter-spacing: 2px;
@@ -65,7 +65,7 @@ html, body {
 .live-badge.waiting { background: #4a6a84; color: #bdc3c7; }
 .live-badge.offline { background: #7d1a00; color: #fff; }
 .live-badge.loading { background: #2c3e50; color: #7f8c8d; }
-@keyframes badge-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes badge-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 .col-hdr {
     display: grid;
@@ -76,11 +76,10 @@ html, body {
     text-transform: uppercase; color: #4a6a84;
     border-bottom: 1px solid #2a3f52;
 }
-.col-hdr-rank  { text-align: center; }
-.col-hdr-name  { }
-.col-hdr-hcp   { text-align: center; }
-.col-hdr-pts   { text-align: right; }
-.col-hdr-thru  { text-align: right; }
+.col-hdr-rank { text-align: center; }
+.col-hdr-hcp  { text-align: center; }
+.col-hdr-pts  { text-align: right; }
+.col-hdr-thru { text-align: right; }
 
 .lb-scroll-clip {
     flex: 1; overflow: hidden; position: relative;
@@ -115,11 +114,10 @@ html, body {
 .r-thru  { text-align: right; font-size: 0.8em; color: #7f8c8d; }
 .r-thru.fin { color: #27ae60; font-weight: bold; font-size: 0.88em; }
 
-/* ── Side panels (right, ~35%) ───────────────────────────────────── */
+/* ── Side panels ─────────────────────────────────────────────────── */
 .side-panels {
     flex: 1.5; display: flex; flex-direction: column; gap: 12px; min-height: 0;
 }
-
 .side-card {
     flex: 1; display: flex; flex-direction: column; min-height: 0;
     background: #1e2f3e; border: 2px solid #4a6a84;
@@ -130,10 +128,8 @@ html, body {
 
 .side-title-bar {
     background: rgba(0,0,0,0.4); padding: 7px 14px; flex-shrink: 0;
-    font-size: 0.78em; font-weight: bold; letter-spacing: 2.5px;
-    text-transform: uppercase; color: #fff;
+    font-size: 0.78em; font-weight: bold; letter-spacing: 2.5px; text-transform: uppercase;
 }
-
 .side-list { flex: 1; overflow: hidden; padding: 8px 14px 6px; }
 
 .heater-row {
@@ -141,7 +137,7 @@ html, body {
     padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .heater-row:last-child { border-bottom: none; }
-.heater-name { font-size: 0.9em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.heater-name { font-size: 0.9em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
 .heater-note { font-size: 0.73em; color: #e74c3c; margin-top: 2px; }
 .heater-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
 .heater-pts   { font-size: 0.95em; font-weight: bold; color: #27ae60; }
@@ -153,7 +149,7 @@ html, body {
 }
 .last-row:last-child { border-bottom: none; }
 .last-left  { min-width: 0; }
-.last-name  { font-size: 0.88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.last-name  { font-size: 0.88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .last-thru  { font-size: 0.68em; color: #7f8c8d; margin-top: 2px; }
 .last-pts   { font-size: 0.95em; font-weight: bold; color: #f39c12; flex-shrink: 0; padding-left: 8px; }
 
@@ -170,16 +166,58 @@ html, body {
 }
 .ftr-updated { color: #bdc3c7; }
 
-/* ── No-data overlay ─────────────────────────────────────────────── */
+/* ── No-data placeholder ─────────────────────────────────────────── */
 .no-data-msg {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100%; text-align: center; padding: 32px;
     color: #4a6a84;
 }
-.no-data-icon { font-size: 2.4em; margin-bottom: 14px; }
+.no-data-icon  { font-size: 2.4em; margin-bottom: 14px; }
 .no-data-title { font-size: 1em; color: #ecf0f1; margin-bottom: 6px; font-weight: bold; }
-.no-data-sub   { font-size: 0.75em; color: #7f8c8d; line-height: 1.5; }
+.no-data-sub   { font-size: 0.75em; color: #7f8c8d; line-height: 1.5; white-space: pre-line; }
 .no-data-err   { font-size: 0.7em; color: #e74c3c; margin-top: 8px; }
+
+/* ── Mobile / small screen responsive ───────────────────────────── */
+@media (max-width: 900px) {
+    html, body { font-size: 16px; }
+    #root { padding: 10px 12px 8px; gap: 8px; }
+
+    .hdr { grid-template-columns: 1fr auto; gap: 12px; }
+    .hdr-logo { display: none; }
+    .hdr-comp { font-size: 1.1em; letter-spacing: 1px; }
+    .hdr-clock { font-size: 1.8em; }
+    .hdr-date  { font-size: 0.72em; }
+
+    .main { flex-direction: column; gap: 8px; }
+
+    .lb-panel { flex: none; height: 55vh; }
+
+    .side-panels { flex: none; flex-direction: row; height: calc(45vh - 100px); gap: 8px; }
+    .side-card { flex: 1; }
+
+    /* Hide HCP column on small screens */
+    .col-hdr { grid-template-columns: 2.5em 1fr 3.5em 3em; }
+    .lb-row  { grid-template-columns: 2.5em 1fr 3.5em 3em; padding: 6px 10px; }
+    .col-hdr-hcp { display: none; }
+    .r-hcp       { display: none; }
+    .lb-row .r-pts  { font-size: 1em; }
+
+    .panel-title-bar { padding: 5px 10px; }
+    .col-hdr { padding: 4px 10px; }
+    .side-title-bar { padding: 5px 10px; font-size: 0.72em; }
+    .side-list { padding: 6px 10px 4px; }
+    .heater-row { padding: 5px 0; }
+    .last-row   { padding: 5px 0; }
+}
+
+@media (max-width: 480px) {
+    html, body { font-size: 13px; }
+    .hdr-comp { font-size: 1em; }
+    .hdr-clock { font-size: 1.5em; }
+    .lb-panel { height: 52vh; }
+    .side-panels { height: calc(48vh - 90px); }
+    .ftr { font-size: 0.65em; }
+}
 </style>
 </head>
 <body>
@@ -188,8 +226,7 @@ html, body {
   <header class="hdr">
     <img class="hdr-logo"
          src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
-         alt="WWCC Logo"
-         onerror="this.style.display='none'">
+         alt="WWCC" onerror="this.style.display='none'">
     <div class="hdr-center">
       <div class="hdr-comp" id="hdr-comp">⛳ Live Golf Leaderboard</div>
       <div class="hdr-meta" id="hdr-meta">Wagga Wagga Country Club</div>
@@ -202,7 +239,6 @@ html, body {
 
   <main class="main">
 
-    <!-- Leaderboard panel -->
     <section class="lb-panel">
       <div class="panel-title-bar">
         <span class="panel-title">Leaderboard</span>
@@ -225,28 +261,21 @@ html, body {
       </div>
     </section>
 
-    <!-- Side panels -->
     <aside class="side-panels">
-
       <div class="side-card heater-card">
         <div class="side-title-bar">🔥 On a Heater</div>
         <div class="side-list" id="heater-list">
-          <div class="no-data-msg">
-            <div class="no-data-sub">Waiting for data...</div>
-          </div>
+          <div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div>
         </div>
       </div>
-
       <div class="side-card last-card">
         <div class="side-title-bar">🐢 Coming Last</div>
         <div class="side-list" id="last-list">
-          <div class="no-data-msg">
-            <div class="no-data-sub">Waiting for data...</div>
-          </div>
+          <div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div>
         </div>
       </div>
-
     </aside>
+
   </main>
 
   <footer class="ftr">
@@ -257,14 +286,13 @@ html, body {
 
 </div>
 <script>
-// Config: pass ?lb=http://192.168.x.x:8787/ to read from live.py --serve port
-// Default reads from ./out/live-leaderboard.json (run a local web server alongside live.py)
 const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/live-leaderboard.json';
 const REFRESH_SEC = 60;
 
-let _countdown = REFRESH_SEC;
-let _lastData  = null;
-let _hasData   = false;
+let _countdown    = REFRESH_SEC;
+let _hasData      = false;
+let _animRunning  = false;
+let _pendingData  = null; // buffered data waiting for next scroll cycle
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -275,7 +303,7 @@ function updateClock() {
     if (dat) dat.textContent = new Date().toLocaleDateString('en-AU', { ...syd, weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-// ── Countdown + auto-refresh ──────────────────────────────────────
+// ── Countdown ─────────────────────────────────────────────────────
 function tickCountdown() {
     _countdown--;
     const el = document.getElementById('ftr-countdown');
@@ -288,21 +316,44 @@ function tickCountdown() {
     }
 }
 
-// ── Data fetch ────────────────────────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────
 async function fetchData() {
     try {
-        const res = await fetch(LB_URL + (LB_URL.includes('?') ? '&' : '?') + '_t=' + Date.now(), { cache: 'no-store' });
+        const sep = LB_URL.includes('?') ? '&' : '?';
+        const res = await fetch(LB_URL + sep + '_t=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        _lastData = data;
-        _hasData  = true;
-        render(data);
+
+        if (!_hasData) {
+            // First successful load - render everything immediately
+            _hasData = true;
+            render(data);
+        } else {
+            // Already showing data - buffer the leaderboard rebuild for the
+            // next animation cycle so the list always completes a full scroll
+            // before refreshing; update header/panels immediately
+            _pendingData = data;
+            updateHeader(data);
+            renderHeaters(data.heaters || []);
+            renderComingLast(data.comingLast || []);
+            setFooter(data.generatedAt, '');
+        }
     } catch (e) {
         onFetchError(e.message);
     }
 }
 
-// ── Render ────────────────────────────────────────────────────────
+// ── Animation-aware leaderboard refresh ───────────────────────────
+// When scroll completes one full cycle, apply any buffered data
+document.getElementById('lb-inner').addEventListener('animationiteration', () => {
+    if (_pendingData) {
+        const d = _pendingData;
+        _pendingData = null;
+        renderLeaderboard(d.players || [], d.holeCount || 9, d.started || false);
+    }
+});
+
+// ── Full render (first load) ──────────────────────────────────────
 function render(d) {
     if (d.status === 'no board') {
         setBadge('waiting', 'No comp today');
@@ -319,53 +370,54 @@ function render(d) {
         return;
     }
 
-    const holeCount = d.holeCount || 9;
-    const players   = d.players || [];
-    const started   = d.started || false;
-
-    // Header
-    const meta = ['Wagga Wagga Country Club'];
-    if (d.type) meta.push(d.type);
-    if (holeCount) meta.push(holeCount + ' holes');
-    if (d.par)     meta.push('Par ' + d.par);
-    if (players.length) meta.push(players.length + ' players');
-    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
-
-    // Badge
-    if (!started) {
-        setBadge('waiting', 'Not started');
-    } else {
-        setBadge('live', 'Live');
-    }
-
-    // Footer
-    setFooter(d.generatedAt, started ? '' : 'Competition starting soon');
-
-    // Leaderboard
-    renderLeaderboard(players, holeCount, started);
-
-    // Side panels
+    updateHeader(d);
+    setFooter(d.generatedAt, '');
+    renderLeaderboard(d.players || [], d.holeCount || 9, d.started || false);
     renderHeaters(d.heaters || []);
     renderComingLast(d.comingLast || []);
 }
 
+function updateHeader(d) {
+    const started = d.started || false;
+    const players = d.players || [];
+    const hc      = d.holeCount || 9;
+
+    const meta = ['Wagga Wagga Country Club'];
+    if (d.type) meta.push(d.type);
+    if (hc)     meta.push(hc + ' holes');
+    if (d.par)  meta.push('Par ' + d.par);
+    if (players.length) meta.push(players.length + ' players');
+    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
+    setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────
 function renderLeaderboard(players, holeCount, started) {
     const clip  = document.getElementById('lb-clip');
     const inner = document.getElementById('lb-inner');
     if (!inner) return;
 
-    if (!players.length) {
-        inner.innerHTML = '<div class="no-data-msg"><div class="no-data-icon">📋</div><div class="no-data-title">No players found</div></div>';
+    // Only show players who have actually teed off
+    const active = started ? players.filter(p => p.thru > 0) : players;
+
+    if (!active.length) {
+        inner.classList.remove('scrolling');
+        inner.innerHTML = started
+            ? '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">No scores yet</div><div class="no-data-sub">Players are on their way to the first tee</div></div>'
+            : '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">Competition starting soon</div><div class="no-data-sub">Scores will appear here when play begins</div></div>';
+        _animRunning = false;
         return;
     }
 
-    const rowsHtml = players.map((p) => {
+    const rowsHtml = active.map((p, idx) => {
+        // Re-rank among active players only
+        p = { ...p, liveRank: idx + 1 };
         const rank = p.liveRank || 0;
         let rankHtml, rankCls = 'r-rank';
         if      (rank === 1) { rankHtml = '🥇'; rankCls += ' gold'; }
         else if (rank === 2) { rankHtml = '🥈'; rankCls += ' silver'; }
         else if (rank === 3) { rankHtml = '🥉'; rankCls += ' bronze'; }
-        else                   rankHtml = rank;
+        else                 { rankHtml = rank; }
 
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
@@ -374,28 +426,30 @@ function renderLeaderboard(players, holeCount, started) {
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         const hcpTxt  = p.hcp != null ? p.hcp : '';
 
-        return `<div class="${rowCls}">` +
-            `<span class="${rankCls}">${rankHtml}</span>` +
-            `<span class="r-name">${esc(p.player)}</span>` +
-            `<span class="r-hcp">${hcpTxt}</span>` +
-            `<span class="${ptsCls}">${ptsTxt}</span>` +
-            `<span class="${thruCls}">${thruTxt}</span>` +
-            `</div>`;
+        return '<div class="' + rowCls + '">' +
+            '<span class="' + rankCls + '">' + rankHtml + '</span>' +
+            '<span class="r-name">' + esc(p.player) + '</span>' +
+            '<span class="r-hcp">' + hcpTxt + '</span>' +
+            '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
+            '<span class="' + thruCls + '">' + thruTxt + '</span>' +
+            '</div>';
     }).join('');
 
-    // Fade out, rebuild, restart animation, fade in
+    // Fade out briefly, rebuild DOM, restart animation, fade in
     if (clip) clip.style.opacity = '0';
     setTimeout(() => {
         inner.classList.remove('scrolling');
-        inner.innerHTML = rowsHtml + rowsHtml; // duplicate for seamless loop
-        void inner.offsetHeight; // force reflow to restart animation
-        const dur = Math.max(90, players.length * 0.8);
+        inner.innerHTML = rowsHtml + rowsHtml; // duplicate for seamless infinite loop
+        void inner.offsetHeight; // force reflow so animation restarts cleanly
+        const dur = Math.max(90, active.length * 0.85);
         inner.style.animationDuration = dur + 's';
         inner.classList.add('scrolling');
+        _animRunning = true;
         if (clip) clip.style.opacity = '1';
     }, 250);
 }
 
+// ── Side panels ───────────────────────────────────────────────────
 function renderHeaters(heaters) {
     const el = document.getElementById('heater-list');
     if (!el) return;
@@ -404,16 +458,16 @@ function renderHeaters(heaters) {
         return;
     }
     el.innerHTML = heaters.slice(0, 8).map(h =>
-        `<div class="heater-row">` +
-            `<div style="min-width:0">` +
-                `<div class="heater-name">${esc(h.player)}</div>` +
-                `<div class="heater-note">🔥 ${esc(h.note)}</div>` +
-            `</div>` +
-            `<div class="heater-right">` +
-                `<div class="heater-pts">${h.points}pts</div>` +
-                `<div class="heater-thru">thru ${h.thru}</div>` +
-            `</div>` +
-        `</div>`
+        '<div class="heater-row">' +
+            '<div style="min-width:0">' +
+                '<div class="heater-name">' + esc(h.player) + '</div>' +
+                '<div class="heater-note">🔥 ' + esc(h.note) + '</div>' +
+            '</div>' +
+            '<div class="heater-right">' +
+                '<div class="heater-pts">' + h.points + 'pts</div>' +
+                '<div class="heater-thru">thru ' + h.thru + '</div>' +
+            '</div>' +
+        '</div>'
     ).join('');
 }
 
@@ -425,25 +479,24 @@ function renderComingLast(comingLast) {
         return;
     }
     el.innerHTML = comingLast.map(p =>
-        `<div class="last-row">` +
-            `<div class="last-left">` +
-                `<div class="last-name">${esc(p.player)}</div>` +
-                `<div class="last-thru">thru ${p.thru}</div>` +
-            `</div>` +
-            `<div class="last-pts">${p.points}pts</div>` +
-        `</div>`
+        '<div class="last-row">' +
+            '<div class="last-left">' +
+                '<div class="last-name">' + esc(p.player) + '</div>' +
+                '<div class="last-thru">thru ' + p.thru + '</div>' +
+            '</div>' +
+            '<div class="last-pts">' + p.points + 'pts</div>' +
+        '</div>'
     ).join('');
 }
 
-// ── Error state ───────────────────────────────────────────────────
+// ── Error ─────────────────────────────────────────────────────────
 function onFetchError(msg) {
     setBadge('offline', 'Offline');
-    const statusEl = document.getElementById('ftr-status');
-    if (statusEl) statusEl.textContent = msg;
+    const sta = document.getElementById('ftr-status');
+    if (sta) sta.textContent = msg;
     if (!_hasData) {
         showNoData('lb-inner', '⛳', 'Waiting for live data',
-            'Start the poller: python -m miscore.live --serve 8787\n' +
-            'Then open this page with: ?lb=http://localhost:8787/', msg);
+            'Start the poller:\npython -m miscore.live --serve 8787\n\nThen open:\nleaderboard.html?lb=http://localhost:8787/', msg);
         showSideEmpty('heater-list', 'Awaiting connection');
         showSideEmpty('last-list', 'Awaiting connection');
     }
@@ -478,18 +531,19 @@ function showNoData(id, icon, title, sub, err) {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.remove('scrolling');
+    _animRunning = false;
     el.innerHTML =
-        `<div class="no-data-msg">` +
-            `<div class="no-data-icon">${icon}</div>` +
-            `<div class="no-data-title">${esc(title)}</div>` +
-            (sub  ? `<div class="no-data-sub">${esc(sub)}</div>` : '') +
-            (err  ? `<div class="no-data-err">${esc(err)}</div>` : '') +
-        `</div>`;
+        '<div class="no-data-msg">' +
+            '<div class="no-data-icon">' + icon + '</div>' +
+            '<div class="no-data-title">' + esc(title) + '</div>' +
+            (sub ? '<div class="no-data-sub">' + esc(sub) + '</div>' : '') +
+            (err ? '<div class="no-data-err">' + esc(err) + '</div>' : '') +
+        '</div>';
 }
 
 function showSideEmpty(id, msg) {
     const el = document.getElementById(id);
-    if (el) el.innerHTML = `<div class="no-data-msg"><div class="no-data-sub">${esc(msg)}</div></div>`;
+    if (el) el.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(msg) + '</div></div>';
 }
 
 function esc(s) {
