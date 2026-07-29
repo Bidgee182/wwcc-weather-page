@@ -324,7 +324,7 @@ html, body {
           <div class="side-list-inner"><div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div></div>
         </div>
       </div>
-      <div class="side-card last-card">
+      <div class="side-card last-card" id="blue-ball-card">
         <div class="side-title-bar">🔵🔵 Blue Ball Contenders</div>
         <div class="side-list" id="last-list">
           <div class="side-list-inner"><div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div></div>
@@ -391,6 +391,7 @@ async function fetchData() {
             // before refreshing; update header/panels immediately
             _pendingData = data;
             updateHeader(data);
+            setBlueBallVisible(data.date);
             renderHeaters(data.heaters || []);
             renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
@@ -429,7 +430,8 @@ function render(d) {
 
     updateHeader(d);
     setFooter(d.generatedAt, '');
-    renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
+    setBlueBallVisible(d.date);
+    renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     renderHeaters(d.heaters || []);
     renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
@@ -620,6 +622,14 @@ function renderLeaderboard(players, holeCount, started, competition) {
 }
 
 // ── Side panels ───────────────────────────────────────────────────
+function setBlueBallVisible(dateStr) {
+    const card = document.getElementById('blue-ball-card');
+    if (!card) return;
+    // Blue ball only runs on Wednesday (3) and Saturday (6) mens comps
+    const day = dateStr ? new Date(dateStr + 'T12:00:00').getDay() : -1;
+    card.style.display = (day === 3 || day === 6) ? '' : 'none';
+}
+
 function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     const el = document.getElementById(containerId);
     if (!el) return;
