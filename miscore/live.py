@@ -68,7 +68,18 @@ def _board_players(page: str) -> list[dict]:
             r'scorecard\?[^"]*player=' + re.escape(player_no) + r'"[^>]*>([^<]+)<', row
         )
         all_names = list(dict.fromkeys(html.unescape(n).strip() for n in all_names if n.strip()))
-        name_txt = ' / '.join(all_names) if all_names else html.unescape(link.group(2)).strip()
+        # All handicaps in row in order; 4BBB has one per player
+        hcp_ms = re.findall(r"\[(\+?\d+(?:\.\d+)?)\]", row)
+        hcps = [float(v.replace("+", "")) for v in hcp_ms]
+        if len(all_names) > 1:
+            # Team: embed each player's hcp next to their name, clear hcp field (no grades)
+            def _fh(v): return str(int(v)) if v % 1 == 0 else f'{v:.1f}'
+            parts = [n + (f' [{_fh(hcps[i])}]' if i < len(hcps) else '') for i, n in enumerate(all_names)]
+            name_txt = ' & '.join(parts)
+            hcp = None
+        else:
+            name_txt = all_names[0] if all_names else html.unescape(link.group(2)).strip()
+            hcp = hcps[0] if hcps else None
         cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)]
         cells = [c for c in cells if c is not None]
         rank = None
@@ -76,9 +87,6 @@ def _board_players(page: str) -> list[dict]:
             if re.fullmatch(r"\d+", c.strip()):
                 rank = int(c.strip())
                 break
-        # All handicaps in row; 4BBB has 2 - use first player's hcp
-        hcp_ms = re.findall(r"\[(\+?\d+(?:\.\d+)?)\]", row)
-        hcp = float(hcp_ms[0].replace("+", "")) if hcp_ms else None
         home = ""
         first_name = all_names[0] if all_names else name_txt
         for i, c in enumerate(cells):

@@ -587,10 +587,11 @@ function renderLeaderboard(players, holeCount, started, competition) {
         p = { ...p, liveRank: idx + 1 };
         const rank = p.liveRank || 0;
         let rankHtml, rankCls = 'r-rank';
-        if      (rank === 1) { rankHtml = '🥇'; rankCls += ' gold'; }
-        else if (rank === 2) { rankHtml = '🥈'; rankCls += ' silver'; }
-        else if (rank === 3) { rankHtml = '🥉'; rankCls += ' bronze'; }
-        else                 { rankHtml = rank; }
+        const enoughHoles = p.thru >= 2;
+        if      (rank === 1 && enoughHoles) { rankHtml = '🥇'; rankCls += ' gold'; }
+        else if (rank === 2 && enoughHoles) { rankHtml = '🥈'; rankCls += ' silver'; }
+        else if (rank === 3 && enoughHoles) { rankHtml = '🥉'; rankCls += ' bronze'; }
+        else                                { rankHtml = rank; }
 
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
@@ -661,8 +662,8 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
 
 function renderHeaters(heaters) {
     const rows = heaters.map(h => {
-        // 4BBB teams come through as "PlayerA / PlayerB" - show both names
-        const parts = h.player.split(' / ');
+        // 4BBB teams come through as "PlayerA & PlayerB" - show both names
+        const parts = h.player.split(' & ');
         const nameHtml = parts.length === 2
             ? '<div class="heater-name heater-name-flash">' + esc(parts[0].trim()) + '</div>' +
               '<div class="heater-name" style="font-size:1.1em;color:#bdc3c7">' + esc(parts[1].trim()) + '</div>'
