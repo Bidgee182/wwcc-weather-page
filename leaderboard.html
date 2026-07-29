@@ -402,7 +402,7 @@ document.getElementById('lb-inner').addEventListener('animationiteration', () =>
     if (_pendingData) {
         const d = _pendingData;
         _pendingData = null;
-        renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false);
+        renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     }
 });
 
@@ -504,11 +504,18 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
-function renderGradeStrip(activeSorted, grades, holeCount) {
+function renderGradeStrip(activeSorted, grades, holeCount, competition) {
     const strip = document.getElementById('grade-strip');
     if (!strip) return;
+    // 4BBB has no grade split - best score wins overall
+    if ((competition || '').toUpperCase().includes('4BBB')) { strip.classList.remove('visible'); return; }
     if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
-    if (!activeSorted.some(p => p.thru >= holeCount)) { strip.classList.remove('visible'); return; }
+    // Wait until at least 3 finished players in every grade
+    const finByGrade = { A: 0, B: 0, C: 0 };
+    for (const p of activeSorted) {
+        if (p.thru >= holeCount) { const g = getGrade(p.hcp, grades); if (g) finByGrade[g]++; }
+    }
+    if (finByGrade.A < 3 || finByGrade.B < 3 || finByGrade.C < 3) { strip.classList.remove('visible'); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
@@ -548,7 +555,7 @@ function renderGradeStrip(activeSorted, grades, holeCount) {
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────
-function renderLeaderboard(players, holeCount, started) {
+function renderLeaderboard(players, holeCount, started, competition) {
     const clip  = document.getElementById('lb-clip');
     const inner = document.getElementById('lb-inner');
     if (!inner) return;
@@ -603,7 +610,7 @@ function renderLeaderboard(players, holeCount, started) {
         inner.classList.add('scrolling');
         _animRunning = true;
         if (clip) clip.style.opacity = '1';
-        renderGradeStrip(active, grades, holeCount);
+        renderGradeStrip(active, grades, holeCount, competition);
     }, 250);
 }
 
