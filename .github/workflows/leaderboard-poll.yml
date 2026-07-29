@@ -1,0 +1,48 @@
+name: Live Golf Leaderboard Poll
+
+on:
+  schedule:
+    # Every 5 minutes during comp hours: 6am-6pm AEST (UTC+10) = 8pm-8am UTC
+    - cron: '*/5 20-23,0-7 * * *'
+
+  workflow_dispatch:   # manual trigger from GitHub Actions UI
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Poll MiClub leaderboard
+        run: python -m miscore.live --once
+
+      - name: Commit updated leaderboard JSON
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add out/live-leaderboard.json
+          if git diff --staged --quiet; then
+            echo "No changes to leaderboard data - skipping commit"
+          else
+            git commit -m "Live leaderboard update $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi

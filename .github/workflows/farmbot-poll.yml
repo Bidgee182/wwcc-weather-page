@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths-ignore:
       - 'data/**'      # don't re-trigger when the bot commits sensor data
+      - 'out/**'       # don't re-trigger when leaderboard poll commits JSON
       - '**.md'
 
   workflow_dispatch:

@@ -124,13 +124,17 @@ html, body {
     border-radius: 12px; overflow: hidden;
 }
 .heater-card { border-top: 4px solid #e74c3c; }
-.last-card   { border-top: 4px solid #f39c12; }
+.last-card   { border-top: 4px solid #3498db; }
 
 .side-title-bar {
     background: rgba(0,0,0,0.4); padding: 7px 14px; flex-shrink: 0;
     font-size: 0.78em; font-weight: bold; letter-spacing: 2.5px; text-transform: uppercase;
 }
-.side-list { flex: 1; overflow: hidden; padding: 8px 14px 6px; }
+/* Side panel scroll - same infinite-loop technique as main leaderboard */
+.side-list { flex: 1; overflow: hidden; padding: 0; position: relative; }
+.side-list-inner { padding: 8px 14px 6px; width: 100%; }
+@keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.side-list-inner.scrolling { animation: side-scroll linear infinite; }
 
 .heater-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -265,13 +269,13 @@ html, body {
       <div class="side-card heater-card">
         <div class="side-title-bar">🔥 On a Heater</div>
         <div class="side-list" id="heater-list">
-          <div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div>
+          <div class="side-list-inner"><div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div></div>
         </div>
       </div>
       <div class="side-card last-card">
-        <div class="side-title-bar">🐢 Coming Last</div>
+        <div class="side-title-bar">🔵🔵 Blue Ball Contenders</div>
         <div class="side-list" id="last-list">
-          <div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div>
+          <div class="side-list-inner"><div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div></div>
         </div>
       </div>
     </aside>
@@ -450,14 +454,36 @@ function renderLeaderboard(players, holeCount, started) {
 }
 
 // ── Side panels ───────────────────────────────────────────────────
-function renderHeaters(heaters) {
-    const el = document.getElementById('heater-list');
+function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
+    const el = document.getElementById(containerId);
     if (!el) return;
-    if (!heaters.length) {
-        el.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">No hot streaks yet</div></div>';
+    let inner = el.querySelector('.side-list-inner');
+    if (!inner) {
+        inner = document.createElement('div');
+        inner.className = 'side-list-inner';
+        el.innerHTML = '';
+        el.appendChild(inner);
+    }
+    if (!rows.length) {
+        inner.classList.remove('scrolling');
+        inner.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(emptyMsg) + '</div></div>';
         return;
     }
-    el.innerHTML = heaters.slice(0, 8).map(h =>
+    const html = rows.join('');
+    inner.classList.remove('scrolling');
+    if (rows.length >= minForScroll) {
+        inner.innerHTML = html + html; // duplicate for seamless loop
+        void inner.offsetHeight;
+        const dur = Math.max(15, rows.length * 2.5);
+        inner.style.animationDuration = dur + 's';
+        inner.classList.add('scrolling');
+    } else {
+        inner.innerHTML = html;
+    }
+}
+
+function renderHeaters(heaters) {
+    const rows = heaters.map(h =>
         '<div class="heater-row">' +
             '<div style="min-width:0">' +
                 '<div class="heater-name">' + esc(h.player) + '</div>' +
@@ -468,17 +494,12 @@ function renderHeaters(heaters) {
                 '<div class="heater-thru">thru ' + h.thru + '</div>' +
             '</div>' +
         '</div>'
-    ).join('');
+    );
+    renderSidePanel('heater-list', rows, 'No hot streaks yet', 6);
 }
 
 function renderComingLast(comingLast) {
-    const el = document.getElementById('last-list');
-    if (!el) return;
-    if (!comingLast.length) {
-        el.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">No data yet</div></div>';
-        return;
-    }
-    el.innerHTML = comingLast.map(p =>
+    const rows = comingLast.map(p =>
         '<div class="last-row">' +
             '<div class="last-left">' +
                 '<div class="last-name">' + esc(p.player) + '</div>' +
@@ -486,7 +507,8 @@ function renderComingLast(comingLast) {
             '</div>' +
             '<div class="last-pts">' + p.points + 'pts</div>' +
         '</div>'
-    ).join('');
+    );
+    renderSidePanel('last-list', rows, 'No data yet', 5);
 }
 
 // ── Error ─────────────────────────────────────────────────────────
@@ -542,8 +564,7 @@ function showNoData(id, icon, title, sub, err) {
 }
 
 function showSideEmpty(id, msg) {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(msg) + '</div></div>';
+    renderSidePanel(id, [], msg, 99);
 }
 
 function esc(s) {
