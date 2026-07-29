@@ -173,6 +173,10 @@ html, body {
 .ftr-results:hover { color: #7f8c8d; }
 
 /* ── No-data placeholder ─────────────────────────────────────────── */
+.no-data-comp {
+    font-size: 2em; font-weight: 800; color: #ecf0f1;
+    text-align: center; padding: 32px 20px 4px; letter-spacing: 0.5px;
+}
 .no-data-msg {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100%; text-align: center; padding: 32px;
@@ -568,9 +572,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
 
     if (!active.length) {
         inner.classList.remove('scrolling');
+        const compLine = competition ? '<div class="no-data-comp">' + esc(competition) + '</div>' : '';
         inner.innerHTML = started
-            ? '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">No scores yet</div><div class="no-data-sub">Players are on their way to the first tee</div></div>'
-            : '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">Competition starting soon</div><div class="no-data-sub">Scores will appear here when play begins</div></div>';
+            ? compLine + '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">No scores yet</div><div class="no-data-sub">Players are on their way to the first tee</div></div>'
+            : compLine + '<div class="no-data-msg"><div class="no-data-icon">⛳</div><div class="no-data-title">Competition starting soon</div><div class="no-data-sub">Scores will appear here when play begins</div></div>';
         _animRunning = false;
         return;
     }
