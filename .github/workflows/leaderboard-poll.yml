@@ -20,6 +20,9 @@ jobs:
       contents: write
       actions: write
 
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - name: Check sunrise/sunset window (Wagga Wagga -35.12, 147.37)
         id: window
@@ -104,14 +107,12 @@ jobs:
               fi
             fi
 
+            # Queue next chain after poll 2 so it is waiting the moment this run ends
+            if [ "$i" -eq 2 ]; then
+              gh workflow run leaderboard-poll.yml --ref main \
+                && echo "Next chain queued at poll $i" \
+                || echo "Chain dispatch failed (non-fatal)"
+            fi
+
             if [ "$i" -lt 5 ]; then sleep 55; fi
           done
-
-      - name: Chain next poll (keep running every ~5 min during window)
-        if: steps.window.outputs.within == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          sleep 10
-          gh workflow run leaderboard-poll.yml --ref main
-          echo "Next poll dispatched"

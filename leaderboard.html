@@ -108,6 +108,7 @@ html, body {
 .r-rank.bronze { color: #cd7f32; }
 .r-name  { font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
+.r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; }
 .r-pts.dim { color: #4a6a84; }
 .r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
@@ -598,10 +599,13 @@ function renderLeaderboard(players, holeCount, started, competition) {
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
+        // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
+        const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
+            '<span class="r-hcp-token">[$1]</span>');
         const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + esc(p.player) + hcpTag + '</span>' +
+            '<span class="r-name">' + escapedName + hcpTag + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
@@ -611,12 +615,22 @@ function renderLeaderboard(players, holeCount, started, competition) {
     if (clip) clip.style.opacity = '0';
     setTimeout(() => {
         inner.classList.remove('scrolling');
-        inner.innerHTML = rowsHtml + rowsHtml; // duplicate for seamless infinite loop
-        void inner.offsetHeight; // force reflow so animation restarts cleanly
-        const dur = Math.max(90, active.length * 0.85);
-        inner.style.animationDuration = dur + 's';
-        inner.classList.add('scrolling');
-        _animRunning = true;
+        inner.innerHTML = rowsHtml;
+        void inner.offsetHeight; // measure single-copy height first
+
+        const mobile = window.matchMedia('(max-width: 900px)').matches;
+        const clipH  = clip ? clip.clientHeight : window.innerHeight;
+
+        if (!mobile && inner.scrollHeight > clipH) {
+            inner.innerHTML = rowsHtml + rowsHtml; // duplicate only when content overflows
+            void inner.offsetHeight; // force reflow so animation restarts cleanly
+            const dur = Math.max(90, active.length * 0.85);
+            inner.style.animationDuration = dur + 's';
+            inner.classList.add('scrolling');
+            _animRunning = true;
+        } else {
+            _animRunning = false;
+        }
         if (clip) clip.style.opacity = '1';
         renderGradeStrip(active, grades, holeCount, competition);
     }, 250);
