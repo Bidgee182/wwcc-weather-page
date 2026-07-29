@@ -459,28 +459,70 @@ function getGrade(hcp, grades) {
     return 'C';
 }
 
-function renderGradeStrip(activeSorted, grades) {
+// Countback comparator: returns <0 if a beats b, >0 if b beats a, 0 if tied.
+// Uses GA method: back 9 -> back 6 -> back 3 -> last hole -> second-last ...
+// Only applies when both players have finished (thru >= holeCount).
+function countbackCompare(a, b, holeCount) {
+    const aFin = a.thru >= holeCount;
+    const bFin = b.thru >= holeCount;
+    if (!aFin && !bFin) return 0;
+    if (!aFin) return 1;  // unfinished loses to finished
+    if (!bFin) return -1;
+    const ah = a.holes || [];
+    const bh = b.holes || [];
+    const sliceSum = (arr, n) => arr.slice(-n).reduce((s, h) => s + (h.points || 0), 0);
+    for (const n of [9, 6, 3]) {
+        const d = sliceSum(bh, n) - sliceSum(ah, n);
+        if (d !== 0) return d;
+    }
+    for (let i = ah.length - 1; i >= 0; i--) {
+        const d = ((bh[i] || {}).points || 0) - ((ah[i] || {}).points || 0);
+        if (d !== 0) return d;
+    }
+    return 0;
+}
+
+function fmtHcp(hcp) {
+    if (hcp == null) return '';
+    return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
+}
+
+function renderGradeStrip(activeSorted, grades, holeCount) {
     const strip = document.getElementById('grade-strip');
     if (!strip) return;
     if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
 
-    const byGrade = { A: [], B: [], C: [] };
+    const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
         const g = getGrade(p.hcp, grades);
-        if (g && byGrade[g].length < 3) byGrade[g].push(p);
+        if (g) gradeAll[g].push(p);
     }
 
     const medals = ['🥇', '🥈', '🥉'];
     ['a', 'b', 'c'].forEach(gk => {
         const el = document.getElementById('grade-' + gk);
         if (!el) return;
-        const top = byGrade[gk.toUpperCase()];
-        if (!top.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
+        const all = gradeAll[gk.toUpperCase()];
+        if (!all.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
+
+        // Sort: points desc, then countback for tied finished players, then name
+        all.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            const cb = countbackCompare(a, b, holeCount);
+            return cb !== 0 ? cb : a.player.localeCompare(b.player);
+        });
+        const top = all.slice(0, 3);
+
         el.innerHTML = top.map((p, i) => {
-            const name = p.player.trim();
+            // CB flag: this position was decided by countback (same pts as adjacent player)
+            const nextPts = (all[i + 1] || {}).points;
+            const usedCB = (p.points === nextPts || (i > 0 && p.points === top[i - 1].points))
+                && p.thru >= holeCount;
+            const hcpStr = fmtHcp(p.hcp);
+            const nameHcp = esc(p.player.trim()) + (hcpStr ? ' <span style="color:#4a6a84;font-size:0.85em">[' + hcpStr + ']</span>' : '');
             return '<div class="grade-item">' +
-                '<span class="grade-medal-sm">' + medals[i] + '</span>' +
-                '<span class="grade-name-sm">' + esc(name) + '</span>' +
+                '<span class="grade-medal-sm">' + medals[i] + (usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '') + '</span>' +
+                '<span class="grade-name-sm">' + nameHcp + '</span>' +
                 '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
                 '</div>';
         }).join('');
@@ -525,7 +567,7 @@ function renderLeaderboard(players, holeCount, started) {
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
-        const hcpTxt  = p.hcp != null ? p.hcp : '';
+        const hcpTxt  = p.hcp != null ? fmtHcp(p.hcp) : '';
 
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
@@ -547,7 +589,7 @@ function renderLeaderboard(players, holeCount, started) {
         inner.classList.add('scrolling');
         _animRunning = true;
         if (clip) clip.style.opacity = '1';
-        renderGradeStrip(active, grades);
+        renderGradeStrip(active, grades, holeCount);
     }, 250);
 }
 

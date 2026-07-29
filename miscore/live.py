@@ -77,7 +77,7 @@ def _board_players(page: str) -> list[dict]:
             {
                 "playerNo": link.group(1),
                 "player": name_txt,
-                "hcp": round(float(hcp_m.group(1).replace("+", ""))) if hcp_m else None,
+                "hcp": float(hcp_m.group(1).replace("+", "")) if hcp_m else None,
                 "homeClub": home,
                 "rank": rank,
             }
