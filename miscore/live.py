@@ -245,7 +245,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         p["liveRank"] = i
 
     def on_heater(p: dict) -> tuple[str | None, int | None]:
-        """Returns (note, scorerIdx) or (None, None). scorerIdx: 0=first player, 1=second."""
+        """Returns (note, scorerIdx) or (None, None). scorerIdx: 0=first, 1=second, 2=both."""
         if p["thru"] == 0:
             return None, None
         last = p["last"]
@@ -266,7 +266,11 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             s2  = last_hole.get("strokes2")
             if par is not None:
                 if s1 is not None and s2 is not None:
-                    scorer_idx = 0 if (s1 - par) <= (s2 - par) else 1
+                    d1, d2 = s1 - par, s2 - par
+                    if d1 == d2:
+                        scorer_idx = 2  # both players scored equally
+                    else:
+                        scorer_idx = 0 if d1 < d2 else 1
                 elif s1 is not None:
                     scorer_idx = 0 if max(0, 2 - (s1 - par)) >= pts else 1
                 elif s2 is not None:

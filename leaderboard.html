@@ -697,13 +697,18 @@ function renderHeaters(heaters) {
             const n1 = esc(stripHcp(parts[1]));
             // scorerIdx 0 = first player, 1 = second player, null = unknown (flash first)
             const scorer = h.scorerIdx;
-            if (scorer === 1) {
-                // Second player scored: first is partner (grey), second flashes
+            if (scorer === 2) {
+                // Both players scored equally - flash both, no partner
                 nameHtml =
-                    '<div class="heater-partner">' + n0 + '</div>' +
-                    '<div class="heater-name heater-name-flash">' + n1 + noteSpan + '</div>';
+                    '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
+                    '<div class="heater-name heater-name-flash">' + n1 + '</div>';
+            } else if (scorer === 1) {
+                // Second player scored - put scorer (n1) on top
+                nameHtml =
+                    '<div class="heater-name heater-name-flash">' + n1 + noteSpan + '</div>' +
+                    '<div class="heater-partner">' + n0 + '</div>';
             } else {
-                // First player scored (or unknown): first flashes, second is partner (grey)
+                // First player scored or unknown - put scorer (n0) on top
                 nameHtml =
                     '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
                     '<div class="heater-partner">' + n1 + '</div>';
