@@ -36,17 +36,8 @@ from .webscrape import BASE, _get, _parse_holes, list_competitions
 
 log = logging.getLogger("miscore.live")
 
-# WWCC course note: hole 18 is out of play; hole 20 is a substitute played
-# immediately after hole 14.  The scorecard lists 18 sequential positions but
-# the actual hole numbers differ from position 15 onward:
-#   scorecard pos 15 → actual hole 20 (substitute)
-#   scorecard pos 16 → actual hole 15
-#   scorecard pos 17 → actual hole 16
-#   scorecard pos 18 → actual hole 17 (always blank - not played)
-# Because pos 18 is never scored, only 17 holes are playable despite the
-# course shape reporting 18.
-HOLE_MAP: dict[int, int] = {15: 20, 16: 15, 17: 16, 18: 17}
-HOLE_COUNT_OVERRIDE: int | None = 17  # set None when hole 18 returns to play
+HOLE_MAP: dict[int, int] = {}
+HOLE_COUNT_OVERRIDE: int | None = None
 
 # ---------------------------------------------------------------------------
 # board + scorecard parsing (live-aware; the shared webscrape helpers assume
