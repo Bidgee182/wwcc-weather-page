@@ -224,9 +224,11 @@ html, body {
 /* Grade badge in scrolling rows */
 .grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
 
-/* Heater name pulse */
-@keyframes heater-flash { 0%,100% { color: #ecf0f1; } 50% { color: #e74c3c; } }
-.heater-name-flash { animation: heater-flash 1.4s ease-in-out infinite; }
+/* Heater tier animations */
+@keyframes heater-pulse-orange { 0%,100% { color: #e67e22; } 50% { color: #f39c12; opacity: 0.75; } }
+@keyframes heater-flash-gold   { 0%,100% { color: #f1c40f; } 45%,55% { color: #fff; } }
+.heater-name-orange { animation: heater-pulse-orange 2.5s ease-in-out infinite; color: #e67e22; }
+.heater-name-gold   { animation: heater-flash-gold   1.2s ease-in-out infinite; color: #f1c40f; }
 
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
@@ -269,8 +271,9 @@ html, body {
     /* Leaderboard: allow team names to wrap and reduce font size */
     .r-name { white-space: normal; overflow: visible; font-size: 1.15em; }
 
-    /* Heater: static red, smaller scorer name */
-    .heater-name-flash { animation: none; color: #e74c3c; }
+    /* Heater: static colours on mobile, no animation */
+    .heater-name-orange { animation: none; color: #e67e22; }
+    .heater-name-gold   { animation: none; color: #f1c40f; }
     .heater-name { font-size: 1.1em; }
     .heater-partner { font-size: 0.95em; }
 }
@@ -736,43 +739,44 @@ function renderHeaters(heaters) {
         if (!currentKeys.has(k)) delete _heaterState[k];
     }
 
-    // Filter: only keep entries first seen within the last 10 minutes,
-    // resetting the timer whenever the hole note changes (new high-pts hole)
+    // Filter: gold (eagle+) entries are persistent - never expire while on server list.
+    // Orange (birdie streak) entries expire after 10 minutes.
+    // Timer resets whenever the note changes (player scored a fresh qualifying hole).
     const visible = heaters.filter(h => {
         const prev = _heaterState[h.player];
         if (!prev || prev.note !== h.note) {
-            _heaterState[h.player] = { since: now, note: h.note };
+            _heaterState[h.player] = { since: now, note: h.note, tier: h.tier };
         }
+        if ((h.tier || 'gold') === 'gold') return true;  // gold never expires
         return (now - _heaterState[h.player].since) < EXPIRY_MS;
     });
 
     const rows = visible.map(h => {
-        const noteSpan = '<span class="heater-hole-score">🔥 ' + esc(h.note) + '</span>';
+        const tier   = h.tier || 'gold';
+        const fc     = 'heater-name ' + (tier === 'orange' ? 'heater-name-orange' : 'heater-name-gold');
+        const emoji  = tier === 'orange' ? '🔥' : '⭐';
+        const noteSpan = '<span class="heater-hole-score">' + emoji + ' ' + esc(h.note) + '</span>';
         const parts = h.player.split(' & ');
         let nameHtml;
         if (parts.length === 2) {
             const n0 = esc(stripHcp(parts[0]));
             const n1 = esc(stripHcp(parts[1]));
-            // scorerIdx 0 = first player, 1 = second player, null = unknown (flash first)
             const scorer = h.scorerIdx;
             if (scorer === 2) {
-                // Both players scored equally - flash both, no partner
                 nameHtml =
-                    '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
-                    '<div class="heater-name heater-name-flash">' + n1 + '</div>';
+                    '<div class="' + fc + '">' + n0 + noteSpan + '</div>' +
+                    '<div class="' + fc + '">' + n1 + '</div>';
             } else if (scorer === 1) {
-                // Second player scored - put scorer (n1) on top
                 nameHtml =
-                    '<div class="heater-name heater-name-flash">' + n1 + noteSpan + '</div>' +
+                    '<div class="' + fc + '">' + n1 + noteSpan + '</div>' +
                     '<div class="heater-partner">' + n0 + '</div>';
             } else {
-                // First player scored or unknown - put scorer (n0) on top
                 nameHtml =
-                    '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
+                    '<div class="' + fc + '">' + n0 + noteSpan + '</div>' +
                     '<div class="heater-partner">' + n1 + '</div>';
             }
         } else {
-            nameHtml = '<div class="heater-name heater-name-flash">' + esc(stripHcp(h.player)) + noteSpan + '</div>';
+            nameHtml = '<div class="' + fc + '">' + esc(stripHcp(h.player)) + noteSpan + '</div>';
         }
         return '<div class="heater-row">' +
             '<div style="flex:1;min-width:0">' + nameHtml + '</div>' +

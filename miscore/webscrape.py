@@ -124,12 +124,15 @@ def _parse_holes(page: str) -> list[dict]:
                 p2 = points2[i] if i < len(points2) else None
                 # 4BBB: take better score per hole; single-player: p2 is absent
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
+                # pointsSum = combined individual scores (used for 4BBB heater threshold)
+                pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
                 result.append({
-                    "hole":     hole,
-                    "par":      pars[i]     if i < len(pars)     else None,
-                    "strokes":  strokes[i]  if i < len(strokes)  else None,
-                    "strokes2": strokes2[i] if i < len(strokes2) else None,
-                    "points":   pts,
+                    "hole":      hole,
+                    "par":       pars[i]     if i < len(pars)     else None,
+                    "strokes":   strokes[i]  if i < len(strokes)  else None,
+                    "strokes2":  strokes2[i] if i < len(strokes2) else None,
+                    "points":    pts,
+                    "pointsSum": pts_sum,
                 })
         return result
 
@@ -180,12 +183,14 @@ def _parse_holes(page: str) -> list[dict]:
                 p1 = points[i]  if i < len(points)  else None
                 p2 = points2[i] if i < len(points2) else None
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
+                pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
                 out.append({
-                    "hole":     hole_num,
-                    "par":      pars[i]     if i < len(pars)     else None,
-                    "strokes":  strokes[i]  if i < len(strokes)  else None,
-                    "strokes2": strokes2[i] if i < len(strokes2) else None,
-                    "points":   pts,
+                    "hole":      hole_num,
+                    "par":       pars[i]     if i < len(pars)     else None,
+                    "strokes":   strokes[i]  if i < len(strokes)  else None,
+                    "strokes2":  strokes2[i] if i < len(strokes2) else None,
+                    "points":    pts,
+                    "pointsSum": pts_sum,
                 })
                 hole_num += 1
         return out

@@ -218,7 +218,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             "points": points,
             "birdies": birdies,
             "holes": holes,
-            "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points")} for h in last],
+            "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points"), "pointsSum": h.get("pointsSum")} for h in last],
         }
         players.append(p)
 
@@ -239,23 +239,26 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     for i, p in enumerate(ranked, 1):
         p["liveRank"] = i
 
-    def on_heater(p: dict) -> tuple[str | None, int | None]:
-        """Returns (note, scorerIdx) or (None, None). scorerIdx: 0=first, 1=second, 2=both."""
+    def on_heater(p: dict) -> tuple[str | None, str | None, int | None]:
+        """Returns (note, tier, scorerIdx) or (None, None, None).
+        tier: 'gold' = eagle/combined 8+ (no expiry), 'orange' = birdie streak/combined 6+ (expires)
+        """
         if p["thru"] == 0:
-            return None, None
+            return None, None, None
         last = p["last"]
         if not last:
-            return None, None
+            return None, None, None
         last_hole = last[-1]
-        pts = last_hole.get("points") or 0
-        # Teams (hcp=None, 4BBB) show 3+ pts; individuals require 4+ (eagle)
-        threshold = 3 if p.get("hcp") is None else 4
-        if pts < threshold:
-            return None, None
-        note = f"{pts} pts on hole {last_hole['hole']}"
-        # For team events, determine which player scored using stroke comparison
         scorer_idx = None
-        if p.get("hcp") is None:
+
+        is_team = p.get("hcp") is None
+        if is_team:
+            # 4BBB: use combined individual scores per hole
+            pts_sum = last_hole.get("pointsSum") or 0
+            if pts_sum < 6:
+                return None, None, None
+            tier = "gold" if pts_sum >= 8 else "orange"
+            note = f"{pts_sum} combined on hole {last_hole['hole']}"
             par = last_hole.get("par")
             s1  = last_hole.get("strokes")
             s2  = last_hole.get("strokes2")
@@ -263,20 +266,28 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 if s1 is not None and s2 is not None:
                     d1, d2 = s1 - par, s2 - par
                     if d1 == d2:
-                        scorer_idx = 2  # both players scored equally
+                        scorer_idx = 2
                     else:
                         scorer_idx = 0 if d1 < d2 else 1
                 elif s1 is not None:
-                    scorer_idx = 0 if max(0, 2 - (s1 - par)) >= pts else 1
+                    scorer_idx = 0
                 elif s2 is not None:
-                    scorer_idx = 1 if max(0, 2 - (s2 - par)) >= pts else 0
-        return note, scorer_idx
+                    scorer_idx = 1
+            return note, tier, scorer_idx
+        else:
+            # Individual stableford: 4+ pts = eagle (gold); 2 consecutive 3-pointers = birdie streak (orange)
+            pts = last_hole.get("points") or 0
+            if pts >= 4:
+                return f"{pts} pts on hole {last_hole['hole']}", "gold", None
+            if pts >= 3 and len(last) >= 2 and (last[-2].get("points") or 0) >= 3:
+                return f"Birdie streak - holes {last[-2]['hole']} & {last_hole['hole']}", "orange", None
+            return None, None, None
 
     heaters = []
     for p in ranked:
-        note, scorer_idx = on_heater(p)
+        note, tier, scorer_idx = on_heater(p)
         if note:
-            heaters.append({"player": p["player"], "note": note, "points": p["points"], "thru": p["thru"], "scorerIdx": scorer_idx})
+            heaters.append({"player": p["player"], "note": note, "tier": tier, "points": p["points"], "thru": p["thru"], "scorerIdx": scorer_idx})
 
     coming_last = sorted(
         [p for p in players if p["thru"] >= 12],
