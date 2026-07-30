@@ -223,7 +223,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             "points": points,
             "birdies": birdies,
             "holes": holes,
-            "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h["strokes"], "points": h.get("points")} for h in last],
+            "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points")} for h in last],
         }
         players.append(p)
 
@@ -244,23 +244,40 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     for i, p in enumerate(ranked, 1):
         p["liveRank"] = i
 
-    def on_heater(p: dict) -> str | None:
+    def on_heater(p: dict) -> tuple[str | None, int | None]:
+        """Returns (note, scorerIdx) or (None, None). scorerIdx: 0=first player, 1=second."""
         if p["thru"] == 0:
-            return None
+            return None, None
         last = p["last"]
         if not last:
-            return None
+            return None, None
         last_hole = last[-1]
         pts = last_hole.get("points") or 0
-        if pts >= 4:
-            return f"{pts} pts on hole {last_hole['hole']}"
-        return None
+        # Teams (hcp=None, 4BBB) show 3+ pts; individuals require 4+ (eagle)
+        threshold = 3 if p.get("hcp") is None else 4
+        if pts < threshold:
+            return None, None
+        note = f"{pts} pts on hole {last_hole['hole']}"
+        # For team events, determine which player scored using stroke comparison
+        scorer_idx = None
+        if p.get("hcp") is None:
+            par = last_hole.get("par")
+            s1  = last_hole.get("strokes")
+            s2  = last_hole.get("strokes2")
+            if par is not None:
+                if s1 is not None and s2 is not None:
+                    scorer_idx = 0 if (s1 - par) <= (s2 - par) else 1
+                elif s1 is not None:
+                    scorer_idx = 0 if max(0, 2 - (s1 - par)) >= pts else 1
+                elif s2 is not None:
+                    scorer_idx = 1 if max(0, 2 - (s2 - par)) >= pts else 0
+        return note, scorer_idx
 
     heaters = []
     for p in ranked:
-        note = on_heater(p)
+        note, scorer_idx = on_heater(p)
         if note:
-            heaters.append({"player": p["player"], "note": note, "points": p["points"], "thru": p["thru"]})
+            heaters.append({"player": p["player"], "note": note, "points": p["points"], "thru": p["thru"], "scorerIdx": scorer_idx})
 
     coming_last = sorted(
         [p for p in players if p["thru"] >= 12],

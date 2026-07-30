@@ -91,6 +91,7 @@ html, body {
     to   { transform: translateY(-50%); }
 }
 .lb-scroll-inner.scrolling { animation: lb-scroll linear infinite; }
+.lb-gap { height: 80px; }
 
 .lb-row {
     display: grid;
@@ -141,8 +142,10 @@ html, body {
     padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .heater-row:last-child { border-bottom: none; }
-.heater-name { font-size: 1.35em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.heater-note { font-size: 1.1em; color: #e74c3c; margin-top: 2px; }
+.heater-name    { font-size: 1.35em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heater-partner { font-size: 1.1em; color: #bdc3c7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.heater-note    { font-size: 1.1em; color: #e74c3c; margin-top: 2px; }
+.heater-hole-score { font-size: 0.72em; font-weight: normal; color: #e74c3c; margin-left: 8px; white-space: nowrap; }
 .heater-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
 .heater-pts   { font-size: 1.43em; font-weight: bold; color: #27ae60; }
 .heater-thru  { font-size: 1.02em; color: #7f8c8d; margin-top: 1px; }
@@ -609,7 +612,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
-    }).join('');
+    }).join('') + '<div class="lb-gap"></div>';
 
     // Fade out briefly, rebuild DOM, restart animation, fade in
     if (clip) clip.style.opacity = '0';
@@ -674,19 +677,34 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     }
 }
 
+function stripHcp(s) {
+    return s.replace(/\s*\[\+?\d+(?:\.\d+)?\]/g, '').trim();
+}
+
 function renderHeaters(heaters) {
     const rows = heaters.map(h => {
-        // 4BBB teams come through as "PlayerA & PlayerB" - show both names
+        const noteSpan = '<span class="heater-hole-score">🔥 ' + esc(h.note) + '</span>';
         const parts = h.player.split(' & ');
-        const nameHtml = parts.length === 2
-            ? '<div class="heater-name heater-name-flash">' + esc(parts[0].trim()) + '</div>' +
-              '<div class="heater-name" style="font-size:1.1em;color:#bdc3c7">' + esc(parts[1].trim()) + '</div>'
-            : '<div class="heater-name heater-name-flash">' + esc(h.player) + '</div>';
+        let nameHtml;
+        if (parts.length === 2) {
+            const n0 = esc(stripHcp(parts[0]));
+            const n1 = esc(stripHcp(parts[1]));
+            // scorerIdx 0 = first player, 1 = second player, null = unknown (flash first)
+            const scorer = h.scorerIdx;
+            if (scorer === 1) {
+                nameHtml =
+                    '<div class="heater-name">' + n0 + '</div>' +
+                    '<div class="heater-name heater-name-flash">' + n1 + noteSpan + '</div>';
+            } else {
+                nameHtml =
+                    '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
+                    '<div class="heater-partner">' + n1 + '</div>';
+            }
+        } else {
+            nameHtml = '<div class="heater-name heater-name-flash">' + esc(stripHcp(h.player)) + noteSpan + '</div>';
+        }
         return '<div class="heater-row">' +
-            '<div style="flex:1;min-width:0">' +
-                nameHtml +
-                '<div class="heater-note">🔥 ' + esc(h.note) + '</div>' +
-            '</div>' +
+            '<div style="flex:1;min-width:0">' + nameHtml + '</div>' +
             '<div class="heater-right">' +
                 '<div class="heater-pts">' + h.points + 'pts</div>' +
                 '<div class="heater-thru">thru ' + h.thru + '</div>' +
