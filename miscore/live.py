@@ -147,6 +147,112 @@ def _hole_note(h: dict) -> str | None:
     return None
 
 
+def _story(played: list[dict]) -> dict | None:
+    """Generate a Scoreboard Story from a player's played holes (hole-number order)."""
+    n = len(played)
+    if n < 2:
+        return None
+
+    def gpts(h):      return h.get("points")
+    def is_wipe(h):   return gpts(h) is None or gpts(h) == 0
+    def is_bogey(h):  return gpts(h) == 1
+    def is_par(h):    return gpts(h) == 2
+    def is_birdie(h): return gpts(h) is not None and gpts(h) >= 3
+    def is_eagle(h):  return gpts(h) is not None and gpts(h) >= 4
+
+    # Hole in one
+    for h in played:
+        if h.get("strokes") == 1 and h.get("par") == 3:
+            return {"title": "ACE!", "detail": f"Hole in one on hole {h['hole']} - buy them a drink!", "tier": "gold"}
+
+    # Two or more eagles in the round
+    eagle_count = sum(1 for h in played if is_eagle(h))
+    if eagle_count >= 2:
+        return {"title": "Someone Call Security", "detail": f"{eagle_count} eagles - this just isn't fair", "tier": "gold"}
+
+    # Consecutive birdie streak from most recent hole backward
+    birdie_streak = 0
+    for h in reversed(played):
+        if is_birdie(h): birdie_streak += 1
+        else: break
+    if birdie_streak >= 3:
+        return {"title": "Running Hot", "detail": f"{birdie_streak} birdies in a row - move over", "tier": "gold"}
+    if birdie_streak >= 2:
+        return {"title": "On the Charge", "detail": "Back-to-back birdies", "tier": "orange"}
+
+    # Eagle on most recent hole
+    if is_eagle(played[-1]):
+        if n >= 3 and is_wipe(played[-2]) and is_wipe(played[-3]):
+            return {"title": "Out of Nowhere", "detail": "Two wipes then an eagle - they're back", "tier": "gold"}
+        return {"title": "The Big Gun", "detail": f"Eagle on hole {played[-1]['hole']}", "tier": "gold"}
+
+    # Wipe streak
+    wipe_streak = 0
+    for h in reversed(played):
+        if is_wipe(h): wipe_streak += 1
+        else: break
+    if wipe_streak >= 4:
+        return {"title": "Already at the Bar", "detail": f"{wipe_streak} wipes in a row - they've made their decision", "tier": "red"}
+    if wipe_streak == 3:
+        return {"title": "Left the Clubs at Home", "detail": "3 wipes in a row", "tier": "red"}
+    if wipe_streak == 2 and n >= 5:
+        return {"title": "Rough Patch", "detail": "2 wipes - club still in the bag", "tier": "red"}
+
+    # Bogey train (escalating shade)
+    bogey_streak = 0
+    for h in reversed(played):
+        if is_bogey(h): bogey_streak += 1
+        else: break
+    if bogey_streak >= 6:
+        return {"title": "Someone Check On Them", "detail": f"{bogey_streak} bogeys in a row", "tier": "red"}
+    if bogey_streak >= 5:
+        return {"title": "Is This Fun Anymore?", "detail": f"{bogey_streak} bogeys on the bounce", "tier": "red"}
+    if bogey_streak >= 4:
+        return {"title": "Still Grinding...", "detail": f"{bogey_streak} straight bogeys - at least they're scoring", "tier": "blue"}
+    if bogey_streak >= 3:
+        return {"title": "The Grind", "detail": f"{bogey_streak} bogeys in a row - fighting for every point", "tier": "blue"}
+
+    # Two-hole transitions (checked after streaks so streaks dominate)
+    if n >= 2:
+        prev_h, last_h = played[-2], played[-1]
+        if is_eagle(prev_h) and is_wipe(last_h):
+            return {"title": "The Rollercoaster", "detail": "Eagle then a wipe - what a ride", "tier": "orange"}
+        if is_birdie(prev_h) and is_wipe(last_h):
+            return {"title": "Hero to Zero", "detail": "Birdie then a wipe", "tier": "orange"}
+        if gpts(prev_h) == 3 and is_bogey(last_h):
+            return {"title": "Giveth and Taketh Away", "detail": "Birdie straight into a bogey", "tier": "orange"}
+        if is_wipe(prev_h) and is_birdie(last_h):
+            return {"title": "The Bounce Back", "detail": "Wipe then straight back with a birdie", "tier": "orange"}
+
+    # Par streak (escalating shade)
+    par_streak = 0
+    for h in reversed(played):
+        if is_par(h): par_streak += 1
+        else: break
+    if par_streak >= 9:
+        return {"title": "The Metronome", "detail": f"{par_streak} pars. Just. Pars.", "tier": "blue"}
+    if par_streak >= 7:
+        return {"title": "Human Highway", "detail": f"{par_streak} pars in a row - accountant energy", "tier": "blue"}
+    if par_streak >= 5:
+        return {"title": "Vanilla Golf", "detail": f"{par_streak} straight pars, not a bogey in sight", "tier": "blue"}
+    if par_streak >= 3:
+        return {"title": "Finding a Rhythm", "detail": f"{par_streak} pars on the bounce", "tier": "blue"}
+
+    # Bad start: wipes from the very first hole played
+    wipes_from_start = 0
+    for h in played:
+        if is_wipe(h): wipes_from_start += 1
+        else: break
+    if wipes_from_start >= 7:
+        return {"title": "Save It For Next Week", "detail": f"Still searching ({wipes_from_start} wipes to open)", "tier": "red"}
+    if wipes_from_start >= 5:
+        return {"title": "Looking for the Course", "detail": f"Nothing from the first {wipes_from_start}", "tier": "red"}
+    if wipes_from_start >= 3 and n <= 9:
+        return {"title": "Slow Starter", "detail": f"Nil from the first {wipes_from_start}", "tier": "blue"}
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # polling
 # ---------------------------------------------------------------------------
@@ -214,6 +320,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             "birdies": birdies,
             "holes": holes,
             "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points"), "pointsSum": h.get("pointsSum")} for h in last],
+            "_story": _story(played),
         }
         players.append(p)
 
@@ -234,55 +341,20 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     for i, p in enumerate(ranked, 1):
         p["liveRank"] = i
 
-    def on_heater(p: dict) -> tuple[str | None, str | None, int | None]:
-        """Returns (note, tier, scorerIdx) or (None, None, None).
-        tier: 'gold' = eagle/combined 8+ (no expiry), 'orange' = birdie streak/combined 6+ (expires)
-        """
-        if p["thru"] == 0:
-            return None, None, None
-        last = p["last"]
-        if not last:
-            return None, None, None
-        last_hole = last[-1]
-        scorer_idx = None
-
-        is_team = p.get("hcp") is None
-        if is_team:
-            # 4BBB: use combined individual scores per hole
-            pts_sum = last_hole.get("pointsSum") or 0
-            if pts_sum < 6:
-                return None, None, None
-            tier = "gold" if pts_sum >= 8 else "orange"
-            note = f"{pts_sum} combined on hole {last_hole['hole']}"
-            par = last_hole.get("par")
-            s1  = last_hole.get("strokes")
-            s2  = last_hole.get("strokes2")
-            if par is not None:
-                if s1 is not None and s2 is not None:
-                    d1, d2 = s1 - par, s2 - par
-                    if d1 == d2:
-                        scorer_idx = 2
-                    else:
-                        scorer_idx = 0 if d1 < d2 else 1
-                elif s1 is not None:
-                    scorer_idx = 0
-                elif s2 is not None:
-                    scorer_idx = 1
-            return note, tier, scorer_idx
-        else:
-            # Individual stableford: 4+ pts = eagle (gold); 2 consecutive 3-pointers = birdie streak (orange)
-            pts = last_hole.get("points") or 0
-            if pts >= 4:
-                return f"{pts} pts on hole {last_hole['hole']}", "gold", None
-            if pts >= 3 and len(last) >= 2 and (last[-2].get("points") or 0) >= 3:
-                return f"Birdie streak - holes {last[-2]['hole']} & {last_hole['hole']}", "orange", None
-            return None, None, None
-
-    heaters = []
+    _tier_rank = {"gold": 3, "orange": 2, "red": 1, "blue": 0}
+    stories = []
     for p in ranked:
-        note, tier, scorer_idx = on_heater(p)
-        if note:
-            heaters.append({"player": p["player"], "note": note, "tier": tier, "points": p["points"], "thru": p["thru"], "scorerIdx": scorer_idx})
+        s = p.pop("_story", None)
+        if s:
+            stories.append({
+                "player": p["player"],
+                "title":  s["title"],
+                "detail": s["detail"],
+                "tier":   s["tier"],
+                "points": p["points"],
+                "thru":   p["thru"],
+            })
+    stories.sort(key=lambda s: -_tier_rank.get(s["tier"], 0))
 
     coming_last = sorted(
         [p for p in players if p["thru"] >= 12],
@@ -303,7 +375,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "started": any(p["thru"] > 0 for p in players),
         "players": ranked,
         "leaders": ranked[:10],
-        "heaters": heaters[:8],
+        "stories": stories[:8],
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
             for p in coming_last[:10]

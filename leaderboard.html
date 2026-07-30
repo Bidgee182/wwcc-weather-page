@@ -144,18 +144,18 @@ html, body {
 @keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
 .side-list-inner.scrolling { animation: side-scroll linear infinite; }
 
-.heater-row {
-    display: flex; justify-content: space-between; align-items: center;
+.story-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
     padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.heater-row:last-child { border-bottom: none; }
-.heater-name    { font-size: 1.35em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.heater-partner { font-size: 1.1em; color: #bdc3c7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-.heater-note    { font-size: 1.1em; color: #e74c3c; margin-top: 2px; }
-.heater-hole-score { font-size: 0.72em; font-weight: normal; color: #e74c3c; margin-left: 8px; white-space: nowrap; }
-.heater-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
-.heater-pts   { font-size: 1.43em; font-weight: bold; color: #27ae60; }
-.heater-thru  { font-size: 1.02em; color: #7f8c8d; margin-top: 1px; }
+.story-row:last-child { border-bottom: none; }
+.story-left  { flex: 1; min-width: 0; }
+.story-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
+.story-name   { font-size: 1.25em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.story-title  { font-size: 1.05em; font-weight: 600; color: #ecf0f1; margin-top: 3px; }
+.story-detail { font-size: 0.88em; color: #7f8c8d; margin-top: 1px; }
+.story-pts    { font-size: 1.43em; font-weight: bold; color: #27ae60; }
+.story-thru   { font-size: 1.02em; color: #7f8c8d; margin-top: 1px; }
 
 .last-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -224,11 +224,13 @@ html, body {
 /* Grade badge in scrolling rows */
 .grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
 
-/* Heater tier animations */
-@keyframes heater-pulse-orange { 0%,100% { color: #e67e22; } 50% { color: #f39c12; opacity: 0.75; } }
-@keyframes heater-flash-gold   { 0%,100% { color: #f1c40f; } 45%,55% { color: #fff; } }
-.heater-name-orange { animation: heater-pulse-orange 2.5s ease-in-out infinite; color: #e67e22; }
-.heater-name-gold   { animation: heater-flash-gold   1.2s ease-in-out infinite; color: #f1c40f; }
+/* Scoreboard Stories tier colours */
+@keyframes story-pulse-orange { 0%,100% { color: #e67e22; } 50% { color: #f39c12; opacity: 0.75; } }
+@keyframes story-flash-gold   { 0%,100% { color: #f1c40f; } 45%,55% { color: #fff; } }
+.story-name-gold   { animation: story-flash-gold   1.2s ease-in-out infinite; color: #f1c40f; }
+.story-name-orange { animation: story-pulse-orange 2.5s ease-in-out infinite; color: #e67e22; }
+.story-name-red    { color: #e74c3c; }
+.story-name-blue   { color: #5dade2; }
 
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
@@ -265,17 +267,18 @@ html, body {
     .panel-title-bar { padding: 5px 10px; }
     .col-hdr { padding: 4px 10px; }
     .side-title-bar { padding: 5px 10px; font-size: 0.72em; }
-    .heater-row { padding: 5px 0; }
-    .last-row   { padding: 5px 0; }
+    .story-row { padding: 5px 0; }
+    .last-row  { padding: 5px 0; }
 
     /* Leaderboard: allow team names to wrap and reduce font size */
     .r-name { white-space: normal; overflow: visible; font-size: 1.15em; }
 
-    /* Heater: static colours on mobile, no animation */
-    .heater-name-orange { animation: none; color: #e67e22; }
-    .heater-name-gold   { animation: none; color: #f1c40f; }
-    .heater-name { font-size: 1.1em; }
-    .heater-partner { font-size: 0.95em; }
+    /* Stories: static colours on mobile, no animation */
+    .story-name-gold   { animation: none; color: #f1c40f; }
+    .story-name-orange { animation: none; color: #e67e22; }
+    .story-name  { font-size: 1.05em; }
+    .story-title { font-size: 0.95em; }
+    .story-detail { font-size: 0.8em; }
 }
 
 @media (max-width: 480px) {
@@ -347,7 +350,7 @@ html, body {
 
     <aside class="side-panels">
       <div class="side-card heater-card">
-        <div class="side-title-bar">🔥 On a Heater</div>
+        <div class="side-title-bar">📖 Scoreboard Stories</div>
         <div class="side-list" id="heater-list">
           <div class="side-list-inner"><div class="no-data-msg"><div class="no-data-sub">Waiting...</div></div></div>
         </div>
@@ -377,7 +380,6 @@ const REFRESH_SEC = 15;
 let _countdown    = REFRESH_SEC;
 let _hasData      = false;
 let _animRunning  = false;
-let _pendingData  = null; // buffered data waiting for next scroll cycle
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -414,13 +416,11 @@ async function fetchData() {
             _hasData = true;
             render(data);
         } else {
-            // Already showing data - buffer the leaderboard rebuild for the
-            // next animation cycle so the list always completes a full scroll
-            // before refreshing; update header/panels immediately
-            _pendingData = data;
+            // Update everything immediately - no animation buffer
             updateHeader(data);
             setBlueBallVisible(data.date);
-            renderHeaters(data.heaters || []);
+            renderLeaderboard(data.players || [], data.holeCount || 18, data.started || false, data.competition || '');
+            renderStories(data.stories || []);
             renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
@@ -429,15 +429,7 @@ async function fetchData() {
     }
 }
 
-// ── Animation-aware leaderboard refresh ───────────────────────────
-// When scroll completes one full cycle, apply any buffered data
-document.getElementById('lb-inner').addEventListener('animationiteration', () => {
-    if (_pendingData) {
-        const d = _pendingData;
-        _pendingData = null;
-        renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
-    }
-});
+// (animation-buffering removed - leaderboard updates immediately on each fetch)
 
 // ── Full render (first load) ──────────────────────────────────────
 function render(d) {
@@ -460,7 +452,7 @@ function render(d) {
     setFooter(d.generatedAt, '');
     setBlueBallVisible(d.date);
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
-    renderHeaters(d.heaters || []);
+    renderStories(d.stories || []);
     renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
@@ -742,68 +734,45 @@ function stripHcp(s) {
     return s.replace(/\s*\[\+?\d+(?:\.\d+)?\]/g, '').trim();
 }
 
-// Track when each heater entry first appeared (or changed to a new hole).
-// Reset the timer if the note changes (player scored a fresh high-pts hole).
-const _heaterState = {}; // { playerKey: { since: timestamp, note: string } }
+// Scoreboard Stories - track when each story first appeared for expiry
+const _storyState = {}; // { 'player|title': { since: timestamp } }
 
-function renderHeaters(heaters) {
+function renderStories(stories) {
     const now = Date.now();
-    const EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+    const EXPIRY_MS = 15 * 60 * 1000; // gold never expires; others expire after 15 min
 
-    // Remove players no longer in the heater list from state
-    const currentKeys = new Set(heaters.map(h => h.player));
-    for (const k of Object.keys(_heaterState)) {
-        if (!currentKeys.has(k)) delete _heaterState[k];
+    const currentKeys = new Set(stories.map(s => s.player + '|' + s.title));
+    for (const k of Object.keys(_storyState)) {
+        if (!currentKeys.has(k)) delete _storyState[k];
     }
 
-    // Filter: gold (eagle+) entries are persistent - never expire while on server list.
-    // Orange (birdie streak) entries expire after 10 minutes.
-    // Timer resets whenever the note changes (player scored a fresh qualifying hole).
-    const visible = heaters.filter(h => {
-        const prev = _heaterState[h.player];
-        if (!prev || prev.note !== h.note) {
-            _heaterState[h.player] = { since: now, note: h.note, tier: h.tier };
-        }
-        if ((h.tier || 'gold') === 'gold') return true;  // gold never expires
-        return (now - _heaterState[h.player].since) < EXPIRY_MS;
+    const visible = stories.filter(s => {
+        const key = s.player + '|' + s.title;
+        if (!_storyState[key]) _storyState[key] = { since: now };
+        if (s.tier === 'gold') return true;
+        return (now - _storyState[key].since) < EXPIRY_MS;
     });
 
-    const rows = visible.map(h => {
-        const tier   = h.tier || 'gold';
-        const fc     = 'heater-name ' + (tier === 'orange' ? 'heater-name-orange' : 'heater-name-gold');
-        const emoji  = tier === 'orange' ? '🔥' : '⭐';
-        const noteSpan = '<span class="heater-hole-score">' + emoji + ' ' + esc(h.note) + '</span>';
-        const parts = h.player.split(' & ');
-        let nameHtml;
-        if (parts.length === 2) {
-            const n0 = esc(stripHcp(parts[0]));
-            const n1 = esc(stripHcp(parts[1]));
-            const scorer = h.scorerIdx;
-            if (scorer === 2) {
-                nameHtml =
-                    '<div class="' + fc + '">' + n0 + noteSpan + '</div>' +
-                    '<div class="' + fc + '">' + n1 + '</div>';
-            } else if (scorer === 1) {
-                nameHtml =
-                    '<div class="' + fc + '">' + n1 + noteSpan + '</div>' +
-                    '<div class="heater-partner">' + n0 + '</div>';
-            } else {
-                nameHtml =
-                    '<div class="' + fc + '">' + n0 + noteSpan + '</div>' +
-                    '<div class="heater-partner">' + n1 + '</div>';
-            }
-        } else {
-            nameHtml = '<div class="' + fc + '">' + esc(stripHcp(h.player)) + noteSpan + '</div>';
-        }
-        return '<div class="heater-row">' +
-            '<div style="flex:1;min-width:0">' + nameHtml + '</div>' +
-            '<div class="heater-right">' +
-                '<div class="heater-pts">' + h.points + 'pts</div>' +
-                '<div class="heater-thru">thru ' + h.thru + '</div>' +
+    const TIER_EMOJI = { gold: '⭐', orange: '🔥', red: '😬', blue: '🎯' };
+    const TIER_CSS   = { gold: 'story-name-gold', orange: 'story-name-orange', red: 'story-name-red', blue: 'story-name-blue' };
+
+    const rows = visible.map(s => {
+        const emoji = TIER_EMOJI[s.tier] || '';
+        const css   = TIER_CSS[s.tier]  || 'story-name-blue';
+        const name  = esc(stripHcp(s.player));
+        return '<div class="story-row">' +
+            '<div class="story-left">' +
+                '<div class="story-name ' + css + '">' + name + ' ' + emoji + '</div>' +
+                '<div class="story-title">' + esc(s.title) + '</div>' +
+                '<div class="story-detail">' + esc(s.detail) + '</div>' +
+            '</div>' +
+            '<div class="story-right">' +
+                '<div class="story-pts">' + s.points + 'pts</div>' +
+                '<div class="story-thru">thru ' + s.thru + '</div>' +
             '</div>' +
         '</div>';
     });
-    renderSidePanel('heater-list', rows, 'No recent heaters', 6);
+    renderSidePanel('heater-list', rows, 'Watching the field...', 6);
 }
 
 function renderComingLast(comingLast, holeCount) {
@@ -831,7 +800,7 @@ function onFetchError(msg) {
     if (!_hasData) {
         showNoData('lb-inner', '⛳', 'Waiting for live data',
             'Start the poller:\npython -m miscore.live --serve 8787\n\nThen open:\nleaderboard.html?lb=http://localhost:8787/', msg);
-        showSideEmpty('heater-list', 'Awaiting connection');
+        showSideEmpty('heater-list', 'Watching the field...');
         showSideEmpty('last-list', 'Awaiting connection');
     }
 }
