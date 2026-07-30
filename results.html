@@ -416,7 +416,8 @@ function renderDetail(data) {
     window._scPlayers   = sorted;
     window._scComp      = data.competition;
     window._scHoleCount = holeCount;
-    const ballCount = Math.ceil(sorted.length * 0.4);
+    const isTeamComp = /4bbb|ambrose/i.test(data.competition || '') || /4bbb|ambrose/i.test(data.type || '');
+    const ballCount = isTeamComp ? 0 : Math.ceil(sorted.length * 0.4);
     const BALL_SVG = '<svg width="13" height="13" viewBox="0 0 14 14" style="vertical-align:middle;margin-right:4px;flex-shrink:0" title="Ball winner"><circle cx="7" cy="7" r="6.2" fill="#ffffff" stroke="#b0b0b0" stroke-width="0.8"/><circle cx="5" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="9" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="7" cy="9.2" r="1.1" fill="rgba(0,0,0,0.12)"/></svg>';
     const standEl = document.getElementById('det-standings');
     standEl.innerHTML = sorted.map((p, i) => {
