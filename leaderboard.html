@@ -228,13 +228,13 @@ html, body {
     #root { height: auto; min-height: 100vh; overflow: visible; padding: 10px 12px 8px; gap: 8px; }
     .main { overflow: visible; flex-direction: column; gap: 8px; }
 
-    /* Mobile header: stack comp name on top, clock+date below it smaller */
-    .hdr { display: flex; flex-direction: column; gap: 4px; }
+    /* Mobile header: stack comp name on top centred, clock+date row below */
+    .hdr { display: flex; flex-direction: column; align-items: center; gap: 4px; }
     .hdr-logo { display: none; }
-    .hdr-center { text-align: left; width: 100%; }
+    .hdr-center { text-align: center; width: 100%; }
     .hdr-comp { font-size: 1.45em; letter-spacing: 1px; }
-    .hdr-right { display: flex; align-items: baseline; gap: 10px; text-align: left; }
-    .hdr-clock { font-size: 1.05em; font-weight: normal; color: #7f8c8d; }
+    .hdr-right { display: flex; align-items: baseline; gap: 10px; justify-content: center; }
+    .hdr-clock { font-size: 1.6em; font-weight: bold; color: #27ae60; }
     .hdr-date  { font-size: 0.75em; margin-top: 0; }
 
     .lb-panel { flex: none; height: 55vh; }
@@ -270,8 +270,8 @@ html, body {
 
 @media (max-width: 480px) {
     html, body { font-size: 13px; }
-    .hdr-comp { font-size: 1.3em; }
-    .hdr-clock { font-size: 0.95em; }
+    .hdr-comp { font-size: 1.2em; }
+    .hdr-clock { font-size: 1.35em; }
     .lb-panel { height: 52vh; }
     .side-list { height: 200px; }
     .ftr { font-size: 0.65em; }
@@ -632,10 +632,9 @@ function renderLeaderboard(players, holeCount, started, competition) {
         inner.innerHTML = rowsHtml;
         void inner.offsetHeight; // measure single-copy height first
 
-        const mobile = window.matchMedia('(max-width: 900px)').matches;
-        const clipH  = clip ? clip.clientHeight : window.innerHeight;
+        const clipH = clip ? clip.clientHeight : window.innerHeight;
 
-        if (!mobile && inner.scrollHeight > clipH) {
+        if (inner.scrollHeight > clipH) {
             inner.innerHTML = rowsHtml + rowsHtml; // duplicate only when content overflows
             void inner.offsetHeight; // force reflow so animation restarts cleanly
             const dur = Math.max(90, active.length * 0.85);
@@ -676,8 +675,7 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     }
     const html = rows.join('');
     inner.classList.remove('scrolling');
-    const mobile = window.matchMedia('(max-width: 900px)').matches;
-    if (!mobile && rows.length >= minForScroll) {
+    if (rows.length >= minForScroll) {
         inner.innerHTML = html + html; // duplicate for seamless loop
         void inner.offsetHeight;
         const dur = Math.max(15, rows.length * 2.5);
