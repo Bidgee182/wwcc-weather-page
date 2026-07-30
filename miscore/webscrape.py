@@ -82,11 +82,21 @@ def _parse_holes(page: str) -> list[dict]:
         current: dict | None = None
         for label, vals in labeled:
             if label == "hole":
-                current = {"hole_cols": [], "par": [], "strokes": [], "score": []}
+                hole_cols = []
+                hole_nums = []
                 for i, v in enumerate(vals):
                     if re.fullmatch(r"\d+", v) and 1 <= int(v) <= 18:
-                        current["hole_cols"].append((i, int(v)))
-                nines.append(current)
+                        hole_cols.append((i, int(v)))
+                        hole_nums.append(int(v))
+                # 4BBB scorecards have two full player sections; if these holes
+                # were already parsed, reuse that nine so data merges into
+                # strokes2/score2 rather than creating duplicate hole entries.
+                existing = next((n for n in nines if [h for _, h in n["hole_cols"]] == hole_nums), None)
+                if existing:
+                    current = existing
+                else:
+                    current = {"hole_cols": hole_cols, "par": [], "strokes": [], "score": []}
+                    nines.append(current)
             elif current is not None and label in ("par", "strokes", "score"):
                 col_set = {i for i, _ in current["hole_cols"]}
                 extracted = []
@@ -139,8 +149,16 @@ def _parse_holes(page: str) -> list[dict]:
         cur: dict | None = None
         for label, vals in labeled:
             if label == "par":
-                cur = {"par": vals, "strokes": [], "score": []}
-                nines_pos.append(cur)
+                # 4BBB scorecards have two full player sections with repeated par rows.
+                # If these exact par values were already seen, reuse that nine so
+                # subsequent strokes/score rows merge into strokes2/score2 rather
+                # than creating duplicate hole entries.
+                existing = next((n for n in nines_pos if n["par"] == vals), None)
+                if existing:
+                    cur = existing
+                else:
+                    cur = {"par": vals, "strokes": [], "score": []}
+                    nines_pos.append(cur)
             elif cur is not None and label in ("strokes", "score"):
                 # 4BBB scorecards have two strokes rows and two score rows (one per player)
                 if label == "strokes" and cur["strokes"]:

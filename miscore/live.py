@@ -104,15 +104,12 @@ def _played(holes: list[dict]) -> list[dict]:
 
 
 def _thru(holes: list[dict]) -> int:
-    # Use the last hole index that has ANY data, not just len(played).
-    # Stableford pickups (no return) show as strokes=None, points=None in MiClub
-    # but the player DID play the hole. If later holes have data, the blank must
-    # be a pickup, so count up to the last hole with any real data.
-    last = -1
-    for i, h in enumerate(holes):
-        if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int):
-            last = i
-    return last + 1 if last >= 0 else 0
+    # Count holes that have any recorded data.  Using last-index would give
+    # wildly wrong results for shotgun starts (a team starting hole 17 that
+    # has played 2 holes would show thru=18).  The trade-off: a stableford
+    # pickup (strokes=None, points=None) is not counted, so thru may be 1
+    # short when a player picks up - acceptable vs the shotgun alternative.
+    return sum(1 for h in holes if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int))
 
 
 def _course_shape(page: str) -> tuple[int, int]:

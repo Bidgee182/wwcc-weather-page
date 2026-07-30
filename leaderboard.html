@@ -81,8 +81,15 @@ html, body {
 .col-hdr-thru { text-align: right; }
 
 .lb-scroll-clip {
+    flex: 1; display: flex; flex-direction: column; position: relative;
+    transition: opacity 0.25s ease; overflow: hidden;
+}
+#lb-top3 {
+    flex-shrink: 0;
+    border-bottom: 2px solid rgba(39,174,96,0.35);
+}
+.lb-rest-clip {
     flex: 1; overflow: hidden; position: relative;
-    transition: opacity 0.25s ease;
 }
 .lb-scroll-inner { width: 100%; }
 
@@ -323,10 +330,13 @@ html, body {
         </div>
       </div>
       <div class="lb-scroll-clip" id="lb-clip">
-        <div class="lb-scroll-inner" id="lb-inner">
-          <div class="no-data-msg">
-            <div class="no-data-icon">⛳</div>
-            <div class="no-data-title">Loading leaderboard...</div>
+        <div id="lb-top3"></div>
+        <div class="lb-rest-clip" id="lb-rest-clip">
+          <div class="lb-scroll-inner" id="lb-inner">
+            <div class="no-data-msg">
+              <div class="no-data-icon">⛳</div>
+              <div class="no-data-title">Loading leaderboard...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -577,8 +587,10 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition) {
 
 // ── Leaderboard ───────────────────────────────────────────────────
 function renderLeaderboard(players, holeCount, started, competition) {
-    const clip  = document.getElementById('lb-clip');
-    const inner = document.getElementById('lb-inner');
+    const clip     = document.getElementById('lb-clip');
+    const top3El   = document.getElementById('lb-top3');
+    const restClip = document.getElementById('lb-rest-clip');
+    const inner    = document.getElementById('lb-inner');
     if (!inner) return;
 
     // Only show players who have actually teed off
@@ -588,6 +600,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
     const grades = computeGrades(players);
 
     if (!active.length) {
+        if (top3El) top3El.innerHTML = '';
         inner.classList.remove('scrolling');
         const compLine = competition ? '<div class="no-data-comp">' + esc(competition) + '</div>' : '';
         inner.innerHTML = started
@@ -597,8 +610,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
         return;
     }
 
-    const rowsHtml = active.map((p, idx) => {
-        // Re-rank among active players only
+    function buildRow(p, idx) {
         p = { ...p, liveRank: idx + 1 };
         const rank = p.liveRank || 0;
         let rankHtml, rankCls = 'r-rank';
@@ -607,7 +619,6 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else if (rank === 2 && enoughHoles) { rankHtml = '🥈'; rankCls += ' silver'; }
         else if (rank === 3 && enoughHoles) { rankHtml = '🥉'; rankCls += ' bronze'; }
         else                                { rankHtml = rank; }
-
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
@@ -623,21 +634,32 @@ function renderLeaderboard(players, holeCount, started, competition) {
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
-    }).join('') + '<div class="lb-gap"></div>';
+    }
+
+    const podium = active.slice(0, 3);
+    const field  = active.slice(3);
+
+    const top3Html = podium.map((p, i) => buildRow(p, i)).join('');
+    const restHtml = field.map((p, i) => buildRow(p, i + 3)).join('') +
+                     (field.length ? '<div class="lb-gap"></div>' : '');
 
     // Fade out briefly, rebuild DOM, restart animation, fade in
     if (clip) clip.style.opacity = '0';
     setTimeout(() => {
+        // Pinned podium - always static
+        if (top3El) top3El.innerHTML = top3Html;
+
+        // Scrolling field (positions 4+)
         inner.classList.remove('scrolling');
-        inner.innerHTML = rowsHtml;
+        inner.innerHTML = restHtml;
         void inner.offsetHeight; // measure single-copy height first
 
-        const clipH = clip ? clip.clientHeight : window.innerHeight;
+        const clipH = restClip ? restClip.clientHeight : window.innerHeight;
 
-        if (inner.scrollHeight > clipH) {
-            inner.innerHTML = rowsHtml + rowsHtml; // duplicate only when content overflows
-            void inner.offsetHeight; // force reflow so animation restarts cleanly
-            const dur = Math.max(90, active.length * 0.85);
+        if (field.length && inner.scrollHeight > clipH) {
+            inner.innerHTML = restHtml + restHtml; // duplicate only when content overflows
+            void inner.offsetHeight;
+            const dur = Math.max(90, field.length * 0.85);
             inner.style.animationDuration = dur + 's';
             inner.classList.add('scrolling');
             _animRunning = true;
@@ -790,6 +812,7 @@ function showNoData(id, icon, title, sub, err) {
     if (!el) return;
     el.classList.remove('scrolling');
     _animRunning = false;
+    if (id === 'lb-inner') { const t = document.getElementById('lb-top3'); if (t) t.innerHTML = ''; }
     el.innerHTML =
         '<div class="no-data-msg">' +
             '<div class="no-data-icon">' + icon + '</div>' +
