@@ -160,6 +160,30 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
+// ── Countback (GA method: back9 -> back6 -> back3 -> hole by hole) ──
+// Uses holePoints array (compact per-hole pts saved in archive from today forward).
+// Falls back gracefully to no tiebreak if holePoints absent (older archives).
+function countbackCompare(a, b, holeCount) {
+    const aFin = a.thru >= holeCount;
+    const bFin = b.thru >= holeCount;
+    if (!aFin && !bFin) return 0;
+    if (!aFin) return 1;
+    if (!bFin) return -1;
+    const ah = a.holePoints || [];
+    const bh = b.holePoints || [];
+    if (!ah.length && !bh.length) return 0;
+    const sliceSum = (arr, n) => arr.slice(-n).reduce((s, v) => s + (v || 0), 0);
+    for (const n of [9, 6, 3]) {
+        const d = sliceSum(bh, n) - sliceSum(ah, n);
+        if (d !== 0) return d;
+    }
+    for (let i = Math.max(ah.length, bh.length) - 1; i >= 0; i--) {
+        const d = (bh[i] || 0) - (ah[i] || 0);
+        if (d !== 0) return d;
+    }
+    return 0;
+}
+
 // ── Grade computation (mirrors leaderboard.html) ──────────────────
 function computeGrades(players) {
     const withHcp = players.filter(p => p.hcp != null).sort((a, b) => a.hcp - b.hcp);
@@ -251,17 +275,26 @@ function renderDetail(data) {
             const g = playerGrade(p.hcp, grades);
             if (g) byGrade[g].push(p);
         });
-        ['A','B','C'].forEach(g => byGrade[g].sort((a,b) => b.points - a.points));
+        ['A','B','C'].forEach(g => byGrade[g].sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            const cb = countbackCompare(a, b, holeCount);
+            return cb !== 0 ? cb : a.player.localeCompare(b.player);
+        }));
 
         const blockHtml = g => {
-            const top = byGrade[g].slice(0, 3);
+            const all = byGrade[g];
+            const top = all.slice(0, 3);
             if (!top.length) return '<div class="grade-label">' + g + ' Grade</div><div style="color:#4a6a84;font-size:0.8em">-</div>';
             return '<div class="grade-label">' + g + ' Grade</div>' +
-                top.map((p, i) =>
-                    '<div class="grade-winner"><span class="grade-medal">' + medals[i] + '</span>' +
-                    '<span class="grade-wname">' + esc(p.player.trim()) + '</span>' +
-                    '<span class="grade-wpts">' + p.points + 'pts</span></div>'
-                ).join('');
+                top.map((p, i) => {
+                    const nextPts = (all[i + 1] || {}).points;
+                    const usedCB = (p.points === nextPts || (i > 0 && p.points === top[i - 1].points))
+                        && p.thru >= holeCount && (p.holePoints || []).length > 0;
+                    const cbMark = usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
+                    return '<div class="grade-winner"><span class="grade-medal">' + medals[i] + cbMark + '</span>' +
+                        '<span class="grade-wname">' + esc(p.player.trim()) + '</span>' +
+                        '<span class="grade-wpts">' + p.points + 'pts</span></div>';
+                }).join('');
         };
 
         gradeEl.innerHTML = '<div class="grade-title">Grade Winners</div>' +
@@ -273,15 +306,28 @@ function renderDetail(data) {
     }
 
     // ── Standings ──
-    const sorted = [...players].sort((a,b) => b.points - a.points);
+    const sorted = [...players].sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        const cb = countbackCompare(a, b, holeCount);
+        return cb !== 0 ? cb : a.player.localeCompare(b.player);
+    });
+    // Flag every position where countback broke a tie
+    const cbFlags = sorted.map((p, i) => {
+        if (p.thru < holeCount || !(p.holePoints || []).length) return false;
+        const prev = sorted[i - 1];
+        const next = sorted[i + 1];
+        return (prev && prev.points === p.points && prev.thru >= holeCount) ||
+               (next && next.points === p.points && next.thru >= holeCount);
+    });
     const standEl = document.getElementById('det-standings');
     standEl.innerHTML = sorted.map((p, i) => {
         const rank = i + 1;
+        const cbMark = cbFlags[i] ? '<sup style="font-size:0.5em;color:#f39c12;vertical-align:super;font-weight:normal">CB</sup>' : '';
         let rankHtml;
-        if      (rank === 1) rankHtml = '🥇';
-        else if (rank === 2) rankHtml = '🥈';
-        else if (rank === 3) rankHtml = '🥉';
-        else                 rankHtml = rank;
+        if      (rank === 1) rankHtml = '🥇' + cbMark;
+        else if (rank === 2) rankHtml = '🥈' + cbMark;
+        else if (rank === 3) rankHtml = '🥉' + cbMark;
+        else                 rankHtml = rank + cbMark;
         const g = playerGrade(p.hcp, grades);
         const badge = g ? '<span class="grade-badge gb-' + g.toLowerCase() + '">' + g + '</span>' : '';
         const hcpTag = p.hcp != null ? '<span class="s-hcp"> [' + fmtHcp(p.hcp) + ']</span>' : '';
