@@ -259,11 +259,13 @@ html, body {
     .heater-row { padding: 5px 0; }
     .last-row   { padding: 5px 0; }
 
-    /* Leaderboard: allow team names to wrap rather than truncate */
-    .r-name { white-space: normal; overflow: visible; }
+    /* Leaderboard: allow team names to wrap and reduce font size */
+    .r-name { white-space: normal; overflow: visible; font-size: 1.15em; }
 
-    /* Heater: replace flash animation with static red so scorer is obvious on small screen */
+    /* Heater: static red, smaller scorer name */
     .heater-name-flash { animation: none; color: #e74c3c; }
+    .heater-name { font-size: 1.1em; }
+    .heater-partner { font-size: 0.95em; }
 }
 
 @media (max-width: 480px) {
