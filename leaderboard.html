@@ -255,6 +255,12 @@ html, body {
     .side-title-bar { padding: 5px 10px; font-size: 0.72em; }
     .heater-row { padding: 5px 0; }
     .last-row   { padding: 5px 0; }
+
+    /* Leaderboard: allow team names to wrap rather than truncate */
+    .r-name { white-space: normal; overflow: visible; }
+
+    /* Heater: replace flash animation with static red so scorer is obvious on small screen */
+    .heater-name-flash { animation: none; color: #e74c3c; }
 }
 
 @media (max-width: 480px) {
@@ -692,10 +698,12 @@ function renderHeaters(heaters) {
             // scorerIdx 0 = first player, 1 = second player, null = unknown (flash first)
             const scorer = h.scorerIdx;
             if (scorer === 1) {
+                // Second player scored: first is partner (grey), second flashes
                 nameHtml =
-                    '<div class="heater-name">' + n0 + '</div>' +
+                    '<div class="heater-partner">' + n0 + '</div>' +
                     '<div class="heater-name heater-name-flash">' + n1 + noteSpan + '</div>';
             } else {
+                // First player scored (or unknown): first flashes, second is partner (grey)
                 nameHtml =
                     '<div class="heater-name heater-name-flash">' + n0 + noteSpan + '</div>' +
                     '<div class="heater-partner">' + n1 + '</div>';
