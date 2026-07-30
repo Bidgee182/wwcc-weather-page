@@ -380,6 +380,9 @@ const REFRESH_SEC = 15;
 let _countdown    = REFRESH_SEC;
 let _hasData      = false;
 let _animRunning  = false;
+let _pendingData  = null;  // new data buffered until scroll cycle ends
+let _lbAnimDurMs  = 0;    // current scroll cycle duration (ms)
+let _forceTimer   = null; // fallback: force-apply if animationiteration is slow
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -416,10 +419,15 @@ async function fetchData() {
             _hasData = true;
             render(data);
         } else {
-            // Update everything immediately - no animation buffer
+            // Buffer leaderboard rebuild until scroll completes full cycle -
+            // users see every player before the list refreshes with new data.
+            // Side panels update immediately so stories/header stay live.
+            _pendingData = data;
+            if (_forceTimer) clearTimeout(_forceTimer);
+            // Safety net: force-apply after one full cycle + 10s buffer
+            _forceTimer = setTimeout(_applyPending, Math.max(60000, _lbAnimDurMs + 10000));
             updateHeader(data);
             setBlueBallVisible(data.date);
-            renderLeaderboard(data.players || [], data.holeCount || 18, data.started || false, data.competition || '');
             renderStories(data.stories || []);
             renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
@@ -429,7 +437,15 @@ async function fetchData() {
     }
 }
 
-// (animation-buffering removed - leaderboard updates immediately on each fetch)
+// Apply buffered leaderboard data at the natural scroll loop point (last player scrolls off)
+function _applyPending() {
+    if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
+    const d = _pendingData;
+    if (!d) return;
+    _pendingData = null;
+    renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
+}
+document.getElementById('lb-inner').addEventListener('animationiteration', _applyPending);
 
 // ── Full render (first load) ──────────────────────────────────────
 function render(d) {
@@ -685,6 +701,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
             inner.style.animationDuration = dur + 's';
             inner.classList.add('scrolling');
             _animRunning = true;
+            _lbAnimDurMs = dur * 1000; // used by fetch buffer to set fallback timer
         } else {
             _animRunning = false;
         }
