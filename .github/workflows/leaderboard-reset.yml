@@ -49,7 +49,12 @@ jobs:
               def slim_player(p):
                   d = {k: v for k, v in p.items() if k not in ("holes", "last")}
                   if p.get("holes"):
-                      d["holePoints"] = [h.get("points") for h in p["holes"]]
+                      d["holePoints"]  = [h.get("points")  for h in p["holes"]]
+                      d["holePars"]    = [h.get("par")     for h in p["holes"]]
+                      d["holeStrokes"] = [h.get("strokes") for h in p["holes"]]
+                      s2s = [h.get("strokes2") for h in p["holes"]]
+                      if any(s is not None for s in s2s):
+                          d["holeStrokes2"] = s2s
                   return d
 
               slim = {k: v for k, v in data.items() if k not in ("events",)}

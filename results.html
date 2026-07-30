@@ -81,11 +81,34 @@ html, body {
 .standings-hdr span:nth-child(3), .standings-hdr span:nth-child(4) { text-align: right; }
 .s-row {
     display: grid; grid-template-columns: 2.5em 1fr 3.5em 3em;
-    padding: 7px 12px; border-bottom: 1px solid rgba(30,58,90,0.5);
-    align-items: center; font-size: 0.9em;
+    padding: 7px 12px; align-items: center; font-size: 0.9em;
 }
-.s-row:last-child { border-bottom: none; }
 .s-row.top3 { background: rgba(241,196,15,0.06); }
+.s-player-wrap { border-bottom: 1px solid rgba(30,58,90,0.5); }
+.s-player-wrap:last-child { border-bottom: none; }
+.s-player-wrap .s-row { cursor: pointer; transition: background 0.15s; }
+.s-player-wrap .s-row.no-card { cursor: default; }
+.s-player-wrap .s-row:not(.no-card):hover { background: rgba(255,255,255,0.05); }
+.sc-chevron { font-size: 0.58em; color: #4a6a84; margin-left: 5px; display: inline-block; transition: transform 0.2s; vertical-align: middle; }
+.sc-chevron.open { transform: rotate(90deg); }
+.sc-outer { display: none; border-top: 1px solid #1a3a5a; }
+.sc-wrap { overflow-x: auto; padding: 6px 4px 4px; }
+.sc-table { border-collapse: collapse; font-size: 0.76em; font-variant-numeric: tabular-nums; }
+.sc-table td { padding: 3px 6px; text-align: center; white-space: nowrap; color: #ecf0f1; }
+.sc-hdr td { background: #082418; color: #fff; font-weight: 700; padding: 5px 6px; }
+.sc-par td { color: #7f8c8d; }
+.sc-row-label td:first-child { text-align: left; color: #4a6a84; font-size: 0.85em; min-width: 3.2em; }
+.sc-pts-row td { color: #bdc3c7; }
+.sc-nett-row td { color: #637074; }
+.sc-total { font-weight: 700 !important; color: #f1c40f !important; }
+.score-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 6px; font-weight: 700;
+    font-size: 0.92em; border: 1px solid rgba(0,0,0,0.18);
+}
+.sc-legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 6px 10px; }
+.sc-leg-item { display: flex; align-items: center; gap: 4px; font-size: 0.66em; color: #7f8c8d; }
+.sc-leg-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.12); }
 .s-rank { font-size: 1.05em; }
 .s-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .s-hcp  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
@@ -182,6 +205,67 @@ function countbackCompare(a, b, holeCount) {
         if (d !== 0) return d;
     }
     return 0;
+}
+
+// ── WWCC Course (par 71, hole 20 = temp cover for hole 18) ────────
+const WWCC_HOLES = [
+    {hole:1,  par:4, mensSI:5,  womensSI:1},
+    {hole:2,  par:3, mensSI:17, womensSI:16},
+    {hole:3,  par:5, mensSI:9,  womensSI:6},
+    {hole:4,  par:4, mensSI:11, womensSI:5},
+    {hole:5,  par:4, mensSI:1,  womensSI:13},
+    {hole:6,  par:5, mensSI:15, womensSI:14},
+    {hole:7,  par:3, mensSI:13, womensSI:18},
+    {hole:8,  par:4, mensSI:3,  womensSI:8},
+    {hole:9,  par:4, mensSI:7,  womensSI:3},
+    {hole:10, par:3, mensSI:4,  womensSI:15},
+    {hole:11, par:4, mensSI:12, womensSI:7},
+    {hole:12, par:5, mensSI:16, womensSI:11},
+    {hole:13, par:4, mensSI:10, womensSI:10},
+    {hole:14, par:3, mensSI:14, womensSI:17},
+    {hole:15, par:5, mensSI:6,  womensSI:2},
+    {hole:16, par:5, mensSI:18, womensSI:4},
+    {hole:17, par:3, mensSI:2,  womensSI:9},
+    {hole:18, par:3, mensSI:8,  womensSI:12},
+];
+
+function detectGender(comp) {
+    const c = (comp || '').toLowerCase();
+    return (c.includes('women') || c.includes('ladies')) ? 'women' : 'men';
+}
+
+function scoreColour(gross, par) {
+    if (gross == null || par == null) return null;
+    const d = gross - par;
+    if (d <= -2) return {bg:'#f5c518', tx:'#3d2f00'};
+    if (d === -1) return {bg:'#7dd3fc', tx:'#0b3a52'};
+    if (d ===  0) return {bg:'#ffffff', tx:'#1c2620'};
+    if (d ===  1) return {bg:'#f59e42', tx:'#3a1d00'};
+    return            {bg:'#f2a89c', tx:'#5a1810'};
+}
+
+// Detect which nine from par pattern (back nine = 3,4,5,4,3,5,5,3,3)
+function detectNine(pars) {
+    const BACK = [3,4,5,4,3,5,5,3,3];
+    return (pars || []).length === 9 && pars.every((p,i) => p === BACK[i]) ? 'back' : 'front';
+}
+
+// Strokes received on a hole. For 9-hole: re-rank SI within the nine played.
+function strokesReceived(hcp, courseIdx, gender, isNine, nineIdxs) {
+    if (hcp == null) return 0;
+    const ch = WWCC_HOLES[courseIdx];
+    if (!ch) return 0;
+    const si = gender === 'women' ? ch.womensSI : ch.mensSI;
+    if (!isNine) {
+        const base = Math.floor(hcp / 18), extra = hcp % 18;
+        return base + (si <= extra ? 1 : 0);
+    }
+    const nineSIs = (nineIdxs || []).map(ci => {
+        const h = WWCC_HOLES[ci]; return h ? (gender === 'women' ? h.womensSI : h.mensSI) : 99;
+    });
+    const rank = [...nineSIs].sort((a,b) => a - b).indexOf(si) + 1;
+    const base = Math.floor(hcp / 9), extra = hcp % 9;
+    return base + (rank <= extra ? 1 : 0);
 }
 
 // ── Grade computation (mirrors leaderboard.html) ──────────────────
@@ -319,6 +403,10 @@ function renderDetail(data) {
         return (prev && prev.points === p.points && prev.thru >= holeCount) ||
                (next && next.points === p.points && next.thru >= holeCount);
     });
+    // Store for scorecard lookups
+    window._scPlayers   = sorted;
+    window._scComp      = data.competition;
+    window._scHoleCount = holeCount;
     const standEl = document.getElementById('det-standings');
     standEl.innerHTML = sorted.map((p, i) => {
         const rank = i + 1;
@@ -334,11 +422,17 @@ function renderDetail(data) {
         const fin = p.thru >= holeCount;
         const thruTxt = fin ? 'F' : p.thru || '-';
         const thruCls = fin ? 's-fin' : 's-nf';
-        return '<div class="s-row' + (rank <= 3 ? ' top3' : '') + '">' +
+        const hasCard = (p.holeStrokes || []).length > 0;
+        const chev = hasCard ? ' <span class="sc-chevron">&#9654;</span>' : '';
+        const rowClick = hasCard ? ' onclick="toggleScorecard(this,' + i + ')"' : '';
+        return '<div class="s-player-wrap">' +
+            '<div class="s-row' + (rank <= 3 ? ' top3' : '') + (hasCard ? '' : ' no-card') + '"' + rowClick + '>' +
             '<span class="s-rank">' + rankHtml + '</span>' +
-            '<span class="s-name">' + esc(p.player.trim()) + hcpTag + badge + '</span>' +
+            '<span class="s-name">' + esc(p.player.trim()) + hcpTag + badge + chev + '</span>' +
             '<span class="s-pts">' + p.points + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
+            '</div>' +
+            '<div id="sc-' + i + '" class="sc-outer"></div>' +
             '</div>';
     }).join('');
 }
@@ -346,6 +440,131 @@ function renderDetail(data) {
 function showList() {
     document.getElementById('detail').style.display = 'none';
     document.getElementById('list-view').style.display = 'block';
+}
+
+// ── Scorecard expand / collapse ───────────────────────────────────
+function toggleScorecard(rowEl, idx) {
+    const outer = document.getElementById('sc-' + idx);
+    const chev  = rowEl.querySelector('.sc-chevron');
+    if (!outer) return;
+    const opening = outer.style.display !== 'block';
+    if (opening) {
+        if (!outer.innerHTML) {
+            outer.innerHTML = buildScorecard(window._scPlayers[idx], window._scComp, window._scHoleCount);
+        }
+        outer.style.display = 'block';
+        if (chev) chev.classList.add('open');
+    } else {
+        outer.style.display = 'none';
+        if (chev) chev.classList.remove('open');
+    }
+}
+
+function buildScorecard(player, comp, holeCount) {
+    const strokes  = player.holeStrokes  || [];
+    const strokes2 = player.holeStrokes2 || null;
+    const points   = player.holePoints   || [];
+    const pars     = player.holePars     || [];
+    const hcp      = player.hcp;
+    const isTeam   = !!strokes2;
+    const n        = Math.max(strokes.length, points.length, pars.length);
+
+    if (!strokes.length && !pars.length) {
+        return '<div style="padding:10px 10px 14px;font-size:0.8em;color:#4a6a84">' +
+            'Hole-by-hole data is saved from the next competition onwards.' +
+            '</div>';
+    }
+
+    const gender     = detectGender(comp);
+    const isNine     = n <= 9;
+    const nine       = isNine ? detectNine(pars) : null;
+    const courseIdxs = isNine
+        ? (nine === 'back' ? [9,10,11,12,13,14,15,16,17] : [0,1,2,3,4,5,6,7,8])
+        : Array.from({length: n}, (_, i) => i);
+    const holeNums = courseIdxs.map(i => WWCC_HOLES[i] ? WWCC_HOLES[i].hole : i + 1);
+
+    // For 4BBB use first-name labels
+    const names   = isTeam ? player.player.split(' & ') : [];
+    const p1Label = isTeam ? (names[0] || 'P1').split(' ')[0] : 'Score';
+    const p2Label = isTeam ? (names[1] || 'P2').split(' ')[0] : '';
+
+    function half(start, len, label) {
+        if (len <= 0) return '';
+        const idxs  = Array.from({length: len}, (_, k) => start + k);
+        const sumPar = idxs.reduce((s, i) => s + (pars[i]    || 0), 0);
+        const sumPts = idxs.reduce((s, i) => s + (points[i]  || 0), 0);
+        const sumS1  = idxs.reduce((s, i) => s + (strokes[i]  != null ? strokes[i]  : 0), 0);
+        const sumS2  = isTeam ? idxs.reduce((s, i) => s + (strokes2[i] != null ? strokes2[i] : 0), 0) : null;
+        const anyS1  = idxs.some(i => strokes[i]  != null);
+        const anyS2  = isTeam && idxs.some(i => strokes2[i] != null);
+
+        let h = '<table class="sc-table"><tbody>';
+
+        // Hole header
+        h += '<tr class="sc-hdr sc-row-label"><td>' + label + '</td>';
+        idxs.forEach(i => { h += '<td>' + holeNums[i] + '</td>'; });
+        h += '<td>' + label + '</td></tr>';
+
+        // Par
+        h += '<tr class="sc-par sc-row-label"><td>Par</td>';
+        idxs.forEach(i => { h += '<td>' + (pars[i] != null ? pars[i] : '-') + '</td>'; });
+        h += '<td class="sc-total">' + sumPar + '</td></tr>';
+
+        // Score row P1 (or solo player)
+        h += '<tr class="sc-row-label"><td>' + p1Label + '</td>';
+        idxs.forEach(i => {
+            const g = strokes[i], p = pars[i];
+            if (g == null) { h += '<td style="color:#4a6a84">-</td>'; return; }
+            const col = scoreColour(g, p);
+            h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
+        });
+        h += '<td class="sc-total">' + (anyS1 ? sumS1 : '-') + '</td></tr>';
+
+        // Score row P2 (4BBB only)
+        if (isTeam) {
+            h += '<tr class="sc-row-label"><td>' + p2Label + '</td>';
+            idxs.forEach(i => {
+                const g = strokes2[i], p = pars[i];
+                if (g == null) { h += '<td style="color:#4a6a84">-</td>'; return; }
+                const col = scoreColour(g, p);
+                h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
+            });
+            h += '<td class="sc-total">' + (anyS2 ? sumS2 : '-') + '</td></tr>';
+        }
+
+        // Stableford points
+        h += '<tr class="sc-pts-row sc-row-label"><td>Pts</td>';
+        idxs.forEach(i => { h += '<td>' + (points[i] != null ? points[i] : '-') + '</td>'; });
+        h += '<td class="sc-total">' + sumPts + '</td></tr>';
+
+        // Nett (individual only, when hcp is known)
+        if (!isTeam && hcp != null) {
+            h += '<tr class="sc-nett-row sc-row-label"><td>Nett</td>';
+            idxs.forEach(i => {
+                const g = strokes[i], p = pars[i];
+                if (g == null) { h += '<td>-</td>'; return; }
+                const recv = strokesReceived(hcp, courseIdxs[i], gender, isNine, isNine ? courseIdxs : null);
+                h += '<td>' + (g - recv) + '</td>';
+            });
+            h += '<td>-</td></tr>';
+        }
+
+        h += '</tbody></table>';
+        return h;
+    }
+
+    const frontN = Math.min(9, n);
+    const backN  = n > 9 ? n - 9 : 0;
+
+    const legend = '<div class="sc-legend">' +
+        [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#f2a89c','Double+']]
+        .map(([bg, lbl]) => '<div class="sc-leg-item"><div class="sc-leg-dot" style="background:' + bg + '"></div>' + lbl + '</div>')
+        .join('') + '</div>';
+
+    return '<div class="sc-wrap">' +
+        half(0, frontN, 'Out') +
+        (backN > 0 ? '<div style="margin-top:6px">' + half(9, backN, 'In') + '</div>' : '') +
+        '</div>' + legend;
 }
 
 loadIndex();
