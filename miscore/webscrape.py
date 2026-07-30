@@ -93,9 +93,11 @@ def _parse_holes(page: str) -> list[dict]:
                 for i, v in enumerate(vals):
                     if i in col_set:
                         extracted.append(int(v) if re.fullmatch(r"\d+", v) else None)
-                # 4BBB scorecards have two strokes rows (one per player) - keep both
+                # 4BBB scorecards have two strokes rows and two score rows (one per player)
                 if label == "strokes" and current["strokes"]:
                     current["strokes2"] = extracted
+                elif label == "score" and current["score"]:
+                    current["score2"] = extracted
                 else:
                     current[label] = extracted
 
@@ -106,13 +108,18 @@ def _parse_holes(page: str) -> list[dict]:
             strokes  = nine.get("strokes",  [])
             strokes2 = nine.get("strokes2", [])
             points   = nine.get("score",    [])
+            points2  = nine.get("score2",   [])
             for i, hole in enumerate(holes):
+                p1 = points[i]  if i < len(points)  else None
+                p2 = points2[i] if i < len(points2) else None
+                # 4BBB: take better score per hole; single-player: p2 is absent
+                pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 result.append({
                     "hole":     hole,
                     "par":      pars[i]     if i < len(pars)     else None,
                     "strokes":  strokes[i]  if i < len(strokes)  else None,
                     "strokes2": strokes2[i] if i < len(strokes2) else None,
-                    "points":   points[i]   if i < len(points)   else None,
+                    "points":   pts,
                 })
         return result
 
@@ -135,9 +142,11 @@ def _parse_holes(page: str) -> list[dict]:
                 cur = {"par": vals, "strokes": [], "score": []}
                 nines_pos.append(cur)
             elif cur is not None and label in ("strokes", "score"):
-                # 4BBB scorecards have two strokes rows (one per player) - keep both
+                # 4BBB scorecards have two strokes rows and two score rows (one per player)
                 if label == "strokes" and cur["strokes"]:
                     cur["strokes2"] = vals
+                elif label == "score" and cur["score"]:
+                    cur["score2"] = vals
                 else:
                     cur[label] = vals
 
@@ -148,13 +157,17 @@ def _parse_holes(page: str) -> list[dict]:
             strokes  = _nine_vals(nine.get("strokes",  []))
             strokes2 = _nine_vals(nine.get("strokes2", []))
             points   = _nine_vals(nine.get("score",    []))
+            points2  = _nine_vals(nine.get("score2",   []))
             for i in range(len(pars)):
+                p1 = points[i]  if i < len(points)  else None
+                p2 = points2[i] if i < len(points2) else None
+                pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 out.append({
                     "hole":     hole_num,
                     "par":      pars[i]     if i < len(pars)     else None,
                     "strokes":  strokes[i]  if i < len(strokes)  else None,
                     "strokes2": strokes2[i] if i < len(strokes2) else None,
-                    "points":   points[i]   if i < len(points)   else None,
+                    "points":   pts,
                 })
                 hole_num += 1
         return out
