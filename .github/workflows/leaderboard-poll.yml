@@ -84,11 +84,11 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
 
-      - name: Poll and commit (5 rounds, ~1 min apart)
+      - name: Poll and commit (8 rounds, ~20s apart)
         if: steps.window.outputs.within == 'true'
         run: |
-          for i in 1 2 3 4 5; do
-            echo "=== Poll $i/5 at $(date -u +%H:%M:%S) ==="
+          for i in 1 2 3 4 5 6 7 8; do
+            echo "=== Poll $i/8 at $(date -u +%H:%M:%S) ==="
             python -m miscore.live --once
 
             git add out/live-leaderboard.json
@@ -107,12 +107,12 @@ jobs:
               fi
             fi
 
-            # Queue next chain after poll 2 so it is waiting the moment this run ends
-            if [ "$i" -eq 2 ]; then
+            # Queue next chain after poll 1 so it starts as soon as this run ends
+            if [ "$i" -eq 1 ]; then
               gh workflow run leaderboard-poll.yml --ref main \
                 && echo "Next chain queued at poll $i" \
                 || echo "Chain dispatch failed (non-fatal)"
             fi
 
-            if [ "$i" -lt 5 ]; then sleep 55; fi
+            if [ "$i" -lt 8 ]; then sleep 20; fi
           done
