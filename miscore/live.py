@@ -104,19 +104,14 @@ def _played(holes: list[dict]) -> list[dict]:
 
 
 def _thru(holes: list[dict]) -> int:
-    # Use last-index approach: walk to the last hole that has any data and
-    # return index+1.  This correctly counts pickups (strokes=None, points=None)
-    # as played because they appear between two holes that DO have data.
-    # With 4BBB deduplication in place, the holes list is at most 18 entries,
-    # so this will never return more than 18.
-    # Limitation: for mid-round shotgun starts this may overcount (a team that
-    # starts hole 17 and plays 2 holes shows last-index=17 → thru=18), but
-    # finished rounds are always correct.
-    last = -1
-    for i, h in enumerate(holes):
+    # Count holes with scores entered (strokes or points present).
+    # Never use hole number / index - shotgun starts mean a player on hole 10
+    # has index 9 but has only played 1 hole.
+    count = 0
+    for h in holes:
         if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int):
-            last = i
-    return last + 1 if last >= 0 else 0
+            count += 1
+    return count
 
 
 def _course_shape(page: str) -> tuple[int, int]:
