@@ -63,8 +63,7 @@ def _parse_holes(page: str) -> list[dict]:
             _html.unescape(re.sub(r"<[^>]+>", " ", c)).strip()
             for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", m.group(1))
         ]
-        cells = [c for c in cells if c]
-        if not cells:
+        if not any(cells):  # skip rows that are entirely empty
             continue
         label = cells[0].lower().strip()
         if label in ("hole", "par", "strokes", "score"):
