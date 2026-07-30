@@ -470,7 +470,17 @@ function updateHeader(d) {
     if (d.type) meta.push(d.type);
     if (hc)     meta.push(hc + ' holes');
     if (d.par)  meta.push('Par ' + d.par);
-    if (players.length) meta.push(players.length + ' players');
+    if (players.length) {
+        // Detect team events: team entries have hcp=null and names joined with " & "
+        const first = players[0];
+        const teamSize = (first && first.hcp == null && first.player && first.player.includes(' & '))
+            ? first.player.split(' & ').length : 1;
+        if (teamSize > 1) {
+            meta.push(players.length + ' teams (' + (players.length * teamSize) + ' players)');
+        } else {
+            meta.push(players.length + ' players');
+        }
+    }
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
     setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
 }
