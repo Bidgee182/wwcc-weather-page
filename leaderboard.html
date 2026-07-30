@@ -722,8 +722,31 @@ function stripHcp(s) {
     return s.replace(/\s*\[\+?\d+(?:\.\d+)?\]/g, '').trim();
 }
 
+// Track when each heater entry first appeared (or changed to a new hole).
+// Reset the timer if the note changes (player scored a fresh high-pts hole).
+const _heaterState = {}; // { playerKey: { since: timestamp, note: string } }
+
 function renderHeaters(heaters) {
-    const rows = heaters.map(h => {
+    const now = Date.now();
+    const EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
+    // Remove players no longer in the heater list from state
+    const currentKeys = new Set(heaters.map(h => h.player));
+    for (const k of Object.keys(_heaterState)) {
+        if (!currentKeys.has(k)) delete _heaterState[k];
+    }
+
+    // Filter: only keep entries first seen within the last 10 minutes,
+    // resetting the timer whenever the hole note changes (new high-pts hole)
+    const visible = heaters.filter(h => {
+        const prev = _heaterState[h.player];
+        if (!prev || prev.note !== h.note) {
+            _heaterState[h.player] = { since: now, note: h.note };
+        }
+        return (now - _heaterState[h.player].since) < EXPIRY_MS;
+    });
+
+    const rows = visible.map(h => {
         const noteSpan = '<span class="heater-hole-score">🔥 ' + esc(h.note) + '</span>';
         const parts = h.player.split(' & ');
         let nameHtml;
@@ -759,7 +782,7 @@ function renderHeaters(heaters) {
             '</div>' +
         '</div>';
     });
-    renderSidePanel('heater-list', rows, '', 6);
+    renderSidePanel('heater-list', rows, 'No recent heaters', 6);
 }
 
 function renderComingLast(comingLast, holeCount) {
