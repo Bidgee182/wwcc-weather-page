@@ -609,6 +609,22 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
 
+    // Sort by points desc, then countback (GA method) for tied finished players, then name
+    active.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        const cb = countbackCompare(a, b, holeCount);
+        return cb !== 0 ? cb : a.player.localeCompare(b.player);
+    });
+
+    // Flag every position where countback broke a tie (tied pts with a finished neighbour)
+    const cbFlags = active.map((p, i) => {
+        if (p.thru < holeCount) return false;
+        const prev = active[i - 1];
+        const next = active[i + 1];
+        return (prev && prev.points === p.points && prev.thru >= holeCount) ||
+               (next && next.points === p.points && next.thru >= holeCount);
+    });
+
     // Grade calculations (use full field for boundaries, active for grade strip leaders)
     const grades = computeGrades(players);
 
@@ -623,15 +639,16 @@ function renderLeaderboard(players, holeCount, started, competition) {
         return;
     }
 
-    function buildRow(p, idx) {
+    function buildRow(p, idx, usedCB) {
         p = { ...p, liveRank: idx + 1 };
         const rank = p.liveRank || 0;
         let rankHtml, rankCls = 'r-rank';
         const enoughHoles = p.thru >= 2;
-        if      (rank === 1 && enoughHoles) { rankHtml = '🥇'; rankCls += ' gold'; }
-        else if (rank === 2 && enoughHoles) { rankHtml = '🥈'; rankCls += ' silver'; }
-        else if (rank === 3 && enoughHoles) { rankHtml = '🥉'; rankCls += ' bronze'; }
-        else                                { rankHtml = rank; }
+        const cbMark = usedCB ? '<sup style="font-size:0.5em;color:#f39c12;vertical-align:super;font-weight:normal">CB</sup>' : '';
+        if      (rank === 1 && enoughHoles) { rankHtml = '🥇' + cbMark; rankCls += ' gold'; }
+        else if (rank === 2 && enoughHoles) { rankHtml = '🥈' + cbMark; rankCls += ' silver'; }
+        else if (rank === 3 && enoughHoles) { rankHtml = '🥉' + cbMark; rankCls += ' bronze'; }
+        else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
         const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
@@ -652,8 +669,8 @@ function renderLeaderboard(players, holeCount, started, competition) {
     const podium = active.slice(0, 3);
     const field  = active.slice(3);
 
-    const top3Html = podium.map((p, i) => buildRow(p, i)).join('');
-    const restHtml = field.map((p, i) => buildRow(p, i + 3)).join('') +
+    const top3Html = podium.map((p, i) => buildRow(p, i, cbFlags[i])).join('');
+    const restHtml = field.map((p, i) => buildRow(p, i + 3, cbFlags[i + 3])).join('') +
                      (field.length ? '<div class="lb-gap"></div>' : '');
 
     // Fade out briefly, rebuild DOM, restart animation, fade in
