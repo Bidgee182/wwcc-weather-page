@@ -244,6 +244,15 @@ function scoreColour(gross, par) {
     return            {bg:'#f2a89c', tx:'#5a1810'};
 }
 
+// Colour by stableford points result (used for score pills in scorecard)
+function ptColour(pts) {
+    if (pts == null || pts === 0) return {bg:'#e74c3c', tx:'#ffffff'}; // wipe/pickup
+    if (pts >= 4)  return {bg:'#f5c518', tx:'#3d2f00'}; // eagle+
+    if (pts === 3) return {bg:'#7dd3fc', tx:'#0b3a52'}; // birdie
+    if (pts === 2) return {bg:'#ffffff', tx:'#1c2620'}; // par
+    return             {bg:'#f59e42', tx:'#3a1d00'};    // 1pt = bogey
+}
+
 // Detect which nine from par pattern (back nine = 3,4,5,4,3,5,5,3,3)
 function detectNine(pars) {
     const BACK = [3,4,5,4,3,5,5,3,3];
@@ -407,6 +416,8 @@ function renderDetail(data) {
     window._scPlayers   = sorted;
     window._scComp      = data.competition;
     window._scHoleCount = holeCount;
+    const ballCount = Math.ceil(sorted.length * 0.4);
+    const BALL_SVG = '<svg width="13" height="13" viewBox="0 0 14 14" style="vertical-align:middle;margin-right:4px;flex-shrink:0" title="Ball winner"><circle cx="7" cy="7" r="6.2" fill="#ffffff" stroke="#b0b0b0" stroke-width="0.8"/><circle cx="5" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="9" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="7" cy="9.2" r="1.1" fill="rgba(0,0,0,0.12)"/></svg>';
     const standEl = document.getElementById('det-standings');
     standEl.innerHTML = sorted.map((p, i) => {
         const rank = i + 1;
@@ -425,10 +436,11 @@ function renderDetail(data) {
         const hasCard = (p.holeStrokes || []).length > 0;
         const chev = hasCard ? ' <span class="sc-chevron">&#9654;</span>' : '';
         const rowClick = hasCard ? ' onclick="toggleScorecard(this,' + i + ')"' : '';
+        const ball = i < ballCount ? BALL_SVG : '';
         return '<div class="s-player-wrap">' +
             '<div class="s-row' + (rank <= 3 ? ' top3' : '') + (hasCard ? '' : ' no-card') + '"' + rowClick + '>' +
             '<span class="s-rank">' + rankHtml + '</span>' +
-            '<span class="s-name">' + esc(p.player.trim()) + hcpTag + badge + chev + '</span>' +
+            '<span class="s-name">' + ball + esc(p.player.trim()) + hcpTag + badge + chev + '</span>' +
             '<span class="s-pts">' + p.points + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>' +
@@ -510,12 +522,20 @@ function buildScorecard(player, comp, holeCount) {
         idxs.forEach(i => { h += '<td>' + (pars[i] != null ? pars[i] : '-') + '</td>'; });
         h += '<td class="sc-total">' + sumPar + '</td></tr>';
 
-        // Score row P1 (or solo player)
+        // Score row P1 (or solo player) - colour by stableford pts result
         h += '<tr class="sc-row-label"><td>' + p1Label + '</td>';
         idxs.forEach(i => {
-            const g = strokes[i], p = pars[i];
-            if (g == null) { h += '<td style="color:#4a6a84">-</td>'; return; }
-            const col = scoreColour(g, p);
+            const g = strokes[i];
+            if (g == null) {
+                if (!isTeam) {
+                    // Individual pickup/wipe - show red "-"
+                    h += '<td><span class="score-pill" style="background:#e74c3c;color:#fff">-</span></td>';
+                } else {
+                    h += '<td style="color:#4a6a84">-</td>';
+                }
+                return;
+            }
+            const col = ptColour(points[i]);
             h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
         });
         h += '<td class="sc-total">' + (anyS1 ? sumS1 : '-') + '</td></tr>';
@@ -524,9 +544,9 @@ function buildScorecard(player, comp, holeCount) {
         if (isTeam) {
             h += '<tr class="sc-row-label"><td>' + p2Label + '</td>';
             idxs.forEach(i => {
-                const g = strokes2[i], p = pars[i];
+                const g = strokes2[i];
                 if (g == null) { h += '<td style="color:#4a6a84">-</td>'; return; }
-                const col = scoreColour(g, p);
+                const col = ptColour(points[i]);
                 h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
             });
             h += '<td class="sc-total">' + (anyS2 ? sumS2 : '-') + '</td></tr>';
@@ -557,7 +577,7 @@ function buildScorecard(player, comp, holeCount) {
     const backN  = n > 9 ? n - 9 : 0;
 
     const legend = '<div class="sc-legend">' +
-        [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#f2a89c','Double+']]
+        [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#e74c3c','Wipe']]
         .map(([bg, lbl]) => '<div class="sc-leg-item"><div class="sc-leg-dot" style="background:' + bg + '"></div>' + lbl + '</div>')
         .join('') + '</div>';
 
