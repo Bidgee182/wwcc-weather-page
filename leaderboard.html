@@ -66,6 +66,7 @@ html, body {
 .live-badge.waiting { background: #4a6a84; color: #bdc3c7; }
 .live-badge.offline { background: #7d1a00; color: #fff; }
 .live-badge.loading { background: #2c3e50; color: #7f8c8d; }
+.live-badge.results { background: #d4ac0d; color: #1a1a2e; }
 @keyframes badge-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 .col-hdr {
@@ -384,7 +385,6 @@ html, body {
 <script>
 const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/live-leaderboard.json';
 const REFRESH_SEC = 15;
-const BUILD       = '2748af0';
 
 let _countdown    = REFRESH_SEC;
 let _hasData      = false;
@@ -434,6 +434,10 @@ async function fetchData() {
         const res = await fetch(LB_URL + sep + '_t=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
+
+        // Always update the build display so the footer shows the currently-served build hash
+        const _bEl = document.getElementById('ftr-build');
+        if (_bEl && data.gitHash) _bEl.textContent = 'build ' + data.gitHash;
 
         if (!_hasData) {
             // First successful load - render everything immediately
@@ -567,7 +571,13 @@ function updateHeader(d) {
         }
     }
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
-    setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
+    if (!started || !players.length) {
+        setBadge('waiting', 'Not started');
+    } else {
+        const active = players.filter(p => p.thru > 0);
+        const allDone = active.length > 0 && active.every(p => p.thru >= hc);
+        setBadge(allDone ? 'results' : 'live', allDone ? 'Results' : 'Live');
+    }
 }
 
 // ── Grade helpers ─────────────────────────────────────────────────
@@ -968,8 +978,6 @@ function esc(s) {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────
-const _bEl = document.getElementById('ftr-build');
-if (_bEl) _bEl.textContent = 'build ' + BUILD;
 updateClock();
 setInterval(updateClock, 1000);
 setInterval(tickCountdown, 1000);
