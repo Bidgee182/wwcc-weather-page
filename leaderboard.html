@@ -237,6 +237,31 @@ html, body {
 .story-name-red    { color: #e74c3c; }
 .story-name-blue   { color: #5dade2; }
 
+/* ── Results 3-column layout ─────────────────────────────────────── */
+.results-grade-panel {
+    display: none; flex: 1.4; flex-direction: column; gap: 10px; min-height: 0;
+}
+.main.results-mode .results-grade-panel { display: flex; }
+.main.results-mode .lb-panel { flex: 2; }
+.main.results-mode .grade-strip { display: none !important; }
+
+.grade-card {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    background: #1e2f3e; border: 2px solid #4a6a84; border-radius: 12px; overflow: hidden;
+}
+.grade-card-hdr {
+    background: rgba(0,0,0,0.4); padding: 7px 14px; flex-shrink: 0;
+    font-size: 0.78em; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; color: #4a6a84;
+}
+.grade-card-body {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 8px 14px; gap: 10px;
+}
+.grade-podium-row   { display: flex; align-items: center; gap: 8px; }
+.grade-podium-medal { font-size: 1.7em; flex-shrink: 0; line-height: 1; }
+.grade-podium-name  { flex: 1; font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.grade-podium-pts   { font-size: 1.65em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
+
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
     /* Allow the page to scroll on mobile - TV keeps its 100vh lock */
@@ -264,6 +289,8 @@ html, body {
     .side-list-inner { padding: 0; }
 
     .grade-strip { display: none !important; }
+    .main.results-mode .results-grade-panel { display: none !important; }
+    .main.results-mode .lb-panel { flex: none; height: 55vh; }
 
     .col-hdr { grid-template-columns: 2.5em 1fr 3.5em 3em; }
     .lb-row  { grid-template-columns: 2.5em 1fr 3.5em 3em; padding: 6px 10px; }
@@ -317,6 +344,21 @@ html, body {
   </header>
 
   <main class="main">
+
+    <section class="results-grade-panel" id="results-grade-panel">
+      <div class="grade-card" style="border-top:4px solid #f1c40f">
+        <div class="grade-card-hdr">A Grade</div>
+        <div class="grade-card-body" id="grade-card-a-body"></div>
+      </div>
+      <div class="grade-card" style="border-top:4px solid #bdc3c7">
+        <div class="grade-card-hdr">B Grade</div>
+        <div class="grade-card-body" id="grade-card-b-body"></div>
+      </div>
+      <div class="grade-card" style="border-top:4px solid #cd7f32">
+        <div class="grade-card-hdr">C Grade</div>
+        <div class="grade-card-body" id="grade-card-c-body"></div>
+      </div>
+    </section>
 
     <section class="lb-panel">
       <div class="col-hdr">
@@ -641,13 +683,19 @@ function fmtHcp(hcp) {
 }
 
 function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete) {
-    const strip = document.getElementById('grade-strip');
-    if (!strip) return;
-    // 4BBB has no grade split - best score wins overall
-    if ((competition || '').toUpperCase().includes('4BBB')) { strip.classList.remove('visible'); return; }
-    if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
-    // Only show grade winners once every player has finished
-    if (!roundComplete) { strip.classList.remove('visible'); return; }
+    const strip  = document.getElementById('grade-strip');
+    const panel  = document.getElementById('results-grade-panel');
+    const mainEl = document.querySelector('.main');
+
+    function exitResults() {
+        if (strip)  strip.classList.remove('visible');
+        if (panel)  panel.style.display = 'none';
+        if (mainEl) mainEl.classList.remove('results-mode');
+    }
+
+    if ((competition || '').toUpperCase().includes('4BBB')) { exitResults(); return; }
+    if (!grades || !activeSorted.length) { exitResults(); return; }
+    if (!roundComplete) { exitResults(); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
@@ -655,35 +703,59 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         if (g) gradeAll[g].push(p);
     }
 
+    // Sort each grade: points desc, then countback, then name
+    ['A', 'B', 'C'].forEach(gk => {
+        gradeAll[gk].sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            const cb = countbackCompare(a, b, holeCount);
+            return cb !== 0 ? cb : a.player.localeCompare(b.player);
+        });
+    });
+
     const medals = ['🥇', '🥈', '🥉'];
+
+    function cbHtml(all, top, i, hc) {
+        const nextPts = (all[i + 1] || {}).points;
+        const used = (top[i].points === nextPts || (i > 0 && top[i].points === top[i - 1].points))
+            && top[i].thru >= hc;
+        return used ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
+    }
+
+    // Compact grade strip (inside leaderboard - hidden in results mode by CSS, kept for live use)
     ['a', 'b', 'c'].forEach(gk => {
         const el = document.getElementById('grade-' + gk);
         if (!el) return;
         const all = gradeAll[gk.toUpperCase()];
         if (!all.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
-
-        // Sort: points desc, then countback for tied finished players, then name
-        all.sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
-            const cb = countbackCompare(a, b, holeCount);
-            return cb !== 0 ? cb : a.player.localeCompare(b.player);
-        });
         const top = all.slice(0, 3);
-
-        el.innerHTML = top.map((p, i) => {
-            // CB flag: this position was decided by countback (same pts as adjacent player)
-            const nextPts = (all[i + 1] || {}).points;
-            const usedCB = (p.points === nextPts || (i > 0 && p.points === top[i - 1].points))
-                && p.thru >= holeCount;
-            return '<div class="grade-item">' +
-                '<span class="grade-medal-sm">' + medals[i] + (usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '') + '</span>' +
+        el.innerHTML = top.map((p, i) =>
+            '<div class="grade-item">' +
+                '<span class="grade-medal-sm">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-name-sm">' + esc(p.player.trim()) + '</span>' +
                 '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
-                '</div>';
-        }).join('');
+            '</div>'
+        ).join('');
     });
 
-    strip.classList.add('visible');
+    // Expanded grade cards (left results panel)
+    ['a', 'b', 'c'].forEach(gk => {
+        const body = document.getElementById('grade-card-' + gk + '-body');
+        if (!body) return;
+        const all = gradeAll[gk.toUpperCase()];
+        if (!all.length) { body.innerHTML = '<div style="color:#4a6a84;text-align:center">-</div>'; return; }
+        const top = all.slice(0, 3);
+        body.innerHTML = top.map((p, i) =>
+            '<div class="grade-podium-row">' +
+                '<span class="grade-podium-medal">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
+                '<span class="grade-podium-name">' + esc(p.player.trim()) + '</span>' +
+                '<span class="grade-podium-pts">' + p.points + 'pts</span>' +
+            '</div>'
+        ).join('');
+    });
+
+    if (strip)  strip.classList.add('visible');
+    if (panel)  panel.style.display = 'flex';
+    if (mainEl) mainEl.classList.add('results-mode');
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────
