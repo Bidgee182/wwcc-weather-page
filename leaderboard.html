@@ -220,11 +220,11 @@ html, body {
     font-size: 0.9em; font-weight: bold; letter-spacing: 1px;
     color: #4a6a84; width: 6em; flex-shrink: 0; text-transform: uppercase;
 }
-.grade-leaders-list { display: flex; gap: 18px; min-width: 0; overflow: hidden; align-items: center; }
-.grade-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
-.grade-medal-sm { font-size: 1.17em; }
-.grade-name-sm  { font-size: 1.08em; color: #ecf0f1; }
-.grade-pts-sm   { font-size: 1.08em; font-weight: bold; color: #27ae60; }
+.grade-leaders-list { display: grid; grid-template-columns: repeat(3, 1fr); min-width: 0; overflow: hidden; align-items: center; }
+.grade-item { display: flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; }
+.grade-medal-sm { font-size: 1.17em; flex-shrink: 0; }
+.grade-name-sm  { font-size: 1.08em; color: #ecf0f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.grade-pts-sm   { font-size: 1.08em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
 
 /* Grade badge in scrolling rows */
 .grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
@@ -756,29 +756,41 @@ function renderLeaderboard(players, holeCount, started, competition) {
             '</div>';
     }
 
-    const podium = active.slice(0, 3);
-    const field  = active.slice(3);
-
-    const top3Html = podium.map((p, i) => buildRow(p, i, cbFlags[i])).join('');
-    const restHtml = field.map((p, i) => buildRow(p, i + 3, cbFlags[i + 3])).join('') +
-                     (field.length ? '<div class="lb-gap"></div>' : '');
+    // When the round is complete, unlock the pinned podium so all players scroll together
+    let top3Html, restHtml, scrollCount;
+    if (roundComplete) {
+        top3Html  = '';
+        restHtml  = active.map((p, i) => buildRow(p, i, cbFlags[i])).join('') +
+                    (active.length ? '<div class="lb-gap"></div>' : '');
+        scrollCount = active.length;
+    } else {
+        const podium = active.slice(0, 3);
+        const field  = active.slice(3);
+        top3Html  = podium.map((p, i) => buildRow(p, i, cbFlags[i])).join('');
+        restHtml  = field.map((p, i) => buildRow(p, i + 3, cbFlags[i + 3])).join('') +
+                    (field.length ? '<div class="lb-gap"></div>' : '');
+        scrollCount = field.length;
+    }
 
     // Fade out briefly, rebuild DOM, restart animation, fade in
     if (clip) clip.style.opacity = '0';
     setTimeout(() => {
-        // Pinned podium - always static
-        if (top3El) top3El.innerHTML = top3Html;
+        // Pinned podium — hidden when round is complete (all players scroll together)
+        if (top3El) {
+            top3El.innerHTML = top3Html;
+            top3El.style.display = top3Html ? '' : 'none';
+        }
 
-        // Scrolling field (positions 4+)
+        // Scrolling field (positions 4+ mid-round; all players when complete)
         inner.classList.remove('scrolling');
         inner.innerHTML = restHtml;
         void inner.offsetHeight;
 
         const clipH = restClip ? restClip.clientHeight : window.innerHeight;
 
-        if (field.length && inner.scrollHeight > clipH) {
+        if (scrollCount && inner.scrollHeight > clipH) {
             // single copy — translateY(-100%) scrolls full content off; animationend fires once
-            const dur = Math.max(60, field.length * 0.85);
+            const dur = Math.max(60, scrollCount * 0.85);
             inner.style.animationDuration = dur + 's';
             inner.classList.add('scrolling');
             _animRunning = true;
