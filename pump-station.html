@@ -188,7 +188,7 @@
     </div>
     <div class="header-text">
         <h1>PUMP STATION</h1>
-        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; Grundfos</div>
+        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; 3x CRNE45 18.5kW &bull; 1x CRNE10 5.5kW &bull; MGE</div>
     </div>
 </div>
 
@@ -512,7 +512,7 @@
 const TABS = ['overview','pumps','performance','trends','alarms','setup'];
 const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6','#1abc9c'];
 const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)','rgba(26,188,156,.15)'];
-const PUMP_LABELS = ['Pump 1','Pump 2','Pump 3','Pump 4','Jockey'];
+const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','P4 CRNE10','Jockey'];
 
 const CHART_OPT_BASE = {
     responsive: true, maintainAspectRatio: false,
@@ -704,9 +704,11 @@ function pumpCard(p, connected, isJockey) {
     const ia  = p.current_a   != null ? p.current_a.toFixed(1)+'A'  : '--';
     const hrs = p.run_hours    != null ? p.run_hours.toFixed(0)+'h'  : '--';
     const sts = p.starts_total != null ? p.starts_total.toString()   : '--';
+    const modelStr = p.model && p.model !== 'Jockey' ? p.model : '';
+    const ratedStr = p.rated_kw ? ' &mdash; '+p.rated_kw+'kW' : '';
     return '<div class="pump-card '+cc+'">'+
-        '<div class="pump-num">Pump '+p.id+(isJockey?' - Jockey':'')+'</div>'+
-        '<div class="pump-name">'+p.label+'</div>'+
+        '<div class="pump-num">Pump '+p.id+' '+modelStr+'</div>'+
+        '<div class="pump-name">'+p.label+'<span style="font-size:.7em;color:#7f8c8d;font-weight:normal;">'+ratedStr+'</span></div>'+
         '<div><span class="pump-badge '+bc+'" style="margin-bottom:8px;">'+bl+'</span></div>'+
         (sp!=null ? '<div class="speed-bar-bg"><div class="speed-bar-fill" style="width:'+sp+'%;"></div></div>' : '<div style="height:14px"></div>')+
         '<div class="pump-stats">'+
