@@ -364,7 +364,7 @@ html, body {
       <div class="col-hdr">
         <span class="col-hdr-rank">#</span>
         <span class="col-hdr-name">Player</span>
-        <span class="col-hdr-pts">Pts</span>
+        <span class="col-hdr-pts" id="col-hdr-pts">Pts</span>
         <span class="col-hdr-thru">Thru</span>
       </div>
       <div class="grade-strip" id="grade-strip">
@@ -448,6 +448,9 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 let _loadedHash      = null;   // gitHash from first successful fetch (= build we loaded)
 let _needsReload     = false;  // true when server has a newer build; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
+let _stoppedForDate  = null;   // competition date when _refreshStopped was set
+let _stoppedTick     = 0;      // counts 1-s ticks while stopped (for periodic date checks)
+let _isStableford    = true;   // false for stroke/gross comps (lower score = better)
 
 // Last-render snapshots: used to keep panels scrolling after refresh stops
 let _lastRenderData        = null;
@@ -471,7 +474,15 @@ function updateClock() {
 
 // ── Countdown ─────────────────────────────────────────────────────
 function tickCountdown() {
-    if (_refreshStopped) return;
+    if (_refreshStopped) {
+        // Even when stopped, check every 10 minutes for a new competition day.
+        _stoppedTick++;
+        if (_stoppedTick >= 600) {
+            _stoppedTick = 0;
+            fetchData();  // updateHeader will un-stop if d.date changed
+        }
+        return;
+    }
     _countdown--;
     const el = document.getElementById('ftr-countdown');
     if (_countdown <= 0) {
@@ -646,6 +657,15 @@ function updateHeader(d) {
         }
     }
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
+    // Un-stop when a new competition day is detected (overnight auto-reset)
+    if (_refreshStopped && d.date && d.date !== _stoppedForDate) {
+        _refreshStopped = false;
+        _stoppedTick    = 0;
+        _countdown      = REFRESH_SEC;
+    }
+    _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
+    const ptsHdr = document.getElementById('col-hdr-pts');
+    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Net';
     if (!started || !players.length) {
         setBadge('waiting', 'Not started');
     } else {
@@ -657,7 +677,8 @@ function updateHeader(d) {
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
-            _refreshStopped = true;
+            _refreshStopped  = true;
+            _stoppedForDate  = d.date || null;
             const el = document.getElementById('ftr-countdown');
             if (el) el.textContent = 'Round complete';
         } else if (allDone && !official) {
@@ -702,7 +723,9 @@ function getGrade(hcp, grades) {
 // Countback comparator: returns <0 if a beats b, >0 if b beats a, 0 if tied.
 // Uses GA method: back 9 -> back 6 -> back 3 -> last hole -> second-last ...
 // Only applies when both players have finished (thru >= holeCount).
-function countbackCompare(a, b, holeCount) {
+// dir = 1 for stableford (higher wins), -1 for stroke (lower wins).
+function countbackCompare(a, b, holeCount, dir) {
+    if (dir === undefined) dir = _isStableford ? 1 : -1;
     const aFin = a.thru >= holeCount;
     const bFin = b.thru >= holeCount;
     if (!aFin && !bFin) return 0;
@@ -712,11 +735,11 @@ function countbackCompare(a, b, holeCount) {
     const bh = b.holes || [];
     const sliceSum = (arr, n) => arr.slice(-n).reduce((s, h) => s + (h.points || 0), 0);
     for (const n of [9, 6, 3]) {
-        const d = sliceSum(bh, n) - sliceSum(ah, n);
+        const d = dir * (sliceSum(bh, n) - sliceSum(ah, n));
         if (d !== 0) return d;
     }
     for (let i = ah.length - 1; i >= 0; i--) {
-        const d = ((bh[i] || {}).points || 0) - ((ah[i] || {}).points || 0);
+        const d = dir * (((bh[i] || {}).points || 0) - ((ah[i] || {}).points || 0));
         if (d !== 0) return d;
     }
     return 0;
@@ -749,10 +772,11 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         if (g) gradeAll[g].push(p);
     }
 
-    // Sort each grade: points desc, then countback, then name
+    // Sort each grade: best score first (higher for stableford, lower for stroke)
+    const scoreDir = _isStableford ? 1 : -1;
     ['A', 'B', 'C'].forEach(gk => {
         gradeAll[gk].sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
+            if (b.points !== a.points) return scoreDir * (b.points - a.points);
             const cb = countbackCompare(a, b, holeCount);
             return cb !== 0 ? cb : a.player.localeCompare(b.player);
         });
@@ -818,9 +842,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Round is only "complete" when every active player has finished
     const roundComplete = active.length > 0 && active.every(p => p.thru >= holeCount);
 
-    // Sort by points desc, then countback (GA method) for tied finished players, then name
+    // Sort by score: best first (higher for stableford, lower for stroke/gross)
+    const scoreDir = _isStableford ? 1 : -1;
     active.sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
+        if (b.points !== a.points) return scoreDir * (b.points - a.points);
         const cb = countbackCompare(a, b, holeCount);
         return cb !== 0 ? cb : a.player.localeCompare(b.player);
     });

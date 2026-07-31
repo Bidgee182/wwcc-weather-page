@@ -902,9 +902,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     def _slice_pts(holes: list, n: int) -> int:
         return sum((h.get("points") or 0) for h in holes[-n:])
 
+    # For stableford: higher points = better (b - a is positive → b first).
+    # For stroke play: lower net strokes = better (a - b is positive → a first).
+    _dir = 1 if is_stableford else -1
+
     def _player_cmp(a: dict, b: dict) -> int:
         if b["points"] != a["points"]:
-            return b["points"] - a["points"]
+            return _dir * (b["points"] - a["points"])
         a_fin = a["thru"] >= (hole_count or 18)
         b_fin = b["thru"] >= (hole_count or 18)
         if not a_fin and not b_fin:
@@ -916,11 +920,11 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         else:
             ah, bh = a.get("holes", []), b.get("holes", [])
             for n in (9, 6, 3):
-                d = _slice_pts(bh, n) - _slice_pts(ah, n)
+                d = _dir * (_slice_pts(bh, n) - _slice_pts(ah, n))
                 if d:
                     return d
             for i in range(len(ah) - 1, -1, -1):
-                d = (bh[i].get("points") or 0) - (ah[i].get("points") or 0) if i < len(bh) else 0
+                d = _dir * ((bh[i].get("points") or 0) - (ah[i].get("points") or 0)) if i < len(bh) else 0
                 if d:
                     return d
         if a["thru"] != b["thru"]:
@@ -1010,6 +1014,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "generatedAt": now.isoformat(),
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
+        "isStableford": is_stableford,
         "officialResultsReady": _official_cache.get("published", False),
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
         "ballWinners": _official_cache.get("ballWinners") or [],
