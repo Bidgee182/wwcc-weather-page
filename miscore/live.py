@@ -142,7 +142,11 @@ def _wwcc_get_bytes(url: str) -> bytes:
 
 
 def _parse_ball_winners(pdf_bytes: bytes) -> list:
-    """Parse a WWCC prize presentation PDF and return names of players who won a ball."""
+    """Parse a WWCC prize presentation PDF and return names of players who won a ball.
+
+    Handles split-row names: when a player's name appears on the row just above
+    or below their prize cell (a PDF layout quirk at section boundaries).
+    """
     entries = []
     for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
         try:
@@ -161,29 +165,30 @@ def _parse_ball_winners(pdf_bytes: bytes) -> list:
         except Exception:
             pass
 
-    # Group into rows by Y position
-    entries.sort(key=lambda e: (-e[0], e[1]))
-    rows: list = []
-    cur_y: float | None = None
-    cur_row: list = []
+    # Index all name-column entries (x ~ 55) by y position
+    name_by_y: dict = {}
     for y, x, txt in entries:
-        if cur_y is None or abs(y - cur_y) > 3:
-            if cur_row:
-                rows.append(cur_row)
-            cur_row, cur_y = [(x, txt)], y
-        else:
-            cur_row.append((x, txt))
-    if cur_row:
-        rows.append(cur_row)
+        if 50 <= x <= 80:
+            name_by_y[y] = txt
+
+    # Find all ball-prize y positions (x ~ 505)
+    ball_ys: list = []
+    for y, x, txt in entries:
+        if 490 <= x <= 520 and re.fullmatch(r'\d+ Balls?', txt, re.IGNORECASE):
+            ball_ys.append(y)
 
     winners: set = set()
-    for row in rows:
-        if not any(re.fullmatch(r'\d+ Balls?', txt, re.IGNORECASE) for _, txt in row):
-            continue
-        # Name column is at x ~ 55; rank at x ~ 19 is not a name
-        for x, txt in row:
-            if 50 <= x <= 80:
-                winners.add(txt)
+    for by in ball_ys:
+        # Look for a name within ±15 y units (same row or adjacent split row)
+        best_name = None
+        best_dist = 999
+        for ny, name in name_by_y.items():
+            dist = abs(ny - by)
+            if dist <= 15 and dist < best_dist:
+                best_dist = dist
+                best_name = name
+        if best_name:
+            winners.add(best_name)
     return sorted(winners)
 
 
@@ -894,7 +899,36 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                     events.append({"player": name, "note": note, "hole": h["hole"]})
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
 
-    ranked = sorted(players, key=lambda p: (-p["points"], -p["thru"], p["player"]))
+    def _slice_pts(holes: list, n: int) -> int:
+        return sum((h.get("points") or 0) for h in holes[-n:])
+
+    def _player_cmp(a: dict, b: dict) -> int:
+        if b["points"] != a["points"]:
+            return b["points"] - a["points"]
+        a_fin = a["thru"] >= (hole_count or 18)
+        b_fin = b["thru"] >= (hole_count or 18)
+        if not a_fin and not b_fin:
+            pass  # fall through to name sort
+        elif not a_fin:
+            return 1
+        elif not b_fin:
+            return -1
+        else:
+            ah, bh = a.get("holes", []), b.get("holes", [])
+            for n in (9, 6, 3):
+                d = _slice_pts(bh, n) - _slice_pts(ah, n)
+                if d:
+                    return d
+            for i in range(len(ah) - 1, -1, -1):
+                d = (bh[i].get("points") or 0) - (ah[i].get("points") or 0) if i < len(bh) else 0
+                if d:
+                    return d
+        if a["thru"] != b["thru"]:
+            return b["thru"] - a["thru"]
+        return (a["player"] > b["player"]) - (a["player"] < b["player"])
+
+    import functools
+    ranked = sorted(players, key=functools.cmp_to_key(_player_cmp))
     for i, p in enumerate(ranked, 1):
         p["liveRank"] = i
 

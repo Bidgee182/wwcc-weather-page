@@ -202,7 +202,7 @@ def _parse_holes(page: str) -> list[dict]:
             s_idx = 0
             for stk in stk_vals:
                 if stk is False:
-                    if s_idx < len(scr_vals) and not isinstance(scr_vals[s_idx], int):
+                    if s_idx < len(scr_vals) and (scr_vals[s_idx] is False or scr_vals[s_idx] is None):
                         s_idx += 1  # consume '-' (False) or blank cell (None) for pickup
                     result.append(False)  # pickup = 0 pts, played
                 else:
