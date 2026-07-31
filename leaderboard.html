@@ -445,8 +445,9 @@ let _pendingComingLast    = null; // coming-last buffered until its scroll cycle
 let _comingLastForceTimer = null; // fallback timer for coming-last panel
 let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (ms)
 
-let _loadedHash  = null;   // gitHash from first successful fetch (= build we loaded)
-let _needsReload = false;  // true when server has a newer build; reload at scroll-end
+let _loadedHash      = null;   // gitHash from first successful fetch (= build we loaded)
+let _needsReload     = false;  // true when server has a newer build; reload at scroll-end
+let _refreshStopped  = false;  // true once round is complete - no more fetches needed
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -459,6 +460,7 @@ function updateClock() {
 
 // ── Countdown ─────────────────────────────────────────────────────
 function tickCountdown() {
+    if (_refreshStopped) return;
     _countdown--;
     const el = document.getElementById('ftr-countdown');
     if (_countdown <= 0) {
@@ -632,6 +634,11 @@ function updateHeader(d) {
         const active = players.filter(p => p.thru > 0);
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
         setBadge(allDone ? 'results' : 'live', allDone ? 'Results' : 'Live');
+        if (allDone && !_refreshStopped) {
+            _refreshStopped = true;
+            const el = document.getElementById('ftr-countdown');
+            if (el) el.textContent = 'Round complete';
+        }
     }
 }
 
