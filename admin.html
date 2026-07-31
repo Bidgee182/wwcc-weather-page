@@ -145,7 +145,7 @@
 
 <div class="tab-bar">
     <button class="tab-btn active" data-p="health" onclick="showPanel('health')">Health</button>
-    <button class="tab-btn" data-p="emails" onclick="showPanel('emails')">Emails</button>
+    <button class="tab-btn" data-p="emails" onclick="showPanel('emails');emcfgLoad()">Emails</button>
     <button class="tab-btn" data-p="workflows" onclick="showPanel('workflows')">Workflows</button>
     <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
     <button class="tab-btn" data-p="controls" onclick="showPanel('controls')">Controls</button>
@@ -168,6 +168,35 @@
 
 <!-- EMAILS -->
 <div class="panel" id="panel-emails">
+    <div class="card">
+        <h2>Scheduled Email Toggles</h2>
+        <div style="font-size:.82em;color:#bdc3c7;margin-bottom:14px;line-height:1.5;">
+            Turn scheduled sends on or off. Manual triggers in the &ldquo;Send Tests&rdquo; card below always run regardless of these settings.
+        </div>
+        <div id="emcfg-loading" style="font-size:.82em;color:#566573;">Loading...</div>
+        <div id="emcfg-form" style="display:none;">
+            <div style="display:flex;flex-wrap:wrap;gap:18px 32px;margin-bottom:16px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                    <input type="checkbox" id="emcfg-daily" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
+                    Daily weather email
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                    <input type="checkbox" id="emcfg-lake" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
+                    Lake Albert reports (daily / weekly / monthly / yearly)
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                    <input type="checkbox" id="emcfg-board-weekly" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
+                    Board / lake weekly email (every Monday)
+                </label>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                    <input type="checkbox" id="emcfg-board-monthly" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
+                    Board / lake monthly email (1st of month)
+                </label>
+            </div>
+            <button onclick="emcfgSave()">Save Toggles</button>
+            <div class="status" id="emcfg-status"></div>
+        </div>
+    </div>
     <div class="card">
         <h2>Send Tests &amp; Dry Runs</h2>
         <div class="flexrow" style="margin-bottom:12px;">
@@ -2268,6 +2297,52 @@ async function recSave() {
         logAction('recipients_change', summary);
         $('rec-save-status').textContent = 'Saved. Workflows use the new lists on their next run (RECIPIENTS_KEY secret must be set).';
     } catch (e) { $('rec-save-status').textContent = 'Failed: ' + e.message; }
+}
+
+// ── Email toggles ─────────────────────────────────────────────────────────────
+const EMCFG_PATH = 'data/email_config.json';
+let _emcfgSha = null;
+
+async function emcfgLoad() {
+    const ld = $('emcfg-loading'), fm = $('emcfg-form');
+    if (!SES.token) { if (ld) ld.textContent = 'Log in to view toggles.'; return; }
+    try {
+        const f = await ghGet(EMCFG_PATH);
+        const cfg = JSON.parse(f.text || '{}');
+        _emcfgSha = f.sha;
+        const en = cfg.email_enabled || {};
+        const set = (id, key, def) => { const el = $(id); if (el) el.checked = en[key] !== false && (en[key] !== undefined ? en[key] : def); };
+        set('emcfg-daily',        'daily_weather',  true);
+        set('emcfg-lake',         'lake',           true);
+        set('emcfg-board-weekly', 'board_weekly',   true);
+        set('emcfg-board-monthly','board_monthly',  true);
+        if (ld) ld.style.display = 'none';
+        if (fm) fm.style.display = 'block';
+    } catch(e) { if (ld) ld.textContent = 'Failed to load: ' + e.message; }
+}
+
+async function emcfgSave() {
+    const st = m => $('emcfg-status').textContent = m;
+    if (!SES.token) { st('No token.'); return; }
+    st('Saving...');
+    try {
+        const cfg = {
+            email_enabled: {
+                daily_weather:  $('emcfg-daily').checked,
+                lake:           $('emcfg-lake').checked,
+                board_weekly:   $('emcfg-board-weekly').checked,
+                board_monthly:  $('emcfg-board-monthly').checked,
+            },
+            updated_at: new Date().toISOString(),
+            updated_by: SES.email,
+        };
+        const f = await ghGet(EMCFG_PATH);
+        _emcfgSha = f.sha;
+        await ghPut(EMCFG_PATH, JSON.stringify(cfg, null, 2), 'Email toggles updated by ' + SES.email, _emcfgSha);
+        logAction('email_toggles', JSON.stringify(cfg.email_enabled));
+        st('Saved.');
+        setTimeout(() => st(''), 4000);
+    } catch(e) { st('Failed: ' + e.message); }
 }
 
 // ── Secrets (write-only: sealed-box encrypt in browser, PUT to GitHub) ───────

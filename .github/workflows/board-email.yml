@@ -72,7 +72,34 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
+      - name: Check if board email is enabled
+        id: cfg
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, os, datetime, zoneinfo
+          p = pathlib.Path("data/email_config.json")
+          cfg = json.loads(p.read_text()) if p.exists() else {}
+          enabled = cfg.get("email_enabled", {})
+          # Determine whether this is a weekly or monthly run (same logic as main script)
+          report_input = "${{ github.event.inputs.report }}"
+          if report_input:
+              is_monthly = report_input == "monthly"
+          else:
+              now = datetime.datetime.now(zoneinfo.ZoneInfo("Australia/Sydney"))
+              is_monthly = now.day == 1
+          flag = "board_monthly" if is_monthly else "board_weekly"
+          ok = enabled.get(flag, True)
+          # Manual dispatch always runs regardless of toggle
+          if "${{ github.event_name }}" == "workflow_dispatch":
+              ok = True
+          val = "true" if ok else "false"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"ok={val}\n")
+          print(f"{'monthly' if is_monthly else 'weekly'} board email enabled: {val}")
+          PY
+
       - name: Run board email
+        if: steps.cfg.outputs.ok == 'true'
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}

@@ -64,7 +64,25 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
+      - name: Check if daily weather email is enabled
+        id: cfg
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, os
+          p = pathlib.Path("data/email_config.json")
+          cfg = json.loads(p.read_text()) if p.exists() else {}
+          ok = cfg.get("email_enabled", {}).get("daily_weather", True)
+          # Manual dispatch always runs regardless of toggle
+          if "${{ github.event_name }}" == "workflow_dispatch":
+              ok = True
+          val = "true" if ok else "false"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"ok={val}\n")
+          print(f"daily_weather enabled: {val}")
+          PY
+
       - name: Run daily weather report
+        if: steps.cfg.outputs.ok == 'true'
         env:
           DAVIS_DID:        ${{ secrets.DAVIS_DID }}
           DAVIS_PASS:       ${{ secrets.DAVIS_PASS }}
