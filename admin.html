@@ -108,6 +108,8 @@
     <a href="index.html?gk=1" target="_blank" rel="noopener">Greenkeeper Page &#8599;</a>
     <a href="board.html" target="_blank" rel="noopener">Board Dashboard &#8599;</a>
     <a href="lake-albert.html" target="_blank" rel="noopener">Lake Albert &#8599;</a>
+    <a href="pump-station.html" target="_blank" rel="noopener">Pump Station &#8599;</a>
+    <a href="leaderboard.html" target="_blank" rel="noopener">Leaderboard &#8599;</a>
     <a href="tv2.html" target="_blank" rel="noopener">TV Kiosk &#8599;</a>
 </div>
 <div class="galert" id="global-alert"></div>
@@ -293,6 +295,7 @@
             <button class="tab-btn" data-l="fill" onclick="showLog('fill')">Fill Source</button>
             <button class="tab-btn" data-l="kiosk" onclick="showLog('kiosk')">Kiosk</button>
             <button class="tab-btn" data-l="admin" onclick="showLog('admin')">Admin Actions</button>
+            <button class="tab-btn" data-l="pump" onclick="showLog('pump')">Pump Control</button>
         </div>
         <div class="flexrow" style="margin-bottom:10px;">
             <input type="text" id="log-filter" placeholder="Filter rows..." style="width:100%;max-width:340px;" oninput="renderCurrentLog()">
@@ -404,8 +407,7 @@
                 <input type="password" id="pcu-token" style="width:100%;font-family:monospace;" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"></label>
         </div>
         <div class="flexrow" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-            <label>New master password<br><input type="password" id="pcu-master1" style="width:220px;" autocomplete="off"></label>
-            <label>Confirm<br><input type="password" id="pcu-master2" style="width:220px;" autocomplete="off"></label>
+            <label>Master password<br><input type="password" id="pcu-master1" style="width:280px;" autocomplete="off" placeholder="Choose a password to share with operators"></label>
             <button onclick="pcuSaveMaster()">Save Token &amp; Password</button>
         </div>
         <div class="status" id="pcu-master-status"></div>
@@ -1305,6 +1307,72 @@ async function loadHealth() {
             html: dRows.map(([n, iso], i) => rowHtml(n, cls[i], ago(iso) || 'no data')).join('') });
     } catch { cards.push({ title: 'Davis Weather Station', state: 'warn', html: 'Could not load.' }); }
 
+    // ── Pump Station card ──
+    try {
+        const ps = await fetch('data/pump_station_latest.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null);
+        const pParts = [], pCls = [];
+        if (!ps) {
+            pParts.push(rowHtml('CIM 500', 'lgrey', 'No data file yet'));
+            pCls.push('lgrey');
+        } else {
+            // Connection / age
+            const connAge = ps.timestamp ? light(6 * 60, 15 * 60, ps.timestamp) : 'lgrey';
+            const connLabel = ps.connected ? 'Online' : 'Offline';
+            if (!ps.connected) { pCls.push('lr'); issues.push('Pump station CIM 500 offline'); }
+            else pCls.push(connAge);
+            pParts.push(rowHtml('CIM 500 connection', ps.connected ? connAge : 'lr',
+                connLabel + (ps.timestamp ? ' - polled ' + ago(ps.timestamp) : '')));
+
+            // Setpoint
+            const sp = ps.system && ps.system.pressure_setpoint_bar != null ? ps.system.pressure_setpoint_bar.toFixed(1)+' bar' : '--';
+            pCls.push('lg');
+            pParts.push(rowHtml('Setpoint', 'lg', sp));
+
+            // Discharge / Suction
+            const b1 = ps.system && ps.system.pressure_actual_bar  != null ? ps.system.pressure_actual_bar.toFixed(2)+' bar' : '--';
+            const b2 = ps.system && ps.system.pressure_suction_bar != null ? ps.system.pressure_suction_bar.toFixed(2)+' bar' : '--';
+            pParts.push(rowHtml('Discharge (B1)', 'lg', b1));
+            pParts.push(rowHtml('Suction (B2)',   'lg', b2));
+
+            // Mode
+            if (ps.system && ps.system.mode) {
+                pParts.push(rowHtml('Mode', 'lg', ps.system.mode.toUpperCase()));
+            }
+
+            // Pump states
+            const pumps = ps.pumps || [];
+            let anyFault = false;
+            for (const p of pumps) {
+                const state = p.fault ? 'FAULT' : p.running ? 'RUNNING' : p.standby ? 'STANDBY' : 'STOPPED';
+                const pcls  = p.fault ? 'lr' : p.running ? 'lg' : p.standby ? 'lw' : 'lgrey';
+                if (p.fault) { anyFault = true; issues.push(p.label + ' fault'); }
+                const extra = p.speed_pct != null ? ' - ' + p.speed_pct.toFixed(0)+'%' : '';
+                const temp  = p.temp_c    != null ? '  ' + p.temp_c.toFixed(0)+'°C' : '';
+                pCls.push(pcls);
+                pParts.push(rowHtml(p.label, pcls, state + extra + temp));
+            }
+
+            // System fault / alarms
+            if (ps.system && ps.system.fault) { pCls.push('lr'); issues.push('Pump system fault active'); pParts.push(rowHtml('System fault', 'lr', 'ACTIVE')); }
+            const alarms = ps.alarms || [];
+            if (alarms.length) {
+                pCls.push('lw');
+                pParts.push(rowHtml('Active alarms', 'lw', alarms.length + ' alarm' + (alarms.length > 1 ? 's' : '')));
+            }
+
+            // Pending command
+            try {
+                const cmds = await fetch('data/pump_commands.json' + cb).then(r => r.ok ? r.json() : null).catch(() => null);
+                if (cmds && cmds.pending) {
+                    const age = cmds.pending.ts ? ago(cmds.pending.ts) : '';
+                    pCls.push('lw');
+                    pParts.push(rowHtml('Pending command', 'lw', cmds.pending.action + (age ? ' - queued ' + age : '')));
+                }
+            } catch {}
+        }
+        cards.push({ title: 'Pump Station (CIM 500)', state: worst(pCls) || 'warn', html: pParts.join('') });
+    } catch { cards.push({ title: 'Pump Station (CIM 500)', state: 'warn', html: 'Could not load pump data.' }); }
+
     // ── Emails card ──
     try {
         const txt = await fetch('data/email_log.csv' + cb).then(r => r.text());
@@ -1472,7 +1540,8 @@ async function loadAllLogs() {
         const t = await r.text();
         _rawLogs[u.split('/').pop().split('.')[0].replace('lake_zone_history', 'zone').replace('email_log', 'email')
             .replace('water_rate_log', 'rate').replace('tank_fill_source', 'fill')
-            .replace('kiosk_message_log', 'kiosk').replace('admin_actions_log', 'admin')] = t;
+            .replace('kiosk_message_log', 'kiosk').replace('admin_actions_log', 'admin')
+            .replace('pump_ctrl_log', 'pump')] = t;
         return kind === 'csv' ? csvRows(t) : JSON.parse(t);
     };
     _logs.email = await get('data/email_log.csv', 'csv');
@@ -1481,6 +1550,7 @@ async function loadAllLogs() {
     _logs.fill  = await get('data/tank_fill_source.json', 'json');
     _logs.kiosk = await get('data/kiosk_message_log.json', 'json');
     _logs.admin = await get('data/admin_actions_log.json', 'json');
+    _logs.pump  = await get('data/pump_ctrl_log.json', 'json');
     renderCurrentLog();
     renderEmailLog();
     loadPreviews();
@@ -1860,6 +1930,7 @@ async function pcuAdd() {
         d.users.push({ email, name, role, pin_hash: null, invite_hash: inviteHash, salt, added_by: SES.email, added_at: new Date().toISOString() });
         await ghPut(PCU_PATH, JSON.stringify(d, null, 2), `Pump ctrl: add user ${email} (by ${SES.email})`, f.sha);
         logAction('pump_user_add', email);
+        pcuLogAction('user_add', 'Added ' + name + ' (' + email + ') as ' + role, { user: email, role });
         $('pcu-name').value = ''; $('pcu-email').value = '';
         pcuRender(d.users);
         // Send invite email via workflow_dispatch
@@ -1895,6 +1966,7 @@ async function pcuReset(email, name) {
         u.pin_hash    = null;
         await ghPut(PCU_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: PIN reset - ' + email + ' (by ' + SES.email + ')', f.sha);
         logAction('pump_pin_reset', email);
+        pcuLogAction('pin_reset', 'PIN reset for ' + name + ' (' + email + ')', { user: email });
         pcuRender(d.users);
         // Send new invite email
         let emailSent = false;
@@ -1925,6 +1997,7 @@ async function pcuRemove(email) {
         d.users = d.users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
         await ghPut(PCU_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: remove user ' + email + ' (by ' + SES.email + ')', f.sha);
         logAction('pump_user_remove', email);
+        pcuLogAction('user_remove', 'Removed ' + email, { user: email });
         pcuRender(d.users);
         $('pcu-status').textContent = 'Removed.';
     } catch(e) { $('pcu-status').textContent = 'Failed: ' + e.message; }
@@ -1933,11 +2006,9 @@ async function pcuRemove(email) {
 async function pcuSaveMaster() {
     const tok  = $('pcu-token').value.trim();
     const pw1  = $('pcu-master1').value;
-    const pw2  = $('pcu-master2').value;
     const st   = m => $('pcu-master-status').textContent = m;
     if (!tok)  { st('Enter the GitHub token.'); return; }
     if (!pw1)  { st('Enter the master password.'); return; }
-    if (pw1 !== pw2) { st('Passwords do not match.'); return; }
     if (!SES.token)  { st('No admin token on this device.'); return; }
     try {
         const salt = 'wwcc-pump-master-' + hex(crypto.getRandomValues(new Uint8Array(8)));
@@ -1947,9 +2018,20 @@ async function pcuSaveMaster() {
         const f    = await ghGet(PCU_CFG);
         await ghPut(PCU_CFG, JSON.stringify(cfg, null, 2), 'Pump ctrl: master password updated (by ' + SES.email + ')', f.sha);
         logAction('pump_master_pw_change', 'token re-encrypted');
-        $('pcu-token').value = ''; $('pcu-master1').value = ''; $('pcu-master2').value = '';
+        pcuLogAction('master_pw_change', 'Master password changed and token re-encrypted', {});
+        $('pcu-token').value = ''; $('pcu-master1').value = '';
         st('Saved. Operators can now log in with the new master password.');
     } catch(e) { st('Failed: ' + e.message); }
+}
+
+async function pcuLogAction(event, detail, extra) {
+    try {
+        const f = await ghGet('data/pump_ctrl_log.json');
+        let arr = []; try { arr = JSON.parse(f.text) || []; } catch {}
+        arr.push({ ts: new Date().toISOString(), by: SES.email, by_name: SES.email.split('@')[0], event, detail, ...extra });
+        if (arr.length > 500) arr = arr.slice(-500);
+        await ghPut('data/pump_ctrl_log.json', JSON.stringify(arr, null, 2), 'Pump log: ' + event, f.sha);
+    } catch (e) { console.warn('pump log failed', e); }
 }
 
 // ── Manual workflow triggers ──────────────────────────────────────────────────

@@ -1455,6 +1455,28 @@ async function ctrlAesDec(key, obj) {
     return ctrlDec.decode(await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct));
 }
 
+// ─── Device token cache (localStorage, PIN-encrypted) ────────────────────────
+async function ctrlLoadDeviceToken(email, pin, salt) {
+    try {
+        const id = ctrlHex(new Uint8Array(await crypto.subtle.digest('SHA-256', ctrlEnc.encode(email.toLowerCase())))).slice(0, 16);
+        const stored  = localStorage.getItem('ctrl_dtok_' + id);
+        const devSalt = localStorage.getItem('ctrl_dtok_' + id + '_s');
+        if (!stored || !devSalt) return null;
+        const key = await ctrlAesKey(email.toLowerCase() + ':' + pin + ':device', devSalt);
+        return await ctrlAesDec(key, JSON.parse(stored));
+    } catch { return null; }
+}
+async function ctrlSaveDeviceToken(email, pin, tok) {
+    try {
+        const id = ctrlHex(new Uint8Array(await crypto.subtle.digest('SHA-256', ctrlEnc.encode(email.toLowerCase())))).slice(0, 16);
+        const devSalt = ctrlHex(crypto.getRandomValues(new Uint8Array(8)));
+        const key = await ctrlAesKey(email.toLowerCase() + ':' + pin + ':device', devSalt);
+        const enc = await ctrlAesEnc(key, tok);
+        localStorage.setItem('ctrl_dtok_' + id, JSON.stringify(enc));
+        localStorage.setItem('ctrl_dtok_' + id + '_s', devSalt);
+    } catch { /* best-effort */ }
+}
+
 // ─── GitHub API ───────────────────────────────────────────────────────────────
 async function ctrlGhGet(path) {
     const h = { Accept: 'application/vnd.github+json' };
@@ -1521,6 +1543,7 @@ function ctrlSelectUser() {
         if (att) att.textContent = 'Your administrator gave you this code.';
     } else if (ctrlSelectedUser.pin_hash === null) {
         ctrlPinMode = 'change-new';
+        ctrlSes.user = ctrlSelectedUser; // identity known; no PIN to verify
         if (lbl) lbl.textContent = 'Set your PIN (first use)';
         if (att) att.textContent = 'You will enter it twice to confirm.';
     } else {
@@ -1571,7 +1594,11 @@ async function ckpOk() {
             if (ctrlAttempts >= 5) { ctrlLocked = true; const kp=document.getElementById('ctrl-keypad'); if(kp){kp.style.opacity='0.3';kp.style.pointerEvents='none';} }
             setTimeout(ctrlUpdateDots, 600); ctrlPinBuf = ''; return;
         }
-        ctrlAttempts = 0; ctrlSes.user = ctrlSelectedUser;
+        ctrlAttempts = 0; ctrlSes.user = ctrlSelectedUser; ctrlSes.pin = buf;
+        // Try device-cached token (encrypted with this user's PIN in localStorage)
+        const devTok = await ctrlLoadDeviceToken(ctrlSelectedUser.email, buf, ctrlSelectedUser.salt);
+        if (devTok) { ctrlSes.token = devTok; ctrlUnlock(); return; }
+        // Fallback: session token from earlier master-pw entry this tab session
         const sesToken = sessionStorage.getItem('ctrl_tok');
         if (sesToken) { ctrlSes.token = sesToken; ctrlUnlock(); }
         else ctrlShowMasterStep();
@@ -1631,6 +1658,8 @@ async function ctrlSaveNewPin(pin) {
         }
         await ctrlGhPut(USR_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: PIN set - ' + ctrlSes.user.email, f.sha);
         if (ctrlSes.unlocked) {
+            ctrlSes.pin = pin; // update cached PIN to new value
+            await ctrlSaveDeviceToken(ctrlSes.user.email, pin, ctrlSes.token);
             document.getElementById('ctrl-pin-panel').style.display = 'none';
             document.getElementById('ctrl-main').style.display = 'block';
             ctrlRefreshStatus();
@@ -1662,9 +1691,16 @@ async function ctrlUnlockMaster() {
         sessionStorage.setItem('ctrl_tok', tok);
         if (mi) mi.value = '';
         document.getElementById('ctrl-master-error').textContent = '';
-        // If there's a pending PIN save (first-use flow), do it now
-        if (ctrlNewPinBuf) { await ctrlSaveNewPin(ctrlNewPinBuf); ctrlNewPinBuf = ''; }
-        else ctrlUnlock();
+        // If there's a pending PIN save (first-use/invite flow), do it now
+        if (ctrlNewPinBuf) {
+            ctrlSes.pin = ctrlNewPinBuf; // capture new PIN so device token can be saved
+            await ctrlSaveNewPin(ctrlNewPinBuf);
+            ctrlNewPinBuf = '';
+        } else {
+            ctrlUnlock();
+        }
+        // Cache token in localStorage encrypted with user PIN - skips master password on future logins
+        if (ctrlSes.user && ctrlSes.pin) await ctrlSaveDeviceToken(ctrlSes.user.email, ctrlSes.pin, tok);
     } catch(e) { document.getElementById('ctrl-master-error').textContent = 'Wrong password or token not yet configured.'; }
 }
 
@@ -1677,6 +1713,7 @@ function ctrlUnlock() {
     const sr = document.getElementById('ctrl-ses-role'); if (sr) sr.textContent = ctrlSes.user ? ctrlSes.user.role : '';
     ctrlRefreshStatus();
     ctrlLoadCmds();
+    ctrlLogPump('login', (ctrlSes.user ? ctrlSes.user.name : 'unknown') + ' logged in', {});
     if (ctrlPendingOnUnlock) {
         const { act, val } = ctrlPendingOnUnlock; ctrlPendingOnUnlock = null;
         setTimeout(() => ctrlQueueOrConfirm(act, val, act==='system_stop'||act==='stop_pump'), 200);
@@ -1848,15 +1885,34 @@ async function ctrlExecutePending() {
     await ctrlSendCommand(act, val);
 }
 async function ctrlSendCommand(act, val) {
-    if (!ctrlSes.token) { document.getElementById('ctrl-tok-card').style.display='block'; document.getElementById('ctrl-tok-card').scrollIntoView({behavior:'smooth'}); return; }
+    if (!ctrlSes.token) return;
     try {
+        // Capture current (before) value for parameter change logging
+        const sys   = latestData && latestData.system ? latestData.system : {};
+        const pumps = latestData && latestData.pumps  ? latestData.pumps  : [];
+        let fromVal = null;
+        if      (act === 'set_setpoint') fromVal = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar.toFixed(2)+' bar' : null;
+        else if (act === 'set_mode')     fromVal = sys.mode ? sys.mode.toUpperCase() : null;
+        else if (act === 'stop_pump' || act === 'start_pump') {
+            const p = pumps.find(x => x.id === val);
+            fromVal = p ? (p.running ? 'RUNNING' : p.standby ? 'STANDBY' : 'STOPPED') : null;
+        }
+        const toVal = act === 'set_setpoint' ? parseFloat(val).toFixed(2)+' bar'
+                    : act === 'set_mode'     ? String(val).toUpperCase()
+                    : act === 'system_start' ? 'STARTED'
+                    : act === 'system_stop'  ? 'STOPPED'
+                    : act === 'start_pump'   ? 'STARTED'
+                    : act === 'stop_pump'    ? 'STOPPED'
+                    : String(val ?? '');
+
         const f = await ctrlGhGet(CMD_PATH);
         let data = {pending:null, log:[]};
         if (f.text) { try { data=JSON.parse(f.text); } catch {} }
         if (!Array.isArray(data.log)) data.log=[];
         const cmd = { id:'cmd-'+Date.now(), ts:new Date().toISOString(), action:act, value:val,
-            requested_by: ctrlSes.user ? ctrlSes.user.email : 'unknown',
-            requested_by_name: ctrlSes.user ? ctrlSes.user.name : 'unknown',
+            requested_by:      ctrlSes.user ? ctrlSes.user.email : 'unknown',
+            requested_by_name: ctrlSes.user ? ctrlSes.user.name  : 'unknown',
+            from_value: fromVal, to_value: toVal,
             status:'pending', executed_at:null, result:null };
         data.pending = cmd;
         data.log.unshift(cmd);
@@ -1865,6 +1921,10 @@ async function ctrlSendCommand(act, val) {
         await ctrlGhPut(CMD_PATH, JSON.stringify(data,null,2), 'Pump cmd: '+act+(val?' = '+val:'')+' ('+by+')', f.sha||undefined);
         ctrlRenderCmds(data);
         ctrlShowToast(ctrlActionLabel(act,val)+' queued - executes within 5 min');
+
+        // Write to audit log (fire and forget - don't block the command)
+        const detail = fromVal ? ctrlActionLabel(act,val)+' (was: '+fromVal+')' : ctrlActionLabel(act,val);
+        ctrlLogPump('command', detail, { action: act, from: fromVal, to: toVal, pump_id: (act==='start_pump'||act==='stop_pump')?val:null });
     } catch(e) { alert('Command failed: '+e.message+'\n\nCheck GitHub token has repo write access.'); }
 }
 async function ctrlLoadCmds() {
@@ -1898,6 +1958,24 @@ function ctrlShowToast(msg) {
 
 // Load user list when control tab opens
 document.addEventListener('DOMContentLoaded', ctrlLoadUsers);
+
+// ─── Pump audit log ────────────────────────────────────────────────────────────
+const PUMP_LOG_PATH = 'data/pump_ctrl_log.json';
+async function ctrlLogPump(event, detail, extra) {
+    if (!ctrlSes.token) return;
+    try {
+        const f = await ctrlGhGet(PUMP_LOG_PATH);
+        let arr = []; try { arr = JSON.parse(f.text) || []; } catch {}
+        arr.push({
+            ts: new Date().toISOString(),
+            by: ctrlSes.user ? ctrlSes.user.email : 'unknown',
+            by_name: ctrlSes.user ? ctrlSes.user.name : 'unknown',
+            event, detail, ...extra
+        });
+        if (arr.length > 500) arr = arr.slice(-500);
+        await ctrlGhPut(PUMP_LOG_PATH, JSON.stringify(arr, null, 2), 'Pump log: ' + event, f.sha);
+    } catch(e) { console.warn('pump log write failed', e); }
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();
