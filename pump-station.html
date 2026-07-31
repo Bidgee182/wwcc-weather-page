@@ -109,6 +109,33 @@
         .speed-bar-bg   { background:#2c3e50; border-radius:3px; height:6px; margin:8px 0 10px; }
         .speed-bar-fill { height:6px; border-radius:3px; background:#e67e22; transition:width 0.5s; }
 
+        /* Animated pump cards */
+        .pump-row { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; overflow-x:auto; padding-bottom:4px; }
+        @media (max-width:580px) { .pump-row { flex-wrap:nowrap; justify-content:flex-start; } }
+        .pump-row::-webkit-scrollbar { height:4px; }
+        .pump-row::-webkit-scrollbar-track { background:#2c3e50; }
+        .pump-row::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
+        .pump-anim-card { background:#1a252f; border-radius:12px; padding:14px 12px 12px; text-align:center; border:2px solid #3d5166; transition:border-color 0.3s,box-shadow 0.3s; display:flex; flex-direction:column; align-items:center; min-width:130px; max-width:162px; flex-shrink:0; }
+        .pump-anim-card.running { border-color:#27ae60; box-shadow:0 0 18px rgba(39,174,96,.28); }
+        .pump-anim-card.running svg { filter:drop-shadow(0 0 5px rgba(39,174,96,.55)); }
+        .pump-anim-card.standby { border-color:#f39c12; }
+        .pump-anim-card.fault   { border-color:#e74c3c; animation:faultPulse 1.2s ease-in-out infinite; }
+        .pump-anim-card.fault   svg { filter:drop-shadow(0 0 7px rgba(231,76,60,.65)); }
+        .pump-anim-card.offline { opacity:0.45; }
+        .pump-anim-card .pump-stats { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+
+        /* Spinning impeller */
+        .impeller-rotor { transform-origin:0px 0px; }
+        .spinning .impeller-rotor { animation:spinImp var(--spin-dur, 1s) linear infinite; }
+        @keyframes spinImp { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+        /* Temperature / status LEDs */
+        .temp-led { display:inline-block; width:9px; height:9px; border-radius:50%; margin-left:6px; vertical-align:middle; flex-shrink:0; }
+        .temp-led.ok   { background:#27ae60; box-shadow:0 0 5px rgba(39,174,96,.7); }
+        .temp-led.warn { background:#f39c12; box-shadow:0 0 5px rgba(243,156,18,.7); }
+        .temp-led.hot  { background:#e74c3c; box-shadow:0 0 7px rgba(231,76,60,.8); animation:pRed 1s ease-in-out infinite; }
+        .temp-led.off  { background:#3d5166; }
+
         /* Range buttons */
         .range-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
         .range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 13px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
@@ -188,7 +215,7 @@
     </div>
     <div class="header-text">
         <h1>PUMP STATION</h1>
-        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; 3x CRNE45-3 18.5kW &bull; Jockey CRNE10-9 5.5kW &bull; MGE</div>
+        <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 18.5kW + Jockey CRNE10-9 5.5kW - Integrated VFD</div>
     </div>
 </div>
 
@@ -224,9 +251,15 @@
         <h2>System Pressure</h2>
         <div class="pressure-display">
             <div class="pres-block">
+                <div class="pres-val" id="ov-suction" style="color:#3498db;">--</div>
+                <div class="pres-unit">bar</div>
+                <div class="pres-lbl">Suction (B2)</div>
+            </div>
+            <div class="pres-vs" style="font-size:1em;color:#4a6a84;">--&gt;</div>
+            <div class="pres-block">
                 <div class="pres-val" id="ov-actual" style="color:#e67e22;">--</div>
                 <div class="pres-unit">bar</div>
-                <div class="pres-lbl">Actual</div>
+                <div class="pres-lbl">Discharge (B1)</div>
             </div>
             <div class="pres-vs">vs</div>
             <div class="pres-block">
@@ -276,12 +309,12 @@
 <!-- ═══════════════════════════ PUMPS ═══════════════════════════ -->
 <div id="tab-pumps" class="tab-panel">
     <div class="card">
-        <h2>Main Pumps (P1 - P3) &mdash; CRNE45-3 18.5kW MGE</h2>
-        <div class="pump-grid" id="main-pump-grid"></div>
+        <h2>Main Pumps (P1 - P3) - CRNE45-3 18.5kW - Integrated VFD</h2>
+        <div class="pump-row" id="main-pump-grid"></div>
     </div>
     <div class="card">
-        <h2>Jockey Pump &mdash; CRNE10-9 5.5kW MGE</h2>
-        <div id="jockey-wrap"></div>
+        <h2>Pilot / Jockey Pump - CRNE10-9 5.5kW - Integrated VFD</h2>
+        <div class="pump-row" id="jockey-wrap"></div>
     </div>
 </div>
 
@@ -627,6 +660,7 @@ function renderOverview() {
     const actual   = sys.pressure_actual_bar;
     const setpoint = sys.pressure_setpoint_bar;
 
+    document.getElementById('ov-suction').textContent  = sys.pressure_suction_bar != null ? sys.pressure_suction_bar.toFixed(2) : '--';
     document.getElementById('ov-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
     document.getElementById('ov-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
 
@@ -679,40 +713,152 @@ function renderPumps() {
     const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
     const main   = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
     const jockey = pumps.filter(p =>  p.label.toLowerCase().startsWith('jockey'));
-    document.getElementById('main-pump-grid').innerHTML = main.map(p=>pumpCard(p,connected,false)).join('');
-    document.getElementById('jockey-wrap').innerHTML = jockey.length
-        ? '<div style="max-width:260px;">'+jockey.map(p=>pumpCard(p,connected,true)).join('')+'</div>'
+    document.getElementById('main-pump-grid').innerHTML = main.map(p => pumpAnimCard(p, connected, false)).join('');
+    document.getElementById('jockey-wrap').innerHTML   = jockey.length
+        ? jockey.map(p => pumpAnimCard(p, connected, true)).join('')
         : '<div style="color:#566573;font-size:.85em;">No jockey pump data</div>';
 }
 
-function pumpCard(p, connected, isJockey) {
-    let cc, bc, bl;
-    if (!connected)  { cc='offline'; bc='badge-offline'; bl='OFFLINE'; }
-    else if (p.fault)    { cc='fault';   bc='badge-fault';   bl='FAULT'; }
-    else if (p.running)  { cc='running'; bc='badge-running'; bl='RUNNING'; }
-    else if (p.standby)  { cc='standby'; bc='badge-standby'; bl='STANDBY'; }
-    else                 { cc='stopped'; bc='badge-stopped'; bl='STOPPED'; }
-    if (isJockey) cc += ' jockey';
-    const sp  = p.speed_pct   != null ? p.speed_pct.toFixed(0)   : null;
-    const pw  = p.power_kw    != null ? p.power_kw.toFixed(1)+'kW' : '--';
-    const ia  = p.current_a   != null ? p.current_a.toFixed(1)+'A'  : '--';
-    const hrs = p.run_hours    != null ? p.run_hours.toFixed(0)+'h'  : '--';
-    const sts = p.starts_total != null ? p.starts_total.toString()   : '--';
-    const modelStr = p.model && p.model !== 'Jockey' ? p.model : '';
-    const ratedStr = p.rated_kw ? ' &mdash; '+p.rated_kw+'kW' : '';
-    return '<div class="pump-card '+cc+'">'+
-        '<div class="pump-num">Pump '+p.id+' '+modelStr+'</div>'+
-        '<div class="pump-name">'+p.label+'<span style="font-size:.7em;color:#7f8c8d;font-weight:normal;">'+ratedStr+'</span></div>'+
-        '<div><span class="pump-badge '+bc+'" style="margin-bottom:8px;">'+bl+'</span></div>'+
-        (sp!=null ? '<div class="speed-bar-bg"><div class="speed-bar-fill" style="width:'+sp+'%;"></div></div>' : '<div style="height:14px"></div>')+
-        '<div class="pump-stats">'+
-            '<div class="pump-stat"><div class="ps-v">'+(sp!=null?sp+'%':'--')+'</div><div class="ps-l">Speed</div></div>'+
-            '<div class="pump-stat"><div class="ps-v">'+pw+'</div><div class="ps-l">Power</div></div>'+
-            '<div class="pump-stat"><div class="ps-v">'+ia+'</div><div class="ps-l">Current</div></div>'+
-            '<div class="pump-stat"><div class="ps-v">'+hrs+'</div><div class="ps-l">Run Hours</div></div>'+
-            '<div class="pump-stat full"><div class="ps-v">'+sts+'</div><div class="ps-l">Total Starts</div></div>'+
-        '</div>'+
-    '</div>';
+function getPumpColors(state) {
+    const C = {
+        running: { m:'#1a5234', b:'#1e6b3f', bd:'#14472a', bl:'#248a50', ac:'#27ae60' },
+        fault:   { m:'#5c1a1a', b:'#7a2020', bd:'#521515', bl:'#922626', ac:'#e74c3c' },
+        standby: { m:'#5c3d0a', b:'#7a5010', bd:'#4a3008', bl:'#9a6615', ac:'#f39c12' },
+        stopped: { m:'#2c3a4a', b:'#354a5e', bd:'#243040', bl:'#3d5570', ac:'#5d8aa0' },
+        offline: { m:'#1e2a35', b:'#263545', bd:'#1a2430', bl:'#2e4055', ac:'#3d5166' },
+    };
+    return C[state] || C.offline;
+}
+
+function mainPumpSVG(c, spinClass, spinDur) {
+    return `<svg viewBox="0 0 100 222" width="88" height="195">
+  <rect x="18" y="2" width="64" height="46" rx="5" fill="${c.m}"/>
+  <line x1="18" y1="11" x2="82" y2="11" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="18" y1="19" x2="82" y2="19" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="18" y1="27" x2="82" y2="27" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="18" y1="35" x2="82" y2="35" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="18" y1="43" x2="82" y2="43" stroke="${c.bd}" stroke-width="1.5"/>
+  <text x="50" y="29" text-anchor="middle" fill="${c.ac}" font-size="9" font-weight="bold" font-family="Arial,sans-serif">MGE</text>
+  <rect x="30" y="48" width="40" height="12" rx="3" fill="${c.bl}"/>
+  <rect x="38" y="52" width="24" height="4" rx="1" fill="${c.ac}" opacity="0.45"/>
+  <ellipse cx="50" cy="64" rx="27" ry="5.5" fill="${c.bl}"/>
+  <rect x="23" y="64" width="54" height="34" fill="${c.b}"/>
+  <ellipse cx="50" cy="98" rx="27" ry="5.5" fill="${c.bd}"/>
+  <rect x="23" y="98" width="54" height="34" fill="${c.b}"/>
+  <ellipse cx="50" cy="132" rx="27" ry="5.5" fill="${c.bd}"/>
+  <rect x="23" y="132" width="54" height="34" fill="${c.b}"/>
+  <ellipse cx="50" cy="166" rx="27" ry="5.5" fill="${c.bd}"/>
+  <rect x="23" y="166" width="54" height="18" fill="${c.bd}"/>
+  <ellipse cx="50" cy="184" rx="27" ry="5.5" fill="${c.m}"/>
+  <line x1="23" y1="81" x2="77" y2="81" stroke="${c.bl}" stroke-width="0.8" opacity="0.45"/>
+  <line x1="23" y1="115" x2="77" y2="115" stroke="${c.bl}" stroke-width="0.8" opacity="0.45"/>
+  <line x1="23" y1="149" x2="77" y2="149" stroke="${c.bl}" stroke-width="0.8" opacity="0.45"/>
+  <rect x="77" y="94" width="20" height="12" rx="2" fill="${c.bl}"/>
+  <ellipse cx="97" cy="100" rx="3.5" ry="6" fill="${c.m}"/>
+  <rect x="36" y="182" width="28" height="22" rx="2" fill="${c.bl}"/>
+  <ellipse cx="50" cy="204" rx="14" ry="4" fill="${c.m}"/>
+  <rect x="10" y="186" width="80" height="7" rx="2" fill="${c.m}"/>
+  <circle cx="50" cy="115" r="14" fill="rgba(0,0,0,.42)" stroke="${c.ac}" stroke-width="1.5"/>
+  <g transform="translate(50,115)" class="${spinClass}" style="--spin-dur:${spinDur}s">
+    <g class="impeller-rotor">
+      <line x1="0" y1="-11" x2="0" y2="11" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-11" y1="0" x2="11" y2="0" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-7.5" y1="-7.5" x2="7.5" y2="7.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="7.5" y1="-7.5" x2="-7.5" y2="7.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <circle cx="0" cy="0" r="3" fill="white"/>
+    </g>
+  </g>
+</svg>`;
+}
+
+function jockeyPumpSVG(c, spinClass, spinDur) {
+    return `<svg viewBox="0 0 80 178" width="70" height="156">
+  <rect x="14" y="2" width="52" height="36" rx="4" fill="${c.m}"/>
+  <line x1="14" y1="10" x2="66" y2="10" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="14" y1="17" x2="66" y2="17" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="14" y1="24" x2="66" y2="24" stroke="${c.bd}" stroke-width="1.5"/>
+  <line x1="14" y1="31" x2="66" y2="31" stroke="${c.bd}" stroke-width="1.5"/>
+  <text x="40" y="26" text-anchor="middle" fill="${c.ac}" font-size="8" font-weight="bold" font-family="Arial,sans-serif">MGE</text>
+  <rect x="24" y="38" width="32" height="10" rx="2" fill="${c.bl}"/>
+  <rect x="30" y="41" width="20" height="3.5" rx="1" fill="${c.ac}" opacity="0.45"/>
+  <ellipse cx="40" cy="51" rx="20" ry="4.5" fill="${c.bl}"/>
+  <rect x="20" y="51" width="40" height="29" fill="${c.b}"/>
+  <ellipse cx="40" cy="80" rx="20" ry="4.5" fill="${c.bd}"/>
+  <rect x="20" y="80" width="40" height="29" fill="${c.b}"/>
+  <ellipse cx="40" cy="109" rx="20" ry="4.5" fill="${c.bd}"/>
+  <rect x="20" y="109" width="40" height="15" fill="${c.bd}"/>
+  <ellipse cx="40" cy="124" rx="20" ry="4.5" fill="${c.m}"/>
+  <line x1="20" y1="65" x2="60" y2="65" stroke="${c.bl}" stroke-width="0.8" opacity="0.45"/>
+  <line x1="20" y1="94" x2="60" y2="94" stroke="${c.bl}" stroke-width="0.8" opacity="0.45"/>
+  <rect x="60" y="77" width="17" height="10" rx="2" fill="${c.bl}"/>
+  <ellipse cx="77" cy="82" rx="3" ry="5" fill="${c.m}"/>
+  <rect x="28" y="122" width="24" height="20" rx="2" fill="${c.bl}"/>
+  <ellipse cx="40" cy="142" rx="12" ry="3.5" fill="${c.m}"/>
+  <rect x="8" y="126" width="64" height="6" rx="2" fill="${c.m}"/>
+  <circle cx="40" cy="94" r="11" fill="rgba(0,0,0,.42)" stroke="${c.ac}" stroke-width="1.5"/>
+  <g transform="translate(40,94)" class="${spinClass}" style="--spin-dur:${spinDur}s">
+    <g class="impeller-rotor">
+      <line x1="0" y1="-9" x2="0" y2="9" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-9" y1="0" x2="9" y2="0" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-6" y1="-6" x2="6" y2="6" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <line x1="6" y1="-6" x2="-6" y2="6" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      <circle cx="0" cy="0" r="2.5" fill="white"/>
+    </g>
+  </g>
+</svg>`;
+}
+
+function pumpAnimCard(p, connected, isJockey) {
+    let state = 'offline';
+    if (!connected)   state = 'offline';
+    else if (p.fault)   state = 'fault';
+    else if (p.running) state = 'running';
+    else if (p.standby) state = 'standby';
+    else                state = 'stopped';
+
+    const c = getPumpColors(state);
+    const spFactor = (p.speed_pct || 0) / 100;
+    const spinDur   = (state === 'running' && spFactor > 0.01) ? Math.max(0.3, 1.2 / spFactor).toFixed(2) : 999;
+    const spinClass = (state === 'running' && spFactor > 0.01) ? 'spinning' : '';
+
+    const BLABEL = {running:'RUNNING',fault:'FAULT',standby:'STANDBY',stopped:'STOPPED',offline:'OFFLINE'};
+    const BCLASS = {running:'badge-running',fault:'badge-fault',standby:'badge-standby',stopped:'badge-stopped',offline:'badge-offline'};
+
+    const tempC = p.temp_c;
+    let tempLed = '<span class="temp-led off" title="Motor temp: no data"></span>';
+    if (connected && tempC != null) {
+        const tc = Number(tempC);
+        if      (tc > 80) tempLed = `<span class="temp-led hot"  title="Motor: ${tc.toFixed(0)}&deg;C - HIGH TEMP"></span>`;
+        else if (tc > 60) tempLed = `<span class="temp-led warn" title="Motor: ${tc.toFixed(0)}&deg;C - Warm"></span>`;
+        else              tempLed = `<span class="temp-led ok"   title="Motor: ${tc.toFixed(0)}&deg;C - OK"></span>`;
+    }
+
+    const svg  = isJockey ? jockeyPumpSVG(c, spinClass, spinDur) : mainPumpSVG(c, spinClass, spinDur);
+    const sp   = p.speed_pct   != null ? p.speed_pct.toFixed(0)+'%'  : '--';
+    const pw   = p.power_kw    != null ? p.power_kw.toFixed(1)+' kW' : '--';
+    const ia   = p.current_a   != null ? p.current_a.toFixed(1)+' A' : '--';
+    const hrs  = p.run_hours    != null ? p.run_hours.toFixed(0)+'h'  : '--';
+    const sts  = p.starts_total != null ? p.starts_total.toString()   : '--';
+    const tmpD = (connected && tempC != null) ? Number(tempC).toFixed(0)+'&deg;C' : '--';
+    const tag  = isJockey ? 'Jockey (M4)' : 'M'+p.id;
+
+    return `<div class="pump-anim-card ${state}">
+        <div style="font-size:.6em;color:#566573;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">${tag}</div>
+        <div style="font-size:.85em;font-weight:bold;color:#ecf0f1;margin-bottom:1px;">${p.label}</div>
+        <div style="font-size:.68em;color:#7f8c8d;margin-bottom:8px;">${p.model||''} - ${p.rated_kw||''}kW</div>
+        ${svg}
+        <div style="margin-top:9px;display:flex;align-items:center;justify-content:center;gap:4px;">
+            <span class="pump-badge ${BCLASS[state]}" style="margin-bottom:0;">${BLABEL[state]}</span>
+            ${tempLed}
+        </div>
+        <div class="pump-stats" style="margin-top:9px;">
+            <div class="pump-stat"><div class="ps-v">${sp}</div><div class="ps-l">Speed</div></div>
+            <div class="pump-stat"><div class="ps-v">${pw}</div><div class="ps-l">Power</div></div>
+            <div class="pump-stat"><div class="ps-v">${ia}</div><div class="ps-l">Current</div></div>
+            <div class="pump-stat"><div class="ps-v">${tmpD}</div><div class="ps-l">Temp (Pt100)</div></div>
+            <div class="pump-stat" style="grid-column:1/-1;"><div class="ps-v">${hrs} &bull; ${sts} starts</div><div class="ps-l">Run Hours / Total Starts</div></div>
+        </div>
+    </div>`;
 }
 
 function defaultPumps() {
@@ -721,7 +867,7 @@ function defaultPumps() {
         {id:2,label:'P2 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
         {id:3,label:'P3 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
         {id:4,label:'Jockey',     model:'CRNE10-9',rated_kw:5.5},
-    ].map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null},p));
+    ].map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null,temp_c:null},p));
 }
 
 // ─── Performance charts ───────────────────────────────────────────────────────
