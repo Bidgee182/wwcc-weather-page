@@ -193,14 +193,31 @@ def _parse_holes(page: str) -> list[dict]:
                 else:
                     cur[label] = vals
 
+        def _align_score_to_strokes(stk_vals: list, scr_vals: list) -> list:
+            # MiClub sometimes omits pickup entries ('-') from the Score row entirely.
+            # When that happens, scr_vals is shorter than stk_vals and scores shift
+            # left by one position per omitted pickup. Re-align by inserting False at
+            # each pickup position that doesn't have a matching False in scr_vals.
+            result = []
+            s_idx = 0
+            for stk in stk_vals:
+                if stk is False:
+                    if s_idx < len(scr_vals) and scr_vals[s_idx] is False:
+                        s_idx += 1  # score row has explicit '-', consume it
+                    result.append(False)  # pickup = 0 pts, played
+                else:
+                    result.append(scr_vals[s_idx] if s_idx < len(scr_vals) else None)
+                    s_idx += 1
+            return result
+
         out: list[dict] = []
         hole_num = 1
         for nine in nines_pos:
             pars     = _nine_vals(nine.get("par",      []))
             strokes  = _nine_vals(nine.get("strokes",  []))
             strokes2 = _nine_vals(nine.get("strokes2", []))
-            points   = _nine_vals(nine.get("score",    []))
-            points2  = _nine_vals(nine.get("score2",   []))
+            points   = _align_score_to_strokes(strokes,  _nine_vals(nine.get("score",  [])))
+            points2  = _align_score_to_strokes(strokes2, _nine_vals(nine.get("score2", [])))
             for i in range(len(pars)):
                 p1_raw = points[i]   if i < len(points)   else None
                 p2_raw = points2[i]  if i < len(points2)  else None

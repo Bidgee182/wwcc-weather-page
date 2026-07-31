@@ -146,15 +146,19 @@ def _thru(holes: list[dict], hole_count: int = 0) -> int:
                    if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
     played_count = len(played_nums)
     if hole_count > 0 and 0 < played_count < hole_count:
-        # Detect blank NR holes sandwiched between played holes.
-        # A blank hole between min_played and max_played can only be an NR (the
-        # scorer left both strokes and score empty); a genuinely unplayed hole is
-        # always at the tail end of the played range.
-        all_nums = {h["hole"] for h in holes}
+        # Blank holes sandwiched between played holes whose par IS populated are
+        # NR pickups - the scorer left strokes and score empty but the hole par
+        # is still shown. Holes with par=None are genuinely unplayed (MiClub
+        # does not pre-fill par for holes the player hasn't reached yet).
         min_p, max_p = min(played_nums), max(played_nums)
-        sandwiched = sum(1 for n in all_nums if min_p < n < max_p and n not in played_nums)
-        if played_count + sandwiched >= hole_count:
+        nr_gaps = sum(1 for h in holes
+                      if min_p < h["hole"] < max_p
+                      and h["hole"] not in played_nums
+                      and h.get("par") is not None)
+        total = played_count + nr_gaps
+        if total >= hole_count:
             return hole_count
+        return total
     return played_count
 
 
