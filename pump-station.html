@@ -507,36 +507,72 @@
 
     <!-- PIN lock panel -->
     <div id="ctrl-pin-panel">
-        <div class="card" style="max-width:340px;margin:0 auto;">
-            <div class="ctrl-pin-wrap">
-                <div style="font-size:2em;margin-bottom:6px;">🔒</div>
-                <div style="font-size:.78em;text-transform:uppercase;letter-spacing:2px;color:#e67e22;margin-bottom:4px;">Pump Control</div>
-                <div style="font-size:.72em;color:#7f8c8d;margin-bottom:18px;" id="ctrl-pin-label">Enter 6-digit PIN</div>
-                <div class="ctrl-pin-dots" id="ctrl-pin-dots">
-                    <div class="ctrl-pin-dot" id="cpd0"></div>
-                    <div class="ctrl-pin-dot" id="cpd1"></div>
-                    <div class="ctrl-pin-dot" id="cpd2"></div>
-                    <div class="ctrl-pin-dot" id="cpd3"></div>
-                    <div class="ctrl-pin-dot" id="cpd4"></div>
-                    <div class="ctrl-pin-dot" id="cpd5"></div>
+        <div class="card" style="max-width:360px;margin:0 auto;">
+
+            <!-- Step 1: select user -->
+            <div id="ctrl-step-user">
+                <div style="text-align:center;margin-bottom:18px;">
+                    <div style="font-size:2em;margin-bottom:6px;">🔒</div>
+                    <div style="font-size:.78em;text-transform:uppercase;letter-spacing:2px;color:#e67e22;margin-bottom:6px;">Pump Control</div>
+                    <div id="ctrl-loading-msg" style="font-size:.78em;color:#566573;">Loading users...</div>
                 </div>
-                <div style="font-size:.78em;color:#e74c3c;min-height:20px;margin-bottom:10px;" id="ctrl-pin-error"></div>
-                <div class="ctrl-keypad" id="ctrl-keypad">
-                    <button class="ctrl-kbtn" onclick="ckp(1)">1</button>
-                    <button class="ctrl-kbtn" onclick="ckp(2)">2</button>
-                    <button class="ctrl-kbtn" onclick="ckp(3)">3</button>
-                    <button class="ctrl-kbtn" onclick="ckp(4)">4</button>
-                    <button class="ctrl-kbtn" onclick="ckp(5)">5</button>
-                    <button class="ctrl-kbtn" onclick="ckp(6)">6</button>
-                    <button class="ctrl-kbtn" onclick="ckp(7)">7</button>
-                    <button class="ctrl-kbtn" onclick="ckp(8)">8</button>
-                    <button class="ctrl-kbtn" onclick="ckp(9)">9</button>
-                    <button class="ctrl-kbtn kdel" onclick="ckpDel()">&#9003;</button>
-                    <button class="ctrl-kbtn" onclick="ckp(0)">0</button>
-                    <button class="ctrl-kbtn kok" onclick="ckpOk()">&#10003;</button>
+                <div id="ctrl-user-form" style="display:none;">
+                    <label style="font-size:.75em;color:#7f8c8d;display:block;margin-bottom:6px;">Select your account</label>
+                    <select id="ctrl-user-sel" style="width:100%;background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:9px 12px;font-size:.9em;margin-bottom:12px;"></select>
+                    <button class="ctrl-apply" onclick="ctrlSelectUser()" style="width:100%;padding:10px;">CONTINUE</button>
+                    <div style="font-size:.65em;color:#566573;margin-top:10px;text-align:center;">Contact admin to be added as a user.</div>
                 </div>
-                <div style="font-size:.68em;color:#566573;margin-top:10px;" id="ctrl-pin-attempts"></div>
             </div>
+
+            <!-- Step 2: PIN entry -->
+            <div id="ctrl-step-pin" style="display:none;">
+                <div class="ctrl-pin-wrap">
+                    <div style="font-size:.72em;color:#e67e22;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Pump Control</div>
+                    <div style="font-weight:bold;color:#ecf0f1;margin-bottom:4px;" id="ctrl-step-pin-name"></div>
+                    <div style="font-size:.72em;color:#7f8c8d;margin-bottom:18px;" id="ctrl-pin-label">Enter PIN</div>
+                    <div class="ctrl-pin-dots" id="ctrl-pin-dots">
+                        <div class="ctrl-pin-dot" id="cpd0"></div>
+                        <div class="ctrl-pin-dot" id="cpd1"></div>
+                        <div class="ctrl-pin-dot" id="cpd2"></div>
+                        <div class="ctrl-pin-dot" id="cpd3"></div>
+                        <div class="ctrl-pin-dot" id="cpd4"></div>
+                        <div class="ctrl-pin-dot" id="cpd5"></div>
+                    </div>
+                    <div style="font-size:.78em;color:#e74c3c;min-height:20px;margin-bottom:10px;" id="ctrl-pin-error"></div>
+                    <div class="ctrl-keypad" id="ctrl-keypad">
+                        <button class="ctrl-kbtn" onclick="ckp(1)">1</button>
+                        <button class="ctrl-kbtn" onclick="ckp(2)">2</button>
+                        <button class="ctrl-kbtn" onclick="ckp(3)">3</button>
+                        <button class="ctrl-kbtn" onclick="ckp(4)">4</button>
+                        <button class="ctrl-kbtn" onclick="ckp(5)">5</button>
+                        <button class="ctrl-kbtn" onclick="ckp(6)">6</button>
+                        <button class="ctrl-kbtn" onclick="ckp(7)">7</button>
+                        <button class="ctrl-kbtn" onclick="ckp(8)">8</button>
+                        <button class="ctrl-kbtn" onclick="ckp(9)">9</button>
+                        <button class="ctrl-kbtn kdel" onclick="ckpDel()">&#9003;</button>
+                        <button class="ctrl-kbtn" onclick="ckp(0)">0</button>
+                        <button class="ctrl-kbtn kok" onclick="ckpOk()">&#10003;</button>
+                    </div>
+                    <div style="font-size:.68em;color:#566573;margin-top:10px;" id="ctrl-pin-attempts"></div>
+                    <button style="background:none;border:none;color:#566573;font-size:.72em;cursor:pointer;margin-top:8px;" onclick="ctrlBackToUsers()">Back to user list</button>
+                </div>
+            </div>
+
+            <!-- Step 3: master password (once per session) -->
+            <div id="ctrl-step-master" style="display:none;">
+                <div style="text-align:center;">
+                    <div style="font-size:.72em;color:#e67e22;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">One more step</div>
+                    <div style="font-weight:bold;color:#ecf0f1;margin-bottom:4px;" id="ctrl-master-name"></div>
+                    <div style="font-size:.72em;color:#566573;margin-bottom:14px;line-height:1.5;">Enter the master password to enable commands.<br>Ask the site admin for this password.</div>
+                    <input type="password" id="ctrl-master-input" placeholder="Master password"
+                        style="width:100%;background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:10px 12px;font-size:.9em;margin-bottom:8px;"
+                        autocomplete="off" onkeydown="if(event.key==='Enter')ctrlUnlockMaster()">
+                    <div style="font-size:.78em;color:#e74c3c;min-height:18px;margin-bottom:8px;" id="ctrl-master-error"></div>
+                    <button class="ctrl-apply" onclick="ctrlUnlockMaster()" style="width:100%;padding:10px;">UNLOCK</button>
+                    <button style="background:none;border:none;color:#566573;font-size:.72em;cursor:pointer;margin-top:8px;" onclick="ctrlBackToUsers()">Cancel</button>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -552,17 +588,6 @@
                 &nbsp; <span id="ctrl-age" style="color:#566573;"></span>
             </div>
             <button class="lock-btn" onclick="ctrlLock()" style="padding:6px 14px;font-size:.75em;">LOCK</button>
-        </div>
-
-        <!-- Token required notice -->
-        <div id="ctrl-tok-card" class="card" style="display:none;border-left:3px solid #f39c12;">
-            <h2>GitHub Token Required</h2>
-            <div style="font-size:.8em;color:#bdc3c7;margin-bottom:10px;line-height:1.5;">
-                Commands queue via GitHub API. Enter your Personal Access Token (repo write scope).
-                Stored AES-encrypted under your PIN in this browser only.
-            </div>
-            <input type="password" id="ctrl-tok-input" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:6px;padding:8px 12px;font-size:.88em;font-family:monospace;margin-bottom:8px;" autocomplete="off">
-            <button class="ctrl-apply" onclick="ctrlSaveToken()" style="padding:8px 18px;">SAVE TOKEN</button>
         </div>
 
         <!-- Confirm overlay (shown when action needs confirmation) -->
@@ -631,14 +656,18 @@
         <!-- Session management -->
         <div class="card" style="border-left:3px solid #566573;">
             <h2>Session</h2>
+            <div style="font-size:.82em;color:#bdc3c7;margin-bottom:10px;">
+                Logged in as: <strong id="ctrl-ses-name" style="color:#e67e22;"></strong>
+                &nbsp;-&nbsp; <span id="ctrl-ses-role" style="color:#566573;text-transform:uppercase;font-size:.85em;"></span>
+            </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
                 <button class="ctrl-apply" onclick="ctrlChangePinFlow()">Change PIN</button>
-                <button class="ctrl-apply" onclick="ctrlClearToken()" style="border-color:#e74c3c;color:#e74c3c;">Clear Token</button>
                 <button class="lock-btn" onclick="ctrlLock()" style="padding:7px 14px;font-size:.78em;">Lock Session</button>
             </div>
             <div style="font-size:.68em;color:#566573;line-height:1.6;">
-                PIN stored locally as SHA-256 hash. Token AES-encrypted under PIN in this browser only.
-                All commands logged in git: data/pump_commands.json.
+                PINs are hashed (PBKDF2) and stored in the repo. The GitHub token is encrypted with the
+                master password and lives in the repo only - never in your browser. Commands are logged
+                in git with your name: data/pump_commands.json.
             </div>
         </div>
 
@@ -1386,42 +1415,44 @@ function fmtDayLabel(dateStr) {
 // ═══════════════════════════════════════════════════════════════════════════
 const REPO     = 'Bidgee182/wwcc-weather-page';
 const CMD_PATH = 'data/pump_commands.json';
-const CPIN_KEY  = 'wwcc_pump_pin_hash';
-const CTOK_KEY  = 'wwcc_pump_tok';
-const CTOK_SALT = 'wwcc_pump_tok_salt';
+const USR_PATH = 'data/pump_ctrl_users.json';
+const CFG_PATH = 'data/pump_ctrl_config.json';
+const RAW_BASE = 'https://raw.githubusercontent.com/' + REPO + '/main/';
 
-let ctrlSes = { pin: null, token: null, unlocked: false };
+let ctrlSes = { user: null, token: null, unlocked: false };
+let ctrlUsers = [];
+let ctrlSelectedUser = null;
 let ctrlPinBuf = '';
-let ctrlPinMode = 'login';      // 'login' | 'set-new' | 'confirm-new'
+let ctrlPinMode = 'login';   // 'login' | 'invite' | 'change-old' | 'change-new' | 'change-confirm'
 let ctrlNewPinBuf = '';
 let ctrlAttempts = 0;
 let ctrlLocked = false;
-let ctrlPendingOnUnlock = null; // action pre-loaded from Overview link
+let ctrlPendingOnUnlock = null;
 let ctrlCountdownTimer = null;
 let ctrlPendingAction = null;
 
-// ─── Crypto helpers ──────────────────────────────────────────────────────────
-async function ctrlSha256(s) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+// ─── Crypto (PBKDF2 + AES-GCM) ───────────────────────────────────────────────
+const ctrlEnc = new TextEncoder(), ctrlDec = new TextDecoder();
+async function ctrlPbkdf2(pass, salt) {
+    const km = await crypto.subtle.importKey('raw', ctrlEnc.encode(pass), 'PBKDF2', false, ['deriveBits']);
+    const d  = await crypto.subtle.deriveBits({ name:'PBKDF2', salt:ctrlEnc.encode(salt), iterations:100000, hash:'SHA-256' }, km, 256);
+    return new Uint8Array(d);
 }
+const ctrlHex = b => [...b].map(x => x.toString(16).padStart(2,'0')).join('');
+async function ctrlPinHash(email, pin, salt) { return ctrlHex(await ctrlPbkdf2(email.toLowerCase()+':'+pin, salt)); }
 async function ctrlAesKey(pass, salt) {
-    const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
-        { name:'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash:'SHA-256' },
-        raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
-    );
+    const bits = await ctrlPbkdf2(pass, salt);
+    return crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt','decrypt']);
 }
 async function ctrlAesEnc(key, text) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(text));
-    return { iv: Array.from(iv).map(b=>b.toString(16).padStart(2,'0')).join(''), ct: btoa(String.fromCharCode(...new Uint8Array(ct))) };
+    const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ctrlEnc.encode(text));
+    return { iv: ctrlHex(iv), ct: btoa(String.fromCharCode(...new Uint8Array(ct))) };
 }
 async function ctrlAesDec(key, obj) {
-    const iv = Uint8Array.from(obj.iv.match(/../g).map(h=>parseInt(h,16)));
-    const ct = Uint8Array.from(atob(obj.ct), c=>c.charCodeAt(0));
-    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
-    return new TextDecoder().decode(pt);
+    const iv = new Uint8Array(obj.iv.match(/../g).map(h => parseInt(h,16)));
+    const ct = Uint8Array.from(atob(obj.ct), c => c.charCodeAt(0));
+    return ctrlDec.decode(await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct));
 }
 
 // ─── GitHub API ───────────────────────────────────────────────────────────────
@@ -1432,19 +1463,84 @@ async function ctrlGhGet(path) {
     if (r.status === 404) return { sha: null, text: null };
     if (!r.ok) throw new Error('GitHub ' + r.status);
     const d = await r.json();
-    return { sha: d.sha, text: atob(d.content.replace(/\n/g,'')) };
+    return { sha: d.sha, text: ctrlDec.decode(Uint8Array.from(atob(d.content.replace(/\n/g,'')), c => c.charCodeAt(0))) };
 }
 async function ctrlGhPut(path, text, message, sha) {
-    const content = btoa(unescape(encodeURIComponent(text)));
-    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
-        method:'PUT',
-        headers:{ Authorization:'Bearer '+ctrlSes.token, 'Content-Type':'application/json' },
-        body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
-    });
-    if (!r.ok) { const b=await r.json().catch(()=>({})); throw new Error(b.message||r.status); }
+    const content = btoa(String.fromCharCode(...ctrlEnc.encode(text)));
+    for (let attempt = 0; ; attempt++) {
+        const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+            method: 'PUT',
+            headers: { Authorization:'Bearer '+ctrlSes.token, 'Content-Type':'application/json' },
+            body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
+        });
+        if (r.ok) return;
+        const e = await r.json().catch(() => ({}));
+        const conflict = r.status === 409 || (r.status === 422 && /sha/i.test(e.message||''));
+        if (conflict && attempt < 2) { const f = await ctrlGhGet(path); sha = f.sha; continue; }
+        throw new Error(e.message || r.status);
+    }
 }
 
-// ─── PIN keypad ───────────────────────────────────────────────────────────────
+// ─── Step 1: load & select user ───────────────────────────────────────────────
+async function ctrlLoadUsers() {
+    try {
+        const r = await fetch(RAW_BASE + USR_PATH + '?t=' + Date.now());
+        const d = await r.json();
+        ctrlUsers = (d.users || []).filter(u => u.email);
+    } catch { ctrlUsers = []; }
+    const lm  = document.getElementById('ctrl-loading-msg');
+    const uf  = document.getElementById('ctrl-user-form');
+    const sel = document.getElementById('ctrl-user-sel');
+    if (!ctrlUsers.length) {
+        if (lm) lm.textContent = 'No users configured yet. Contact the administrator.';
+        return;
+    }
+    if (lm) lm.style.display = 'none';
+    if (sel) sel.innerHTML = ctrlUsers.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
+    if (uf) uf.style.display = 'block';
+}
+
+function ctrlSelectUser() {
+    const sel = document.getElementById('ctrl-user-sel');
+    if (!sel) return;
+    ctrlSelectedUser = ctrlUsers.find(u => u.email === sel.value) || null;
+    if (!ctrlSelectedUser) return;
+    document.getElementById('ctrl-step-user').style.display = 'none';
+    document.getElementById('ctrl-step-pin').style.display = 'block';
+    const nm = document.getElementById('ctrl-step-pin-name');
+    if (nm) nm.textContent = ctrlSelectedUser.name;
+    ctrlAttempts = 0; ctrlLocked = false; ctrlPinBuf = ''; ctrlUpdateDots();
+    const kp  = document.getElementById('ctrl-keypad');
+    if (kp) { kp.style.opacity = '1'; kp.style.pointerEvents = 'auto'; }
+    const lbl = document.getElementById('ctrl-pin-label');
+    const att = document.getElementById('ctrl-pin-attempts');
+    document.getElementById('ctrl-pin-error').textContent = '';
+    if (ctrlSelectedUser.pin_hash === null && ctrlSelectedUser.invite_hash) {
+        ctrlPinMode = 'invite';
+        if (lbl) lbl.textContent = 'Enter your invite code';
+        if (att) att.textContent = 'Your administrator gave you this code.';
+    } else if (ctrlSelectedUser.pin_hash === null) {
+        ctrlPinMode = 'change-new';
+        if (lbl) lbl.textContent = 'Set your PIN (first use)';
+        if (att) att.textContent = 'You will enter it twice to confirm.';
+    } else {
+        ctrlPinMode = 'login';
+        if (lbl) lbl.textContent = 'Enter your PIN';
+        if (att) att.textContent = '';
+    }
+}
+
+function ctrlBackToUsers() {
+    ctrlPinBuf = ''; ctrlUpdateDots();
+    document.getElementById('ctrl-step-pin').style.display = 'none';
+    document.getElementById('ctrl-step-master').style.display = 'none';
+    document.getElementById('ctrl-step-user').style.display = 'block';
+    document.getElementById('ctrl-pin-error').textContent = '';
+    const me = document.getElementById('ctrl-master-error'); if (me) me.textContent = '';
+    const mi = document.getElementById('ctrl-master-input'); if (mi) mi.value = '';
+}
+
+// ─── Step 2: PIN keypad ───────────────────────────────────────────────────────
 function ckp(d) {
     if (ctrlLocked) return;
     if (ctrlPinBuf.length >= 6) return;
@@ -1454,112 +1550,169 @@ function ckp(d) {
 }
 function ckpDel() { ctrlPinBuf = ctrlPinBuf.slice(0,-1); ctrlUpdateDots(); document.getElementById('ctrl-pin-error').textContent = ''; }
 function ctrlUpdateDots(mode) {
-    for (let i=0;i<6;i++) {
+    for (let i = 0; i < 6; i++) {
         const el = document.getElementById('cpd'+i);
         if (!el) return;
-        el.className = 'ctrl-pin-dot' + (i<ctrlPinBuf.length ? ' filled' : '') + (mode==='wrong'&&i<ctrlPinBuf.length?' wrong':'');
+        el.className = 'ctrl-pin-dot' + (i < ctrlPinBuf.length ? ' filled' : '') + (mode==='wrong' && i < ctrlPinBuf.length ? ' wrong' : '');
     }
 }
+
 async function ckpOk() {
-    if (ctrlPinBuf.length < 4) { document.getElementById('ctrl-pin-error').textContent='PIN must be at least 4 digits.'; return; }
-    const buf = ctrlPinBuf; ctrlPinBuf = '';
+    if (ctrlPinBuf.length < 4) { document.getElementById('ctrl-pin-error').textContent = 'PIN must be at least 4 digits.'; return; }
+    const buf = ctrlPinBuf; ctrlPinBuf = ''; ctrlUpdateDots();
+
     if (ctrlPinMode === 'login') {
-        await ctrlDoLogin(buf);
-    } else if (ctrlPinMode === 'set-new') {
-        ctrlNewPinBuf = buf; ctrlPinMode = 'confirm-new';
+        const h = await ctrlPinHash(ctrlSelectedUser.email, buf, ctrlSelectedUser.salt);
+        if (h !== ctrlSelectedUser.pin_hash) {
+            ctrlAttempts++;
+            ctrlPinBuf = buf; ctrlUpdateDots('wrong');
+            const left = 5 - ctrlAttempts;
+            document.getElementById('ctrl-pin-error').textContent = left > 0 ? 'Incorrect PIN. '+left+' attempts left.' : 'Too many attempts. Reload to retry.';
+            if (ctrlAttempts >= 5) { ctrlLocked = true; const kp=document.getElementById('ctrl-keypad'); if(kp){kp.style.opacity='0.3';kp.style.pointerEvents='none';} }
+            setTimeout(ctrlUpdateDots, 600); ctrlPinBuf = ''; return;
+        }
+        ctrlAttempts = 0; ctrlSes.user = ctrlSelectedUser;
+        const sesToken = sessionStorage.getItem('ctrl_tok');
+        if (sesToken) { ctrlSes.token = sesToken; ctrlUnlock(); }
+        else ctrlShowMasterStep();
+
+    } else if (ctrlPinMode === 'invite') {
+        const h = await ctrlPinHash(ctrlSelectedUser.email, buf, ctrlSelectedUser.salt);
+        if (h !== ctrlSelectedUser.invite_hash) {
+            ctrlAttempts++;
+            ctrlPinBuf = buf; ctrlUpdateDots('wrong');
+            document.getElementById('ctrl-pin-error').textContent = 'Incorrect invite code. Attempt ' + ctrlAttempts + '/5.';
+            if (ctrlAttempts >= 5) { ctrlLocked = true; const kp=document.getElementById('ctrl-keypad'); if(kp){kp.style.opacity='0.3';kp.style.pointerEvents='none';} }
+            setTimeout(ctrlUpdateDots, 600); ctrlPinBuf = ''; return;
+        }
+        ctrlAttempts = 0; ctrlSes.user = ctrlSelectedUser;
+        ctrlPinMode = 'change-new';
+        document.getElementById('ctrl-pin-label').textContent = 'Set your new PIN';
+        document.getElementById('ctrl-pin-error').textContent = '';
+        document.getElementById('ctrl-pin-attempts').textContent = 'You will enter it twice to confirm.';
+
+    } else if (ctrlPinMode === 'change-old') {
+        const h = await ctrlPinHash(ctrlSelectedUser.email, buf, ctrlSelectedUser.salt);
+        if (h !== ctrlSelectedUser.pin_hash) {
+            ctrlPinBuf = buf; ctrlUpdateDots('wrong');
+            document.getElementById('ctrl-pin-error').textContent = 'Incorrect current PIN.';
+            setTimeout(ctrlUpdateDots, 600); ctrlPinBuf = ''; return;
+        }
+        ctrlPinMode = 'change-new';
+        document.getElementById('ctrl-pin-label').textContent = 'Enter new PIN';
+        document.getElementById('ctrl-pin-error').textContent = '';
+
+    } else if (ctrlPinMode === 'change-new') {
+        ctrlNewPinBuf = buf; ctrlPinMode = 'change-confirm';
         document.getElementById('ctrl-pin-label').textContent = 'Confirm new PIN';
-        ctrlUpdateDots(); document.getElementById('ctrl-pin-error').textContent = '';
-    } else if (ctrlPinMode === 'confirm-new') {
+        document.getElementById('ctrl-pin-error').textContent = '';
+
+    } else if (ctrlPinMode === 'change-confirm') {
         if (buf !== ctrlNewPinBuf) {
             document.getElementById('ctrl-pin-error').textContent = 'PINs do not match. Try again.';
-            ctrlPinMode = 'set-new';
+            ctrlPinMode = 'change-new';
             document.getElementById('ctrl-pin-label').textContent = 'Enter new PIN';
             ctrlNewPinBuf = '';
         } else { await ctrlSaveNewPin(buf); }
     }
 }
-async function ctrlDoLogin(pin) {
-    const stored = localStorage.getItem(CPIN_KEY);
-    if (!stored) {
-        ctrlPinMode = 'set-new';
-        document.getElementById('ctrl-pin-label').textContent = 'Set a new PIN (first use)';
-        document.getElementById('ctrl-pin-attempts').textContent = 'You will enter it twice to confirm.';
-        return;
-    }
-    const h = await ctrlSha256(pin);
-    if (h !== stored) {
-        ctrlAttempts++;
-        ctrlUpdateDots('wrong');
-        const left = 5 - ctrlAttempts;
-        document.getElementById('ctrl-pin-error').textContent = left > 0 ? 'Incorrect PIN. ' + left + ' attempts left.' : 'Too many attempts. Reload to retry.';
-        if (ctrlAttempts >= 5) { ctrlLocked = true; document.getElementById('ctrl-keypad').style.pointerEvents='none'; document.getElementById('ctrl-keypad').style.opacity='0.3'; }
-        setTimeout(ctrlUpdateDots, 500);
-        return;
-    }
-    ctrlAttempts = 0;
-    ctrlSes.pin = pin;
-    await ctrlLoadToken(pin);
-    ctrlUnlock();
-}
+
 async function ctrlSaveNewPin(pin) {
-    localStorage.setItem(CPIN_KEY, await ctrlSha256(pin));
-    ctrlSes.pin = pin;
-    await ctrlLoadToken(pin);
-    ctrlUnlock();
-}
-async function ctrlLoadToken(pin) {
+    if (!ctrlSes.token) { ctrlShowMasterStep(); return; }
     try {
-        const stored = localStorage.getItem(CTOK_KEY);
-        const salt   = localStorage.getItem(CTOK_SALT);
-        if (!stored || !salt) return;
-        const key = await ctrlAesKey(pin+':pumpctrl', salt);
-        ctrlSes.token = await ctrlAesDec(key, JSON.parse(stored));
-    } catch { ctrlSes.token = null; }
+        const f = await ctrlGhGet(USR_PATH);
+        const d = JSON.parse(f.text);
+        const u = d.users.find(x => x.email === ctrlSes.user.email);
+        if (u) {
+            u.pin_hash = await ctrlPinHash(ctrlSes.user.email, pin, u.salt);
+            u.invite_hash = null;
+            ctrlSelectedUser.pin_hash = u.pin_hash;
+            ctrlSelectedUser.invite_hash = null;
+        }
+        await ctrlGhPut(USR_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: PIN set - ' + ctrlSes.user.email, f.sha);
+        if (ctrlSes.unlocked) {
+            document.getElementById('ctrl-pin-panel').style.display = 'none';
+            document.getElementById('ctrl-main').style.display = 'block';
+            ctrlRefreshStatus();
+        } else ctrlUnlock();
+    } catch(e) { document.getElementById('ctrl-pin-error').textContent = 'Save failed: ' + e.message; }
 }
-async function ctrlSaveToken() {
-    const tok = document.getElementById('ctrl-tok-input').value.trim();
-    if (!tok) return;
-    const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
-    const key  = await ctrlAesKey(ctrlSes.pin+':pumpctrl', salt);
-    const enc  = await ctrlAesEnc(key, tok);
-    localStorage.setItem(CTOK_KEY, JSON.stringify(enc));
-    localStorage.setItem(CTOK_SALT, salt);
-    ctrlSes.token = tok;
-    document.getElementById('ctrl-tok-card').style.display = 'none';
-    document.getElementById('ctrl-tok-input').value = '';
-    ctrlLoadCmds();
+
+// ─── Step 3: master password ──────────────────────────────────────────────────
+function ctrlShowMasterStep() {
+    document.getElementById('ctrl-step-pin').style.display = 'none';
+    document.getElementById('ctrl-step-master').style.display = 'block';
+    const nm = document.getElementById('ctrl-master-name');
+    if (nm && ctrlSes.user) nm.textContent = 'Welcome, ' + ctrlSes.user.name;
+    const mi = document.getElementById('ctrl-master-input');
+    if (mi) { mi.value = ''; setTimeout(() => mi.focus(), 80); }
 }
-function ctrlClearToken() {
-    if (!confirm('Clear saved GitHub token?')) return;
-    localStorage.removeItem(CTOK_KEY); localStorage.removeItem(CTOK_SALT);
-    ctrlSes.token = null;
-    document.getElementById('ctrl-tok-card').style.display = 'block';
+
+async function ctrlUnlockMaster() {
+    const mi = document.getElementById('ctrl-master-input');
+    const pw = mi ? mi.value.trim() : '';
+    if (!pw) { document.getElementById('ctrl-master-error').textContent = 'Enter the master password.'; return; }
+    try {
+        const r = await fetch(RAW_BASE + CFG_PATH + '?t=' + Date.now());
+        const cfg = await r.json();
+        if (!cfg.token_enc) { document.getElementById('ctrl-master-error').textContent = 'No token configured yet. Ask the administrator to set it in admin.html.'; return; }
+        const key = await ctrlAesKey(pw, cfg.token_salt);
+        const tok = await ctrlAesDec(key, { iv: cfg.token_iv, ct: cfg.token_enc });
+        ctrlSes.token = tok;
+        sessionStorage.setItem('ctrl_tok', tok);
+        if (mi) mi.value = '';
+        document.getElementById('ctrl-master-error').textContent = '';
+        // If there's a pending PIN save (first-use flow), do it now
+        if (ctrlNewPinBuf) { await ctrlSaveNewPin(ctrlNewPinBuf); ctrlNewPinBuf = ''; }
+        else ctrlUnlock();
+    } catch(e) { document.getElementById('ctrl-master-error').textContent = 'Wrong password or token not yet configured.'; }
 }
+
+// ─── Session control ──────────────────────────────────────────────────────────
 function ctrlUnlock() {
     ctrlSes.unlocked = true;
     document.getElementById('ctrl-pin-panel').style.display = 'none';
     document.getElementById('ctrl-main').style.display = 'block';
-    if (!ctrlSes.token) document.getElementById('ctrl-tok-card').style.display = 'block';
+    const sn = document.getElementById('ctrl-ses-name'); if (sn) sn.textContent = ctrlSes.user ? ctrlSes.user.name : '';
+    const sr = document.getElementById('ctrl-ses-role'); if (sr) sr.textContent = ctrlSes.user ? ctrlSes.user.role : '';
     ctrlRefreshStatus();
     ctrlLoadCmds();
     if (ctrlPendingOnUnlock) {
-        const { act, val } = ctrlPendingOnUnlock;
-        ctrlPendingOnUnlock = null;
+        const { act, val } = ctrlPendingOnUnlock; ctrlPendingOnUnlock = null;
         setTimeout(() => ctrlQueueOrConfirm(act, val, act==='system_stop'||act==='stop_pump'), 200);
     }
 }
+
 function ctrlLock() {
-    ctrlSes = { pin:null, token:null, unlocked:false };
+    ctrlSes = { user: null, token: null, unlocked: false };
+    // Keep sessionStorage token so master pw isn't needed again in the same browser session
     ctrlPinBuf = ''; ctrlPinMode = 'login'; ctrlAttempts = 0; ctrlLocked = false;
-    for (let i=0;i<6;i++) { const el=document.getElementById('cpd'+i); if(el) el.className='ctrl-pin-dot'; }
-    document.getElementById('ctrl-pin-label').textContent = 'Enter 6-digit PIN';
+    ctrlUpdateDots();
+    document.getElementById('ctrl-pin-panel').style.display = 'block';
+    document.getElementById('ctrl-main').style.display = 'none';
+    document.getElementById('ctrl-step-user').style.display = 'block';
+    document.getElementById('ctrl-step-pin').style.display = 'none';
+    document.getElementById('ctrl-step-master').style.display = 'none';
+    ctrlCancelAction();
+}
+
+function ctrlChangePinFlow() {
+    // Must already be unlocked; go back to pin panel in change-old mode
+    ctrlPinBuf = ''; ctrlPinMode = 'change-old'; ctrlAttempts = 0; ctrlLocked = false;
+    ctrlUpdateDots();
+    document.getElementById('ctrl-pin-label').textContent = 'Enter current PIN';
     document.getElementById('ctrl-pin-error').textContent = '';
     document.getElementById('ctrl-pin-attempts').textContent = '';
     document.getElementById('ctrl-pin-panel').style.display = 'block';
     document.getElementById('ctrl-main').style.display = 'none';
-    ctrlCancelAction();
+    document.getElementById('ctrl-step-user').style.display = 'none';
+    document.getElementById('ctrl-step-pin').style.display = 'block';
+    document.getElementById('ctrl-step-master').style.display = 'none';
+    const nm = document.getElementById('ctrl-step-pin-name');
+    if (nm && ctrlSes.user) nm.textContent = ctrlSes.user.name;
+    const kp = document.getElementById('ctrl-keypad');
+    if (kp) { kp.style.opacity = '1'; kp.style.pointerEvents = 'auto'; }
 }
-function ctrlChangePinFlow() { ctrlLock(); ctrlPinMode='set-new'; document.getElementById('ctrl-pin-label').textContent='Enter new PIN'; }
 
 // ─── Control live status ──────────────────────────────────────────────────────
 function ctrlRefreshStatus() {
@@ -1701,11 +1854,15 @@ async function ctrlSendCommand(act, val) {
         let data = {pending:null, log:[]};
         if (f.text) { try { data=JSON.parse(f.text); } catch {} }
         if (!Array.isArray(data.log)) data.log=[];
-        const cmd = { id:'cmd-'+Date.now(), ts:new Date().toISOString(), action:act, value:val, status:'pending', executed_at:null, result:null };
+        const cmd = { id:'cmd-'+Date.now(), ts:new Date().toISOString(), action:act, value:val,
+            requested_by: ctrlSes.user ? ctrlSes.user.email : 'unknown',
+            requested_by_name: ctrlSes.user ? ctrlSes.user.name : 'unknown',
+            status:'pending', executed_at:null, result:null };
         data.pending = cmd;
         data.log.unshift(cmd);
         if (data.log.length>30) data.log=data.log.slice(0,30);
-        await ctrlGhPut(CMD_PATH, JSON.stringify(data,null,2), 'Pump cmd: '+act+(val?' = '+val:''), f.sha||undefined);
+        const by = ctrlSes.user ? ctrlSes.user.name : 'unknown';
+        await ctrlGhPut(CMD_PATH, JSON.stringify(data,null,2), 'Pump cmd: '+act+(val?' = '+val:'')+' ('+by+')', f.sha||undefined);
         ctrlRenderCmds(data);
         ctrlShowToast(ctrlActionLabel(act,val)+' queued - executes within 5 min');
     } catch(e) { alert('Command failed: '+e.message+'\n\nCheck GitHub token has repo write access.'); }
@@ -1720,11 +1877,12 @@ function ctrlRenderCmds(data) {
     if (!log.length) { el.innerHTML='<div style="color:#566573;font-size:.82em;text-align:center;padding:14px;">No commands sent yet.</div>'; return; }
     el.innerHTML = log.map(c=>{
         const dotCls = (c.status==='done'||c.status==='executed')?'cdone':c.status==='failed'?'cfailed':'cpending';
+        const who = c.requested_by_name || c.requested_by || '';
         return `<div class="ctrl-cmd-row">
             <div class="ctrl-cmd-dot ${dotCls}"></div>
             <div style="flex:1;min-width:0;">
                 <div style="font-weight:bold;color:#ecf0f1;">${ctrlActionLabel(c.action,c.value)}</div>
-                <div style="color:#566573;">${c.status.toUpperCase()}${c.result?' - '+c.result:''}</div>
+                <div style="color:#566573;">${c.status.toUpperCase()}${c.result?' - '+c.result:''}${who?' - by '+who:''}</div>
             </div>
             <div style="color:#566573;font-size:.85em;white-space:nowrap;flex-shrink:0;">${fmtDate(c.ts)}</div>
         </div>`;
@@ -1738,16 +1896,8 @@ function ctrlShowToast(msg) {
     setTimeout(()=>el.remove(), 4500);
 }
 
-// First use: if no PIN stored, go straight to set-new mode
-document.addEventListener('DOMContentLoaded', () => {
-    if (!localStorage.getItem(CPIN_KEY)) {
-        const lbl = document.getElementById('ctrl-pin-label');
-        const att = document.getElementById('ctrl-pin-attempts');
-        if (lbl) lbl.textContent = 'Set your PIN (first use)';
-        if (att) att.textContent = 'You will enter it twice to confirm.';
-        ctrlPinMode = 'set-new';
-    }
-});
+// Load user list when control tab opens
+document.addEventListener('DOMContentLoaded', ctrlLoadUsers);
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();

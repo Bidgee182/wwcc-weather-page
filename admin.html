@@ -147,6 +147,7 @@
     <button class="tab-btn" data-p="workflows" onclick="showPanel('workflows')">Workflows</button>
     <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
     <button class="tab-btn" data-p="controls" onclick="showPanel('controls')">Controls</button>
+    <button class="tab-btn" data-p="pump-users" onclick="showPanel('pump-users');pcuLoad()">Pumps</button>
     <button class="tab-btn" data-p="admins" onclick="showPanel('admins')">Admins</button>
     <button class="tab-btn" data-p="reference" onclick="showPanel('reference')">Reference</button>
     <button class="ghost" style="margin-left:auto;" onclick="window.print()" title="Print the tab you are viewing">Print</button>
@@ -364,6 +365,52 @@
         <div class="status" id="pump-status"></div>
         <p class="note">Writes data/pumping_usage.json - used by the lake email reports. This is where
         Toro monthly figures get entered until the flow meter arrives.</p>
+    </div>
+</div>
+
+<!-- PUMP CONTROL USERS -->
+<div class="panel" id="panel-pump-users">
+    <div class="card">
+        <h2>Pump Control Users</h2>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>PIN</th><th>Added</th><th></th></tr></thead>
+            <tbody id="pcu-list"></tbody>
+        </table></div>
+        <div class="flexrow" style="margin-top:12px;flex-wrap:wrap;gap:8px;">
+            <label>Name<br><input type="text" id="pcu-name" style="width:160px;" placeholder="John Smith"></label>
+            <label>Email<br><input type="email" id="pcu-email" style="width:220px;"></label>
+            <label>Role<br>
+                <select id="pcu-role">
+                    <option value="operator">Operator</option>
+                    <option value="admin">Admin</option>
+                    <option value="view">View only</option>
+                </select>
+            </label>
+            <button onclick="pcuAdd()">Add User</button>
+        </div>
+        <div class="status" id="pcu-status"></div>
+        <p class="note">New users get a one-time invite code (shown once after adding). They enter it on the pump control page to set their own PIN. Invite codes expire after first use.</p>
+    </div>
+
+    <div class="card">
+        <h2>Pump Control - Master Password &amp; Token</h2>
+        <div style="font-size:.82em;color:#bdc3c7;margin-bottom:12px;line-height:1.5;">
+            The master password encrypts the GitHub token and is stored in the repo. Operators enter this
+            password once per session to enable commands. Change it to revoke access from someone who
+            knew the old password.
+        </div>
+        <div class="flexrow" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <label style="flex:1;min-width:220px;">GitHub Token (repo write scope)<br>
+                <input type="password" id="pcu-token" style="width:100%;font-family:monospace;" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"></label>
+        </div>
+        <div class="flexrow" style="flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <label>New master password<br><input type="password" id="pcu-master1" style="width:220px;" autocomplete="off"></label>
+            <label>Confirm<br><input type="password" id="pcu-master2" style="width:220px;" autocomplete="off"></label>
+            <button onclick="pcuSaveMaster()">Save Token &amp; Password</button>
+        </div>
+        <div class="status" id="pcu-master-status"></div>
+        <p class="note">The token is AES-GCM encrypted with the master password before being stored in data/pump_ctrl_config.json.
+        The plain token is never stored anywhere - only the encrypted blob. If you lose the master password, just enter the token and a new password above.</p>
     </div>
 </div>
 
@@ -1760,6 +1807,125 @@ async function admResetPin(email) {
         logAction('pin_reset', email);
         admRender();
     } catch (e) { $('adm-status').textContent = 'Failed: ' + e.message; }
+}
+
+// ── Pump Control Users ────────────────────────────────────────────────────────
+const PCU_PATH = 'data/pump_ctrl_users.json';
+const PCU_CFG  = 'data/pump_ctrl_config.json';
+
+async function pcuLoad() {
+    const st = m => $('pcu-status').textContent = m;
+    try {
+        const f = await ghGet(PCU_PATH);
+        if (!f.text) { st('No pump_ctrl_users.json yet.'); return; }
+        const d = JSON.parse(f.text);
+        pcuRender(d.users || []);
+    } catch(e) { st('Load failed: ' + e.message); }
+}
+
+function pcuRender(users) {
+    const tb = $('pcu-list');
+    if (!tb) return;
+    if (!users.length) { tb.innerHTML = '<tr><td colspan="6" style="color:#566573;">No users yet.</td></tr>'; return; }
+    tb.innerHTML = users.map(u => `<tr>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.role}</td>
+        <td>${u.pin_hash ? 'Set' : (u.invite_hash ? 'Invite pending' : 'Not set')}</td>
+        <td>${u.added_at ? u.added_at.slice(0,10) : '-'}</td>
+        <td>
+            <button onclick="pcuReset('${u.email.replace(/'/g,"\\'")}','${u.name.replace(/'/g,"\\'")}')">Reset PIN</button>
+            <button onclick="pcuRemove('${u.email.replace(/'/g,"\\'")}')" style="margin-left:4px;color:#e74c3c;">Remove</button>
+        </td>
+    </tr>`).join('');
+}
+
+async function pcuAdd() {
+    const name  = $('pcu-name').value.trim();
+    const email = $('pcu-email').value.trim().toLowerCase();
+    const role  = $('pcu-role').value;
+    const st = m => $('pcu-status').textContent = m;
+    if (!name || !email) { st('Enter name and email.'); return; }
+    if (!SES.token) { st('No token on this device.'); return; }
+    try {
+        const f = await ghGet(PCU_PATH);
+        let d = { version: 1, users: [] };
+        if (f.text) { try { d = JSON.parse(f.text); } catch {} }
+        if (!Array.isArray(d.users)) d.users = [];
+        if (d.users.some(u => u.email.toLowerCase() === email)) { st('User already exists.'); return; }
+        // Generate invite code (6 digits) and hash it
+        const inviteRaw  = String(Math.floor(100000 + Math.random() * 900000));
+        const salt       = 'wwcc-pump-' + hex(crypto.getRandomValues(new Uint8Array(4)));
+        const inviteHash = hex(await pbkdf2(email + ':' + inviteRaw, salt));
+        d.users.push({ email, name, role, pin_hash: null, invite_hash: inviteHash, salt, added_by: SES.email, added_at: new Date().toISOString() });
+        await ghPut(PCU_PATH, JSON.stringify(d, null, 2), `Pump ctrl: add user ${email} (by ${SES.email})`, f.sha);
+        logAction('pump_user_add', email);
+        $('pcu-name').value = ''; $('pcu-email').value = '';
+        pcuRender(d.users);
+        st('Added. INVITE CODE (show to user then close): ' + inviteRaw);
+        // Highlight the invite code
+        const statusEl = $('pcu-status');
+        if (statusEl) { statusEl.style.background = '#1d3a1d'; statusEl.style.color = '#2ecc71'; statusEl.style.padding = '10px'; statusEl.style.borderRadius = '6px'; statusEl.style.fontFamily = 'monospace'; statusEl.style.fontSize = '1em'; }
+        // Fade it out after 60 seconds
+        setTimeout(() => { if (statusEl) { statusEl.style = ''; statusEl.textContent = 'Invite code has been cleared. Share it verbally before it disappears.'; } }, 60000);
+    } catch(e) { st('Failed: ' + e.message); }
+}
+
+async function pcuReset(email, name) {
+    if (!confirm('Reset PIN for ' + name + '? A new invite code will be generated - show it to them, then they can log in and set a new PIN.')) return;
+    if (!SES.token) { $('pcu-status').textContent = 'No token.'; return; }
+    try {
+        const f = await ghGet(PCU_PATH);
+        const d = JSON.parse(f.text);
+        const u = d.users.find(x => x.email.toLowerCase() === email.toLowerCase());
+        if (!u) { $('pcu-status').textContent = 'User not found.'; return; }
+        const inviteRaw  = String(Math.floor(100000 + Math.random() * 900000));
+        u.invite_hash = hex(await pbkdf2(u.email + ':' + inviteRaw, u.salt));
+        u.pin_hash    = null;
+        await ghPut(PCU_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: PIN reset - ' + email + ' (by ' + SES.email + ')', f.sha);
+        logAction('pump_pin_reset', email);
+        pcuRender(d.users);
+        const statusEl = $('pcu-status');
+        statusEl.style.background = '#1d3a1d'; statusEl.style.color = '#2ecc71'; statusEl.style.padding = '10px'; statusEl.style.borderRadius = '6px'; statusEl.style.fontFamily = 'monospace'; statusEl.style.fontSize = '1em';
+        statusEl.textContent = 'NEW INVITE CODE for ' + name + ': ' + inviteRaw + '  (cleared in 60s)';
+        setTimeout(() => { statusEl.style = ''; statusEl.textContent = ''; }, 60000);
+    } catch(e) { $('pcu-status').textContent = 'Failed: ' + e.message; }
+}
+
+async function pcuRemove(email) {
+    if (!confirm('Remove pump control access for ' + email + '?')) return;
+    if (!SES.token) { $('pcu-status').textContent = 'No token.'; return; }
+    try {
+        const f = await ghGet(PCU_PATH);
+        const d = JSON.parse(f.text);
+        d.users = d.users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+        await ghPut(PCU_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: remove user ' + email + ' (by ' + SES.email + ')', f.sha);
+        logAction('pump_user_remove', email);
+        pcuRender(d.users);
+        $('pcu-status').textContent = 'Removed.';
+    } catch(e) { $('pcu-status').textContent = 'Failed: ' + e.message; }
+}
+
+async function pcuSaveMaster() {
+    const tok  = $('pcu-token').value.trim();
+    const pw1  = $('pcu-master1').value;
+    const pw2  = $('pcu-master2').value;
+    const st   = m => $('pcu-master-status').textContent = m;
+    if (!tok)  { st('Enter the GitHub token.'); return; }
+    if (!pw1)  { st('Enter the master password.'); return; }
+    if (pw1 !== pw2) { st('Passwords do not match.'); return; }
+    if (!SES.token)  { st('No admin token on this device.'); return; }
+    try {
+        const salt = 'wwcc-pump-master-' + hex(crypto.getRandomValues(new Uint8Array(8)));
+        const key  = await aesKey(pw1, salt);
+        const enc  = await aesEnc(key, tok);
+        const cfg  = { version: 1, token_enc: enc.ct, token_iv: enc.iv, token_salt: salt, updated_at: new Date().toISOString() };
+        const f    = await ghGet(PCU_CFG);
+        await ghPut(PCU_CFG, JSON.stringify(cfg, null, 2), 'Pump ctrl: master password updated (by ' + SES.email + ')', f.sha);
+        logAction('pump_master_pw_change', 'token re-encrypted');
+        $('pcu-token').value = ''; $('pcu-master1').value = ''; $('pcu-master2').value = '';
+        st('Saved. Operators can now log in with the new master password.');
+    } catch(e) { st('Failed: ' + e.message); }
 }
 
 // ── Manual workflow triggers ──────────────────────────────────────────────────
