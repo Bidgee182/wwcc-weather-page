@@ -402,6 +402,9 @@ let _pendingComingLast    = null; // coming-last buffered until its scroll cycle
 let _comingLastForceTimer = null; // fallback timer for coming-last panel
 let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (ms)
 
+let _loadedHash  = null;   // gitHash from first successful fetch (= build we loaded)
+let _needsReload = false;  // true when server has a newer build; reload at scroll-end
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -435,8 +438,13 @@ async function fetchData() {
         if (!_hasData) {
             // First successful load - render everything immediately
             _hasData = true;
+            _loadedHash = data.gitHash || null;
             render(data);
         } else {
+            // Detect new deployment: gitHash in JSON changed since we loaded
+            if (data.gitHash && _loadedHash && data.gitHash !== _loadedHash) {
+                _needsReload = true;
+            }
             // Buffer leaderboard rebuild until scroll completes full cycle -
             // users see every player before the list refreshes with new data.
             // Side panels update immediately so stories/header stay live.
@@ -463,6 +471,7 @@ async function fetchData() {
 // Apply buffered leaderboard data at the natural scroll loop point (last player scrolls off)
 function _applyPending() {
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
+    if (_needsReload) { location.reload(); return; }
     const d = _pendingData;
     if (!d) return;
     _pendingData = null;

@@ -25,6 +25,7 @@ import html
 import json
 import logging
 import re
+import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
@@ -35,6 +36,17 @@ from time import sleep
 from .webscrape import BASE, _get, _parse_holes, list_competitions
 
 log = logging.getLogger("miscore.live")
+
+def _git_hash() -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip() or None
+    except Exception:
+        return None
+
+GIT_HASH: str | None = _git_hash()
 
 HOLE_MAP: dict[int, int] = {}
 HOLE_COUNT_OVERRIDE: int | None = None
@@ -558,6 +570,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "holeCount": hole_count or None,
         "courseHoles": course_holes or hole_count or None,
         "par": par_total or None,
+        "gitHash": GIT_HASH,
         "generatedAt": now.isoformat(),
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
