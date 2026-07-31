@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Pump Station - Wagga Wagga Country Club</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; padding: 20px; }
+        @media (max-width: 480px) { body { padding: 10px; } }
+
+        /* ── Logo ── */
+        .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
+        .logo-wrap img { display:block; }
+        .logo-wrap .logo-top  { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
+        .logo-wrap .logo-base { filter: grayscale(1) contrast(200) invert(1); }
+
+        /* ── Header ── */
+        .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
+        .header-logo { height:64px; width:auto; flex-shrink:0; }
+        .header-text { display:flex; flex-direction:column; }
+        .header-text h1 { font-size:1.6em; letter-spacing:2px; color:#ecf0f1; line-height:1.1; }
+        .header-text .subtitle { font-size:0.85em; color:#7f8c8d; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
+        @media (max-width:480px) {
+            .header-logo { height:48px; }
+            .header-text h1 { font-size:1.15em; }
+            .header-text .subtitle { font-size:0.72em; }
+        }
+
+        /* ── Tab Bar ── */
+        .tab-bar { display:flex; justify-content:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+        .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:10px 22px; font-size:0.9em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; }
+        .tab-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
+        .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
+        @media (max-width:480px) {
+            .tab-bar { gap:4px; }
+            .tab-btn { padding:7px 10px; font-size:0.72em; letter-spacing:0.5px; }
+        }
+
+        /* ── Cards ── */
+        .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
+        .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
+        @media (max-width:480px) { .card { padding:14px 12px; } }
+
+        /* ── Tab panels ── */
+        .tab-panel { display:none; }
+        .tab-panel.active { display:block; }
+
+        /* ── Connection banner ── */
+        .conn-banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border:2px solid; }
+        .conn-banner.offline { background:#2c2518; border-color:#e67e22; }
+        .conn-banner.online  { background:#1c3025; border-color:#27ae60; }
+        .conn-banner.fault   { background:#2c1a1a; border-color:#e74c3c; }
+        .conn-left { display:flex; align-items:center; gap:14px; }
+        .conn-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+        .conn-dot.offline { background:#e67e22; animation:pulse-orange 2s ease-in-out infinite; }
+        .conn-dot.online  { background:#27ae60; animation:pulse-green  3s ease-in-out infinite; }
+        .conn-dot.fault   { background:#e74c3c; animation:pulse-red    1s ease-in-out infinite; }
+        .conn-title { font-size:1.05em; font-weight:bold; }
+        .conn-sub   { font-size:0.78em; color:#bdc3c7; margin-top:3px; }
+        .conn-right { text-align:right; }
+        .conn-ts    { font-size:0.72em; color:#7f8c8d; }
+        @keyframes pulse-orange { 0%,100%{box-shadow:0 0 4px rgba(230,126,34,.4)} 50%{box-shadow:0 0 14px 5px rgba(230,126,34,.8)} }
+        @keyframes pulse-green  { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.4)}  50%{box-shadow:0 0 14px 5px rgba(39,174,96,.8)} }
+        @keyframes pulse-red    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
+
+        /* ── System metrics grid ── */
+        .sys-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+        @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(2,1fr); } }
+        .sys-metric { background:#1a252f; border-radius:8px; padding:14px 10px; text-align:center; border:1px solid #3d5166; }
+        .sys-metric .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
+        .sys-metric .sm-unit { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
+        .sys-metric .sm-lbl  { font-size:0.65em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
+
+        /* ── Pressure vs Setpoint display ── */
+        .pressure-display { display:flex; align-items:center; gap:10px; margin-bottom:12px; background:#1a252f; border-radius:10px; padding:18px; }
+        .pres-block { flex:1; text-align:center; }
+        .pres-val   { font-size:2.8em; font-weight:bold; line-height:1; }
+        .pres-unit  { font-size:0.8em; color:#7f8c8d; margin-top:2px; }
+        .pres-lbl   { font-size:0.68em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
+        .pres-vs    { font-size:1.4em; color:#566573; font-weight:bold; flex-shrink:0; }
+        .pres-bar-bg   { background:#3d5166; border-radius:4px; height:10px; width:100%; margin:10px 0 4px; }
+        .pres-bar-fill { height:10px; border-radius:4px; transition:width 0.6s ease, background 0.4s; }
+        .pres-note { font-size:0.7em; color:#566573; text-align:center; margin-top:2px; }
+        @media (max-width:480px) {
+            .pres-val { font-size:2.2em; }
+            .pressure-display { padding:14px 10px; }
+        }
+
+        /* ── Pump summary rows ── */
+        .pump-summary-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #3d5166; }
+        .pump-summary-row:last-child { border-bottom:none; }
+        .ps-name { width:80px; font-size:0.88em; font-weight:bold; flex-shrink:0; }
+        .ps-speed { font-size:0.8em; color:#7f8c8d; margin-left:auto; flex-shrink:0; }
+
+        /* ── Pump cards grid ── */
+        .pump-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        @media (max-width:700px) { .pump-grid { grid-template-columns:repeat(2,1fr); } }
+        .pump-card { background:#1a252f; border-radius:10px; padding:16px 12px; text-align:center; border:2px solid #3d5166; transition:border-color 0.3s, box-shadow 0.3s; }
+        .pump-card.running { border-color:#27ae60; box-shadow:0 0 12px rgba(39,174,96,0.25); }
+        .pump-card.standby { border-color:#f39c12; }
+        .pump-card.fault   { border-color:#e74c3c; animation:fault-pulse 1.2s ease-in-out infinite; }
+        .pump-card.jockey  { border-color:#2980b9; }
+        .pump-card.jockey.running { border-color:#27ae60; }
+        .pump-card.jockey.fault   { border-color:#e74c3c; }
+        .pump-card.offline { border-color:#2c3e50; opacity:0.5; }
+        @keyframes fault-pulse { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.3)} 50%{box-shadow:0 0 22px 6px rgba(231,76,60,.7)} }
+        .pump-num  { font-size:0.65em; color:#566573; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+        .pump-name { font-size:1em; font-weight:bold; color:#ecf0f1; margin-bottom:10px; }
+        .pump-badge { display:inline-block; border-radius:20px; padding:5px 14px; font-size:0.75em; font-weight:bold; letter-spacing:1px; text-transform:uppercase; margin-bottom:12px; }
+        .badge-running { background:#1d6a39; color:#2ecc71; border:1px solid #27ae60; }
+        .badge-standby { background:#6b4c0e; color:#f39c12; border:1px solid #e67e22; }
+        .badge-stopped { background:#1e2a35; color:#7f8c8d; border:1px solid #3d5166; }
+        .badge-fault   { background:#5c1a1a; color:#ff6b6b; border:1px solid #e74c3c; }
+        .badge-offline { background:#1a252f; color:#566573; border:1px solid #2c3e50; }
+        .pump-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .pump-stat { background:#2c3e50; border-radius:6px; padding:7px 4px; }
+        .pump-stat .ps-val { font-size:1.1em; font-weight:bold; }
+        .pump-stat .ps-lbl { font-size:0.6em; color:#7f8c8d; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+        .pump-stat.full { grid-column:1/-1; }
+
+        /* ── Speed bar on pump card ── */
+        .speed-bar-wrap { margin:8px 0 12px; }
+        .speed-bar-bg   { background:#2c3e50; border-radius:3px; height:6px; }
+        .speed-bar-fill { height:6px; border-radius:3px; background:#e67e22; transition:width 0.5s ease; }
+
+        /* ── Range buttons ── */
+        .range-row { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+        .range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
+        .range-btn.active, .range-btn:hover { background:#e67e22; border-color:#e67e22; color:white; }
+
+        /* ── Chart loader ── */
+        .chart-loader { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:28px 0; }
+        .chart-loader-bar { width:180px; height:44px; position:relative; overflow:hidden; border-radius:8px; border:1px solid #4a3a1e; background:#1a1208; }
+        .chart-loader-water { position:absolute; bottom:0; left:0; right:0; height:55%; background:rgba(230,126,34,0.2); animation:waveRise 2.4s ease-in-out infinite alternate; }
+        .chart-loader-wave  { position:absolute; top:-10px; left:0; width:200%; height:20px; animation:waveSweep 1.5s linear infinite; }
+        .chart-loader-label { position:absolute; bottom:6px; width:100%; text-align:center; font-size:0.62em; color:#c87941; letter-spacing:2px; }
+        .chart-loader-dots  { display:flex; gap:6px; }
+        .chart-loader-dots span { width:26px; height:3px; border-radius:2px; background:#e67e22; animation:waveRise 2.4s ease-in-out infinite alternate; }
+        .chart-loader-dots span:nth-child(2) { animation-delay:0.25s; }
+        .chart-loader-dots span:nth-child(3) { animation-delay:0.5s; }
+        @keyframes waveSweep { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes waveRise  { from{height:30%} to{height:68%} }
+
+        /* ── Alarm list ── */
+        .alarm-none { text-align:center; color:#566573; font-size:0.88em; padding:20px; }
+        .alarm-row  { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #3d5166; }
+        .alarm-row:last-child { border-bottom:none; }
+        .alarm-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:5px; }
+        .alarm-dot.active  { background:#e74c3c; }
+        .alarm-dot.cleared { background:#27ae60; }
+        .alarm-code { font-size:0.7em; color:#566573; font-family:monospace; }
+        .alarm-desc { font-size:0.88em; color:#ecf0f1; font-weight:bold; }
+        .alarm-pump { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
+        .alarm-ts   { font-size:0.7em; color:#566573; white-space:nowrap; flex-shrink:0; }
+
+        /* ── Hours grid (performance tab) ── */
+        .hours-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+        @media (max-width:600px) { .hours-grid { grid-template-columns:repeat(3,1fr); } }
+        @media (max-width:380px) { .hours-grid { grid-template-columns:repeat(2,1fr); } }
+
+        /* ── CIM info box ── */
+        .info-box { background:#1a252f; border-radius:8px; padding:14px 16px; border-left:3px solid #e67e22; margin-bottom:14px; font-size:0.82em; color:#bdc3c7; line-height:1.6; }
+        .info-box strong { color:#e67e22; }
+
+        /* ── Footer ── */
+        .page-footer { text-align:center; font-size:0.72em; color:#566573; padding:14px 0; }
+
+        /* ── Small phone ── */
+        @media (max-width:390px) {
+            body { padding:8px; }
+            .header-logo { height:42px; }
+            .header-text h1 { font-size:1em; }
+            .header-text .subtitle { font-size:0.65em; }
+            .tab-btn { padding:6px 8px; font-size:0.65em; }
+            .tab-bar { gap:3px; }
+            .pres-val { font-size:1.9em; }
+            .sys-metric .sm-val { font-size:1.6em; }
+            .pump-grid { gap:8px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+    <div class="logo-wrap" style="height:64px;">
+        <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC" style="height:64px;">
+        <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="" style="height:64px;">
+    </div>
+    <div class="header-text">
+        <h1>PUMP STATION</h1>
+        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; Grundfos</div>
+    </div>
+</div>
+
+<!-- ══ CONNECTION BANNER ══ -->
+<div class="conn-banner offline" id="conn-banner">
+    <div class="conn-left">
+        <div class="conn-dot offline" id="conn-dot"></div>
+        <div>
+            <div class="conn-title" id="conn-title">WAITING FOR CONNECTION</div>
+            <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP - Checking every 60s</div>
+        </div>
+    </div>
+    <div class="conn-right">
+        <div class="conn-ts" id="conn-ts">Last data: Never</div>
+        <div class="conn-ts" id="conn-mode" style="margin-top:3px;"></div>
+    </div>
+</div>
+
+<!-- ══ TAB BAR ══ -->
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('overview',this)">Overview</button>
+    <button class="tab-btn" onclick="showTab('pumps',this)">Pumps</button>
+    <button class="tab-btn" onclick="showTab('performance',this)">Performance</button>
+    <button class="tab-btn" onclick="showTab('alarms',this)">Alarms</button>
+    <button class="tab-btn" onclick="showTab('setup',this)">Setup</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TAB: OVERVIEW                                               -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="tab-overview" class="tab-panel active">
+
+    <div class="card">
+        <h2>System Pressure</h2>
+        <div class="pressure-display">
+            <div class="pres-block">
+                <div class="pres-val" id="ov-pres-actual" style="color:#e67e22;">--</div>
+                <div class="pres-unit">bar</div>
+                <div class="pres-lbl">Actual</div>
+            </div>
+            <div class="pres-vs">vs</div>
+            <div class="pres-block">
+                <div class="pres-val" id="ov-pres-setpoint" style="color:#7f8c8d;">--</div>
+                <div class="pres-unit">bar</div>
+                <div class="pres-lbl">Setpoint</div>
+            </div>
+        </div>
+        <div class="pres-bar-bg">
+            <div class="pres-bar-fill" id="ov-pres-bar" style="width:0%;background:#3d5166;"></div>
+        </div>
+        <div class="pres-note" id="ov-pres-note">No pressure data - waiting for CIM 500 connection</div>
+    </div>
+
+    <div class="sys-metrics">
+        <div class="sys-metric">
+            <div class="sm-val" id="ov-flow" style="color:#3498db;">--</div>
+            <div class="sm-unit">m&sup3;/h</div>
+            <div class="sm-lbl">Flow Rate</div>
+        </div>
+        <div class="sys-metric">
+            <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
+            <div class="sm-unit">of 5</div>
+            <div class="sm-lbl">Pumps Running</div>
+        </div>
+        <div class="sys-metric">
+            <div class="sm-val" id="ov-faults" style="color:#e74c3c;">0</div>
+            <div class="sm-unit">active</div>
+            <div class="sm-lbl">Faults</div>
+        </div>
+        <div class="sys-metric">
+            <div class="sm-val" id="ov-alarms" style="color:#f39c12;">0</div>
+            <div class="sm-unit">active</div>
+            <div class="sm-lbl">Alarms</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Pump Summary</h2>
+        <div id="ov-pump-summary">
+            <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">
+                Waiting for data from pump station...
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TAB: PUMPS                                                  -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="tab-pumps" class="tab-panel">
+
+    <div class="card">
+        <h2>Main Pumps (P1 - P4)</h2>
+        <div class="pump-grid" id="main-pump-grid">
+            <!-- rendered by JS -->
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Jockey Pump</h2>
+        <div id="jockey-pump-wrap">
+            <!-- rendered by JS -->
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TAB: PERFORMANCE                                            -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="tab-performance" class="tab-panel">
+
+    <div class="card">
+        <h2>Pressure History</h2>
+        <div class="range-row">
+            <button class="range-btn active" data-h="1"   onclick="setPerfRange(1,this)">1h</button>
+            <button class="range-btn"        data-h="6"   onclick="setPerfRange(6,this)">6h</button>
+            <button class="range-btn"        data-h="24"  onclick="setPerfRange(24,this)">24h</button>
+            <button class="range-btn"        data-h="168" onclick="setPerfRange(168,this)">7 Days</button>
+        </div>
+        <div id="perf-loader" class="chart-loader">
+            <div class="chart-loader-bar">
+                <div class="chart-loader-water">
+                    <svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="rgba(230,126,34,0.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/>
+                    </svg>
+                </div>
+                <div class="chart-loader-label">LOADING</div>
+            </div>
+            <div class="chart-loader-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div style="position:relative;height:220px;width:100%;display:none;" id="perf-chart-wrap">
+            <canvas id="perf-chart"></canvas>
+        </div>
+        <div class="sys-metrics" style="margin-top:12px;">
+            <div class="sys-metric"><div class="sm-val" id="ps-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min Pressure</div></div>
+            <div class="sys-metric"><div class="sm-val" id="ps-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max Pressure</div></div>
+            <div class="sys-metric"><div class="sm-val" id="ps-avg" style="color:#e67e22;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg Pressure</div></div>
+            <div class="sys-metric"><div class="sm-val" id="ps-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Data Points</div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Run Hours</h2>
+        <div class="hours-grid" id="hours-grid">
+            <!-- rendered by JS -->
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TAB: ALARMS                                                 -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="tab-alarms" class="tab-panel">
+
+    <div class="card">
+        <h2>Active Alarms</h2>
+        <div id="active-alarms"><div class="alarm-none">No active alarms</div></div>
+    </div>
+
+    <div class="card">
+        <h2>Alarm History</h2>
+        <div id="alarm-history"><div class="alarm-none">No alarm history available</div></div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TAB: SETUP                                                  -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="tab-setup" class="tab-panel">
+
+    <div class="card">
+        <h2>CIM 500 Configuration</h2>
+        <div class="info-box">
+            <strong>Step 1 - Set the rotary switch to Modbus TCP</strong><br>
+            Locate the CIM 500 module inside the CU 352 panel. It has a small rotary dial
+            on the front face with positions 0 through F.<br><br>
+            Turn the dial to position <strong>2</strong> (Modbus TCP/IP over Ethernet).<br>
+            Factory default is position 0 (GRM cloud) - you are changing it to 2.<br><br>
+            Power cycle the CIM 500 after changing the switch (switch off the CU 352 panel
+            isolator for 10 seconds, then back on).
+        </div>
+        <div class="info-box" style="border-color:#3498db;">
+            <strong style="color:#3498db;">Step 2 - Connect Ethernet to USR G806 Router</strong><br>
+            Plug a Cat5e/Cat6 cable from the RJ45 port on the CIM 500 into one of the LAN
+            ports on the USR G806 router. The CIM 500 will request an IP address from the
+            router via DHCP. Check the router's connected device list to find the IP
+            assigned to the CIM 500 (look for a device named "Grundfos" or "CIM500").<br><br>
+            Recommended: assign a static/reserved IP to the CIM 500 in the router settings
+            so it doesn't change. Example: <strong style="color:#3498db;">192.168.1.100</strong><br><br>
+            Modbus TCP port: <strong style="color:#3498db;">502</strong><br>
+            Modbus Unit ID (Slave Address): <strong style="color:#3498db;">1</strong>
+        </div>
+        <div class="info-box" style="border-color:#27ae60;">
+            <strong style="color:#27ae60;">Step 3 - Port Forward on USR G806</strong><br>
+            In the USR G806 admin panel, set up a port forward:<br>
+            External port <strong style="color:#27ae60;">502</strong> -&gt; Internal IP of CIM 500 port <strong style="color:#27ae60;">502</strong> (TCP)<br><br>
+            This allows the GitHub Actions polling script to reach the CIM 500 over the 4G
+            connection. The 4G SIM's public IP will be polled every 5 minutes.<br><br>
+            Optional: Set up DDNS on the USR G806 if the 4G SIM IP changes frequently
+            (most 4G SIMs have a dynamic public IP).
+        </div>
+        <div class="info-box" style="border-color:#9b59b6;">
+            <strong style="color:#9b59b6;">Step 4 - Poller Script (GitHub Actions)</strong><br>
+            A Python script using the <em>pymodbus</em> library will run every 5 minutes
+            via GitHub Actions. It reads the CIM 500 Modbus registers over TCP, converts
+            the values to engineering units, and writes them to
+            <strong style="color:#9b59b6;">data/pump_station_latest.json</strong>
+            in this repository. This page auto-refreshes every 60 seconds to pick up new
+            data. Once the router and CIM 500 are connected and the script is running,
+            this page will update automatically.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>CIM 500 Rotary Switch Reference</h2>
+        <div style="display:grid;grid-template-columns:60px 1fr;gap:6px 14px;font-size:0.85em;align-items:center;">
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">0</div>
+            <div style="color:#7f8c8d;">GRM (Grundfos Remote Management cloud) - Factory default</div>
+            <div style="background:#1d6a39;border:1px solid #27ae60;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#2ecc71;">1</div>
+            <div>Modbus RTU (RS-485 serial)</div>
+            <div style="background:#1e3a5f;border:2px solid #3498db;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#3498db;">2</div>
+            <div><strong style="color:#3498db;">Modbus TCP/IP (Ethernet) - USE THIS</strong></div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">3</div>
+            <div style="color:#7f8c8d;">PROFIBUS DP</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">4</div>
+            <div style="color:#7f8c8d;">BACnet MS/TP</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">5</div>
+            <div style="color:#7f8c8d;">LonWorks</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">6-F</div>
+            <div style="color:#7f8c8d;">Reserved / other protocols</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Connection Status</h2>
+        <div class="sys-metrics" style="margin-bottom:0;">
+            <div class="sys-metric">
+                <div class="sm-val" id="setup-status" style="font-size:1.2em;color:#e67e22;">OFFLINE</div>
+                <div class="sm-lbl" style="margin-top:6px;">CIM 500 Link</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" id="setup-age" style="color:#7f8c8d;">--</div>
+                <div class="sm-lbl" style="margin-top:6px;">Last Data Age</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">60s</div>
+                <div class="sm-lbl" style="margin-top:6px;">Refresh Interval</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">502</div>
+                <div class="sm-lbl" style="margin-top:6px;">Modbus TCP Port</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="page-footer">
+    Pump Station Monitor - WWCC - Data via CIM 500 Modbus TCP - Refreshes every 60s
+</div>
+
+<script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    let pumpData  = null;
+    let perfChart = null;
+    let perfRangeH = 1;
+    const TABS = ['overview','pumps','performance','alarms','setup'];
+
+    // ─── Tab switching ───────────────────────────────────────────────────────
+    function showTab(name, btn) {
+        TABS.forEach(t => document.getElementById('tab-' + t).classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        if (btn) btn.classList.add('active');
+        if (name === 'performance') renderPerfChart();
+    }
+
+    // ─── Data loading ────────────────────────────────────────────────────────
+    async function loadData() {
+        try {
+            const res = await fetch('data/pump_station_latest.json?_=' + Date.now());
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            pumpData = await res.json();
+        } catch (e) {
+            pumpData = null;
+        }
+        renderAll();
+    }
+
+    function renderAll() {
+        renderBanner();
+        renderOverview();
+        renderPumps();
+        renderAlarms();
+        renderSetupStatus();
+        const perfActive = document.getElementById('tab-performance').classList.contains('active');
+        if (perfActive) renderPerfChart();
+    }
+
+    // ─── Connection banner ───────────────────────────────────────────────────
+    function renderBanner() {
+        const d      = pumpData;
+        const banner = document.getElementById('conn-banner');
+        const dot    = document.getElementById('conn-dot');
+        const title  = document.getElementById('conn-title');
+        const sub    = document.getElementById('conn-sub');
+        const ts     = document.getElementById('conn-ts');
+        const mode   = document.getElementById('conn-mode');
+
+        const connected = d && d.connected;
+        const hasFault  = connected && d.system && d.system.fault;
+
+        if (!connected) {
+            banner.className  = 'conn-banner offline';
+            dot.className     = 'conn-dot offline';
+            title.textContent = 'WAITING FOR CONNECTION';
+            sub.textContent   = 'CIM 500 Modbus TCP - Checking every 60s';
+            ts.textContent    = d && d.last_seen ? 'Last data: ' + fmtAge(d.last_seen) : 'Last data: Never';
+            mode.textContent  = '';
+        } else if (hasFault) {
+            banner.className  = 'conn-banner fault';
+            dot.className     = 'conn-dot fault';
+            title.textContent = 'SYSTEM FAULT - CHECK PUMP STATION';
+            sub.textContent   = 'Fault condition active on CU 352';
+            ts.textContent    = 'Updated: ' + fmtAge(d.timestamp);
+            mode.textContent  = 'Mode: ' + modeLabel(d.system.mode);
+        } else {
+            const running = (d.pumps || []).filter(p => p.running).length;
+            banner.className  = 'conn-banner online';
+            dot.className     = 'conn-dot online';
+            title.textContent = 'ONLINE - ' + (running > 0
+                ? running + ' PUMP' + (running > 1 ? 'S' : '') + ' RUNNING'
+                : 'SYSTEM STANDBY');
+            sub.textContent   = 'CIM 500 Modbus TCP - Live data';
+            ts.textContent    = 'Updated: ' + fmtAge(d.timestamp);
+            mode.textContent  = 'Mode: ' + modeLabel(d.system.mode);
+        }
+    }
+
+    function modeLabel(m) {
+        if (!m) return 'Unknown';
+        return m.toString().toUpperCase();
+    }
+
+    // ─── Overview tab ────────────────────────────────────────────────────────
+    function renderOverview() {
+        const d   = pumpData;
+        const sys = d && d.system ? d.system : {};
+        const pumps = d && d.pumps ? d.pumps : [];
+
+        const actual   = sys.pressure_actual_bar   != null ? sys.pressure_actual_bar   : null;
+        const setpoint = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar : null;
+
+        document.getElementById('ov-pres-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
+        document.getElementById('ov-pres-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
+
+        const bar  = document.getElementById('ov-pres-bar');
+        const note = document.getElementById('ov-pres-note');
+
+        if (actual != null && setpoint != null && setpoint > 0) {
+            const pct  = Math.min(120, Math.max(0, (actual / setpoint) * 100));
+            const diff = actual - setpoint;
+            bar.style.width = Math.min(100, pct) + '%';
+            if (Math.abs(diff) < 0.15)      { bar.style.background = '#27ae60'; note.textContent = 'Pressure on target'; }
+            else if (Math.abs(diff) < 0.4)  { bar.style.background = '#f39c12'; note.textContent = diff < 0 ? 'Slightly below setpoint' : 'Slightly above setpoint'; }
+            else                             { bar.style.background = '#e74c3c'; note.textContent = diff < 0 ? 'Pressure below setpoint' : 'Pressure above setpoint'; }
+        } else {
+            bar.style.width = '0%';
+            bar.style.background = '#3d5166';
+            note.textContent = d && d.connected ? 'No pressure sensor data' : 'No data - waiting for CIM 500 connection';
+        }
+
+        document.getElementById('ov-flow').textContent    = sys.flow_m3h     != null ? sys.flow_m3h.toFixed(1) : '--';
+        document.getElementById('ov-running').textContent = pumps.filter(p => p.running).length;
+        document.getElementById('ov-faults').textContent  = pumps.filter(p => p.fault).length;
+        document.getElementById('ov-alarms').textContent  = (d && d.alarms ? d.alarms : []).filter(a => a.active).length;
+
+        // Pump summary rows
+        const summaryEl = document.getElementById('ov-pump-summary');
+        if (!pumps.length) {
+            summaryEl.innerHTML = '<div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">Waiting for data from pump station...</div>';
+        } else {
+            const connected = d && d.connected;
+            summaryEl.innerHTML = pumps.map(p => {
+                let badgeClass, stateLabel;
+                if (!connected)  { badgeClass = 'badge-offline'; stateLabel = 'OFFLINE'; }
+                else if (p.fault)    { badgeClass = 'badge-fault';   stateLabel = 'FAULT'; }
+                else if (p.running)  { badgeClass = 'badge-running'; stateLabel = 'RUNNING'; }
+                else if (p.standby)  { badgeClass = 'badge-standby'; stateLabel = 'STANDBY'; }
+                else                 { badgeClass = 'badge-stopped'; stateLabel = 'STOPPED'; }
+                const speed = p.speed_pct != null ? p.speed_pct.toFixed(0) + '%' : '--';
+                return '<div class="pump-summary-row">' +
+                    '<span class="ps-name">' + p.label + '</span>' +
+                    '<span class="pump-badge ' + badgeClass + '">' + stateLabel + '</span>' +
+                    '<span class="ps-speed">Speed: ' + speed + '</span>' +
+                    '</div>';
+            }).join('');
+        }
+    }
+
+    // ─── Pumps tab ───────────────────────────────────────────────────────────
+    function renderPumps() {
+        const d = pumpData;
+        const connected = d && d.connected;
+        const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
+
+        const mainPumps   = pumps.filter(p => !p.label.toLowerCase().includes('jockey'));
+        const jockeyPumps = pumps.filter(p =>  p.label.toLowerCase().includes('jockey'));
+
+        document.getElementById('main-pump-grid').innerHTML   = mainPumps.map(p => pumpCard(p, connected, false)).join('');
+        document.getElementById('jockey-pump-wrap').innerHTML = jockeyPumps.length
+            ? '<div style="max-width:280px;">' + jockeyPumps.map(p => pumpCard(p, connected, true)).join('') + '</div>'
+            : '<div style="color:#566573;font-size:0.85em;">No jockey pump data</div>';
+    }
+
+    function pumpCard(p, connected, isJockey) {
+        let cardClass, badgeClass, badgeText;
+        if (!connected)  { cardClass = 'offline'; badgeClass = 'badge-offline'; badgeText = 'OFFLINE'; }
+        else if (p.fault)    { cardClass = 'fault';   badgeClass = 'badge-fault';   badgeText = 'FAULT'; }
+        else if (p.running)  { cardClass = 'running'; badgeClass = 'badge-running'; badgeText = 'RUNNING'; }
+        else if (p.standby)  { cardClass = 'standby'; badgeClass = 'badge-standby'; badgeText = 'STANDBY'; }
+        else                 { cardClass = 'stopped'; badgeClass = 'badge-stopped'; badgeText = 'STOPPED'; }
+
+        if (isJockey) cardClass += ' jockey';
+
+        const speed  = p.speed_pct   != null ? p.speed_pct.toFixed(0)   : null;
+        const hours  = p.run_hours    != null ? p.run_hours.toFixed(0)   + ' h' : '--';
+        const starts = p.starts_total != null ? p.starts_total.toString() : '--';
+        const speedPct = speed != null ? parseInt(speed) : 0;
+
+        return '<div class="pump-card ' + cardClass + '">' +
+            '<div class="pump-num">Pump ' + p.id + (isJockey ? ' - Jockey' : '') + '</div>' +
+            '<div class="pump-name">' + p.label + '</div>' +
+            '<div><span class="pump-badge ' + badgeClass + '">' + badgeText + '</span></div>' +
+            (speed != null ? (
+                '<div class="speed-bar-wrap"><div class="speed-bar-bg"><div class="speed-bar-fill" style="width:' + speedPct + '%;"></div></div></div>'
+            ) : '<div style="height:14px;"></div>') +
+            '<div class="pump-stats">' +
+                '<div class="pump-stat"><div class="ps-val">' + (speed != null ? speed + '%' : '--') + '</div><div class="ps-lbl">Speed</div></div>' +
+                '<div class="pump-stat"><div class="ps-val">' + hours + '</div><div class="ps-lbl">Run Hours</div></div>' +
+                '<div class="pump-stat full"><div class="ps-val">' + starts + '</div><div class="ps-lbl">Total Starts</div></div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function defaultPumps() {
+        return [
+            {id:1,label:'Pump 1',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
+            {id:2,label:'Pump 2',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
+            {id:3,label:'Pump 3',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
+            {id:4,label:'Pump 4',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
+            {id:5,label:'Jockey',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
+        ];
+    }
+
+    // ─── Performance chart ───────────────────────────────────────────────────
+    function setPerfRange(h, btn) {
+        perfRangeH = h;
+        document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        renderPerfChart();
+    }
+
+    function renderPerfChart() {
+        const history = pumpData && pumpData.history ? pumpData.history : [];
+        const loader  = document.getElementById('perf-loader');
+        const wrap    = document.getElementById('perf-chart-wrap');
+
+        if (!history.length) {
+            loader.style.display = 'flex';
+            wrap.style.display   = 'none';
+            document.getElementById('ps-min').textContent = '--';
+            document.getElementById('ps-max').textContent = '--';
+            document.getElementById('ps-avg').textContent = '--';
+            document.getElementById('ps-pts').textContent = '0';
+            renderHoursGrid();
+            return;
+        }
+
+        const cutoff = Date.now() - perfRangeH * 3600000;
+        const pts = history.filter(h => new Date(h.ts).getTime() >= cutoff);
+
+        loader.style.display = 'none';
+        wrap.style.display   = 'block';
+
+        const labels    = pts.map(h => fmtChartTime(h.ts, perfRangeH));
+        const actuals   = pts.map(h => h.pressure_actual_bar   != null ? h.pressure_actual_bar   : null);
+        const setpoints = pts.map(h => h.pressure_setpoint_bar != null ? h.pressure_setpoint_bar : null);
+
+        if (perfChart) { perfChart.destroy(); perfChart = null; }
+        const ctx = document.getElementById('perf-chart').getContext('2d');
+        perfChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Actual Pressure (bar)',
+                        data: actuals,
+                        borderColor: '#e67e22',
+                        backgroundColor: 'rgba(230,126,34,0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: pts.length > 120 ? 0 : 3,
+                        fill: true,
+                        spanGaps: true,
+                    },
+                    {
+                        label: 'Setpoint (bar)',
+                        data: setpoints,
+                        borderColor: '#3498db',
+                        borderDash: [7, 4],
+                        borderWidth: 2,
+                        tension: 0,
+                        pointRadius: 0,
+                        fill: false,
+                        spanGaps: true,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#bdc3c7', font: { size: 11 }, boxWidth: 14 } },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y != null ? ctx.parsed.y.toFixed(2) + ' bar' : '--') } }
+                },
+                scales: {
+                    x: { ticks: { color: '#7f8c8d', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: '#2c3e50' } },
+                    y: { ticks: { color: '#7f8c8d', font: { size: 10 }, callback: v => v.toFixed(1) }, grid: { color: '#2c3e50' }, min: 0,
+                         title: { display: true, text: 'bar', color: '#566573', font: { size: 10 } } }
+                }
+            }
+        });
+
+        const vals = actuals.filter(v => v != null);
+        document.getElementById('ps-min').textContent = vals.length ? Math.min(...vals).toFixed(2) : '--';
+        document.getElementById('ps-max').textContent = vals.length ? Math.max(...vals).toFixed(2) : '--';
+        document.getElementById('ps-avg').textContent = vals.length ? (vals.reduce((a,b) => a+b,0)/vals.length).toFixed(2) : '--';
+        document.getElementById('ps-pts').textContent = pts.length;
+
+        renderHoursGrid();
+    }
+
+    function renderHoursGrid() {
+        const pumps = pumpData && pumpData.pumps ? pumpData.pumps : defaultPumps();
+        const grid  = document.getElementById('hours-grid');
+        grid.innerHTML = pumps.map(p =>
+            '<div class="sys-metric">' +
+            '<div class="sm-val" style="color:#e67e22;">' + (p.run_hours != null ? p.run_hours.toFixed(0) : '--') + '</div>' +
+            '<div class="sm-unit">hours</div>' +
+            '<div class="sm-lbl">' + p.label + '</div>' +
+            '</div>'
+        ).join('');
+    }
+
+    // ─── Alarms tab ──────────────────────────────────────────────────────────
+    function renderAlarms() {
+        const alarms  = pumpData && pumpData.alarms ? pumpData.alarms : [];
+        const active  = alarms.filter(a => a.active);
+        const history = alarms.filter(a => !a.active);
+
+        document.getElementById('active-alarms').innerHTML  = active.length  ? active.map(alarmRow).join('')  : '<div class="alarm-none">No active alarms</div>';
+        document.getElementById('alarm-history').innerHTML = history.length ? history.map(alarmRow).join('') : '<div class="alarm-none">No alarm history available</div>';
+    }
+
+    function alarmRow(a) {
+        return '<div class="alarm-row">' +
+            '<div class="alarm-dot ' + (a.active ? 'active' : 'cleared') + '"></div>' +
+            '<div style="flex:1;min-width:0;">' +
+                '<div class="alarm-code">' + (a.code || 'ALM') + '</div>' +
+                '<div class="alarm-desc">' + (a.description || 'Unknown Alarm') + '</div>' +
+                '<div class="alarm-pump">' + (a.pump || 'System') + '</div>' +
+            '</div>' +
+            '<div class="alarm-ts">' + (a.timestamp ? fmtDate(a.timestamp) : '') + '</div>' +
+        '</div>';
+    }
+
+    // ─── Setup tab ───────────────────────────────────────────────────────────
+    function renderSetupStatus() {
+        const d = pumpData;
+        const statusEl = document.getElementById('setup-status');
+        const ageEl    = document.getElementById('setup-age');
+        if (d && d.connected) {
+            statusEl.textContent = 'ONLINE';
+            statusEl.style.color = '#27ae60';
+        } else {
+            statusEl.textContent = 'OFFLINE';
+            statusEl.style.color = '#e67e22';
+        }
+        ageEl.textContent = d && d.timestamp ? fmtAge(d.timestamp) : 'Never';
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+    function fmtAge(iso) {
+        if (!iso) return 'Never';
+        const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+        if (s < 0)    return 'just now';
+        if (s < 60)   return s + 's ago';
+        if (s < 3600) return Math.floor(s/60) + 'm ago';
+        if (s < 86400) return Math.floor(s/3600) + 'h ago';
+        return Math.floor(s/86400) + 'd ago';
+    }
+
+    function fmtDate(iso) {
+        const d = new Date(iso);
+        return d.toLocaleString('en-AU', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+    }
+
+    function fmtChartTime(iso, rangeH) {
+        const d = new Date(iso);
+        if (rangeH <= 6)  return d.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',hour12:false});
+        if (rangeH <= 48) return d.toLocaleDateString('en-AU',{weekday:'short'}) + ' ' + d.getHours().toString().padStart(2,'0') + ':00';
+        return d.toLocaleDateString('en-AU', {day:'2-digit',month:'short'});
+    }
+
+    // ─── Boot & auto-refresh ─────────────────────────────────────────────────
+    loadData();
+    setInterval(loadData, 60000);
+</script>
+
+</body>
+</html>
