@@ -35,6 +35,7 @@ html, body {
 }
 .hdr-meta { font-size: 0.78em; color: #7f8c8d; letter-spacing: 1px; margin-top: 4px; }
 .hdr-right { text-align: right; flex-shrink: 0; }
+.hdr-clock-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
 .hdr-clock {
     font-size: 2.3em; font-weight: bold; color: #27ae60;
     line-height: 1; font-variant-numeric: tabular-nums;
@@ -179,7 +180,10 @@ html, body {
     padding-top: 8px; border-top: 1px solid #2a3f52; flex-shrink: 0;
     font-size: 1.08em; color: #7f8c8d;
 }
+.ftr-left  { display: flex; gap: 14px; align-items: center; }
+.ftr-right { display: flex; gap: 14px; align-items: center; }
 .ftr-updated { color: #bdc3c7; }
+.ftr-build  { font-size: 0.62em; color: #2a3f52; letter-spacing: 0.05em; }
 .ftr-results { color: #4a6a84; font-size: 0.75em; text-decoration: none; }
 .ftr-results:hover { color: #7f8c8d; }
 
@@ -303,7 +307,10 @@ html, body {
       <div class="hdr-meta" id="hdr-meta">Wagga Wagga Country Club</div>
     </div>
     <div class="hdr-right">
-      <div class="hdr-clock" id="clock">--:-- --</div>
+      <div class="hdr-clock-row">
+        <div class="hdr-clock" id="clock">--:-- --</div>
+        <span class="live-badge loading" id="live-badge">Loading</span>
+      </div>
       <div class="hdr-date"  id="date-str">---</div>
     </div>
   </header>
@@ -311,10 +318,6 @@ html, body {
   <main class="main">
 
     <section class="lb-panel">
-      <div class="panel-title-bar">
-        <span class="panel-title">Leaderboard</span>
-        <span class="live-badge loading" id="live-badge">Loading</span>
-      </div>
       <div class="col-hdr">
         <span class="col-hdr-rank">#</span>
         <span class="col-hdr-name">Player</span>
@@ -366,16 +369,22 @@ html, body {
   </main>
 
   <footer class="ftr">
-    <span class="ftr-updated" id="ftr-updated">Not yet loaded</span>
+    <div class="ftr-left">
+      <span id="ftr-countdown">Fetching data...</span>
+      <span class="ftr-build" id="ftr-build"></span>
+    </div>
     <span id="ftr-status"></span>
-    <span id="ftr-countdown">Fetching data...</span>
-    <a href="results.html" class="ftr-results">Past Results</a>
+    <div class="ftr-right">
+      <span class="ftr-updated" id="ftr-updated">Not yet loaded</span>
+      <a href="results.html" class="ftr-results">Past Results</a>
+    </div>
   </footer>
 
 </div>
 <script>
 const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/live-leaderboard.json';
 const REFRESH_SEC = 15;
+const BUILD       = '0341ce4';
 
 let _countdown    = REFRESH_SEC;
 let _hasData      = false;
@@ -548,7 +557,7 @@ function updateHeader(d) {
             meta.push(players.length + ' players');
         }
     }
-    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard'), meta.join(' - '));
+    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
     setBadge(started ? 'live' : 'waiting', started ? 'Live' : 'Not started');
 }
 
@@ -950,6 +959,8 @@ function esc(s) {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────
+const _bEl = document.getElementById('ftr-build');
+if (_bEl) _bEl.textContent = 'build ' + BUILD;
 updateClock();
 setInterval(updateClock, 1000);
 setInterval(tickCountdown, 1000);

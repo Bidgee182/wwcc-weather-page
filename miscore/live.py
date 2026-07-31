@@ -46,7 +46,22 @@ HOLE_COUNT_OVERRIDE: int | None = None
 
 
 def _board_players(page: str) -> list[dict]:
-    """Field for a board: [{playerNo, player, hcp, homeClub, rank}] in board order."""
+    """Field for a board: [{playerNo, player, hcp, homeClub, rank, boardThru}] in board order."""
+    # Pre-pass: find the "Thru" column index from the <th> header row so we can extract
+    # the board's own Thru count per player (used to catch blank-NR scorecard gaps).
+    thru_col: int | None = None
+    for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
+        ths = re.findall(r"(?s)<th[^>]*>(.*?)</th>", m.group(1))
+        if not ths:
+            continue
+        labels = [html.unescape(re.sub(r"<[^>]+>", " ", t)).strip().lower() for t in ths]
+        for i, lbl in enumerate(labels):
+            if "thru" in lbl:
+                thru_col = i
+                break
+        if thru_col is not None:
+            break
+
     out: list[dict] = []
     for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
         row = m.group(1)
@@ -71,7 +86,8 @@ def _board_players(page: str) -> list[dict]:
         else:
             name_txt = all_names[0] if all_names else html.unescape(link.group(2)).strip()
             hcp = hcps[0] if hcps else None
-        cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)]
+        tds_raw = re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)
+        cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in tds_raw]
         cells = [c for c in cells if c is not None]
         rank = None
         for c in cells:
@@ -84,6 +100,12 @@ def _board_players(page: str) -> list[dict]:
             if first_name in c and i + 1 < len(cells):
                 home = cells[i + 1]
                 break
+        # Extract board's Thru value from the detected column
+        board_thru: int | None = None
+        if thru_col is not None and thru_col < len(tds_raw):
+            cell_txt = html.unescape(re.sub(r"<[^>]+>", " ", tds_raw[thru_col])).strip()
+            if re.fullmatch(r"\d+", cell_txt):
+                board_thru = int(cell_txt)
         out.append(
             {
                 "playerNo": player_no,
@@ -91,6 +113,7 @@ def _board_players(page: str) -> list[dict]:
                 "hcp": hcp,
                 "homeClub": home,
                 "rank": rank,
+                "boardThru": board_thru,
             }
         )
     return out
@@ -440,6 +463,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     players: list[dict] = []
     events: list[dict] = []
     for base_, page_c in zip(field_, pages):
+        board_thru = base_.pop("boardThru", None)
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
@@ -448,6 +472,10 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         par_total = max(par_total, shape_par)
         played = _played(holes)
         thru = _thru(holes)
+        # Board's Thru column is ground truth - use it when scorecard parse underestimates
+        # (e.g. blank NR cells where neither strokes nor score were explicitly entered)
+        if board_thru is not None and board_thru > thru:
+            thru = board_thru
         points = sum(h.get("points") or 0 for h in played)
         birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
         last = played[-3:]
