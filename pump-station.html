@@ -188,7 +188,7 @@
     </div>
     <div class="header-text">
         <h1>PUMP STATION</h1>
-        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; 3x CRNE45 18.5kW &bull; 1x CRNE10 5.5kW &bull; MGE</div>
+        <div class="subtitle">Hydro MPC &mdash; CU 352 &mdash; 3x CRNE45-3 18.5kW &bull; Jockey CRNE10-9 5.5kW &bull; MGE</div>
     </div>
 </div>
 
@@ -249,7 +249,7 @@
         </div>
         <div class="sys-metric">
             <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
-            <div class="sm-unit">of 5</div>
+            <div class="sm-unit">of 4</div>
             <div class="sm-lbl">Running</div>
         </div>
         <div class="sys-metric">
@@ -276,11 +276,11 @@
 <!-- ═══════════════════════════ PUMPS ═══════════════════════════ -->
 <div id="tab-pumps" class="tab-panel">
     <div class="card">
-        <h2>Main Pumps (P1 - P4)</h2>
+        <h2>Main Pumps (P1 - P3) &mdash; CRNE45-3 18.5kW MGE</h2>
         <div class="pump-grid" id="main-pump-grid"></div>
     </div>
     <div class="card">
-        <h2>Jockey Pump</h2>
+        <h2>Jockey Pump &mdash; CRNE10-9 5.5kW MGE</h2>
         <div id="jockey-wrap"></div>
     </div>
 </div>
@@ -353,13 +353,7 @@
     <!-- Run hours (current) -->
     <div class="card">
         <h2>Cumulative Run Hours (Current Reading)</h2>
-        <div id="hours-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P1</div></div>
-            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P2</div></div>
-            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P3</div></div>
-            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P4</div></div>
-            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">Jockey</div></div>
-        </div>
+        <div id="hours-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
     </div>
 
 </div>
@@ -510,9 +504,9 @@
 <script>
 // ─── Constants ───────────────────────────────────────────────────────────────
 const TABS = ['overview','pumps','performance','trends','alarms','setup'];
-const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6','#1abc9c'];
-const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)','rgba(26,188,156,.15)'];
-const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','P4 CRNE10','Jockey'];
+const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6'];
+const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)'];
+const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','Jockey CRNE10'];
 
 const CHART_OPT_BASE = {
     responsive: true, maintainAspectRatio: false,
@@ -683,8 +677,8 @@ function renderPumps() {
     const d = latestData;
     const connected = d && d.connected;
     const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
-    const main   = pumps.filter(p => !p.label.toLowerCase().includes('jockey'));
-    const jockey = pumps.filter(p =>  p.label.toLowerCase().includes('jockey'));
+    const main   = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
+    const jockey = pumps.filter(p =>  p.label.toLowerCase().startsWith('jockey'));
     document.getElementById('main-pump-grid').innerHTML = main.map(p=>pumpCard(p,connected,false)).join('');
     document.getElementById('jockey-wrap').innerHTML = jockey.length
         ? '<div style="max-width:260px;">'+jockey.map(p=>pumpCard(p,connected,true)).join('')+'</div>'
@@ -722,8 +716,12 @@ function pumpCard(p, connected, isJockey) {
 }
 
 function defaultPumps() {
-    return [{id:1,label:'Pump 1'},{id:2,label:'Pump 2'},{id:3,label:'Pump 3'},{id:4,label:'Pump 4'},{id:5,label:'Jockey'}]
-        .map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null},p));
+    return [
+        {id:1,label:'P1 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
+        {id:2,label:'P2 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
+        {id:3,label:'P3 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
+        {id:4,label:'Jockey',     model:'CRNE10-9',rated_kw:5.5},
+    ].map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null},p));
 }
 
 // ─── Performance charts ───────────────────────────────────────────────────────
@@ -765,7 +763,7 @@ async function renderPerfCharts() {
     // Activity (pumps running count)
     renderLineChart('c-activity', noData, labels, [
         { label:'Pumps Running', data: pts.map(r=>r.nr), borderColor:'#27ae60', bg:'rgba(39,174,96,.15)', dashed:false, stepped:true }
-    ], v=>v!=null?v+' pumps':null, {max:5, stepSize:1});
+    ], v=>v!=null?v+' pumps':null, {max:4, stepSize:1});
 
     // Pump speeds (5 lines)
     buildPumpLegend('speed-legend');
