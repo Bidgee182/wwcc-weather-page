@@ -11,72 +11,61 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; padding: 20px; }
-        @media (max-width: 480px) { body { padding: 10px; } }
+        @media (max-width:480px) { body { padding: 10px; } }
 
-        /* ── Logo ── */
         .logo-wrap { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
         .logo-wrap img { display:block; }
         .logo-wrap .logo-top  { position:absolute; top:0; left:0; width:100%; height:100%; mix-blend-mode:screen; }
         .logo-wrap .logo-base { filter: grayscale(1) contrast(200) invert(1); }
 
-        /* ── Header ── */
         .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
         .header-logo { height:64px; width:auto; flex-shrink:0; }
-        .header-text { display:flex; flex-direction:column; }
         .header-text h1 { font-size:1.6em; letter-spacing:2px; color:#ecf0f1; line-height:1.1; }
         .header-text .subtitle { font-size:0.85em; color:#7f8c8d; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
-        @media (max-width:480px) {
-            .header-logo { height:48px; }
-            .header-text h1 { font-size:1.15em; }
-            .header-text .subtitle { font-size:0.72em; }
-        }
+        @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.15em;} .header-text .subtitle{font-size:0.72em;} }
 
-        /* ── Tab Bar ── */
-        .tab-bar { display:flex; justify-content:center; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
-        .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:10px 22px; font-size:0.9em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; }
+        /* Tab bar */
+        .tab-bar { display:flex; justify-content:center; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+        .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:9px 18px; font-size:0.85em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; white-space:nowrap; }
         .tab-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
         .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
-        @media (max-width:480px) {
-            .tab-bar { gap:4px; }
-            .tab-btn { padding:7px 10px; font-size:0.72em; letter-spacing:0.5px; }
-        }
+        @media (max-width:540px) { .tab-btn { padding:7px 10px; font-size:0.72em; } }
 
-        /* ── Cards ── */
+        /* Cards */
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
         .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
         @media (max-width:480px) { .card { padding:14px 12px; } }
 
-        /* ── Tab panels ── */
         .tab-panel { display:none; }
         .tab-panel.active { display:block; }
 
-        /* ── Connection banner ── */
+        /* Connection banner */
         .conn-banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border:2px solid; }
         .conn-banner.offline { background:#2c2518; border-color:#e67e22; }
         .conn-banner.online  { background:#1c3025; border-color:#27ae60; }
         .conn-banner.fault   { background:#2c1a1a; border-color:#e74c3c; }
         .conn-left { display:flex; align-items:center; gap:14px; }
         .conn-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
-        .conn-dot.offline { background:#e67e22; animation:pulse-orange 2s ease-in-out infinite; }
-        .conn-dot.online  { background:#27ae60; animation:pulse-green  3s ease-in-out infinite; }
-        .conn-dot.fault   { background:#e74c3c; animation:pulse-red    1s ease-in-out infinite; }
+        .conn-dot.offline { background:#e67e22; animation:pOrange 2s ease-in-out infinite; }
+        .conn-dot.online  { background:#27ae60; animation:pGreen  3s ease-in-out infinite; }
+        .conn-dot.fault   { background:#e74c3c; animation:pRed    1s ease-in-out infinite; }
         .conn-title { font-size:1.05em; font-weight:bold; }
         .conn-sub   { font-size:0.78em; color:#bdc3c7; margin-top:3px; }
         .conn-right { text-align:right; }
         .conn-ts    { font-size:0.72em; color:#7f8c8d; }
-        @keyframes pulse-orange { 0%,100%{box-shadow:0 0 4px rgba(230,126,34,.4)} 50%{box-shadow:0 0 14px 5px rgba(230,126,34,.8)} }
-        @keyframes pulse-green  { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.4)}  50%{box-shadow:0 0 14px 5px rgba(39,174,96,.8)} }
-        @keyframes pulse-red    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
+        @keyframes pOrange { 0%,100%{box-shadow:0 0 4px rgba(230,126,34,.4)} 50%{box-shadow:0 0 14px 5px rgba(230,126,34,.8)} }
+        @keyframes pGreen  { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.4)}  50%{box-shadow:0 0 14px 5px rgba(39,174,96,.8)} }
+        @keyframes pRed    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
 
-        /* ── System metrics grid ── */
+        /* System metrics */
         .sys-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
         @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(2,1fr); } }
         .sys-metric { background:#1a252f; border-radius:8px; padding:14px 10px; text-align:center; border:1px solid #3d5166; }
-        .sys-metric .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
-        .sys-metric .sm-unit { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
-        .sys-metric .sm-lbl  { font-size:0.65em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
+        .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
+        .sm-unit { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
+        .sm-lbl  { font-size:0.65em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
 
-        /* ── Pressure vs Setpoint display ── */
+        /* Pressure display */
         .pressure-display { display:flex; align-items:center; gap:10px; margin-bottom:12px; background:#1a252f; border-radius:10px; padding:18px; }
         .pres-block { flex:1; text-align:center; }
         .pres-val   { font-size:2.8em; font-weight:bold; line-height:1; }
@@ -84,34 +73,29 @@
         .pres-lbl   { font-size:0.68em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
         .pres-vs    { font-size:1.4em; color:#566573; font-weight:bold; flex-shrink:0; }
         .pres-bar-bg   { background:#3d5166; border-radius:4px; height:10px; width:100%; margin:10px 0 4px; }
-        .pres-bar-fill { height:10px; border-radius:4px; transition:width 0.6s ease, background 0.4s; }
+        .pres-bar-fill { height:10px; border-radius:4px; transition:width 0.6s,background 0.4s; }
         .pres-note { font-size:0.7em; color:#566573; text-align:center; margin-top:2px; }
-        @media (max-width:480px) {
-            .pres-val { font-size:2.2em; }
-            .pressure-display { padding:14px 10px; }
-        }
+        @media (max-width:480px) { .pres-val{font-size:2.2em;} .pressure-display{padding:14px 10px;} }
 
-        /* ── Pump summary rows ── */
+        /* Pump summary rows */
         .pump-summary-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #3d5166; }
         .pump-summary-row:last-child { border-bottom:none; }
-        .ps-name { width:80px; font-size:0.88em; font-weight:bold; flex-shrink:0; }
-        .ps-speed { font-size:0.8em; color:#7f8c8d; margin-left:auto; flex-shrink:0; }
 
-        /* ── Pump cards grid ── */
-        .pump-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-        @media (max-width:700px) { .pump-grid { grid-template-columns:repeat(2,1fr); } }
-        .pump-card { background:#1a252f; border-radius:10px; padding:16px 12px; text-align:center; border:2px solid #3d5166; transition:border-color 0.3s, box-shadow 0.3s; }
-        .pump-card.running { border-color:#27ae60; box-shadow:0 0 12px rgba(39,174,96,0.25); }
+        /* Pump cards */
+        .pump-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+        @media (min-width:900px) { .pump-grid { grid-template-columns:repeat(4,1fr); } }
+        .pump-card { background:#1a252f; border-radius:10px; padding:16px 12px; text-align:center; border:2px solid #3d5166; transition:border-color 0.3s,box-shadow 0.3s; }
+        .pump-card.running { border-color:#27ae60; box-shadow:0 0 12px rgba(39,174,96,.25); }
         .pump-card.standby { border-color:#f39c12; }
-        .pump-card.fault   { border-color:#e74c3c; animation:fault-pulse 1.2s ease-in-out infinite; }
+        .pump-card.fault   { border-color:#e74c3c; animation:faultPulse 1.2s ease-in-out infinite; }
         .pump-card.jockey  { border-color:#2980b9; }
         .pump-card.jockey.running { border-color:#27ae60; }
         .pump-card.jockey.fault   { border-color:#e74c3c; }
         .pump-card.offline { border-color:#2c3e50; opacity:0.5; }
-        @keyframes fault-pulse { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.3)} 50%{box-shadow:0 0 22px 6px rgba(231,76,60,.7)} }
-        .pump-num  { font-size:0.65em; color:#566573; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px; }
+        @keyframes faultPulse { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.3)} 50%{box-shadow:0 0 22px 6px rgba(231,76,60,.7)} }
+        .pump-num  { font-size:0.65em; color:#566573; text-transform:uppercase; letter-spacing:2px; margin-bottom:5px; }
         .pump-name { font-size:1em; font-weight:bold; color:#ecf0f1; margin-bottom:10px; }
-        .pump-badge { display:inline-block; border-radius:20px; padding:5px 14px; font-size:0.75em; font-weight:bold; letter-spacing:1px; text-transform:uppercase; margin-bottom:12px; }
+        .pump-badge { display:inline-block; border-radius:20px; padding:5px 14px; font-size:0.75em; font-weight:bold; letter-spacing:1px; text-transform:uppercase; margin-bottom:10px; }
         .badge-running { background:#1d6a39; color:#2ecc71; border:1px solid #27ae60; }
         .badge-standby { background:#6b4c0e; color:#f39c12; border:1px solid #e67e22; }
         .badge-stopped { background:#1e2a35; color:#7f8c8d; border:1px solid #3d5166; }
@@ -119,34 +103,47 @@
         .badge-offline { background:#1a252f; color:#566573; border:1px solid #2c3e50; }
         .pump-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
         .pump-stat { background:#2c3e50; border-radius:6px; padding:7px 4px; }
-        .pump-stat .ps-val { font-size:1.1em; font-weight:bold; }
-        .pump-stat .ps-lbl { font-size:0.6em; color:#7f8c8d; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
-        .pump-stat.full { grid-column:1/-1; }
+        .pump-stat .ps-v { font-size:1.05em; font-weight:bold; }
+        .pump-stat .ps-l { font-size:0.6em; color:#7f8c8d; text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+        .pump-stat.full  { grid-column:1/-1; }
+        .speed-bar-bg   { background:#2c3e50; border-radius:3px; height:6px; margin:8px 0 10px; }
+        .speed-bar-fill { height:6px; border-radius:3px; background:#e67e22; transition:width 0.5s; }
 
-        /* ── Speed bar on pump card ── */
-        .speed-bar-wrap { margin:8px 0 12px; }
-        .speed-bar-bg   { background:#2c3e50; border-radius:3px; height:6px; }
-        .speed-bar-fill { height:6px; border-radius:3px; background:#e67e22; transition:width 0.5s ease; }
-
-        /* ── Range buttons ── */
-        .range-row { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-        .range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 14px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
+        /* Range buttons */
+        .range-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+        .range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 13px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
         .range-btn.active, .range-btn:hover { background:#e67e22; border-color:#e67e22; color:white; }
 
-        /* ── Chart loader ── */
-        .chart-loader { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:28px 0; }
-        .chart-loader-bar { width:180px; height:44px; position:relative; overflow:hidden; border-radius:8px; border:1px solid #4a3a1e; background:#1a1208; }
-        .chart-loader-water { position:absolute; bottom:0; left:0; right:0; height:55%; background:rgba(230,126,34,0.2); animation:waveRise 2.4s ease-in-out infinite alternate; }
-        .chart-loader-wave  { position:absolute; top:-10px; left:0; width:200%; height:20px; animation:waveSweep 1.5s linear infinite; }
-        .chart-loader-label { position:absolute; bottom:6px; width:100%; text-align:center; font-size:0.62em; color:#c87941; letter-spacing:2px; }
+        /* Chart loader */
+        .chart-loader { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:22px 0; }
+        .chart-loader-bar { width:160px; height:40px; position:relative; overflow:hidden; border-radius:8px; border:1px solid #4a3a1e; background:#1a1208; }
+        .chart-loader-water { position:absolute; bottom:0; left:0; right:0; height:55%; background:rgba(230,126,34,.2); animation:wRise 2.4s ease-in-out infinite alternate; }
+        .chart-loader-wave  { position:absolute; top:-10px; left:0; width:200%; height:20px; animation:wSweep 1.5s linear infinite; }
+        .chart-loader-label { position:absolute; bottom:5px; width:100%; text-align:center; font-size:0.6em; color:#c87941; letter-spacing:2px; }
         .chart-loader-dots  { display:flex; gap:6px; }
-        .chart-loader-dots span { width:26px; height:3px; border-radius:2px; background:#e67e22; animation:waveRise 2.4s ease-in-out infinite alternate; }
-        .chart-loader-dots span:nth-child(2) { animation-delay:0.25s; }
-        .chart-loader-dots span:nth-child(3) { animation-delay:0.5s; }
-        @keyframes waveSweep { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        @keyframes waveRise  { from{height:30%} to{height:68%} }
+        .chart-loader-dots span { width:24px; height:3px; border-radius:2px; background:#e67e22; animation:wRise 2.4s ease-in-out infinite alternate; }
+        .chart-loader-dots span:nth-child(2) { animation-delay:.25s; }
+        .chart-loader-dots span:nth-child(3) { animation-delay:.5s; }
+        @keyframes wSweep { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes wRise  { from{height:30%} to{height:68%} }
 
-        /* ── Alarm list ── */
+        /* Chart canvas wrappers */
+        .chart-wrap { position:relative; width:100%; display:none; }
+        .chart-wrap.h160 { height:160px; }
+        .chart-wrap.h200 { height:200px; }
+        .chart-wrap.h220 { height:220px; }
+
+        /* Stat rows */
+        .stat-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+        .stat-grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+        @media (max-width:480px) { .stat-grid-4 { grid-template-columns:repeat(2,1fr); } }
+
+        /* Pump legend */
+        .pump-legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+        .pump-legend-item { display:flex; align-items:center; gap:6px; font-size:0.75em; color:#bdc3c7; }
+        .pump-legend-dot  { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+
+        /* Alarm list */
         .alarm-none { text-align:center; color:#566573; font-size:0.88em; padding:20px; }
         .alarm-row  { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #3d5166; }
         .alarm-row:last-child { border-bottom:none; }
@@ -154,39 +151,36 @@
         .alarm-dot.active  { background:#e74c3c; }
         .alarm-dot.cleared { background:#27ae60; }
         .alarm-code { font-size:0.7em; color:#566573; font-family:monospace; }
-        .alarm-desc { font-size:0.88em; color:#ecf0f1; font-weight:bold; }
+        .alarm-desc { font-size:0.88em; font-weight:bold; }
         .alarm-pump { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
         .alarm-ts   { font-size:0.7em; color:#566573; white-space:nowrap; flex-shrink:0; }
 
-        /* ── Hours grid (performance tab) ── */
-        .hours-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-        @media (max-width:600px) { .hours-grid { grid-template-columns:repeat(3,1fr); } }
-        @media (max-width:380px) { .hours-grid { grid-template-columns:repeat(2,1fr); } }
+        /* Metric selector (trends tab) */
+        .metric-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:7px 16px; font-size:0.82em; cursor:pointer; transition:all 0.2s; }
+        .metric-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
 
-        /* ── CIM info box ── */
+        /* Setup info boxes */
         .info-box { background:#1a252f; border-radius:8px; padding:14px 16px; border-left:3px solid #e67e22; margin-bottom:14px; font-size:0.82em; color:#bdc3c7; line-height:1.6; }
         .info-box strong { color:#e67e22; }
 
-        /* ── Footer ── */
+        /* Loading note */
+        .loading-note { font-size:0.72em; color:#566573; text-align:center; padding:4px 0 8px; display:none; }
+
         .page-footer { text-align:center; font-size:0.72em; color:#566573; padding:14px 0; }
 
-        /* ── Small phone ── */
         @media (max-width:390px) {
             body { padding:8px; }
             .header-logo { height:42px; }
             .header-text h1 { font-size:1em; }
-            .header-text .subtitle { font-size:0.65em; }
             .tab-btn { padding:6px 8px; font-size:0.65em; }
-            .tab-bar { gap:3px; }
             .pres-val { font-size:1.9em; }
-            .sys-metric .sm-val { font-size:1.6em; }
-            .pump-grid { gap:8px; }
+            .sm-val { font-size:1.6em; }
         }
     </style>
 </head>
 <body>
 
-<!-- ══ HEADER ══ -->
+<!-- HEADER -->
 <div class="header">
     <div class="logo-wrap" style="height:64px;">
         <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC" style="height:64px;">
@@ -198,13 +192,13 @@
     </div>
 </div>
 
-<!-- ══ CONNECTION BANNER ══ -->
+<!-- CONNECTION BANNER -->
 <div class="conn-banner offline" id="conn-banner">
     <div class="conn-left">
         <div class="conn-dot offline" id="conn-dot"></div>
         <div>
             <div class="conn-title" id="conn-title">WAITING FOR CONNECTION</div>
-            <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP - Checking every 60s</div>
+            <div class="conn-sub"   id="conn-sub">CIM 500 Modbus TCP - Checking every 60s</div>
         </div>
     </div>
     <div class="conn-right">
@@ -213,31 +207,30 @@
     </div>
 </div>
 
-<!-- ══ TAB BAR ══ -->
+<!-- TAB BAR -->
 <div class="tab-bar">
-    <button class="tab-btn active" onclick="showTab('overview',this)">Overview</button>
-    <button class="tab-btn" onclick="showTab('pumps',this)">Pumps</button>
-    <button class="tab-btn" onclick="showTab('performance',this)">Performance</button>
-    <button class="tab-btn" onclick="showTab('alarms',this)">Alarms</button>
-    <button class="tab-btn" onclick="showTab('setup',this)">Setup</button>
+    <button class="tab-btn active"  onclick="showTab('overview',this)">Overview</button>
+    <button class="tab-btn"         onclick="showTab('pumps',this)">Pumps</button>
+    <button class="tab-btn"         onclick="showTab('performance',this)">Charts</button>
+    <button class="tab-btn"         onclick="showTab('trends',this)">Trends</button>
+    <button class="tab-btn"         onclick="showTab('alarms',this)">Alarms</button>
+    <button class="tab-btn"         onclick="showTab('setup',this)">Setup</button>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- TAB: OVERVIEW                                               -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════ OVERVIEW ═══════════════════════════ -->
 <div id="tab-overview" class="tab-panel active">
 
     <div class="card">
         <h2>System Pressure</h2>
         <div class="pressure-display">
             <div class="pres-block">
-                <div class="pres-val" id="ov-pres-actual" style="color:#e67e22;">--</div>
+                <div class="pres-val" id="ov-actual" style="color:#e67e22;">--</div>
                 <div class="pres-unit">bar</div>
                 <div class="pres-lbl">Actual</div>
             </div>
             <div class="pres-vs">vs</div>
             <div class="pres-block">
-                <div class="pres-val" id="ov-pres-setpoint" style="color:#7f8c8d;">--</div>
+                <div class="pres-val" id="ov-setpoint" style="color:#7f8c8d;">--</div>
                 <div class="pres-unit">bar</div>
                 <div class="pres-lbl">Setpoint</div>
             </div>
@@ -245,7 +238,7 @@
         <div class="pres-bar-bg">
             <div class="pres-bar-fill" id="ov-pres-bar" style="width:0%;background:#3d5166;"></div>
         </div>
-        <div class="pres-note" id="ov-pres-note">No pressure data - waiting for CIM 500 connection</div>
+        <div class="pres-note" id="ov-pres-note">Waiting for CIM 500 connection</div>
     </div>
 
     <div class="sys-metrics">
@@ -257,7 +250,7 @@
         <div class="sys-metric">
             <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
             <div class="sm-unit">of 5</div>
-            <div class="sm-lbl">Pumps Running</div>
+            <div class="sm-lbl">Running</div>
         </div>
         <div class="sys-metric">
             <div class="sm-val" id="ov-faults" style="color:#e74c3c;">0</div>
@@ -274,552 +267,746 @@
     <div class="card">
         <h2>Pump Summary</h2>
         <div id="ov-pump-summary">
-            <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">
-                Waiting for data from pump station...
-            </div>
+            <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">Waiting for data...</div>
         </div>
     </div>
 
 </div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- TAB: PUMPS                                                  -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════ PUMPS ═══════════════════════════ -->
 <div id="tab-pumps" class="tab-panel">
-
     <div class="card">
         <h2>Main Pumps (P1 - P4)</h2>
-        <div class="pump-grid" id="main-pump-grid">
-            <!-- rendered by JS -->
-        </div>
+        <div class="pump-grid" id="main-pump-grid"></div>
     </div>
-
     <div class="card">
         <h2>Jockey Pump</h2>
-        <div id="jockey-pump-wrap">
-            <!-- rendered by JS -->
-        </div>
+        <div id="jockey-wrap"></div>
     </div>
-
 </div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- TAB: PERFORMANCE                                            -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════ CHARTS / PERFORMANCE ═══════════════════════════ -->
 <div id="tab-performance" class="tab-panel">
 
+    <!-- Shared range selector -->
     <div class="card">
-        <h2>Pressure History</h2>
+        <h2>Time Range (applies to all charts)</h2>
         <div class="range-row">
-            <button class="range-btn active" data-h="1"   onclick="setPerfRange(1,this)">1h</button>
-            <button class="range-btn"        data-h="6"   onclick="setPerfRange(6,this)">6h</button>
-            <button class="range-btn"        data-h="24"  onclick="setPerfRange(24,this)">24h</button>
-            <button class="range-btn"        data-h="168" onclick="setPerfRange(168,this)">7 Days</button>
+            <button class="range-btn"        onclick="setPerfRange(1,this)">1h</button>
+            <button class="range-btn"        onclick="setPerfRange(6,this)">6h</button>
+            <button class="range-btn active" onclick="setPerfRange(24,this)">24h</button>
+            <button class="range-btn"        onclick="setPerfRange(168,this)">7d</button>
+            <button class="range-btn"        onclick="setPerfRange(720,this)">30d</button>
+            <button class="range-btn"        onclick="setPerfRange(2160,this)">90d</button>
         </div>
-        <div id="perf-loader" class="chart-loader">
-            <div class="chart-loader-bar">
-                <div class="chart-loader-water">
-                    <svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-                        <path fill="rgba(230,126,34,0.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/>
-                    </svg>
-                </div>
-                <div class="chart-loader-label">LOADING</div>
-            </div>
-            <div class="chart-loader-dots"><span></span><span></span><span></span></div>
-        </div>
-        <div style="position:relative;height:220px;width:100%;display:none;" id="perf-chart-wrap">
-            <canvas id="perf-chart"></canvas>
-        </div>
-        <div class="sys-metrics" style="margin-top:12px;">
-            <div class="sys-metric"><div class="sm-val" id="ps-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min Pressure</div></div>
-            <div class="sys-metric"><div class="sm-val" id="ps-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max Pressure</div></div>
-            <div class="sys-metric"><div class="sm-val" id="ps-avg" style="color:#e67e22;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg Pressure</div></div>
-            <div class="sys-metric"><div class="sm-val" id="ps-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Data Points</div></div>
+        <div class="loading-note" id="hist-loading">Loading historical data from server...</div>
+    </div>
+
+    <!-- Pressure -->
+    <div class="card">
+        <h2>Pressure - Actual vs Setpoint</h2>
+        <div class="chart-loader" id="c-pressure-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h200" id="c-pressure-wrap"><canvas id="c-pressure"></canvas></div>
+        <div class="stat-grid-4">
+            <div class="sys-metric"><div class="sm-val" id="cp-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cp-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cp-avg" style="color:#e67e22;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cp-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Points</div></div>
         </div>
     </div>
 
+    <!-- Flow -->
     <div class="card">
-        <h2>Run Hours</h2>
-        <div class="hours-grid" id="hours-grid">
-            <!-- rendered by JS -->
+        <h2>Flow Rate</h2>
+        <div class="chart-loader" id="c-flow-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(52,152,219,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h160" id="c-flow-wrap"><canvas id="c-flow"></canvas></div>
+        <div class="stat-grid-3">
+            <div class="sys-metric"><div class="sm-val" id="cf-min" style="color:#3498db;">--</div><div class="sm-unit">m&sup3;/h</div><div class="sm-lbl">Min</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cf-max" style="color:#e74c3c;">--</div><div class="sm-unit">m&sup3;/h</div><div class="sm-lbl">Max</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cf-avg" style="color:#3498db;">--</div><div class="sm-unit">m&sup3;/h</div><div class="sm-lbl">Avg</div></div>
+        </div>
+    </div>
+
+    <!-- Pumps running count -->
+    <div class="card">
+        <h2>Pumps Running Simultaneously</h2>
+        <div class="chart-loader" id="c-activity-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(39,174,96,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h160" id="c-activity-wrap"><canvas id="c-activity"></canvas></div>
+    </div>
+
+    <!-- Pump speeds -->
+    <div class="card">
+        <h2>Pump Speeds (%)</h2>
+        <div class="pump-legend" id="speed-legend"></div>
+        <div class="chart-loader" id="c-speed-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h220" id="c-speed-wrap"><canvas id="c-speed"></canvas></div>
+    </div>
+
+    <!-- Pump power -->
+    <div class="card">
+        <h2>Pump Power (kW)</h2>
+        <div class="pump-legend" id="power-legend"></div>
+        <div class="chart-loader" id="c-power-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h220" id="c-power-wrap"><canvas id="c-power"></canvas></div>
+    </div>
+
+    <!-- Run hours (current) -->
+    <div class="card">
+        <h2>Cumulative Run Hours (Current Reading)</h2>
+        <div id="hours-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P1</div></div>
+            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P2</div></div>
+            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P3</div></div>
+            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">P4</div></div>
+            <div class="sys-metric"><div class="sm-val" style="color:#7f8c8d;">--</div><div class="sm-unit">h</div><div class="sm-lbl">Jockey</div></div>
         </div>
     </div>
 
 </div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- TAB: ALARMS                                                 -->
-<!-- ════════════════════════════════════════════════════════════ -->
-<div id="tab-alarms" class="tab-panel">
+<!-- ═══════════════════════════ TRENDS (DAILY) ═══════════════════════════ -->
+<div id="tab-trends" class="tab-panel">
 
+    <div class="card">
+        <h2>Daily Totals per Pump - Last 30 Days</h2>
+        <div class="range-row" style="margin-bottom:14px;">
+            <button class="metric-btn active" onclick="setTrendsMetric('hrs',this)">Run Hours</button>
+            <button class="metric-btn" onclick="setTrendsMetric('kwh',this)">Energy (kWh)</button>
+            <button class="metric-btn" onclick="setTrendsMetric('sts',this)">Starts</button>
+        </div>
+        <div class="pump-legend" id="trends-legend"></div>
+        <div class="chart-loader" id="c-trends-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h220" id="c-trends-wrap"><canvas id="c-trends"></canvas></div>
+        <div class="stat-grid-3" style="margin-top:12px;">
+            <div class="sys-metric"><div class="sm-val" id="tr-total" style="color:#e67e22;">--</div><div class="sm-unit" id="tr-unit">h</div><div class="sm-lbl">Total (30d)</div></div>
+            <div class="sys-metric"><div class="sm-val" id="tr-peak"  style="color:#e74c3c;">--</div><div class="sm-unit" id="tr-peak-unit">h</div><div class="sm-lbl">Peak Day</div></div>
+            <div class="sys-metric"><div class="sm-val" id="tr-avg"   style="color:#7f8c8d;">--</div><div class="sm-unit" id="tr-avg-unit">h/d</div><div class="sm-lbl">Daily Avg</div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Daily Pressure Summary (Min / Max / Avg)</h2>
+        <div class="chart-loader" id="c-dpres-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h200" id="c-dpres-wrap"><canvas id="c-dpres"></canvas></div>
+    </div>
+
+    <div class="card">
+        <h2>Daily Max Flow Rate</h2>
+        <div class="chart-loader" id="c-dflow-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(52,152,219,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h160" id="c-dflow-wrap"><canvas id="c-dflow"></canvas></div>
+    </div>
+
+</div>
+
+<!-- ═══════════════════════════ ALARMS ═══════════════════════════ -->
+<div id="tab-alarms" class="tab-panel">
     <div class="card">
         <h2>Active Alarms</h2>
         <div id="active-alarms"><div class="alarm-none">No active alarms</div></div>
     </div>
-
     <div class="card">
         <h2>Alarm History</h2>
         <div id="alarm-history"><div class="alarm-none">No alarm history available</div></div>
     </div>
-
 </div>
 
-<!-- ════════════════════════════════════════════════════════════ -->
-<!-- TAB: SETUP                                                  -->
-<!-- ════════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════ SETUP ═══════════════════════════ -->
 <div id="tab-setup" class="tab-panel">
-
     <div class="card">
         <h2>CIM 500 Configuration</h2>
         <div class="info-box">
-            <strong>Step 1 - Set the rotary switch to Modbus TCP</strong><br>
-            Locate the CIM 500 module inside the CU 352 panel. It has a small rotary dial
-            on the front face with positions 0 through F.<br><br>
-            Turn the dial to position <strong>2</strong> (Modbus TCP/IP over Ethernet).<br>
-            Factory default is position 0 (GRM cloud) - you are changing it to 2.<br><br>
-            Power cycle the CIM 500 after changing the switch (switch off the CU 352 panel
-            isolator for 10 seconds, then back on).
+            <strong>Step 1 - Set rotary switch to position 2 (Modbus TCP)</strong><br>
+            Inside the CU 352 panel, find the CIM 500 module. It has a small rotary dial
+            labelled 0 to F. Turn it from <strong>0</strong> (GRM cloud default) to
+            <strong>2</strong> (Modbus TCP/IP over Ethernet). Use a small flat-head screwdriver.<br><br>
+            Power cycle the panel after changing (isolator off 10s, then back on).
         </div>
         <div class="info-box" style="border-color:#3498db;">
-            <strong style="color:#3498db;">Step 2 - Connect Ethernet to USR G806 Router</strong><br>
-            Plug a Cat5e/Cat6 cable from the RJ45 port on the CIM 500 into one of the LAN
-            ports on the USR G806 router. The CIM 500 will request an IP address from the
-            router via DHCP. Check the router's connected device list to find the IP
-            assigned to the CIM 500 (look for a device named "Grundfos" or "CIM500").<br><br>
-            Recommended: assign a static/reserved IP to the CIM 500 in the router settings
-            so it doesn't change. Example: <strong style="color:#3498db;">192.168.1.100</strong><br><br>
-            Modbus TCP port: <strong style="color:#3498db;">502</strong><br>
-            Modbus Unit ID (Slave Address): <strong style="color:#3498db;">1</strong>
+            <strong style="color:#3498db;">Step 2 - Ethernet from CIM 500 to USR G806 LAN port</strong><br>
+            Cat5e/Cat6 cable from the RJ45 port on the CIM 500 into any LAN port on the
+            USR G806. The CIM 500 will request an IP from the router via DHCP.<br><br>
+            Check the router's DHCP client list to find the CIM 500 IP
+            (look for device name "Grundfos" or "CIM500"). Then set a static/reserved IP
+            for it - e.g. <strong style="color:#3498db;">192.168.1.100</strong>
         </div>
         <div class="info-box" style="border-color:#27ae60;">
-            <strong style="color:#27ae60;">Step 3 - Port Forward on USR G806</strong><br>
-            In the USR G806 admin panel, set up a port forward:<br>
-            External port <strong style="color:#27ae60;">502</strong> -&gt; Internal IP of CIM 500 port <strong style="color:#27ae60;">502</strong> (TCP)<br><br>
-            This allows the GitHub Actions polling script to reach the CIM 500 over the 4G
-            connection. The 4G SIM's public IP will be polled every 5 minutes.<br><br>
-            Optional: Set up DDNS on the USR G806 if the 4G SIM IP changes frequently
-            (most 4G SIMs have a dynamic public IP).
+            <strong style="color:#27ae60;">Step 3 - Port forward on USR G806</strong><br>
+            In the G806 admin panel: Port Forward &rarr; add rule:<br>
+            External port <strong style="color:#27ae60;">502</strong> &rarr; Internal
+            <strong style="color:#27ae60;">192.168.1.100:502</strong> (TCP)<br><br>
+            This lets the GitHub Actions poller script read Modbus TCP from the CIM 500
+            over the 4G connection.
         </div>
         <div class="info-box" style="border-color:#9b59b6;">
-            <strong style="color:#9b59b6;">Step 4 - Poller Script (GitHub Actions)</strong><br>
-            A Python script using the <em>pymodbus</em> library will run every 5 minutes
-            via GitHub Actions. It reads the CIM 500 Modbus registers over TCP, converts
-            the values to engineering units, and writes them to
-            <strong style="color:#9b59b6;">data/pump_station_latest.json</strong>
-            in this repository. This page auto-refreshes every 60 seconds to pick up new
-            data. Once the router and CIM 500 are connected and the script is running,
-            this page will update automatically.
+            <strong style="color:#9b59b6;">Step 4 - Poller script (next step)</strong><br>
+            A Python script using <em>pymodbus</em> will run via GitHub Actions every 5 minutes.
+            It reads all CIM 500 Modbus registers and writes to three files:<br>
+            <strong style="color:#9b59b6;">data/pump_station_latest.json</strong> - current state + 24h history<br>
+            <strong style="color:#9b59b6;">data/pump_station_history.json</strong> - 90-day rolling history (15-min)<br>
+            <strong style="color:#9b59b6;">data/pump_station_daily.json</strong> - daily summaries<br><br>
+            This page refreshes automatically every 60 seconds.
         </div>
     </div>
 
     <div class="card">
         <h2>CIM 500 Rotary Switch Reference</h2>
-        <div style="display:grid;grid-template-columns:60px 1fr;gap:6px 14px;font-size:0.85em;align-items:center;">
+        <div style="display:grid;grid-template-columns:56px 1fr;gap:6px 14px;font-size:0.84em;align-items:center;">
             <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">0</div>
-            <div style="color:#7f8c8d;">GRM (Grundfos Remote Management cloud) - Factory default</div>
-            <div style="background:#1d6a39;border:1px solid #27ae60;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#2ecc71;">1</div>
-            <div>Modbus RTU (RS-485 serial)</div>
+            <div style="color:#7f8c8d;">GRM cloud (Grundfos Remote Management) - Factory default</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">1</div>
+            <div style="color:#7f8c8d;">Modbus RTU (RS-485 serial)</div>
             <div style="background:#1e3a5f;border:2px solid #3498db;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#3498db;">2</div>
-            <div><strong style="color:#3498db;">Modbus TCP/IP (Ethernet) - USE THIS</strong></div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">3</div>
-            <div style="color:#7f8c8d;">PROFIBUS DP</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">4</div>
-            <div style="color:#7f8c8d;">BACnet MS/TP</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">5</div>
-            <div style="color:#7f8c8d;">LonWorks</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">6-F</div>
-            <div style="color:#7f8c8d;">Reserved / other protocols</div>
+            <div><strong style="color:#3498db;">Modbus TCP/IP (Ethernet) - SET THIS</strong></div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">3</div>
+            <div style="color:#566573;">PROFIBUS DP</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">4</div>
+            <div style="color:#566573;">BACnet MS/TP</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">5</div>
+            <div style="color:#566573;">LonWorks</div>
+            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">6-F</div>
+            <div style="color:#566573;">Reserved</div>
         </div>
     </div>
 
     <div class="card">
-        <h2>Connection Status</h2>
-        <div class="sys-metrics" style="margin-bottom:0;">
-            <div class="sys-metric">
-                <div class="sm-val" id="setup-status" style="font-size:1.2em;color:#e67e22;">OFFLINE</div>
-                <div class="sm-lbl" style="margin-top:6px;">CIM 500 Link</div>
-            </div>
-            <div class="sys-metric">
-                <div class="sm-val" id="setup-age" style="color:#7f8c8d;">--</div>
-                <div class="sm-lbl" style="margin-top:6px;">Last Data Age</div>
-            </div>
-            <div class="sys-metric">
-                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">60s</div>
-                <div class="sm-lbl" style="margin-top:6px;">Refresh Interval</div>
-            </div>
-            <div class="sys-metric">
-                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">502</div>
-                <div class="sm-lbl" style="margin-top:6px;">Modbus TCP Port</div>
-            </div>
+        <h2>Data File Schema Reference</h2>
+        <div style="font-size:0.78em;color:#bdc3c7;line-height:1.8;">
+            <strong style="color:#e67e22;">latest.json</strong> - Current state + 24h history (5-min readings)<br>
+            <strong style="color:#e67e22;">history.json</strong> - 90-day rolling log (15-min readings): ts, pa, ps, fl, nr, sp[5], pw[5]<br>
+            <strong style="color:#e67e22;">daily.json</strong> - Daily summaries: date, p_min, p_max, p_avg, fl_max, fl_total, hrs[5], sts[5], kwh[5]<br><br>
+            <strong style="color:#7f8c8d;">Compact history fields:</strong><br>
+            ts=timestamp &bull; pa=pressure actual &bull; ps=pressure setpoint<br>
+            fl=flow m&sup3;/h &bull; nr=pumps running &bull; sp=speeds[%] &bull; pw=power[kW]
         </div>
     </div>
 
+    <div class="card">
+        <h2>Live Connection Status</h2>
+        <div class="sys-metrics" style="margin-bottom:0;">
+            <div class="sys-metric">
+                <div class="sm-val" id="su-status" style="color:#e67e22;font-size:1.2em;">OFFLINE</div>
+                <div class="sm-lbl" style="margin-top:6px;">CIM 500</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" id="su-age" style="color:#7f8c8d;">--</div>
+                <div class="sm-lbl" style="margin-top:6px;">Data Age</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">60s</div>
+                <div class="sm-lbl" style="margin-top:6px;">Page Refresh</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">502</div>
+                <div class="sm-lbl" style="margin-top:6px;">Modbus Port</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="page-footer">
-    Pump Station Monitor - WWCC - Data via CIM 500 Modbus TCP - Refreshes every 60s
+    Pump Station Monitor &mdash; WWCC &mdash; CIM 500 Modbus TCP &mdash; Refreshes every 60s
 </div>
 
 <script>
-    // ─── State ───────────────────────────────────────────────────────────────
-    let pumpData  = null;
-    let perfChart = null;
-    let perfRangeH = 1;
-    const TABS = ['overview','pumps','performance','alarms','setup'];
+// ─── Constants ───────────────────────────────────────────────────────────────
+const TABS = ['overview','pumps','performance','trends','alarms','setup'];
+const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6','#1abc9c'];
+const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)','rgba(26,188,156,.15)'];
+const PUMP_LABELS = ['Pump 1','Pump 2','Pump 3','Pump 4','Jockey'];
 
-    // ─── Tab switching ───────────────────────────────────────────────────────
-    function showTab(name, btn) {
-        TABS.forEach(t => document.getElementById('tab-' + t).classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('tab-' + name).classList.add('active');
-        if (btn) btn.classList.add('active');
-        if (name === 'performance') renderPerfChart();
+const CHART_OPT_BASE = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode:'index', intersect:false },
+    plugins: { legend: { display:false }, tooltip: {} },
+    scales: {
+        x: { ticks:{color:'#7f8c8d',maxTicksLimit:7,font:{size:9}}, grid:{color:'#2c3e50'} },
+        y: { ticks:{color:'#7f8c8d',font:{size:9}},                  grid:{color:'#2c3e50'}, min:0 }
+    }
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let latestData  = null;
+let historyData = null;
+let dailyData   = null;
+let perfRangeH  = 24;
+let trendsMetric = 'hrs';
+const charts = {};
+
+// ─── Tab switching ───────────────────────────────────────────────────────────
+function showTab(name, btn) {
+    TABS.forEach(t => document.getElementById('tab-'+t).classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'performance') renderPerfCharts();
+    if (name === 'trends')      renderTrendCharts();
+}
+
+// ─── Data loading ─────────────────────────────────────────────────────────────
+async function loadData() {
+    try {
+        const r = await fetch('data/pump_station_latest.json?_='+Date.now());
+        if (r.ok) latestData = await r.json();
+    } catch(e) { latestData = null; }
+    renderAll();
+}
+
+async function ensureHistory() {
+    if (historyData !== null) return;
+    document.getElementById('hist-loading').style.display = 'block';
+    try {
+        const r = await fetch('data/pump_station_history.json?_='+Date.now());
+        if (r.ok) historyData = await r.json();
+        else historyData = { readings:[] };
+    } catch(e) { historyData = { readings:[] }; }
+    document.getElementById('hist-loading').style.display = 'none';
+}
+
+async function ensureDaily() {
+    if (dailyData !== null) return;
+    try {
+        const r = await fetch('data/pump_station_daily.json?_='+Date.now());
+        if (r.ok) dailyData = await r.json();
+        else dailyData = { days:[] };
+    } catch(e) { dailyData = { days:[] }; }
+}
+
+// Get filtered readings for selected performance range
+async function getPerfReadings() {
+    const cutoff = Date.now() - perfRangeH * 3600000;
+    if (perfRangeH <= 24) {
+        const h = latestData && latestData.history ? latestData.history : [];
+        return h.filter(r => new Date(r.ts).getTime() >= cutoff);
+    }
+    await ensureHistory();
+    const readings = historyData && historyData.readings ? historyData.readings : [];
+    return readings.filter(r => new Date(r.ts).getTime() >= cutoff);
+}
+
+// ─── Render all ──────────────────────────────────────────────────────────────
+function renderAll() {
+    renderBanner();
+    renderOverview();
+    renderPumps();
+    renderAlarms();
+    renderSetupStatus();
+    const perfActive   = document.getElementById('tab-performance').classList.contains('active');
+    const trendsActive = document.getElementById('tab-trends').classList.contains('active');
+    if (perfActive)   renderPerfCharts();
+    if (trendsActive) renderTrendCharts();
+}
+
+// ─── Banner ──────────────────────────────────────────────────────────────────
+function renderBanner() {
+    const d = latestData;
+    const banner = document.getElementById('conn-banner');
+    const dot    = document.getElementById('conn-dot');
+    const title  = document.getElementById('conn-title');
+    const ts     = document.getElementById('conn-ts');
+    const mode   = document.getElementById('conn-mode');
+    const connected = d && d.connected;
+    const hasFault  = connected && d.system && d.system.fault;
+    if (!connected) {
+        banner.className = 'conn-banner offline'; dot.className = 'conn-dot offline';
+        title.textContent = 'WAITING FOR CONNECTION';
+        ts.textContent = d && d.last_seen ? 'Last data: '+fmtAge(d.last_seen) : 'Last data: Never';
+        mode.textContent = '';
+    } else if (hasFault) {
+        banner.className = 'conn-banner fault'; dot.className = 'conn-dot fault';
+        title.textContent = 'SYSTEM FAULT - CHECK PUMP STATION';
+        ts.textContent = 'Updated: '+fmtAge(d.timestamp);
+        mode.textContent = 'Mode: '+(d.system.mode||'Unknown').toUpperCase();
+    } else {
+        const running = (d.pumps||[]).filter(p=>p.running).length;
+        banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
+        title.textContent = 'ONLINE - '+(running>0 ? running+' PUMP'+(running>1?'S':'')+' RUNNING' : 'SYSTEM STANDBY');
+        ts.textContent = 'Updated: '+fmtAge(d.timestamp);
+        mode.textContent = 'Mode: '+(d.system.mode||'Unknown').toUpperCase();
+    }
+}
+
+// ─── Overview ────────────────────────────────────────────────────────────────
+function renderOverview() {
+    const d = latestData;
+    const sys   = d && d.system ? d.system : {};
+    const pumps = d && d.pumps  ? d.pumps  : [];
+    const actual   = sys.pressure_actual_bar;
+    const setpoint = sys.pressure_setpoint_bar;
+
+    document.getElementById('ov-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
+    document.getElementById('ov-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
+
+    const bar = document.getElementById('ov-pres-bar');
+    const note = document.getElementById('ov-pres-note');
+    if (actual != null && setpoint != null && setpoint > 0) {
+        const pct = Math.min(100, Math.max(0, (actual/setpoint)*100));
+        const diff = actual - setpoint;
+        bar.style.width = pct+'%';
+        if (Math.abs(diff)<0.15)     { bar.style.background='#27ae60'; note.textContent='Pressure on target'; }
+        else if (Math.abs(diff)<0.4) { bar.style.background='#f39c12'; note.textContent=diff<0?'Slightly below setpoint':'Slightly above setpoint'; }
+        else                          { bar.style.background='#e74c3c'; note.textContent=diff<0?'Pressure below setpoint':'Pressure above setpoint'; }
+    } else {
+        bar.style.width='0%'; bar.style.background='#3d5166';
+        note.textContent = d && d.connected ? 'No pressure sensor data' : 'Waiting for CIM 500 connection';
     }
 
-    // ─── Data loading ────────────────────────────────────────────────────────
-    async function loadData() {
-        try {
-            const res = await fetch('data/pump_station_latest.json?_=' + Date.now());
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            pumpData = await res.json();
-        } catch (e) {
-            pumpData = null;
-        }
-        renderAll();
+    document.getElementById('ov-flow').textContent    = sys.flow_m3h != null ? sys.flow_m3h.toFixed(1) : '--';
+    document.getElementById('ov-running').textContent = pumps.filter(p=>p.running).length;
+    document.getElementById('ov-faults').textContent  = pumps.filter(p=>p.fault).length;
+    document.getElementById('ov-alarms').textContent  = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
+
+    const el = document.getElementById('ov-pump-summary');
+    const connected = d && d.connected;
+    if (!pumps.length) {
+        el.innerHTML = '<div style="text-align:center;color:#566573;font-size:.88em;padding:14px;">Waiting for data...</div>';
+    } else {
+        el.innerHTML = pumps.map(p => {
+            let bc, bl;
+            if (!connected)  { bc='badge-offline'; bl='OFFLINE'; }
+            else if (p.fault)    { bc='badge-fault';   bl='FAULT'; }
+            else if (p.running)  { bc='badge-running'; bl='RUNNING'; }
+            else if (p.standby)  { bc='badge-standby'; bl='STANDBY'; }
+            else                 { bc='badge-stopped'; bl='STOPPED'; }
+            const sp = p.speed_pct  != null ? p.speed_pct.toFixed(0)+'%' : '--';
+            const kw = p.power_kw   != null ? p.power_kw.toFixed(1)+' kW' : '--';
+            return '<div class="pump-summary-row">'+
+                '<span style="width:76px;font-size:.88em;font-weight:bold;flex-shrink:0;">'+p.label+'</span>'+
+                '<span class="pump-badge '+bc+'" style="margin-bottom:0;">'+bl+'</span>'+
+                '<span style="font-size:.78em;color:#7f8c8d;margin-left:auto;">'+sp+' &nbsp; '+kw+'</span>'+
+                '</div>';
+        }).join('');
     }
+}
 
-    function renderAll() {
-        renderBanner();
-        renderOverview();
-        renderPumps();
-        renderAlarms();
-        renderSetupStatus();
-        const perfActive = document.getElementById('tab-performance').classList.contains('active');
-        if (perfActive) renderPerfChart();
-    }
+// ─── Pumps tab ───────────────────────────────────────────────────────────────
+function renderPumps() {
+    const d = latestData;
+    const connected = d && d.connected;
+    const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
+    const main   = pumps.filter(p => !p.label.toLowerCase().includes('jockey'));
+    const jockey = pumps.filter(p =>  p.label.toLowerCase().includes('jockey'));
+    document.getElementById('main-pump-grid').innerHTML = main.map(p=>pumpCard(p,connected,false)).join('');
+    document.getElementById('jockey-wrap').innerHTML = jockey.length
+        ? '<div style="max-width:260px;">'+jockey.map(p=>pumpCard(p,connected,true)).join('')+'</div>'
+        : '<div style="color:#566573;font-size:.85em;">No jockey pump data</div>';
+}
 
-    // ─── Connection banner ───────────────────────────────────────────────────
-    function renderBanner() {
-        const d      = pumpData;
-        const banner = document.getElementById('conn-banner');
-        const dot    = document.getElementById('conn-dot');
-        const title  = document.getElementById('conn-title');
-        const sub    = document.getElementById('conn-sub');
-        const ts     = document.getElementById('conn-ts');
-        const mode   = document.getElementById('conn-mode');
+function pumpCard(p, connected, isJockey) {
+    let cc, bc, bl;
+    if (!connected)  { cc='offline'; bc='badge-offline'; bl='OFFLINE'; }
+    else if (p.fault)    { cc='fault';   bc='badge-fault';   bl='FAULT'; }
+    else if (p.running)  { cc='running'; bc='badge-running'; bl='RUNNING'; }
+    else if (p.standby)  { cc='standby'; bc='badge-standby'; bl='STANDBY'; }
+    else                 { cc='stopped'; bc='badge-stopped'; bl='STOPPED'; }
+    if (isJockey) cc += ' jockey';
+    const sp  = p.speed_pct   != null ? p.speed_pct.toFixed(0)   : null;
+    const pw  = p.power_kw    != null ? p.power_kw.toFixed(1)+'kW' : '--';
+    const ia  = p.current_a   != null ? p.current_a.toFixed(1)+'A'  : '--';
+    const hrs = p.run_hours    != null ? p.run_hours.toFixed(0)+'h'  : '--';
+    const sts = p.starts_total != null ? p.starts_total.toString()   : '--';
+    return '<div class="pump-card '+cc+'">'+
+        '<div class="pump-num">Pump '+p.id+(isJockey?' - Jockey':'')+'</div>'+
+        '<div class="pump-name">'+p.label+'</div>'+
+        '<div><span class="pump-badge '+bc+'" style="margin-bottom:8px;">'+bl+'</span></div>'+
+        (sp!=null ? '<div class="speed-bar-bg"><div class="speed-bar-fill" style="width:'+sp+'%;"></div></div>' : '<div style="height:14px"></div>')+
+        '<div class="pump-stats">'+
+            '<div class="pump-stat"><div class="ps-v">'+(sp!=null?sp+'%':'--')+'</div><div class="ps-l">Speed</div></div>'+
+            '<div class="pump-stat"><div class="ps-v">'+pw+'</div><div class="ps-l">Power</div></div>'+
+            '<div class="pump-stat"><div class="ps-v">'+ia+'</div><div class="ps-l">Current</div></div>'+
+            '<div class="pump-stat"><div class="ps-v">'+hrs+'</div><div class="ps-l">Run Hours</div></div>'+
+            '<div class="pump-stat full"><div class="ps-v">'+sts+'</div><div class="ps-l">Total Starts</div></div>'+
+        '</div>'+
+    '</div>';
+}
 
-        const connected = d && d.connected;
-        const hasFault  = connected && d.system && d.system.fault;
+function defaultPumps() {
+    return [{id:1,label:'Pump 1'},{id:2,label:'Pump 2'},{id:3,label:'Pump 3'},{id:4,label:'Pump 4'},{id:5,label:'Jockey'}]
+        .map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null},p));
+}
 
-        if (!connected) {
-            banner.className  = 'conn-banner offline';
-            dot.className     = 'conn-dot offline';
-            title.textContent = 'WAITING FOR CONNECTION';
-            sub.textContent   = 'CIM 500 Modbus TCP - Checking every 60s';
-            ts.textContent    = d && d.last_seen ? 'Last data: ' + fmtAge(d.last_seen) : 'Last data: Never';
-            mode.textContent  = '';
-        } else if (hasFault) {
-            banner.className  = 'conn-banner fault';
-            dot.className     = 'conn-dot fault';
-            title.textContent = 'SYSTEM FAULT - CHECK PUMP STATION';
-            sub.textContent   = 'Fault condition active on CU 352';
-            ts.textContent    = 'Updated: ' + fmtAge(d.timestamp);
-            mode.textContent  = 'Mode: ' + modeLabel(d.system.mode);
-        } else {
-            const running = (d.pumps || []).filter(p => p.running).length;
-            banner.className  = 'conn-banner online';
-            dot.className     = 'conn-dot online';
-            title.textContent = 'ONLINE - ' + (running > 0
-                ? running + ' PUMP' + (running > 1 ? 'S' : '') + ' RUNNING'
-                : 'SYSTEM STANDBY');
-            sub.textContent   = 'CIM 500 Modbus TCP - Live data';
-            ts.textContent    = 'Updated: ' + fmtAge(d.timestamp);
-            mode.textContent  = 'Mode: ' + modeLabel(d.system.mode);
-        }
-    }
+// ─── Performance charts ───────────────────────────────────────────────────────
+async function setPerfRange(h, btn) {
+    perfRangeH = h;
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderPerfCharts();
+}
 
-    function modeLabel(m) {
-        if (!m) return 'Unknown';
-        return m.toString().toUpperCase();
-    }
+async function renderPerfCharts() {
+    const pts = await getPerfReadings();
+    const labels = pts.map(r => fmtChartTime(r.ts, perfRangeH));
+    const noData = pts.length === 0;
 
-    // ─── Overview tab ────────────────────────────────────────────────────────
-    function renderOverview() {
-        const d   = pumpData;
-        const sys = d && d.system ? d.system : {};
-        const pumps = d && d.pumps ? d.pumps : [];
+    // Pressure
+    renderLineChart('c-pressure', noData, labels, [
+        { label:'Actual (bar)', data: pts.map(r=>r.pa), borderColor:'#e67e22', bg:'rgba(230,126,34,.12)', dashed:false },
+        { label:'Setpoint (bar)', data: pts.map(r=>r.ps), borderColor:'#3498db', bg:'transparent', dashed:true }
+    ], v=>v!=null?v.toFixed(2)+' bar':null);
+    if (!noData) {
+        const vals = pts.map(r=>r.pa).filter(v=>v!=null);
+        setStats(['cp-min','cp-max','cp-avg','cp-pts'],
+            [vals.length?Math.min(...vals).toFixed(2):'--', vals.length?Math.max(...vals).toFixed(2):'--',
+             vals.length?(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):'--', pts.length]);
+    } else { setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']); }
 
-        const actual   = sys.pressure_actual_bar   != null ? sys.pressure_actual_bar   : null;
-        const setpoint = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar : null;
+    // Flow
+    renderLineChart('c-flow', noData, labels, [
+        { label:'Flow (m³/h)', data: pts.map(r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
+    ], v=>v!=null?v.toFixed(1)+' m³/h':null);
+    if (!noData) {
+        const vals = pts.map(r=>r.fl).filter(v=>v!=null);
+        setStats(['cf-min','cf-max','cf-avg'],
+            [vals.length?Math.min(...vals).toFixed(1):'--', vals.length?Math.max(...vals).toFixed(1):'--',
+             vals.length?(vals.reduce((a,b)=>a+b)/vals.length).toFixed(1):'--']);
+    } else { setStats(['cf-min','cf-max','cf-avg'],['--','--','--']); }
 
-        document.getElementById('ov-pres-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
-        document.getElementById('ov-pres-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
+    // Activity (pumps running count)
+    renderLineChart('c-activity', noData, labels, [
+        { label:'Pumps Running', data: pts.map(r=>r.nr), borderColor:'#27ae60', bg:'rgba(39,174,96,.15)', dashed:false, stepped:true }
+    ], v=>v!=null?v+' pumps':null, {max:5, stepSize:1});
 
-        const bar  = document.getElementById('ov-pres-bar');
-        const note = document.getElementById('ov-pres-note');
+    // Pump speeds (5 lines)
+    buildPumpLegend('speed-legend');
+    renderLineChart('c-speed', noData, labels,
+        PUMP_LABELS.map((lbl,i) => ({
+            label: lbl, data: pts.map(r => r.sp ? r.sp[i] : null),
+            borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
+        })), v=>v!=null?v.toFixed(0)+'%':null, {max:100});
 
-        if (actual != null && setpoint != null && setpoint > 0) {
-            const pct  = Math.min(120, Math.max(0, (actual / setpoint) * 100));
-            const diff = actual - setpoint;
-            bar.style.width = Math.min(100, pct) + '%';
-            if (Math.abs(diff) < 0.15)      { bar.style.background = '#27ae60'; note.textContent = 'Pressure on target'; }
-            else if (Math.abs(diff) < 0.4)  { bar.style.background = '#f39c12'; note.textContent = diff < 0 ? 'Slightly below setpoint' : 'Slightly above setpoint'; }
-            else                             { bar.style.background = '#e74c3c'; note.textContent = diff < 0 ? 'Pressure below setpoint' : 'Pressure above setpoint'; }
-        } else {
-            bar.style.width = '0%';
-            bar.style.background = '#3d5166';
-            note.textContent = d && d.connected ? 'No pressure sensor data' : 'No data - waiting for CIM 500 connection';
-        }
+    // Pump power (5 lines)
+    buildPumpLegend('power-legend');
+    renderLineChart('c-power', noData, labels,
+        PUMP_LABELS.map((lbl,i) => ({
+            label: lbl, data: pts.map(r => r.pw ? r.pw[i] : null),
+            borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
+        })), v=>v!=null?v.toFixed(1)+' kW':null);
 
-        document.getElementById('ov-flow').textContent    = sys.flow_m3h     != null ? sys.flow_m3h.toFixed(1) : '--';
-        document.getElementById('ov-running').textContent = pumps.filter(p => p.running).length;
-        document.getElementById('ov-faults').textContent  = pumps.filter(p => p.fault).length;
-        document.getElementById('ov-alarms').textContent  = (d && d.alarms ? d.alarms : []).filter(a => a.active).length;
+    // Run hours current reading
+    renderHoursGrid();
+}
 
-        // Pump summary rows
-        const summaryEl = document.getElementById('ov-pump-summary');
-        if (!pumps.length) {
-            summaryEl.innerHTML = '<div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">Waiting for data from pump station...</div>';
-        } else {
-            const connected = d && d.connected;
-            summaryEl.innerHTML = pumps.map(p => {
-                let badgeClass, stateLabel;
-                if (!connected)  { badgeClass = 'badge-offline'; stateLabel = 'OFFLINE'; }
-                else if (p.fault)    { badgeClass = 'badge-fault';   stateLabel = 'FAULT'; }
-                else if (p.running)  { badgeClass = 'badge-running'; stateLabel = 'RUNNING'; }
-                else if (p.standby)  { badgeClass = 'badge-standby'; stateLabel = 'STANDBY'; }
-                else                 { badgeClass = 'badge-stopped'; stateLabel = 'STOPPED'; }
-                const speed = p.speed_pct != null ? p.speed_pct.toFixed(0) + '%' : '--';
-                return '<div class="pump-summary-row">' +
-                    '<span class="ps-name">' + p.label + '</span>' +
-                    '<span class="pump-badge ' + badgeClass + '">' + stateLabel + '</span>' +
-                    '<span class="ps-speed">Speed: ' + speed + '</span>' +
-                    '</div>';
-            }).join('');
-        }
-    }
+function renderLineChart(id, noData, labels, datasets, tooltipFmt, yOpts) {
+    const loader = document.getElementById('c-'+id.split('c-')[1]+'-loader') ||
+                   document.getElementById(id.replace('c-','c-')+'-loader');
+    const wrap   = document.getElementById(id+'-wrap') ||
+                   document.getElementById('c-'+id.split('c-')[1]+'-wrap');
+    const canvasId = id;
 
-    // ─── Pumps tab ───────────────────────────────────────────────────────────
-    function renderPumps() {
-        const d = pumpData;
-        const connected = d && d.connected;
-        const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
+    // Find loader/wrap by convention: id is canvas id, loader is id+'-loader'? No, convention in HTML is c-pressure-loader, canvas is c-pressure.
+    // Let's use a simpler helper: we always call with canvasId = 'c-pressure' etc., loader is canvasId+'-loader', wrap is canvasId+'-wrap'
+    const loaderEl = document.getElementById(canvasId+'-loader');
+    const wrapEl   = document.getElementById(canvasId+'-wrap');
 
-        const mainPumps   = pumps.filter(p => !p.label.toLowerCase().includes('jockey'));
-        const jockeyPumps = pumps.filter(p =>  p.label.toLowerCase().includes('jockey'));
+    if (!loaderEl || !wrapEl) return;
 
-        document.getElementById('main-pump-grid').innerHTML   = mainPumps.map(p => pumpCard(p, connected, false)).join('');
-        document.getElementById('jockey-pump-wrap').innerHTML = jockeyPumps.length
-            ? '<div style="max-width:280px;">' + jockeyPumps.map(p => pumpCard(p, connected, true)).join('') + '</div>'
-            : '<div style="color:#566573;font-size:0.85em;">No jockey pump data</div>';
-    }
+    if (noData) { loaderEl.style.display='flex'; wrapEl.style.display='none'; if(charts[canvasId]){charts[canvasId].destroy();delete charts[canvasId];} return; }
+    loaderEl.style.display='none'; wrapEl.style.display='block';
 
-    function pumpCard(p, connected, isJockey) {
-        let cardClass, badgeClass, badgeText;
-        if (!connected)  { cardClass = 'offline'; badgeClass = 'badge-offline'; badgeText = 'OFFLINE'; }
-        else if (p.fault)    { cardClass = 'fault';   badgeClass = 'badge-fault';   badgeText = 'FAULT'; }
-        else if (p.running)  { cardClass = 'running'; badgeClass = 'badge-running'; badgeText = 'RUNNING'; }
-        else if (p.standby)  { cardClass = 'standby'; badgeClass = 'badge-standby'; badgeText = 'STANDBY'; }
-        else                 { cardClass = 'stopped'; badgeClass = 'badge-stopped'; badgeText = 'STOPPED'; }
+    const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+    if (yOpts && yOpts.max != null) opts.scales.y.max = yOpts.max;
+    if (yOpts && yOpts.stepSize) opts.scales.y.ticks.stepSize = yOpts.stepSize;
+    if (tooltipFmt) opts.plugins.tooltip.callbacks = { label: ctx => { const v=tooltipFmt(ctx.parsed.y); return v?' '+ctx.dataset.label+': '+v:null; } };
+    opts.plugins.legend.display = datasets.length > 1;
+    opts.plugins.legend.labels = { color:'#bdc3c7', font:{size:10}, boxWidth:12 };
 
-        if (isJockey) cardClass += ' jockey';
+    const ds = datasets.map(d => ({
+        label: d.label,
+        data:  d.data,
+        borderColor: d.borderColor,
+        backgroundColor: d.bg || 'transparent',
+        borderWidth: 2,
+        borderDash: d.dashed ? [7,4] : [],
+        tension: 0.3,
+        pointRadius: labels.length > 120 ? 0 : 3,
+        fill: !!(d.bg && d.bg !== 'transparent'),
+        spanGaps: true,
+        stepped: d.stepped || false,
+    }));
 
-        const speed  = p.speed_pct   != null ? p.speed_pct.toFixed(0)   : null;
-        const hours  = p.run_hours    != null ? p.run_hours.toFixed(0)   + ' h' : '--';
-        const starts = p.starts_total != null ? p.starts_total.toString() : '--';
-        const speedPct = speed != null ? parseInt(speed) : 0;
+    if (charts[canvasId]) { charts[canvasId].destroy(); }
+    charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'line', data: { labels, datasets: ds }, options: opts
+    });
+}
 
-        return '<div class="pump-card ' + cardClass + '">' +
-            '<div class="pump-num">Pump ' + p.id + (isJockey ? ' - Jockey' : '') + '</div>' +
-            '<div class="pump-name">' + p.label + '</div>' +
-            '<div><span class="pump-badge ' + badgeClass + '">' + badgeText + '</span></div>' +
-            (speed != null ? (
-                '<div class="speed-bar-wrap"><div class="speed-bar-bg"><div class="speed-bar-fill" style="width:' + speedPct + '%;"></div></div></div>'
-            ) : '<div style="height:14px;"></div>') +
-            '<div class="pump-stats">' +
-                '<div class="pump-stat"><div class="ps-val">' + (speed != null ? speed + '%' : '--') + '</div><div class="ps-lbl">Speed</div></div>' +
-                '<div class="pump-stat"><div class="ps-val">' + hours + '</div><div class="ps-lbl">Run Hours</div></div>' +
-                '<div class="pump-stat full"><div class="ps-val">' + starts + '</div><div class="ps-lbl">Total Starts</div></div>' +
-            '</div>' +
-        '</div>';
-    }
+function renderHoursGrid() {
+    const pumps = latestData && latestData.pumps ? latestData.pumps : defaultPumps();
+    document.getElementById('hours-grid').innerHTML = pumps.map((p,i) =>
+        '<div class="sys-metric">'+
+        '<div class="sm-val" style="color:'+PUMP_COLORS[i]+';">'+(p.run_hours!=null?p.run_hours.toFixed(0):'--')+'</div>'+
+        '<div class="sm-unit">h</div><div class="sm-lbl">'+p.label+'</div></div>'
+    ).join('');
+}
 
-    function defaultPumps() {
-        return [
-            {id:1,label:'Pump 1',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
-            {id:2,label:'Pump 2',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
-            {id:3,label:'Pump 3',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
-            {id:4,label:'Pump 4',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
-            {id:5,label:'Jockey',running:false,fault:false,standby:false,speed_pct:null,run_hours:null,starts_total:null},
-        ];
-    }
+function buildPumpLegend(id) {
+    document.getElementById(id).innerHTML = PUMP_LABELS.map((l,i) =>
+        '<div class="pump-legend-item">'+
+        '<div class="pump-legend-dot" style="background:'+PUMP_COLORS[i]+';"></div>'+l+'</div>'
+    ).join('');
+}
 
-    // ─── Performance chart ───────────────────────────────────────────────────
-    function setPerfRange(h, btn) {
-        perfRangeH = h;
-        document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-        if (btn) btn.classList.add('active');
-        renderPerfChart();
-    }
+// ─── Trends charts ────────────────────────────────────────────────────────────
+async function setTrendsMetric(metric, btn) {
+    trendsMetric = metric;
+    document.querySelectorAll('.metric-btn').forEach(b=>b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderTrendCharts();
+}
 
-    function renderPerfChart() {
-        const history = pumpData && pumpData.history ? pumpData.history : [];
-        const loader  = document.getElementById('perf-loader');
-        const wrap    = document.getElementById('perf-chart-wrap');
+async function renderTrendCharts() {
+    await ensureDaily();
+    const days = dailyData && dailyData.days ? dailyData.days.slice(-30) : [];
+    const noData = days.length === 0;
+    const labels = days.map(d=>fmtDayLabel(d.date));
 
-        if (!history.length) {
-            loader.style.display = 'flex';
-            wrap.style.display   = 'none';
-            document.getElementById('ps-min').textContent = '--';
-            document.getElementById('ps-max').textContent = '--';
-            document.getElementById('ps-avg').textContent = '--';
-            document.getElementById('ps-pts').textContent = '0';
-            renderHoursGrid();
-            return;
-        }
+    // Pump legend
+    buildPumpLegend('trends-legend');
 
-        const cutoff = Date.now() - perfRangeH * 3600000;
-        const pts = history.filter(h => new Date(h.ts).getTime() >= cutoff);
+    // Daily metric per pump (grouped bar)
+    const tLoader = document.getElementById('c-trends-loader');
+    const tWrap   = document.getElementById('c-trends-wrap');
+    const unitMap = {hrs:'h', kwh:'kWh', sts:''};
+    const titleMap = {hrs:'Run Hours', kwh:'Energy', sts:'Starts'};
+    const unit = unitMap[trendsMetric];
 
-        loader.style.display = 'none';
-        wrap.style.display   = 'block';
-
-        const labels    = pts.map(h => fmtChartTime(h.ts, perfRangeH));
-        const actuals   = pts.map(h => h.pressure_actual_bar   != null ? h.pressure_actual_bar   : null);
-        const setpoints = pts.map(h => h.pressure_setpoint_bar != null ? h.pressure_setpoint_bar : null);
-
-        if (perfChart) { perfChart.destroy(); perfChart = null; }
-        const ctx = document.getElementById('perf-chart').getContext('2d');
-        perfChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    {
-                        label: 'Actual Pressure (bar)',
-                        data: actuals,
-                        borderColor: '#e67e22',
-                        backgroundColor: 'rgba(230,126,34,0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        pointRadius: pts.length > 120 ? 0 : 3,
-                        fill: true,
-                        spanGaps: true,
-                    },
-                    {
-                        label: 'Setpoint (bar)',
-                        data: setpoints,
-                        borderColor: '#3498db',
-                        borderDash: [7, 4],
-                        borderWidth: 2,
-                        tension: 0,
-                        pointRadius: 0,
-                        fill: false,
-                        spanGaps: true,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { labels: { color: '#bdc3c7', font: { size: 11 }, boxWidth: 14 } },
-                    tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y != null ? ctx.parsed.y.toFixed(2) + ' bar' : '--') } }
-                },
-                scales: {
-                    x: { ticks: { color: '#7f8c8d', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: '#2c3e50' } },
-                    y: { ticks: { color: '#7f8c8d', font: { size: 10 }, callback: v => v.toFixed(1) }, grid: { color: '#2c3e50' }, min: 0,
-                         title: { display: true, text: 'bar', color: '#566573', font: { size: 10 } } }
-                }
-            }
+    if (noData) {
+        tLoader.style.display='flex'; tWrap.style.display='none';
+        setStats(['tr-total','tr-peak','tr-avg'],['--','--','--']);
+    } else {
+        tLoader.style.display='none'; tWrap.style.display='block';
+        const datasets = PUMP_LABELS.map((lbl,i) => ({
+            label: lbl,
+            data: days.map(d => d[trendsMetric] && d[trendsMetric][i] != null ? d[trendsMetric][i] : 0),
+            backgroundColor: PUMP_COLORS[i],
+            borderRadius: 3,
+        }));
+        const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        opts.plugins.legend.display = true;
+        opts.plugins.legend.labels = {color:'#bdc3c7',font:{size:10},boxWidth:12};
+        opts.scales.x.stacked = false;
+        opts.scales.y.ticks.callback = v => v+(unit?unit:'');
+        if (charts['c-trends']) { charts['c-trends'].destroy(); }
+        charts['c-trends'] = new Chart(document.getElementById('c-trends').getContext('2d'), {
+            type:'bar', data:{labels, datasets}, options:opts
         });
-
-        const vals = actuals.filter(v => v != null);
-        document.getElementById('ps-min').textContent = vals.length ? Math.min(...vals).toFixed(2) : '--';
-        document.getElementById('ps-max').textContent = vals.length ? Math.max(...vals).toFixed(2) : '--';
-        document.getElementById('ps-avg').textContent = vals.length ? (vals.reduce((a,b) => a+b,0)/vals.length).toFixed(2) : '--';
-        document.getElementById('ps-pts').textContent = pts.length;
-
-        renderHoursGrid();
+        // Stats (sum across all pumps)
+        const dailyTotals = days.map(d => {
+            const arr = d[trendsMetric] || [];
+            return arr.reduce((a,b)=>(a||0)+(b||0),0);
+        });
+        const total = dailyTotals.reduce((a,b)=>a+b,0);
+        const peak  = Math.max(...dailyTotals);
+        const avg   = total / days.length;
+        document.getElementById('tr-total').textContent = total.toFixed(1);
+        document.getElementById('tr-peak').textContent  = peak.toFixed(1);
+        document.getElementById('tr-avg').textContent   = avg.toFixed(1);
+        ['tr-unit','tr-peak-unit','tr-avg-unit'].forEach(id => document.getElementById(id).textContent = unit||'');
     }
 
-    function renderHoursGrid() {
-        const pumps = pumpData && pumpData.pumps ? pumpData.pumps : defaultPumps();
-        const grid  = document.getElementById('hours-grid');
-        grid.innerHTML = pumps.map(p =>
-            '<div class="sys-metric">' +
-            '<div class="sm-val" style="color:#e67e22;">' + (p.run_hours != null ? p.run_hours.toFixed(0) : '--') + '</div>' +
-            '<div class="sm-unit">hours</div>' +
-            '<div class="sm-lbl">' + p.label + '</div>' +
-            '</div>'
-        ).join('');
+    // Daily pressure (min/avg/max band)
+    const dpLoader = document.getElementById('c-dpres-loader');
+    const dpWrap   = document.getElementById('c-dpres-wrap');
+    if (noData) { dpLoader.style.display='flex'; dpWrap.style.display='none'; }
+    else {
+        dpLoader.style.display='none'; dpWrap.style.display='block';
+        const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        opts.plugins.legend.display = true;
+        opts.plugins.legend.labels = {color:'#bdc3c7',font:{size:10},boxWidth:12};
+        opts.scales.y.ticks.callback = v=>v.toFixed(1)+' bar';
+        if (charts['c-dpres']) { charts['c-dpres'].destroy(); }
+        charts['c-dpres'] = new Chart(document.getElementById('c-dpres').getContext('2d'), {
+            type:'line',
+            data: { labels, datasets: [
+                {label:'Max',data:days.map(d=>d.p_max),borderColor:'#e74c3c',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,spanGaps:true},
+                {label:'Avg',data:days.map(d=>d.p_avg),borderColor:'#e67e22',borderWidth:2, pointRadius:3,tension:0.3,fill:false,spanGaps:true},
+                {label:'Min',data:days.map(d=>d.p_min),borderColor:'#3498db',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,spanGaps:true},
+            ]},
+            options: opts
+        });
     }
 
-    // ─── Alarms tab ──────────────────────────────────────────────────────────
-    function renderAlarms() {
-        const alarms  = pumpData && pumpData.alarms ? pumpData.alarms : [];
-        const active  = alarms.filter(a => a.active);
-        const history = alarms.filter(a => !a.active);
-
-        document.getElementById('active-alarms').innerHTML  = active.length  ? active.map(alarmRow).join('')  : '<div class="alarm-none">No active alarms</div>';
-        document.getElementById('alarm-history').innerHTML = history.length ? history.map(alarmRow).join('') : '<div class="alarm-none">No alarm history available</div>';
+    // Daily max flow
+    const dfLoader = document.getElementById('c-dflow-loader');
+    const dfWrap   = document.getElementById('c-dflow-wrap');
+    if (noData) { dfLoader.style.display='flex'; dfWrap.style.display='none'; }
+    else {
+        dfLoader.style.display='none'; dfWrap.style.display='block';
+        const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        opts.scales.y.ticks.callback = v=>v.toFixed(0)+' m³/h';
+        if (charts['c-dflow']) { charts['c-dflow'].destroy(); }
+        charts['c-dflow'] = new Chart(document.getElementById('c-dflow').getContext('2d'), {
+            type:'bar',
+            data: { labels, datasets: [{
+                label:'Max Flow (m³/h)', data: days.map(d=>d.fl_max),
+                backgroundColor:'rgba(52,152,219,.6)', borderColor:'#3498db', borderWidth:1, borderRadius:3
+            }]},
+            options: opts
+        });
     }
+}
 
-    function alarmRow(a) {
-        return '<div class="alarm-row">' +
-            '<div class="alarm-dot ' + (a.active ? 'active' : 'cleared') + '"></div>' +
-            '<div style="flex:1;min-width:0;">' +
-                '<div class="alarm-code">' + (a.code || 'ALM') + '</div>' +
-                '<div class="alarm-desc">' + (a.description || 'Unknown Alarm') + '</div>' +
-                '<div class="alarm-pump">' + (a.pump || 'System') + '</div>' +
-            '</div>' +
-            '<div class="alarm-ts">' + (a.timestamp ? fmtDate(a.timestamp) : '') + '</div>' +
-        '</div>';
-    }
+// ─── Alarms ──────────────────────────────────────────────────────────────────
+function renderAlarms() {
+    const alarms  = latestData && latestData.alarms ? latestData.alarms : [];
+    const active  = alarms.filter(a=>a.active);
+    const history = alarms.filter(a=>!a.active);
+    document.getElementById('active-alarms').innerHTML  = active.length  ? active.map(alarmRow).join('')  : '<div class="alarm-none">No active alarms</div>';
+    document.getElementById('alarm-history').innerHTML  = history.length ? history.map(alarmRow).join('') : '<div class="alarm-none">No alarm history available</div>';
+}
 
-    // ─── Setup tab ───────────────────────────────────────────────────────────
-    function renderSetupStatus() {
-        const d = pumpData;
-        const statusEl = document.getElementById('setup-status');
-        const ageEl    = document.getElementById('setup-age');
-        if (d && d.connected) {
-            statusEl.textContent = 'ONLINE';
-            statusEl.style.color = '#27ae60';
-        } else {
-            statusEl.textContent = 'OFFLINE';
-            statusEl.style.color = '#e67e22';
-        }
-        ageEl.textContent = d && d.timestamp ? fmtAge(d.timestamp) : 'Never';
-    }
+function alarmRow(a) {
+    return '<div class="alarm-row">'+
+        '<div class="alarm-dot '+(a.active?'active':'cleared')+'"></div>'+
+        '<div style="flex:1;min-width:0;">'+
+            '<div class="alarm-code">'+(a.code||'ALM')+'</div>'+
+            '<div class="alarm-desc">'+(a.description||'Unknown Alarm')+'</div>'+
+            '<div class="alarm-pump">'+(a.pump||'System')+'</div>'+
+        '</div>'+
+        '<div class="alarm-ts">'+(a.timestamp?fmtDate(a.timestamp):'')+'</div>'+
+    '</div>';
+}
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
-    function fmtAge(iso) {
-        if (!iso) return 'Never';
-        const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-        if (s < 0)    return 'just now';
-        if (s < 60)   return s + 's ago';
-        if (s < 3600) return Math.floor(s/60) + 'm ago';
-        if (s < 86400) return Math.floor(s/3600) + 'h ago';
-        return Math.floor(s/86400) + 'd ago';
-    }
+// ─── Setup status ─────────────────────────────────────────────────────────────
+function renderSetupStatus() {
+    const d = latestData;
+    const el = document.getElementById('su-status');
+    if (d && d.connected) { el.textContent='ONLINE';  el.style.color='#27ae60'; }
+    else                  { el.textContent='OFFLINE'; el.style.color='#e67e22'; }
+    document.getElementById('su-age').textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
+}
 
-    function fmtDate(iso) {
-        const d = new Date(iso);
-        return d.toLocaleString('en-AU', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
-    }
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function setStats(ids, vals) { ids.forEach((id,i) => { const el=document.getElementById(id); if(el) el.textContent=vals[i]; }); }
 
-    function fmtChartTime(iso, rangeH) {
-        const d = new Date(iso);
-        if (rangeH <= 6)  return d.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',hour12:false});
-        if (rangeH <= 48) return d.toLocaleDateString('en-AU',{weekday:'short'}) + ' ' + d.getHours().toString().padStart(2,'0') + ':00';
-        return d.toLocaleDateString('en-AU', {day:'2-digit',month:'short'});
-    }
+function fmtAge(iso) {
+    if (!iso) return 'Never';
+    const s = Math.floor((Date.now()-new Date(iso).getTime())/1000);
+    if (s<0)    return 'just now';
+    if (s<60)   return s+'s ago';
+    if (s<3600) return Math.floor(s/60)+'m ago';
+    if (s<86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+}
 
-    // ─── Boot & auto-refresh ─────────────────────────────────────────────────
-    loadData();
-    setInterval(loadData, 60000);
+function fmtDate(iso) {
+    return new Date(iso).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+
+function fmtChartTime(iso, rangeH) {
+    const d = new Date(iso);
+    if (rangeH<=6)  return d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
+    if (rangeH<=48) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+String(d.getHours()).padStart(2,'0')+':00';
+    return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
+}
+
+function fmtDayLabel(dateStr) {
+    const d = new Date(dateStr+'T00:00:00');
+    return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+loadData();
+setInterval(loadData, 60000);
 </script>
-
 </body>
 </html>
