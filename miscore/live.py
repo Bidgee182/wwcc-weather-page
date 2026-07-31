@@ -31,6 +31,7 @@ import subprocess
 import threading
 import urllib.parse
 import urllib.request
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -132,6 +133,58 @@ def _wwcc_get(url: str, jar: "http.cookiejar.CookieJar | None" = None) -> str:
             return r.read().decode("utf-8", errors="replace")
     with urllib.request.urlopen(req, timeout=15) as r:
         return r.read().decode("utf-8", errors="replace")
+
+
+def _wwcc_get_bytes(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; WWCC-Kiosk/1.0)"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read()
+
+
+def _parse_ball_winners(pdf_bytes: bytes) -> list:
+    """Parse a WWCC prize presentation PDF and return names of players who won a ball."""
+    entries = []
+    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        try:
+            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
+            for op in re.finditer(
+                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
+                r'(?:/F\d+ [\d.]+ Tf\s*)?'
+                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
+                r'\(([^)]*)\)Tj',
+                text,
+            ):
+                x, y = float(op.group(1)), float(op.group(2))
+                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+                if txt:
+                    entries.append((y, x, txt))
+        except Exception:
+            pass
+
+    # Group into rows by Y position
+    entries.sort(key=lambda e: (-e[0], e[1]))
+    rows: list = []
+    cur_y: float | None = None
+    cur_row: list = []
+    for y, x, txt in entries:
+        if cur_y is None or abs(y - cur_y) > 3:
+            if cur_row:
+                rows.append(cur_row)
+            cur_row, cur_y = [(x, txt)], y
+        else:
+            cur_row.append((x, txt))
+    if cur_row:
+        rows.append(cur_row)
+
+    winners: set = set()
+    for row in rows:
+        if not any(re.fullmatch(r'\d+ Balls?', txt, re.IGNORECASE) for _, txt in row):
+            continue
+        # Name column is at x ~ 55; rank at x ~ 19 is not a name
+        for x, txt in row:
+            if 50 <= x <= 80:
+                winners.add(txt)
+    return sorted(winners)
 
 
 def _ev_tag(ev_text: str, tag: str) -> str:
@@ -875,10 +928,23 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     # Official results gate: poll WWCC API after round complete; cache per board.
     global _official_cache, _official_cache_board
     if board_id != _official_cache_board:
-        _official_cache = {"published": False, "reportLinks": [], "eventId": None}
+        _official_cache = {"published": False, "reportLinks": [], "eventId": None, "ballWinners": None}
         _official_cache_board = board_id
     if round_complete and not _official_cache.get("published"):
-        _official_cache = _wwcc_check_results(board["name"], board.get("date"))
+        result = _wwcc_check_results(board["name"], board.get("date"))
+        result.setdefault("ballWinners", None)
+        _official_cache = result
+    # Fetch and parse ball winners from PDF once results are confirmed
+    if (_official_cache.get("published")
+            and _official_cache.get("reportLinks")
+            and _official_cache.get("ballWinners") is None):
+        try:
+            pdf_bytes = _wwcc_get_bytes(_official_cache["reportLinks"][0])
+            _official_cache["ballWinners"] = _parse_ball_winners(pdf_bytes)
+            log.info("Ball winners parsed: %s", _official_cache["ballWinners"])
+        except Exception as exc:
+            log.debug("Ball winners PDF parse failed: %s", exc)
+            _official_cache["ballWinners"] = []
 
     now = datetime.now(timezone.utc)
 
@@ -912,6 +978,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "started": any(p["thru"] > 0 for p in players),
         "officialResultsReady": _official_cache.get("published", False),
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
+        "ballWinners": _official_cache.get("ballWinners") or [],
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories[:12],

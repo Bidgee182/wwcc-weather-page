@@ -118,6 +118,7 @@ html, body {
 .r-rank.bronze { color: #cd7f32; }
 .r-name  { font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
+.ball-win     { font-size: 0.7em; margin-left: 4px; vertical-align: middle; opacity: 0.9; }
 .r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; }
 .r-pts.dim { color: #4a6a84; }
@@ -457,6 +458,7 @@ let _lastComingLastArgs    = null; // { comingLast, holeCount }
 // True once the WWCC official results API confirms results are published.
 // Results mode (3-column layout) only activates when this is true.
 let _officialResultsReady = false;
+let _ballWinners = new Set();
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -651,7 +653,9 @@ function updateHeader(d) {
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
-        setBadge(allDone ? 'results' : 'live', allDone ? 'Results' : 'Live');
+        if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
+        const showResults = allDone && official;
+        setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
             _refreshStopped = true;
             const el = document.getElementById('ftr-countdown');
@@ -862,9 +866,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
         const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
             '<span class="r-hcp-token">[$1]</span>');
         const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
+        const ballTag = _ballWinners.has(p.player) ? ' <span class="ball-win">&#x26AA;</span>' : '';
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + escapedName + hcpTag + '</span>' +
+            '<span class="r-name">' + escapedName + hcpTag + ballTag + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
