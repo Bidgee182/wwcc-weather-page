@@ -481,7 +481,7 @@ function _applyPending() {
     _pendingData = null;
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
 }
-document.getElementById('lb-inner').addEventListener('animationend', _applyPending);
+document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 5000));
 
 // Apply buffered stories at the natural story-scroll loop point.
 // Guards against applying before a full scroll cycle has passed - so viewers
@@ -518,7 +518,7 @@ function queueStories(stories) {
 // Attach animationend listeners to both side panels (elements exist in HTML at load)
 (function () {
     const heater = document.querySelector('#heater-list .side-list-inner');
-    if (heater) heater.addEventListener('animationend', _applyPendingStories);
+    if (heater) heater.addEventListener('animationend', () => setTimeout(_applyPendingStories, 5000));
     const last = document.querySelector('#last-list .side-list-inner');
     if (last) last.addEventListener('animationend', _applyPendingComingLast);
 })();
