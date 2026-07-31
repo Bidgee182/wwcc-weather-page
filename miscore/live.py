@@ -51,6 +51,10 @@ GIT_HASH: str | None = _git_hash()
 HOLE_MAP: dict[int, int] = {}
 HOLE_COUNT_OVERRIDE: int | None = None
 
+# Day-of stories archive: keyed "player|title", reset when competition changes.
+_stories_archive: dict[str, dict] = {}
+_archive_board_id: str | None = None
+
 # ---------------------------------------------------------------------------
 # board + scorecard parsing (live-aware; the shared webscrape helpers assume
 # completed rounds and read the board's "Total", which is useless mid-round)
@@ -698,6 +702,22 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     )
 
     now = datetime.now(timezone.utc)
+
+    # Accumulate the day-of stories archive; reset on new competition.
+    global _stories_archive, _archive_board_id
+    if board_id != _archive_board_id:
+        _stories_archive.clear()
+        _archive_board_id = board_id
+    now_iso = now.isoformat()
+    for s in stories:
+        key = s["player"] + "|" + s["title"]
+        if key not in _stories_archive:
+            _stories_archive[key] = {**s, "firstSeen": now_iso}
+        else:
+            _stories_archive[key]["points"] = s["points"]
+            _stories_archive[key]["thru"]   = s["thru"]
+    archive_list = sorted(_stories_archive.values(), key=lambda x: x["firstSeen"])
+
     return {
         "competition": board["name"],
         "type": comp_type,
@@ -713,6 +733,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories[:12],
+        "storiesArchive": archive_list,
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
             for p in coming_last[:10]

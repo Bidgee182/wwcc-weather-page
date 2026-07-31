@@ -435,10 +435,11 @@ let _pendingData  = null;  // new data buffered until scroll cycle ends
 let _lbAnimDurMs  = 0;    // current scroll cycle duration (ms)
 let _forceTimer   = null; // fallback: force-apply if animationiteration is slow
 
-let _pendingStories      = null; // stories buffered until story scroll cycle ends
-let _storyForceTimer     = null; // fallback timer for story panel
-let _storyAnimDurMs      = 0;    // current story scroll cycle duration (ms)
-let _lastStoryRenderTime = 0;    // timestamp of last story render (for minimum-hold guard)
+let _pendingStories           = null;  // stories buffered until story scroll cycle ends
+let _pendingStoriesSkipExpiry = false; // true when results mode: show all archive stories
+let _storyForceTimer          = null;  // fallback timer for story panel
+let _storyAnimDurMs           = 0;    // current story scroll cycle duration (ms)
+let _lastStoryRenderTime      = 0;    // timestamp of last story render (for minimum-hold guard)
 
 let _pendingComingLast    = null; // coming-last buffered until its scroll cycle ends
 let _comingLastForceTimer = null; // fallback timer for coming-last panel
@@ -505,7 +506,7 @@ async function fetchData() {
             }
             updateHeader(data);
             setBlueBallVisible(data.date);
-            queueStories(data.stories || []);
+            const _ps = _pickStories(data); queueStories(_ps.stories, _ps.skipExpiry);
             queueComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
@@ -539,14 +540,17 @@ function _applyPendingStories() {
         _storyForceTimer = setTimeout(_applyPendingStories, minHold - elapsed + 500);
         return;
     }
-    const s = _pendingStories;
-    _pendingStories = null;
-    renderStories(s);
+    const s    = _pendingStories;
+    const skip = _pendingStoriesSkipExpiry;
+    _pendingStories           = null;
+    _pendingStoriesSkipExpiry = false;
+    renderStories(s, skip);
 }
 
 // Queue new stories; apply at next animationend (or force after 2 full cycles)
-function queueStories(stories) {
-    _pendingStories = stories;
+function queueStories(stories, skipExpiry) {
+    _pendingStories           = stories;
+    _pendingStoriesSkipExpiry = skipExpiry || false;
     if (_storyAnimDurMs > 0) {
         // Animation running - reset force-timer
         if (_storyForceTimer) clearTimeout(_storyForceTimer);
@@ -564,6 +568,15 @@ function queueStories(stories) {
     const last = document.querySelector('#last-list .side-list-inner');
     if (last) last.addEventListener('animationend', _applyPendingComingLast);
 })();
+
+// Pick which stories list to display: archive (all day) when round complete, live otherwise
+function _pickStories(d) {
+    const players = d.players || [];
+    const hc      = d.holeCount || 18;
+    const active  = players.filter(p => p.thru > 0);
+    const allDone = active.length > 0 && active.every(p => p.thru >= hc);
+    return { stories: allDone ? (d.storiesArchive || d.stories || []) : (d.stories || []), skipExpiry: allDone };
+}
 
 // ── Full render (first load) ──────────────────────────────────────
 function render(d) {
@@ -588,7 +601,7 @@ function render(d) {
     setFooter(d.generatedAt, '');
     setBlueBallVisible(d.date);
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
-    renderStories(d.stories || []);
+    const _ps0 = _pickStories(d); renderStories(_ps0.stories, _ps0.skipExpiry);
     renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
@@ -919,7 +932,7 @@ function stripHcp(s) {
 // Scoreboard Stories - track when each story first appeared for expiry
 const _storyState = {}; // { 'player|title': { since: timestamp } }
 
-function renderStories(stories) {
+function renderStories(stories, skipExpiry) {
     const now = Date.now();
     _lastStoryRenderTime = now; // guard: track when stories were last rendered
     const EXPIRY_MS = 15 * 60 * 1000; // gold never expires; others expire after 15 min
@@ -929,7 +942,7 @@ function renderStories(stories) {
         if (!currentKeys.has(k)) delete _storyState[k];
     }
 
-    const visible = stories.filter(s => {
+    const visible = skipExpiry ? stories : stories.filter(s => {
         const key = s.player + '|' + s.title;
         if (!_storyState[key]) _storyState[key] = { since: now };
         if (s.tier === 'gold') return true;
