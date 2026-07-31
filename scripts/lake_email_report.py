@@ -36,8 +36,17 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-SYDNEY_TZ   = ZoneInfo('Australia/Sydney')
-DATA_DIR    = Path(__file__).parent.parent / 'data'
+SYDNEY_TZ       = ZoneInfo('Australia/Sydney')
+DATA_DIR        = Path(__file__).parent.parent / 'data'
+_EMAIL_CFG_PATH = Path(__file__).parent.parent / 'data' / 'email_config.json'
+
+def _email_enabled(key, default=True):
+    """Return True if the named email type is enabled in data/email_config.json."""
+    try:
+        cfg = json.loads(_EMAIL_CFG_PATH.read_text(encoding='utf-8'))
+        return bool(cfg.get('email_enabled', {}).get(key, default))
+    except Exception:
+        return default
 # Refined at runtime to the surface area at the CURRENT lake level using the
 # linear area model in lake_utils (full-supply value is only the fallback), so
 # depth-change -> ML conversions match the board dashboard and board email.
@@ -893,6 +902,12 @@ def main():
         if today.weekday() == 0:                to_send.append('weekly')
         if today.day == 1:                      to_send.append('monthly')
         if today.month == 1 and today.day == 1: to_send.append('yearly')
+        # Filter by email_config.json toggles (manual --report and --force-all bypass toggles)
+        cfg_map = {'daily': 'lake_daily', 'weekly': 'lake_weekly', 'monthly': 'lake_monthly', 'yearly': 'lake_yearly'}
+        skipped = [t for t in to_send if not _email_enabled(cfg_map[t])]
+        if skipped:
+            log.info(f'Skipping (disabled in email_config.json): {skipped}')
+        to_send = [t for t in to_send if _email_enabled(cfg_map[t])]
 
     log.info(f'Reports scheduled: {to_send}')
 

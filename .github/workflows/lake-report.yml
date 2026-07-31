@@ -72,25 +72,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Check if lake email is enabled
-        id: cfg
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, os
-          p = pathlib.Path("data/email_config.json")
-          cfg = json.loads(p.read_text()) if p.exists() else {}
-          ok = cfg.get("email_enabled", {}).get("lake", True)
-          # Manual dispatch always runs regardless of toggle
-          if "${{ github.event_name }}" == "workflow_dispatch":
-              ok = True
-          val = "true" if ok else "false"
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"ok={val}\n")
-          print(f"lake email enabled: {val}")
-          PY
-
       - name: Run Lake Albert email reports
-        if: steps.cfg.outputs.ok == 'true'
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}

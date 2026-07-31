@@ -175,25 +175,71 @@
         </div>
         <div id="emcfg-loading" style="font-size:.82em;color:#566573;">Loading...</div>
         <div id="emcfg-form" style="display:none;">
-            <div style="display:flex;flex-wrap:wrap;gap:18px 32px;margin-bottom:16px;">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
-                    <input type="checkbox" id="emcfg-daily" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
-                    Daily weather email
-                </label>
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
-                    <input type="checkbox" id="emcfg-lake" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
-                    Lake Albert reports (daily / weekly / monthly / yearly)
-                </label>
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
-                    <input type="checkbox" id="emcfg-board-weekly" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
-                    Board / lake weekly email (every Monday)
-                </label>
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
-                    <input type="checkbox" id="emcfg-board-monthly" style="width:18px;height:18px;accent-color:#2471a3;cursor:pointer;">
-                    Board / lake monthly email (1st of month)
-                </label>
+            <div style="display:flex;flex-wrap:wrap;gap:0 40px;">
+
+                <!-- Weather -->
+                <div style="min-width:200px;margin-bottom:18px;">
+                    <div style="font-size:.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7f8c8d;margin-bottom:10px;">Weather</div>
+                    <div style="display:flex;flex-direction:column;gap:9px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-weather-daily" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Daily briefing
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-weather-weekly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Weekly summary (Mondays)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-weather-monthly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Monthly summary (1st of month)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-weather-annual" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Annual summary (1st January)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Lake Albert -->
+                <div style="min-width:200px;margin-bottom:18px;">
+                    <div style="font-size:.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7f8c8d;margin-bottom:10px;">Lake Albert</div>
+                    <div style="display:flex;flex-direction:column;gap:9px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-lake-daily" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Daily report
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-lake-weekly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Weekly report (Mondays)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-lake-monthly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Monthly report (1st of month)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-lake-yearly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Yearly report (1st January)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Board -->
+                <div style="min-width:200px;margin-bottom:18px;">
+                    <div style="font-size:.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7f8c8d;margin-bottom:10px;">Board</div>
+                    <div style="display:flex;flex-direction:column;gap:9px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-board-weekly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Weekly board email (Mondays)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-board-monthly" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Monthly board email (1st of month)
+                        </label>
+                    </div>
+                </div>
+
             </div>
-            <button onclick="emcfgSave()">Save Toggles</button>
+            <button onclick="emcfgSave()" style="margin-top:6px;">Save Toggles</button>
             <div class="status" id="emcfg-status"></div>
         </div>
     </div>
@@ -2311,11 +2357,17 @@ async function emcfgLoad() {
         const cfg = JSON.parse(f.text || '{}');
         _emcfgSha = f.sha;
         const en = cfg.email_enabled || {};
-        const set = (id, key, def) => { const el = $(id); if (el) el.checked = en[key] !== false && (en[key] !== undefined ? en[key] : def); };
-        set('emcfg-daily',        'daily_weather',  true);
-        set('emcfg-lake',         'lake',           true);
-        set('emcfg-board-weekly', 'board_weekly',   true);
-        set('emcfg-board-monthly','board_monthly',  true);
+        const set = (id, key) => { const el = $(id); if (el) el.checked = en[key] !== false; };
+        set('emcfg-weather-daily',   'weather_daily');
+        set('emcfg-weather-weekly',  'weather_weekly');
+        set('emcfg-weather-monthly', 'weather_monthly');
+        set('emcfg-weather-annual',  'weather_annual');
+        set('emcfg-lake-daily',      'lake_daily');
+        set('emcfg-lake-weekly',     'lake_weekly');
+        set('emcfg-lake-monthly',    'lake_monthly');
+        set('emcfg-lake-yearly',     'lake_yearly');
+        set('emcfg-board-weekly',    'board_weekly');
+        set('emcfg-board-monthly',   'board_monthly');
         if (ld) ld.style.display = 'none';
         if (fm) fm.style.display = 'block';
     } catch(e) { if (ld) ld.textContent = 'Failed to load: ' + e.message; }
@@ -2328,10 +2380,16 @@ async function emcfgSave() {
     try {
         const cfg = {
             email_enabled: {
-                daily_weather:  $('emcfg-daily').checked,
-                lake:           $('emcfg-lake').checked,
-                board_weekly:   $('emcfg-board-weekly').checked,
-                board_monthly:  $('emcfg-board-monthly').checked,
+                weather_daily:   $('emcfg-weather-daily').checked,
+                weather_weekly:  $('emcfg-weather-weekly').checked,
+                weather_monthly: $('emcfg-weather-monthly').checked,
+                weather_annual:  $('emcfg-weather-annual').checked,
+                lake_daily:      $('emcfg-lake-daily').checked,
+                lake_weekly:     $('emcfg-lake-weekly').checked,
+                lake_monthly:    $('emcfg-lake-monthly').checked,
+                lake_yearly:     $('emcfg-lake-yearly').checked,
+                board_weekly:    $('emcfg-board-weekly').checked,
+                board_monthly:   $('emcfg-board-monthly').checked,
             },
             updated_at: new Date().toISOString(),
             updated_by: SES.email,

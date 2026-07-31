@@ -92,6 +92,15 @@ def _fmt_d(dt, fmt):
 CSV_PATH          = Path('data/daily_log.csv')
 REPORTS_ROOT      = Path('data/reports')
 ZONE_HISTORY_CSV  = Path('data/lake_zone_history.csv')
+_EMAIL_CFG_PATH   = Path(__file__).parent.parent / 'data' / 'email_config.json'
+
+def _email_enabled(key, default=True):
+    """Return True if the named email type is enabled in data/email_config.json."""
+    try:
+        cfg = json.loads(_EMAIL_CFG_PATH.read_text(encoding='utf-8'))
+        return bool(cfg.get('email_enabled', {}).get(key, default))
+    except Exception:
+        return default
 
 CSV_HEADERS = [
     'date',
@@ -3944,44 +3953,54 @@ def main():
     log.info(f'Report saved: {report_path}')
 
     # ── 8. Send daily email to greenkeeper ────────────────────────────────
-    subject = f'WWCC Morning Briefing - {_fmt_d(yesterday, "%-d %B %Y")}'
-    log.info(f'Sending daily email: {subject}')
-    send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
+    if _email_enabled('weather_daily'):
+        subject = f'WWCC Morning Briefing - {_fmt_d(yesterday, "%-d %B %Y")}'
+        log.info(f'Sending daily email: {subject}')
+        send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
+    else:
+        log.info('weather_daily disabled in email_config.json - skipping daily send')
 
     # ── 9. Weekly summary (Monday only) ───────────────────────────────────
     if now_sydney.weekday() == 0:  # Monday
-        log.info('Monday detected - sending weekly summary...')
-        week_history = read_csv_history(7)
-        weekly_html  = build_weekly_html(week_history, yesterday)
-        week_subject = f'WWCC Weekly Weather Summary - {_fmt_d(yesterday, "%-d %B %Y")}'
-        send_email(week_subject, weekly_html, EMAIL_RECIPIENTS_ALL)
-
-        # Save weekly report
-        weekly_path = report_dir / f'{yesterday.isoformat()}-weekly.html'
-        weekly_path.write_text(weekly_html, encoding='utf-8')
+        if _email_enabled('weather_weekly'):
+            log.info('Monday detected - sending weekly summary...')
+            week_history = read_csv_history(7)
+            weekly_html  = build_weekly_html(week_history, yesterday)
+            week_subject = f'WWCC Weekly Weather Summary - {_fmt_d(yesterday, "%-d %B %Y")}'
+            send_email(week_subject, weekly_html, EMAIL_RECIPIENTS_ALL)
+            weekly_path = report_dir / f'{yesterday.isoformat()}-weekly.html'
+            weekly_path.write_text(weekly_html, encoding='utf-8')
+        else:
+            log.info('weather_weekly disabled in email_config.json - skipping weekly send')
 
     # ── 10. Monthly summary (1st of month only) ───────────────────────────
     if yesterday.day == 1:
-        log.info('1st of month - sending monthly summary...')
-        month_history = read_csv_history(31)
-        month_name    = (yesterday - timedelta(days=1)).strftime('%B %Y')
-        monthly_html  = build_monthly_html(month_history, month_name)
-        month_subject = f'WWCC Monthly Weather Summary - {month_name}'
-        send_email(month_subject, monthly_html, EMAIL_RECIPIENTS_ALL)
-        monthly_path  = report_dir / f'{yesterday.isoformat()}-monthly.html'
-        monthly_path.write_text(monthly_html, encoding='utf-8')
+        if _email_enabled('weather_monthly'):
+            log.info('1st of month - sending monthly summary...')
+            month_history = read_csv_history(31)
+            month_name    = (yesterday - timedelta(days=1)).strftime('%B %Y')
+            monthly_html  = build_monthly_html(month_history, month_name)
+            month_subject = f'WWCC Monthly Weather Summary - {month_name}'
+            send_email(month_subject, monthly_html, EMAIL_RECIPIENTS_ALL)
+            monthly_path  = report_dir / f'{yesterday.isoformat()}-monthly.html'
+            monthly_path.write_text(monthly_html, encoding='utf-8')
+        else:
+            log.info('weather_monthly disabled in email_config.json - skipping monthly send')
 
     # ── 11. Annual summary (1st January only) ─────────────────────────────
     if yesterday.month == 1 and yesterday.day == 1:
-        log.info('1st January - sending annual summary...')
-        prev_year     = yesterday.year - 1
-        year_history  = read_csv_history(366)
-        year_label    = f'Full Year {prev_year}'
-        yearly_html   = build_yearly_html(year_history, year_label)
-        year_subject  = f'WWCC Annual Weather Summary - {prev_year}'
-        send_email(year_subject, yearly_html, EMAIL_RECIPIENTS_ALL)
-        yearly_path   = report_dir / f'{prev_year}-annual.html'
-        yearly_path.write_text(yearly_html, encoding='utf-8')
+        if _email_enabled('weather_annual'):
+            log.info('1st January - sending annual summary...')
+            prev_year     = yesterday.year - 1
+            year_history  = read_csv_history(366)
+            year_label    = f'Full Year {prev_year}'
+            yearly_html   = build_yearly_html(year_history, year_label)
+            year_subject  = f'WWCC Annual Weather Summary - {prev_year}'
+            send_email(year_subject, yearly_html, EMAIL_RECIPIENTS_ALL)
+            yearly_path   = report_dir / f'{prev_year}-annual.html'
+            yearly_path.write_text(yearly_html, encoding='utf-8')
+        else:
+            log.info('weather_annual disabled in email_config.json - skipping annual send')
 
     # ── 12. Water meter reading reminder (last day of month) ──────────────
     today_date = now_sydney.date()
