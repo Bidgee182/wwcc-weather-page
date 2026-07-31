@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Pump Control - WWCC</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a252f; color: white; min-height: 100vh; }
+        @media (min-width:600px) { body { padding: 20px; max-width: 700px; margin: 0 auto; } }
+
+        /* Lock screen */
+        .lockscreen { position: fixed; inset: 0; background: #0f1922; display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .lock-panel { width: 100%; max-width: 340px; text-align: center; }
+        .lock-logo { font-size: 2.5em; margin-bottom: 8px; }
+        .lock-title { font-size: 1.6em; font-weight: bold; letter-spacing: 3px; color: #ecf0f1; margin-bottom: 4px; }
+        .lock-sub { font-size: 0.75em; color: #566573; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 28px; }
+        .lock-label { font-size: 0.78em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+        .pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 20px; }
+        .pin-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #3d5166; background: #1a252f; transition: background 0.15s, border-color 0.15s; }
+        .pin-dot.filled { background: #e67e22; border-color: #e67e22; }
+        .pin-dot.done { background: #27ae60; border-color: #27ae60; }
+        .pin-dot.wrong { background: #e74c3c; border-color: #e74c3c; animation: shake 0.4s; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
+        .kbtn { background: #2c3e50; border: 1px solid #3d5166; border-radius: 12px; color: #ecf0f1; font-size: 1.5em; font-weight: bold; padding: 18px 0; cursor: pointer; transition: background 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .kbtn:active { background: #e67e22; }
+        .kbtn.del { font-size: 1.2em; color: #e74c3c; }
+        .kbtn.ok  { font-size: 1.1em; color: #27ae60; }
+        .pin-error { font-size: 0.82em; color: #e74c3c; min-height: 20px; margin: 8px 0; }
+        .pin-attempts { font-size: 0.7em; color: #566573; margin-top: 16px; }
+
+        /* Main app */
+        .ctrl-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 12px; margin-bottom: 6px; }
+        .header-left h1 { font-size: 1.4em; letter-spacing: 2px; color: #ecf0f1; }
+        .header-left .sub { font-size: 0.7em; color: #7f8c8d; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+        .lock-btn { background: #2c3e50; border: 1px solid #e74c3c; color: #e74c3c; border-radius: 8px; padding: 8px 16px; font-size: 0.78em; font-weight: bold; letter-spacing: 1px; cursor: pointer; }
+        .lock-btn:hover { background: #e74c3c; color: white; }
+
+        /* Status bar */
+        .status-bar { background: #2c3e50; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 0.82em; }
+        .sb-item { display: flex; align-items: center; gap: 6px; }
+        .sb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .sb-dot.ok  { background: #27ae60; box-shadow: 0 0 5px rgba(39,174,96,.7); }
+        .sb-dot.off { background: #566573; }
+        .sb-dot.run { background: #27ae60; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+        /* Cards */
+        .card { background: #2c3e50; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+        .card h2 { font-size: 0.78em; text-transform: uppercase; letter-spacing: 2px; color: #7f8c8d; border-bottom: 1px solid #3d5166; padding-bottom: 8px; margin-bottom: 14px; }
+
+        /* Action confirmation */
+        .action-card { background: #2c2a1a; border: 2px solid #e67e22; }
+        .action-card h2 { color: #e67e22; border-color: #4a3a1a; }
+        .action-desc { font-size: 1.05em; font-weight: bold; color: #ecf0f1; margin-bottom: 6px; }
+        .action-warning { font-size: 0.82em; color: #f39c12; margin-bottom: 10px; }
+        .countdown-ring { display: inline-block; width: 56px; height: 56px; border-radius: 50%; border: 4px solid #3d5166; line-height: 48px; text-align: center; font-size: 1.6em; font-weight: bold; margin: 8px 0; position: relative; }
+        .action-btns { display: flex; gap: 10px; margin-top: 12px; }
+
+        /* Control buttons */
+        .ctrl-big { flex: 1; border-radius: 10px; padding: 14px; font-size: 0.9em; font-weight: bold; letter-spacing: 1px; cursor: pointer; border: 2px solid; transition: all 0.2s; }
+        .ctrl-big.stop  { background: #3d1a1a; border-color: #e74c3c; color: #e74c3c; }
+        .ctrl-big.stop:hover  { background: #e74c3c; color: white; }
+        .ctrl-big.start { background: #1a3d1a; border-color: #27ae60; color: #27ae60; }
+        .ctrl-big.start:hover { background: #27ae60; color: white; }
+        .ctrl-big.cancel { background: #2c3e50; border-color: #566573; color: #bdc3c7; }
+        .ctrl-big.cancel:hover { background: #3d5166; }
+
+        .sys-btn-row { display: flex; gap: 10px; margin-bottom: 14px; }
+        @media (max-width: 360px) { .sys-btn-row { flex-direction: column; } }
+
+        /* Setpoint slider */
+        .setpoint-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+        .setpoint-row input[type=range] { flex: 1; min-width: 120px; accent-color: #e67e22; }
+        .setpoint-val { font-size: 1.3em; font-weight: bold; color: #e67e22; min-width: 60px; }
+        .apply-btn { background: #1a3a5c; border: 1px solid #3498db; color: #3498db; border-radius: 8px; padding: 8px 16px; font-size: 0.82em; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .apply-btn:hover { background: #3498db; color: white; }
+
+        /* Mode selector */
+        .mode-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .mode-row label { font-size: 0.82em; color: #7f8c8d; white-space: nowrap; }
+        .mode-row select { background: #1a252f; border: 1px solid #3d5166; color: #ecf0f1; border-radius: 6px; padding: 7px 10px; font-size: 0.88em; flex: 1; }
+
+        /* Pump control grid */
+        .pump-ctrl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (min-width: 500px) { .pump-ctrl-grid { grid-template-columns: repeat(4, 1fr); } }
+        .pump-ctrl-card { background: #1a252f; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #3d5166; }
+        .pcc-label { font-size: 0.65em; color: #566573; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+        .pcc-name  { font-size: 0.88em; font-weight: bold; color: #ecf0f1; margin-bottom: 4px; }
+        .pcc-status { font-size: 0.7em; margin-bottom: 8px; }
+        .pcc-btn { width: 100%; border-radius: 6px; padding: 8px; font-size: 0.78em; font-weight: bold; letter-spacing: 1px; cursor: pointer; border: 1px solid; transition: all 0.2s; }
+        .pcc-btn.stop  { background: #2a1010; border-color: #c0392b; color: #e74c3c; }
+        .pcc-btn.stop:hover  { background: #e74c3c; color: white; }
+        .pcc-btn.start { background: #102a10; border-color: #1e8449; color: #27ae60; }
+        .pcc-btn.start:hover { background: #27ae60; color: white; }
+        .pump-badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 0.68em; font-weight: bold; letter-spacing: 1px; }
+        .badge-running { background: #1d6a39; color: #2ecc71; border: 1px solid #27ae60; }
+        .badge-standby { background: #6b4c0e; color: #f39c12; border: 1px solid #e67e22; }
+        .badge-stopped { background: #1e2a35; color: #7f8c8d; border: 1px solid #3d5166; }
+        .badge-fault   { background: #5c1a1a; color: #ff6b6b; border: 1px solid #e74c3c; }
+        .badge-offline { background: #1a252f; color: #566573; border: 1px solid #2c3e50; }
+
+        /* Token card */
+        .token-card { border-left: 3px solid #f39c12; }
+        .tok-input { width: 100%; background: #1a252f; border: 1px solid #3d5166; color: #ecf0f1; border-radius: 6px; padding: 8px 12px; font-size: 0.88em; margin-top: 8px; margin-bottom: 10px; font-family: monospace; }
+        .tok-btn { background: #1a3a5c; border: 1px solid #3498db; color: #3498db; border-radius: 8px; padding: 8px 18px; font-size: 0.85em; font-weight: bold; cursor: pointer; }
+
+        /* Command history */
+        .cmd-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #1a252f; font-size: 0.78em; }
+        .cmd-row:last-child { border-bottom: none; }
+        .cmd-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+        .cmd-dot.done   { background: #27ae60; }
+        .cmd-dot.failed { background: #e74c3c; }
+        .cmd-dot.pending { background: #f39c12; animation: pulse 1s ease-in-out infinite; }
+        .cmd-action { font-weight: bold; color: #ecf0f1; }
+        .cmd-val  { color: #e67e22; }
+        .cmd-ts   { color: #566573; font-size: 0.85em; white-space: nowrap; margin-left: auto; }
+        .cmd-result { color: #7f8c8d; font-size: 0.85em; }
+        .cmd-none { color: #566573; font-size: 0.85em; text-align: center; padding: 14px; }
+
+        /* Info box */
+        .info-box { border-radius: 8px; padding: 12px 14px; font-size: 0.8em; color: #bdc3c7; line-height: 1.5; }
+        .info-box.warn { background: #2c2a1a; border-left: 3px solid #f39c12; }
+        .info-box.info { background: #1a2535; border-left: 3px solid #3498db; }
+
+        .page-footer { text-align: center; font-size: 0.68em; color: #566573; padding: 16px 0; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════ LOCK SCREEN ═══════════════ -->
+<div class="lockscreen" id="lockscreen">
+    <div class="lock-panel">
+        <div class="lock-logo">
+            <svg width="56" height="56" viewBox="0 0 100 100">
+                <rect x="28" y="10" width="44" height="30" rx="4" fill="#1e6b3f"/>
+                <line x1="28" y1="18" x2="72" y2="18" stroke="#14472a" stroke-width="2"/>
+                <line x1="28" y1="25" x2="72" y2="25" stroke="#14472a" stroke-width="2"/>
+                <line x1="28" y1="32" x2="72" y2="32" stroke="#14472a" stroke-width="2"/>
+                <rect x="34" y="40" width="32" height="8" rx="2" fill="#248a50"/>
+                <ellipse cx="50" cy="52" rx="20" ry="4" fill="#248a50"/>
+                <rect x="30" y="52" width="40" height="26" fill="#1e6b3f"/>
+                <ellipse cx="50" cy="78" rx="20" ry="4" fill="#14472a"/>
+                <circle cx="50" cy="65" r="9" fill="rgba(0,0,0,.4)" stroke="#27ae60" stroke-width="1.5"/>
+                <line x1="50" y1="58" x2="50" y2="72" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                <line x1="43" y1="65" x2="57" y2="65" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div class="lock-title">PUMP CONTROL</div>
+        <div class="lock-sub">Wagga Wagga Country Club</div>
+        <div class="lock-label" id="lock-label">Enter PIN</div>
+        <div class="pin-dots">
+            <div class="pin-dot" id="pd0"></div>
+            <div class="pin-dot" id="pd1"></div>
+            <div class="pin-dot" id="pd2"></div>
+            <div class="pin-dot" id="pd3"></div>
+            <div class="pin-dot" id="pd4"></div>
+            <div class="pin-dot" id="pd5"></div>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+        <div class="keypad" id="keypad">
+            <button class="kbtn" onclick="kp(1)">1</button>
+            <button class="kbtn" onclick="kp(2)">2</button>
+            <button class="kbtn" onclick="kp(3)">3</button>
+            <button class="kbtn" onclick="kp(4)">4</button>
+            <button class="kbtn" onclick="kp(5)">5</button>
+            <button class="kbtn" onclick="kp(6)">6</button>
+            <button class="kbtn" onclick="kp(7)">7</button>
+            <button class="kbtn" onclick="kp(8)">8</button>
+            <button class="kbtn" onclick="kp(9)">9</button>
+            <button class="kbtn del" onclick="kpDel()">&#9003;</button>
+            <button class="kbtn" onclick="kp(0)">0</button>
+            <button class="kbtn ok" onclick="kpOk()">&#10003;</button>
+        </div>
+        <div class="pin-attempts" id="pin-attempts"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app" class="hidden">
+
+    <!-- Header -->
+    <div class="ctrl-header">
+        <div class="header-left">
+            <h1>PUMP CONTROL</h1>
+            <div class="sub">CIM 500 Modbus TCP - WWCC</div>
+        </div>
+        <button class="lock-btn" onclick="lockSession()">LOCK</button>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="status-bar">
+        <div class="sb-item"><div class="sb-dot off" id="sb-conn-dot"></div><span id="sb-conn">Offline</span></div>
+        <div class="sb-item">B1: <strong id="sb-b1">--</strong> bar</div>
+        <div class="sb-item">B2: <strong id="sb-b2">--</strong> bar</div>
+        <div class="sb-item">Mode: <strong id="sb-mode">--</strong></div>
+        <div class="sb-item" style="margin-left:auto;color:#566573;font-size:.85em;" id="sb-age">Never</div>
+    </div>
+
+    <!-- Action confirmation panel (populated when URL has ?act=) -->
+    <div id="action-panel" class="hidden">
+        <div class="card action-card">
+            <h2>Confirm Action</h2>
+            <div class="action-desc" id="action-desc"></div>
+            <div class="action-warning" id="action-warn"></div>
+            <div class="countdown-ring" id="countdown" style="display:none"></div>
+            <div class="action-btns">
+                <button class="ctrl-big cancel" onclick="cancelAction()">CANCEL</button>
+                <button class="ctrl-big stop" id="action-exec-btn" onclick="startCountdown()">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token required card -->
+    <div id="token-card" class="card hidden" style="border-left:3px solid #f39c12;">
+        <h2>GitHub Token Required</h2>
+        <div class="info-box info" style="margin-bottom:10px;">
+            Commands are queued via GitHub API. Enter your Personal Access Token (repo write scope).
+            Stored encrypted for this browser only - never in the source code.
+        </div>
+        <input type="password" class="tok-input" id="tok-input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+        <button class="tok-btn" onclick="saveToken()">SAVE TOKEN</button>
+    </div>
+
+    <!-- System control -->
+    <div class="card">
+        <h2>System Control</h2>
+        <div class="sys-btn-row">
+            <button class="ctrl-big stop" onclick="queue('system_stop',null,true)">STOP ALL PUMPS</button>
+            <button class="ctrl-big start" onclick="queue('system_start',null,false)">START SYSTEM</button>
+        </div>
+        <div class="mode-row">
+            <label>Operating Mode:</label>
+            <select id="mode-sel">
+                <option value="auto">AUTO - Normal cascade</option>
+                <option value="min">MIN - Minimum speed</option>
+                <option value="max">MAX - Maximum speed</option>
+                <option value="stop">STOP - All pumps off</option>
+            </select>
+            <button class="apply-btn" onclick="queue('set_mode', document.getElementById('mode-sel').value, false)">SET</button>
+        </div>
+        <div class="setpoint-row">
+            <label style="font-size:.82em;color:#7f8c8d;white-space:nowrap;">Discharge Setpoint:</label>
+            <input type="range" min="4.0" max="8.0" step="0.1" value="6.5" id="sp-slider" oninput="document.getElementById('sp-val').textContent=parseFloat(this.value).toFixed(1)+' bar'">
+            <span class="setpoint-val" id="sp-val">6.5 bar</span>
+            <button class="apply-btn" onclick="queue('set_setpoint', parseFloat(document.getElementById('sp-slider').value), false)">APPLY</button>
+        </div>
+        <div style="font-size:.7em;color:#566573;margin-top:6px;">Setpoint range: 4.0 - 8.0 bar. Changes take effect within 5 min (next poll).</div>
+    </div>
+
+    <!-- Individual pump controls -->
+    <div class="card">
+        <h2>Individual Pump Control</h2>
+        <div class="info-box warn" style="margin-bottom:12px;">
+            Forcing a pump start/stop overrides CU 352 cascade logic. Use with care. The controller will resume normal operation on the next mode change.
+        </div>
+        <div class="pump-ctrl-grid" id="pump-ctrl-grid"></div>
+    </div>
+
+    <!-- Diagnostics / parameters (read-only from Modbus data) -->
+    <div class="card">
+        <h2>Live Parameters (from CU 352)</h2>
+        <div id="params-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+        <div style="font-size:.7em;color:#566573;margin-top:8px;">Read from CIM 500 via Modbus TCP. Updates every 5 min with polling script.</div>
+    </div>
+
+    <!-- Command history -->
+    <div class="card">
+        <h2>Command History</h2>
+        <div id="cmd-history"></div>
+    </div>
+
+    <!-- PIN management -->
+    <div class="card" style="border-left:3px solid #566573;">
+        <h2>Session + Security</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+            <button class="apply-btn" onclick="changePinFlow()">Change PIN</button>
+            <button class="apply-btn" onclick="clearToken()">Clear Saved Token</button>
+            <button class="lock-btn" onclick="lockSession()" style="font-size:.82em;">Lock Session</button>
+        </div>
+        <div style="font-size:.7em;color:#566573;line-height:1.6;">
+            PIN is stored locally (hashed). GitHub token is AES-encrypted under your PIN, stored in this browser only.<br>
+            All commands are logged in git history at data/pump_commands.json - full audit trail.
+        </div>
+    </div>
+
+    <div class="page-footer">Pump Control - WWCC - Commands execute on next poller run (up to 5 min)</div>
+</div>
+
+<script>
+'use strict';
+const REPO = 'Bidgee182/wwcc-weather-page';
+const CMD_PATH = 'data/pump_commands.json';
+const LAT_PATH = 'data/pump_station_latest.json';
+const PIN_KEY   = 'wwcc_pump_pin_hash';
+const TOK_KEY   = 'wwcc_pump_tok';
+const TOK_SALT  = 'wwcc_pump_tok_salt';
+
+// Session state
+let SES = { pin: null, token: null, unlocked: false };
+let liveData = null;
+let pendingAction = null;
+let countdownTimer = null;
+let pinBuffer = '';
+let pinMode = 'login'; // 'login' | 'set-new' | 'confirm-new'
+let newPinBuf = '';
+let attempts = 0;
+let locked = false;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function aesKey(passphrase, salt) {
+    const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+        { name:'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash:'SHA-256' },
+        raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+    );
+}
+async function aesEnc(key, text) {
+    const iv  = crypto.getRandomValues(new Uint8Array(12));
+    const ct  = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(text));
+    return { iv: Array.from(iv).map(b=>b.toString(16).padStart(2,'0')).join(''), ct: btoa(String.fromCharCode(...new Uint8Array(ct))) };
+}
+async function aesDec(key, obj) {
+    const iv = Uint8Array.from(obj.iv.match(/../g).map(h=>parseInt(h,16)));
+    const ct = Uint8Array.from(atob(obj.ct), c=>c.charCodeAt(0));
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+    return new TextDecoder().decode(pt);
+}
+
+function fmtAge(iso) {
+    if (!iso) return 'Never';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 0)    return 'just now';
+    if (s < 60)   return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    return Math.floor(s/3600) + 'h ago';
+}
+
+function fmtDate(iso) {
+    return new Date(iso).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+
+// ─── GitHub API ───────────────────────────────────────────────────────────────
+async function ghGet(path) {
+    const h = { Accept: 'application/vnd.github+json' };
+    if (SES.token) h.Authorization = 'Bearer ' + SES.token;
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, { headers: h });
+    if (r.status === 404) return { sha: null, text: null };
+    if (!r.ok) throw new Error('GitHub read ' + r.status);
+    const d = await r.json();
+    return { sha: d.sha, text: atob(d.content.replace(/\n/g, '')) };
+}
+
+async function ghPut(path, text, message, sha) {
+    const content = btoa(unescape(encodeURIComponent(text)));
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + SES.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, content, ...(sha ? { sha } : {}) }),
+    });
+    if (!r.ok) {
+        const body = await r.json().catch(()=>({}));
+        throw new Error((body.message || r.status));
+    }
+}
+
+// ─── PIN / Auth ───────────────────────────────────────────────────────────────
+function updatePinDots(buf, mode) {
+    for (let i = 0; i < 6; i++) {
+        const el = $('pd' + i);
+        el.className = 'pin-dot';
+        if (i < buf.length) el.classList.add('filled');
+    }
+}
+
+function kp(digit) {
+    if (locked) return;
+    if (pinBuffer.length >= 6) return;
+    pinBuffer += digit;
+    updatePinDots(pinBuffer);
+    if (pinBuffer.length === 6) {
+        setTimeout(kpOk, 180);
+    }
+}
+
+function kpDel() {
+    pinBuffer = pinBuffer.slice(0, -1);
+    updatePinDots(pinBuffer);
+    $('pin-error').textContent = '';
+}
+
+async function kpOk() {
+    if (pinBuffer.length < 4) { $('pin-error').textContent = 'PIN must be at least 4 digits.'; return; }
+    const buf = pinBuffer;
+    pinBuffer = '';
+
+    if (pinMode === 'login') {
+        await doLogin(buf);
+    } else if (pinMode === 'set-new') {
+        newPinBuf = buf;
+        pinMode = 'confirm-new';
+        $('lock-label').textContent = 'Confirm new PIN';
+        updatePinDots('');
+        $('pin-error').textContent = '';
+    } else if (pinMode === 'confirm-new') {
+        if (buf !== newPinBuf) {
+            $('pin-error').textContent = 'PINs do not match. Try again.';
+            pinMode = 'set-new';
+            $('lock-label').textContent = 'Enter new PIN';
+            newPinBuf = '';
+            return;
+        }
+        await saveNewPin(buf);
+    }
+}
+
+async function doLogin(pin) {
+    const storedHash = localStorage.getItem(PIN_KEY);
+    if (!storedHash) {
+        // No PIN set - first time setup
+        pinMode = 'set-new';
+        $('lock-label').textContent = 'Set a new 6-digit PIN';
+        $('pin-error').textContent = '';
+        newPinBuf = '';
+        return;
+    }
+    const h = await sha256(pin);
+    if (h !== storedHash) {
+        attempts++;
+        for (let i = 0; i < 6; i++) $('pd'+i).className = 'pin-dot wrong';
+        if (attempts >= 5) {
+            locked = true;
+            $('pin-error').textContent = 'Too many attempts. Refresh page to retry.';
+            $('keypad').style.pointerEvents = 'none';
+            $('keypad').style.opacity = '0.3';
+        } else {
+            $('pin-error').textContent = 'Incorrect PIN. ' + (5 - attempts) + ' attempts left.';
+            $('pin-attempts').textContent = '';
+        }
+        setTimeout(() => { for (let i=0;i<6;i++) $('pd'+i).className='pin-dot'; }, 500);
+        return;
+    }
+    attempts = 0;
+    SES.pin = pin;
+    // Try loading stored token
+    await loadStoredToken(pin);
+    unlock();
+}
+
+async function saveNewPin(pin) {
+    const h = await sha256(pin);
+    localStorage.setItem(PIN_KEY, h);
+    SES.pin = pin;
+    await loadStoredToken(pin);
+    unlock();
+}
+
+async function loadStoredToken(pin) {
+    try {
+        const stored = localStorage.getItem(TOK_KEY);
+        const salt   = localStorage.getItem(TOK_SALT);
+        if (!stored || !salt) return;
+        const key = await aesKey(pin + ':pumpctrl', salt);
+        SES.token = await aesDec(key, JSON.parse(stored));
+    } catch { SES.token = null; }
+}
+
+async function saveToken() {
+    const tok = $('tok-input').value.trim();
+    if (!tok) return;
+    const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const key  = await aesKey(SES.pin + ':pumpctrl', salt);
+    const enc  = await aesEnc(key, tok);
+    localStorage.setItem(TOK_KEY,   JSON.stringify(enc));
+    localStorage.setItem(TOK_SALT,  salt);
+    SES.token = tok;
+    $('token-card').classList.add('hidden');
+    $('tok-input').value = '';
+    loadCmds();
+}
+
+function clearToken() {
+    if (!confirm('Clear saved GitHub token?')) return;
+    localStorage.removeItem(TOK_KEY);
+    localStorage.removeItem(TOK_SALT);
+    SES.token = null;
+    $('token-card').classList.remove('hidden');
+}
+
+function unlock() {
+    SES.unlocked = true;
+    $('lockscreen').style.display = 'none';
+    $('app').classList.remove('hidden');
+    if (!SES.token) $('token-card').classList.remove('hidden');
+    loadLatest();
+    loadCmds();
+    checkUrlAction();
+    setInterval(loadLatest, 30000);
+    setInterval(loadCmds, 30000);
+}
+
+function lockSession() {
+    SES.unlocked = false; SES.pin = null; SES.token = null;
+    pinBuffer = ''; pinMode = 'login'; attempts = 0; locked = false;
+    for (let i = 0; i < 6; i++) $('pd'+i).className = 'pin-dot';
+    $('lock-label').textContent = 'Enter PIN';
+    $('pin-error').textContent = '';
+    $('lockscreen').style.display = 'flex';
+    $('app').classList.add('hidden');
+}
+
+function changePinFlow() {
+    lockSession();
+    pinMode = 'set-new';
+    $('lock-label').textContent = 'Enter new PIN';
+    $('pin-error').textContent = 'Setting a new PIN...';
+}
+
+// ─── Live data ─────────────────────────────────────────────────────────────────
+async function loadLatest() {
+    try {
+        const r = await fetch('data/pump_station_latest.json?_=' + Date.now());
+        if (r.ok) liveData = await r.json();
+    } catch {}
+    renderStatus();
+    renderPumpCtrl();
+    renderParams();
+}
+
+function renderStatus() {
+    const d = liveData;
+    const connected = d && d.connected;
+    const sys = d && d.system ? d.system : {};
+    const dot = $('sb-conn-dot');
+    dot.className = 'sb-dot ' + (connected ? 'ok' : 'off');
+    $('sb-conn').textContent = connected ? 'ONLINE' : 'Offline';
+    $('sb-b1').textContent = sys.pressure_actual_bar != null ? sys.pressure_actual_bar.toFixed(2) : '--';
+    $('sb-b2').textContent = sys.pressure_suction_bar != null ? sys.pressure_suction_bar.toFixed(2) : '--';
+    $('sb-mode').textContent = sys.mode ? sys.mode.toUpperCase() : '--';
+    $('sb-age').textContent = d && d.timestamp ? fmtAge(d.timestamp) : 'No data';
+    if (sys.pressure_setpoint_bar != null) {
+        $('sp-slider').value = Math.min(8, Math.max(4, sys.pressure_setpoint_bar));
+        $('sp-val').textContent = sys.pressure_setpoint_bar.toFixed(1) + ' bar';
+    }
+    if (sys.mode) {
+        const sel = $('mode-sel');
+        const v = sys.mode.toLowerCase();
+        for (const opt of sel.options) { if (opt.value === v) sel.value = v; }
+    }
+}
+
+function renderPumpCtrl() {
+    const pumps = liveData && liveData.pumps ? liveData.pumps : defaultPumps();
+    const connected = liveData && liveData.connected;
+    $('pump-ctrl-grid').innerHTML = pumps.map(p => {
+        let state = 'offline';
+        if (!connected)  state = 'offline';
+        else if (p.fault)   state = 'fault';
+        else if (p.running) state = 'running';
+        else if (p.standby) state = 'standby';
+        else                state = 'stopped';
+        const BLBL = {running:'RUNNING',fault:'FAULT',standby:'STANDBY',stopped:'STOPPED',offline:'OFFLINE'};
+        const canStop  = connected && (p.running || p.standby);
+        const canStart = connected && !p.running && !p.fault;
+        const isJockey = p.label.toLowerCase().startsWith('jockey');
+        return `<div class="pump-ctrl-card">
+            <div class="pcc-label">${isJockey ? 'Jockey M4' : 'M'+p.id}</div>
+            <div class="pcc-name">${p.label}</div>
+            <div class="pcc-status"><span class="pump-badge badge-${state}">${BLBL[state]}</span></div>
+            ${canStop  ? `<button class="pcc-btn stop"  onclick="queue('stop_pump',${p.id},true)">STOP</button>` : ''}
+            ${canStart ? `<button class="pcc-btn start" onclick="queue('start_pump',${p.id},false)">START</button>` : ''}
+            ${!canStop && !canStart ? `<button class="pcc-btn start" disabled style="opacity:.4;cursor:not-allowed">--</button>` : ''}
+        </div>`;
+    }).join('');
+}
+
+function renderParams() {
+    const d = liveData;
+    if (!d || !d.connected) {
+        $('params-grid').innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM 500 connection...</div>';
+        return;
+    }
+    const sys = d.system || {};
+    const pumps = d.pumps || [];
+    const rows = [
+        { label:'Discharge (B1)', val: sys.pressure_actual_bar != null ? sys.pressure_actual_bar.toFixed(2)+' bar' : '--' },
+        { label:'Suction (B2)',   val: sys.pressure_suction_bar != null ? sys.pressure_suction_bar.toFixed(2)+' bar' : '--' },
+        { label:'Setpoint',       val: sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar.toFixed(2)+' bar' : '--' },
+        { label:'Flow (est.)',    val: sys.flow_m3h != null ? sys.flow_m3h.toFixed(1)+' m³/h' : '--' },
+        { label:'Mode',           val: sys.mode ? sys.mode.toUpperCase() : '--' },
+        { label:'Pumps Running',  val: pumps.filter(p=>p.running).length + ' / ' + pumps.length },
+        ...pumps.map(p => ({ label: p.label+' Temp', val: p.temp_c != null ? p.temp_c.toFixed(0)+'°C' : '--' })),
+        ...pumps.map(p => ({ label: p.label+' Hours', val: p.run_hours != null ? p.run_hours.toFixed(0)+'h' : '--' })),
+    ];
+    $('params-grid').innerHTML = rows.map(r =>
+        `<div style="background:#1a252f;border-radius:6px;padding:8px;">
+            <div style="font-size:.65em;color:#566573;text-transform:uppercase;letter-spacing:.5px;">${r.label}</div>
+            <div style="font-weight:bold;color:#ecf0f1;font-size:.9em;">${r.val}</div>
+        </div>`
+    ).join('');
+}
+
+function defaultPumps() {
+    return [
+        {id:1,label:'P1 - CRNE45',rated_kw:18.5},
+        {id:2,label:'P2 - CRNE45',rated_kw:18.5},
+        {id:3,label:'P3 - CRNE45',rated_kw:18.5},
+        {id:4,label:'Jockey',      rated_kw:5.5},
+    ].map(p => Object.assign({running:false,fault:false,standby:false},p));
+}
+
+// ─── Commands ─────────────────────────────────────────────────────────────────
+const ACTION_LABELS = {
+    system_start: 'Start all pumps (AUTO mode)',
+    system_stop:  'Stop all pumps',
+    start_pump:   id => 'Force start Pump M' + id,
+    stop_pump:    id => 'Force stop Pump M' + id,
+    set_setpoint: v  => 'Set discharge setpoint to ' + parseFloat(v).toFixed(1) + ' bar',
+    set_mode:     v  => 'Set operating mode to ' + (v||'').toUpperCase(),
+};
+
+function actionLabel(act, val) {
+    const fn = ACTION_LABELS[act];
+    return typeof fn === 'function' ? fn(val) : (fn || act);
+}
+
+function checkUrlAction() {
+    const p = new URLSearchParams(location.search);
+    const act = p.get('act');
+    if (!act) return;
+    const val = p.get('val') || p.get('id') || null;
+    history.replaceState({}, '', 'pump-control.html');
+    showActionPanel(act, val);
+}
+
+function showActionPanel(act, val) {
+    pendingAction = { act, val };
+    const isStop = act === 'system_stop' || act === 'stop_pump';
+    $('action-desc').textContent = actionLabel(act, val);
+    $('action-warn').textContent = isStop
+        ? 'This will stop pump(s). The CU 352 safety circuits remain active.'
+        : 'Verify site is clear before remote-starting pumps.';
+    const execBtn = $('action-exec-btn');
+    execBtn.className = 'ctrl-big ' + (isStop ? 'stop' : 'start');
+    execBtn.textContent = 'EXECUTE';
+    $('countdown').style.display = 'none';
+    $('action-panel').classList.remove('hidden');
+    window.scrollTo(0, 0);
+}
+
+function cancelAction() {
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    pendingAction = null;
+    $('action-panel').classList.add('hidden');
+}
+
+function startCountdown() {
+    if (!pendingAction) return;
+    const secs = 5;
+    let remaining = secs;
+    const cd = $('countdown');
+    cd.style.display = 'inline-block';
+    cd.textContent = remaining;
+    $('action-exec-btn').disabled = true;
+    $('action-exec-btn').textContent = 'Wait...';
+    countdownTimer = setInterval(() => {
+        remaining--;
+        cd.textContent = remaining;
+        if (remaining <= 0) {
+            clearInterval(countdownTimer); countdownTimer = null;
+            executeAction();
+        }
+    }, 1000);
+}
+
+async function executeAction() {
+    if (!pendingAction) return;
+    if (!SES.token) { $('token-card').classList.remove('hidden'); window.scrollTo(0,9999); return; }
+    const { act, val } = pendingAction;
+    cancelAction();
+    await queue(act, val, false, true);
+}
+
+async function queue(act, val, needsConfirm = false, forceExec = false) {
+    if (needsConfirm && !forceExec) {
+        showActionPanel(act, val);
+        return;
+    }
+    if (!SES.token) { $('token-card').classList.remove('hidden'); window.scrollTo(0,9999); return; }
+    try {
+        const f = await ghGet(CMD_PATH);
+        let data = { pending: null, log: [] };
+        if (f.text) { try { data = JSON.parse(f.text); } catch {} }
+        if (!Array.isArray(data.log)) data.log = [];
+        const cmd = {
+            id: 'cmd-' + Date.now(),
+            ts: new Date().toISOString(),
+            action: act,
+            value: val,
+            status: 'pending',
+            executed_at: null,
+            result: null,
+        };
+        data.pending = cmd;
+        data.log.unshift(cmd);
+        if (data.log.length > 30) data.log = data.log.slice(0, 30);
+        await ghPut(CMD_PATH, JSON.stringify(data, null, 2), 'Pump cmd: ' + act + (val ? ' = ' + val : ''), f.sha || undefined);
+        renderCmds(data);
+        showCmdFeedback(act, val);
+    } catch (e) {
+        alert('Failed to queue command: ' + e.message + '\n\nCheck your GitHub token has repo write access.');
+    }
+}
+
+function showCmdFeedback(act, val) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d6a39;color:#2ecc71;border:1px solid #27ae60;border-radius:10px;padding:12px 22px;font-weight:bold;font-size:.9em;z-index:9999;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+    msg.textContent = 'Command queued: ' + actionLabel(act, val) + ' - executes within 5 min';
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 4000);
+}
+
+async function loadCmds() {
+    try {
+        const f = await ghGet(CMD_PATH);
+        if (!f.text) return;
+        const data = JSON.parse(f.text);
+        renderCmds(data);
+    } catch {}
+}
+
+function renderCmds(data) {
+    const log = data.log || [];
+    if (!log.length) {
+        $('cmd-history').innerHTML = '<div class="cmd-none">No commands sent yet.</div>';
+        return;
+    }
+    $('cmd-history').innerHTML = log.map(c => {
+        const dotCls = c.status === 'done' || c.status === 'executed' ? 'done' : c.status === 'failed' ? 'failed' : 'pending';
+        return `<div class="cmd-row">
+            <div class="cmd-dot ${dotCls}"></div>
+            <div style="flex:1;min-width:0;">
+                <div><span class="cmd-action">${actionLabel(c.action, c.value)}</span>
+                ${c.result ? '<span class="cmd-result"> - ' + c.result + '</span>' : ''}</div>
+                <div style="font-size:.78em;color:#566573;">${c.status.toUpperCase()}</div>
+            </div>
+            <div class="cmd-ts">${fmtDate(c.ts)}</div>
+        </div>`;
+    }).join('');
+}
+
+// ─── Keyboard support ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+    if (!SES.unlocked) {
+        if (e.key >= '0' && e.key <= '9') kp(parseInt(e.key));
+        if (e.key === 'Backspace') kpDel();
+        if (e.key === 'Enter') kpOk();
+    }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+// If first visit (no PIN set), auto-explain
+if (!localStorage.getItem(PIN_KEY)) {
+    $('pin-error').textContent = '';
+    $('lock-label').textContent = 'First use - set a PIN';
+    $('pin-attempts').textContent = 'You will be asked to enter the PIN twice.';
+    pinMode = 'set-new';
+}
+</script>
+</body>
+</html>
