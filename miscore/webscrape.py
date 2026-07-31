@@ -139,8 +139,11 @@ def _parse_holes(page: str) -> list[dict]:
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 # pointsSum = combined individual scores (used for 4BBB heater threshold)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
-                # "played" = any cell was explicitly entered (int OR dash), not merely blank
-                played_flag = any(v is not None for v in (p1_raw, p2_raw, s1_raw, s2_raw))
+                # "played" = score/points row was explicitly entered (numeric or '-').
+                # Strokes row alone does NOT count: MiClub pre-fills strokes with '-'
+                # for all 18 holes before a player tees off, which would falsely mark
+                # unplayed holes as played if we included s1_raw/s2_raw here.
+                played_flag = (p1_raw is not None or p2_raw is not None)
                 result.append({
                     "hole":      hole,
                     "par":       None if par_raw is False else par_raw,
@@ -211,7 +214,8 @@ def _parse_holes(page: str) -> list[dict]:
                 s2 = None if s2_raw is False else s2_raw
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
-                played_flag = any(v is not None for v in (p1_raw, p2_raw, s1_raw, s2_raw))
+                # Score/points row only: MiClub pre-fills strokes with '-' before play
+                played_flag = (p1_raw is not None or p2_raw is not None)
                 out.append({
                     "hole":      hole_num,
                     "par":       None if par_raw is False else par_raw,
