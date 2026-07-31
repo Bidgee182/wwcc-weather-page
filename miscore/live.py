@@ -22,11 +22,15 @@ The kiosk reads either out/live-leaderboard.json or GET http://<pc>:8787/.
 
 import argparse
 import html
+import http.cookiejar
 import json
 import logging
+import os
 import re
 import subprocess
 import threading
+import urllib.parse
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -65,6 +69,156 @@ HOLE_COUNT_OVERRIDE: int | None = None
 # Day-of stories archive: keyed "player|title", reset when competition changes.
 _stories_archive: dict[str, dict] = {}
 _archive_board_id: str | None = None
+
+# ---------------------------------------------------------------------------
+# WWCC official results cross-check
+# ---------------------------------------------------------------------------
+
+_WWCC_BASE = "https://wwcc.com.au"
+_WWCC_USERNAME: str = os.getenv("WWCC_USERNAME", "")
+_WWCC_PASSWORD: str = os.getenv("WWCC_PASSWORD", "")
+
+# Cache: once official results are found for a board, stop re-checking.
+_official_cache: dict = {}
+_official_cache_board: str | None = None
+_wwcc_jar: "http.cookiejar.CookieJar | None" = None
+
+
+def _norm_title(s: str) -> set:
+    """Normalised word-set for fuzzy competition title matching."""
+    s = re.sub(r"[^a-z0-9 ]", " ", s.lower())
+    # Strip gender/qualifier words added by MiClub but absent from WWCC titles
+    s = re.sub(r"\b(mens|womens|ladies|mixed)\b", " ", s)
+    return {w for w in s.split() if len(w) > 1}
+
+
+def _wwcc_login() -> "http.cookiejar.CookieJar | None":
+    """Authenticate with WWCC member portal; returns a cookie jar or None."""
+    global _wwcc_jar
+    if _wwcc_jar:
+        return _wwcc_jar
+    if not _WWCC_USERNAME or not _WWCC_PASSWORD:
+        return None
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    data = urllib.parse.urlencode({"username": _WWCC_USERNAME, "password": _WWCC_PASSWORD}).encode()
+    try:
+        req = urllib.request.Request(
+            f"{_WWCC_BASE}/spring/login",
+            data=data,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; WWCC-Kiosk/1.0)",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            },
+        )
+        with opener.open(req, timeout=15) as r:
+            r.read()
+            if r.status == 200:
+                _wwcc_jar = jar
+                return jar
+    except Exception as exc:
+        log.debug("WWCC login failed: %s", exc)
+    return None
+
+
+def _wwcc_get(url: str, jar: "http.cookiejar.CookieJar | None" = None) -> str:
+    """HTTP GET to WWCC website, with optional authenticated cookie jar."""
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; WWCC-Kiosk/1.0)"}
+    req = urllib.request.Request(url, headers=headers)
+    if jar:
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        with opener.open(req, timeout=15) as r:
+            return r.read().decode("utf-8", errors="replace")
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8", errors="replace")
+
+
+def _ev_tag(ev_text: str, tag: str) -> str:
+    t = re.search(f"<{tag}>(.*?)</{tag}>", ev_text)
+    return t.group(1).strip() if t else ""
+
+
+def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
+    """Poll WWCC official results API and return publication status.
+
+    Returns {"published": bool, "reportLinks": list[str], "eventId": str|None}.
+    Single-grade events: published when FirstReportLink is set (public PDF).
+    Multi-grade events (A/B/C): requires authenticated session to find PDFs.
+    """
+    if not comp_date:
+        return {"published": False, "reportLinks": [], "eventId": None}
+    try:
+        xml = _wwcc_get(f"{_WWCC_BASE}/common/Ajax?doAction=getResults&date={comp_date}")
+        our_words = _norm_title(comp_title)
+        best: dict | None = None
+        best_score = -1
+
+        for m in re.finditer(r"<BookingEvent>(.*?)</BookingEvent>", xml, re.DOTALL):
+            ev = m.group(1)
+            title        = html.unescape(_ev_tag(ev, "Title"))
+            ev_date      = _ev_tag(ev, "EventDate")
+            result_count = int(_ev_tag(ev, "ResultCount") or "0")
+            report_link  = _ev_tag(ev, "FirstReportLink")
+            ev_id        = _ev_tag(ev, "BookingEventId")
+
+            wwcc_words = _norm_title(title)
+            common = our_words & wwcc_words
+            threshold = max(1, min(len(our_words), len(wwcc_words)) // 2)
+            if not common or len(common) < threshold:
+                continue
+            # Same date is a strong signal; title overlap breaks remaining ties
+            score = len(common) + (10 if ev_date == comp_date else 0)
+            if score > best_score:
+                best_score = score
+                best = {
+                    "title": title,
+                    "id": ev_id,
+                    "resultCount": result_count,
+                    "reportLink": report_link,
+                }
+
+        if not best:
+            return {"published": False, "reportLinks": [], "eventId": None}
+
+        ev_id        = best["id"]
+        result_count = best["resultCount"]
+
+        # Single-grade event: published when FirstReportLink is set
+        if result_count == 1 and best["reportLink"]:
+            return {
+                "published": True,
+                "reportLinks": [_WWCC_BASE + best["reportLink"]],
+                "eventId": ev_id,
+            }
+
+        # Multi-grade event: need authenticated session to find individual PDF links
+        if result_count > 1:
+            jar = _wwcc_login()
+            if jar:
+                try:
+                    page = _wwcc_get(
+                        f"{_WWCC_BASE}/members/mobile?doAction=displayJsp"
+                        f"&pageName=displayResultsPdf&eventId={ev_id}",
+                        jar=jar,
+                    )
+                    pdf_links = list(dict.fromkeys(
+                        re.findall(r"/upload/reportOutput/[^\"']+\.pdf", page)
+                    ))
+                    if pdf_links:
+                        return {
+                            "published": True,
+                            "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
+                            "eventId": ev_id,
+                        }
+                except Exception as exc:
+                    log.debug("WWCC multi-grade result fetch failed: %s", exc)
+
+        return {"published": False, "reportLinks": [], "eventId": ev_id}
+
+    except Exception as exc:
+        log.debug("WWCC results check failed: %s", exc)
+        return {"published": False, "reportLinks": [], "eventId": None}
 
 # ---------------------------------------------------------------------------
 # board + scorecard parsing (live-aware; the shared webscrape helpers assume
@@ -712,6 +866,20 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         key=lambda p: (p["points"], -p["thru"], p["player"]),
     )
 
+    # Detect round complete (all players who teed off have finished)
+    active_players = [p for p in players if p["thru"] > 0]
+    round_complete = bool(active_players) and all(
+        p["thru"] >= (hole_count or 18) for p in active_players
+    )
+
+    # Official results gate: poll WWCC API after round complete; cache per board.
+    global _official_cache, _official_cache_board
+    if board_id != _official_cache_board:
+        _official_cache = {"published": False, "reportLinks": [], "eventId": None}
+        _official_cache_board = board_id
+    if round_complete and not _official_cache.get("published"):
+        _official_cache = _wwcc_check_results(board["name"], board.get("date"))
+
     now = datetime.now(timezone.utc)
 
     # Accumulate the day-of stories archive; reset on new competition.
@@ -742,6 +910,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "generatedAt": now.isoformat(),
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
+        "officialResultsReady": _official_cache.get("published", False),
+        "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories[:12],

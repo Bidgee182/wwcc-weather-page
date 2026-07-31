@@ -454,6 +454,10 @@ let _lastStoriesData       = null;
 let _lastStoriesSkipExpiry = false;
 let _lastComingLastArgs    = null; // { comingLast, holeCount }
 
+// True once the WWCC official results API confirms results are published.
+// Results mode (3-column layout) only activates when this is true.
+let _officialResultsReady = false;
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -645,11 +649,16 @@ function updateHeader(d) {
     } else {
         const active = players.filter(p => p.thru > 0);
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
+        const official = d.officialResultsReady || false;
+        _officialResultsReady = official;
         setBadge(allDone ? 'results' : 'live', allDone ? 'Results' : 'Live');
-        if (allDone && !_refreshStopped) {
+        if (allDone && official && !_refreshStopped) {
             _refreshStopped = true;
             const el = document.getElementById('ftr-countdown');
             if (el) el.textContent = 'Round complete';
+        } else if (allDone && !official) {
+            const el = document.getElementById('ftr-countdown');
+            if (el) el.textContent = 'Awaiting official results';
         }
     }
 }
@@ -714,7 +723,7 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
-function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete) {
+function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete, officialResultsReady) {
     const strip  = document.getElementById('grade-strip');
     const panel  = document.getElementById('results-grade-panel');
     const mainEl = document.querySelector('.main');
@@ -728,6 +737,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if ((competition || '').toUpperCase().includes('4BBB')) { exitResults(); return; }
     if (!grades || !activeSorted.length) { exitResults(); return; }
     if (!roundComplete) { exitResults(); return; }
+    if (!officialResultsReady) { exitResults(); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
@@ -903,7 +913,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
             _animRunning = false;
         }
         if (clip) clip.style.opacity = '1';
-        renderGradeStrip(active, grades, holeCount, competition, roundComplete);
+        renderGradeStrip(active, grades, holeCount, competition, roundComplete, _officialResultsReady);
     }, 250);
 }
 
