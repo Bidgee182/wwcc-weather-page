@@ -252,9 +252,9 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         else: break
     bogey_holes = played[-bogey_streak:] if bogey_streak else []
     if bogey_streak >= 6:
-        return story("Someone Check On Them", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)}", "red", "🚑")
+        return story("Someone Check On Them", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)} - Cronulla Sharks finals form", "red", "🚑")
     if bogey_streak >= 5:
-        return story("Is This Fun Anymore?", f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)}", "red", "😭")
+        return story("Is This Fun Anymore?", f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)} - pure St Kilda fan energy", "red", "😭")
     if bogey_streak >= 4:
         return story("Still Grinding...", f"{bogey_streak} straight {bogeys_word()} on {holes_str(bogey_holes)}", "blue", "😤")
     if bogey_streak >= 3:
@@ -265,9 +265,9 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         prev_h, last_h = played[-2], played[-1]
         two = holes_str([prev_h, last_h])
         if is_eagle(prev_h) and is_wipe(last_h):
-            return story("The Rollercoaster", f"{eagle_word(prev_h)} then a wipe on {two}", "orange", "🎢")
+            return story("The Rollercoaster", f"{eagle_word(prev_h)} then a wipe on {two} - Adelaide Crows energy: brilliant then baffling", "orange", "🎢")
         if is_birdie(prev_h) and is_wipe(last_h):
-            return story("Hero to Zero", f"{birdie_word(prev_h)} then a wipe on {two}", "orange", "📉")
+            return story("Hero to Zero", f"{birdie_word(prev_h)} then a wipe on {two} - NZ Warriors in one set", "orange", "📉")
         if gpts(prev_h) == 3 and is_bogey(last_h):
             detail = (f"3-pointer straight into a {bogey_word()} on {two}" if is_stableford
                       else f"Birdie straight into a bogey on {two}")
@@ -319,13 +319,13 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     if total_wipes >= 6:
         return story("Points-Free Diet", f"{total_wipes} wipes - scoring as often as North Melbourne make the finals", "red", "🌵")
     if total_wipes >= 4 and n >= 9:
-        return story("The Streaker (Not That Kind)", f"{total_wipes} wipes in {n} holes - the course is winning", "red", "😵")
+        return story("The Streaker (Not That Kind)", f"{total_wipes} wipes in {n} holes - the course is winning. Gold Coast Titans form right here", "red", "😵")
 
     # Bogey storms (longest run anywhere, not just current tail)
     longest_bogey_run = _max_run(is_bogey)
     if longest_bogey_run >= 5:
         return story("Kick, Chase, Repeat",
-                     f"{longest_bogey_run} {bogeys_word()} in a row at some point - like Essendon kicking at goal this year",
+                     f"{longest_bogey_run} {bogeys_word()} in a row at some point - like Richmond in October: close but never converting",
                      "red", "🦶")
     if total_bogeys >= 9:
         return story("The 1-Pointer Specialist",
@@ -339,14 +339,14 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     # Total birdies haul (not bunched - streaks already caught above)
     bw = "3-pointers+" if is_stableford else "birdies"
     if total_birdies >= 5:
-        return story("The Merchant", f"{total_birdies} {bw} on the card - quality is there, just spread around", "orange", "🛍️")
+        return story("The Merchant", f"{total_birdies} {bw} on the card - Brisbane Lions style, finding the scoreboard from everywhere", "orange", "🛍️")
     if total_birdies >= 3 and n >= 12:
-        return story("Spot Fires", f"{total_birdies} {bw} scattered through the round - keeps it interesting", "orange", "✨")
+        return story("Spot Fires", f"{total_birdies} {bw} scattered through the round - Souths Rabbitohs attack: unpredictable but it keeps coming", "orange", "✨")
 
     # Searching - wipes with no birdies
     if total_wipes >= 3 and total_birdies == 0 and n >= 9:
         return story("Still Searching",
-                     f"{total_wipes} wipes, no birdies from {n} holes - scorecard looking for answers",
+                     f"{total_wipes} wipes, no birdies from {n} holes - West Coast Eagles vibes: everyone's trying, nothing is clicking",
                      "red", "🔍")
 
     # Clean card - no wipes
@@ -360,11 +360,11 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         avg = total_pts / n
         if avg >= 2.8:
             return story("That's a Good Card",
-                         f"Averaging {avg:.1f}pts per hole through {n} - proper leaderboard round",
+                         f"Averaging {avg:.1f}pts per hole through {n} - Geelong Cats efficiency: boring, effective, winning",
                          "gold", "📈")
         if avg >= 2.4:
             return story("On the Right Track",
-                         f"Averaging {avg:.1f}pts per hole through {n} - steady and building",
+                         f"Averaging {avg:.1f}pts per hole through {n} - Newcastle Knights vibes: steady, building, watch this space",
                          "orange", "🛤️")
         if avg < 0.8:
             return story("Lost in the Rough",
@@ -374,7 +374,7 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     # All four outcomes seen (full experience)
     if total_wipes > 0 and total_bogeys > 0 and total_pars > 0 and total_birdies > 0:
         return story("The Complete Package",
-                     "Wipes, bogeys, pars AND birdies - they've sampled everything on the menu",
+                     "Wipes, bogeys, pars AND birdies - the full Manly Sea Eagles package: drama, flair, and something for everyone",
                      "blue", "🎰")
 
     # Pure bogeys only - no other outcomes
