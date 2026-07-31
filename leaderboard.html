@@ -448,6 +448,12 @@ let _loadedHash      = null;   // gitHash from first successful fetch (= build w
 let _needsReload     = false;  // true when server has a newer build; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
 
+// Last-render snapshots: used to keep panels scrolling after refresh stops
+let _lastRenderData        = null;
+let _lastStoriesData       = null;
+let _lastStoriesSkipExpiry = false;
+let _lastComingLastArgs    = null; // { comingLast, holeCount }
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -479,9 +485,13 @@ async function fetchData() {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
 
-        // Always update the build display so the footer shows the currently-served build hash
+        // Footer build: show poller hash; flag if it's behind github (gitRemoteHash differs)
         const _bEl = document.getElementById('ftr-build');
-        if (_bEl && data.gitHash) _bEl.textContent = 'build ' + data.gitHash;
+        if (_bEl && data.gitHash) {
+            const behind = data.gitRemoteHash && data.gitRemoteHash !== data.gitHash;
+            _bEl.textContent = 'poller ' + data.gitHash + (behind ? '  github ' + data.gitRemoteHash + ' - restart poller' : '');
+            _bEl.style.color = behind ? '#e74c3c' : '';
+        }
 
         if (!_hasData) {
             // First successful load - render everything immediately
@@ -516,13 +526,15 @@ async function fetchData() {
     }
 }
 
-// Apply buffered leaderboard data at the natural scroll loop point (last player scrolls off)
+// Apply buffered leaderboard data at the natural scroll loop point (last player scrolls off).
+// When refresh is stopped (round complete), fall back to last render data so the scroll loop
+// keeps cycling without needing new data from the poller.
 function _applyPending() {
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     if (_needsReload) { location.reload(); return; }
-    const d = _pendingData;
+    const d = _pendingData || (_refreshStopped ? _lastRenderData : null);
     if (!d) return;
-    _pendingData = null;
+    if (_pendingData) { _lastRenderData = d; _pendingData = null; }
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
 }
 document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 5000));
@@ -532,19 +544,19 @@ document.getElementById('lb-inner').addEventListener('animationend', () => setTi
 // always see the complete list before it resets.
 function _applyPendingStories() {
     if (_storyForceTimer) { clearTimeout(_storyForceTimer); _storyForceTimer = null; }
-    if (_pendingStories === null) return;
+    // Use pending data, or fall back to last rendered data to keep the loop alive when stopped
+    const hasPending = _pendingStories !== null;
+    const s    = hasPending ? _pendingStories    : (_refreshStopped ? _lastStoriesData       : null);
+    const skip = hasPending ? _pendingStoriesSkipExpiry : (_refreshStopped ? _lastStoriesSkipExpiry : false);
+    if (s === null) return;
     // Hold for at least one full animation cycle so all stories are seen.
     const minHold = Math.max(25000, _storyAnimDurMs);
     const elapsed = Date.now() - _lastStoryRenderTime;
     if (elapsed < minHold) {
-        // Too soon - wait for the remainder of this cycle then retry.
         _storyForceTimer = setTimeout(_applyPendingStories, minHold - elapsed + 500);
         return;
     }
-    const s    = _pendingStories;
-    const skip = _pendingStoriesSkipExpiry;
-    _pendingStories           = null;
-    _pendingStoriesSkipExpiry = false;
+    if (hasPending) { _pendingStories = null; _pendingStoriesSkipExpiry = false; }
     renderStories(s, skip);
 }
 
@@ -567,7 +579,7 @@ function queueStories(stories, skipExpiry) {
     const heater = document.querySelector('#heater-list .side-list-inner');
     if (heater) heater.addEventListener('animationend', () => setTimeout(_applyPendingStories, 5000));
     const last = document.querySelector('#last-list .side-list-inner');
-    if (last) last.addEventListener('animationend', _applyPendingComingLast);
+    if (last) last.addEventListener('animationend', () => setTimeout(_applyPendingComingLast, 5000));
 })();
 
 // Pick which stories list to display: archive (all day) when round complete, live otherwise
@@ -598,6 +610,7 @@ function render(d) {
         return;
     }
 
+    _lastRenderData = d;
     updateHeader(d);
     setFooter(d.generatedAt, '');
     setBlueBallVisible(d.date);
@@ -939,6 +952,8 @@ function stripHcp(s) {
 const _storyState = {}; // { 'player|title': { since: timestamp } }
 
 function renderStories(stories, skipExpiry) {
+    _lastStoriesData       = stories;
+    _lastStoriesSkipExpiry = skipExpiry || false;
     const now = Date.now();
     _lastStoryRenderTime = now; // guard: track when stories were last rendered
     const EXPIRY_MS = 15 * 60 * 1000; // gold never expires; others expire after 15 min
@@ -977,6 +992,7 @@ function renderStories(stories, skipExpiry) {
 }
 
 function _doRenderComingLast(comingLast, holeCount) {
+    _lastComingLastArgs = { comingLast, holeCount };
     const hc = holeCount || 18;
     const rows = comingLast.map(p => {
         const fin = p.thru >= hc;
@@ -998,13 +1014,14 @@ function renderComingLast(comingLast, holeCount) {
     _doRenderComingLast(comingLast, holeCount);
 }
 
-// Apply buffered coming-last at the natural animationend point
+// Apply buffered coming-last at the natural animationend point; fall back to last render when stopped
 function _applyPendingComingLast() {
     if (_comingLastForceTimer) { clearTimeout(_comingLastForceTimer); _comingLastForceTimer = null; }
-    if (_pendingComingLast === null) return;
-    const { comingLast, holeCount } = _pendingComingLast;
-    _pendingComingLast = null;
-    _doRenderComingLast(comingLast, holeCount);
+    const hasPending = _pendingComingLast !== null;
+    const args = hasPending ? _pendingComingLast : (_refreshStopped ? _lastComingLastArgs : null);
+    if (!args) return;
+    if (hasPending) _pendingComingLast = null;
+    _doRenderComingLast(args.comingLast, args.holeCount);
 }
 
 // Queue new coming-last; apply at next animationend (or force after 2 full cycles)

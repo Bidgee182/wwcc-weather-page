@@ -46,7 +46,18 @@ def _git_hash() -> str | None:
     except Exception:
         return None
 
+def _git_remote_hash() -> str | None:
+    """Latest commit on origin/main - tells the kiosk if the poller is behind GitHub."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "origin/main"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip() or None
+    except Exception:
+        return None
+
 GIT_HASH: str | None = _git_hash()
+GIT_REMOTE_HASH: str | None = _git_remote_hash()
 
 HOLE_MAP: dict[int, int] = {}
 HOLE_COUNT_OVERRIDE: int | None = None
@@ -727,6 +738,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "courseHoles": course_holes or hole_count or None,
         "par": par_total or None,
         "gitHash": GIT_HASH,
+        "gitRemoteHash": GIT_REMOTE_HASH,
         "generatedAt": now.isoformat(),
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
