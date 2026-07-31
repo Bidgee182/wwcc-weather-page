@@ -22,6 +22,8 @@ jobs:
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+      WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
 
     steps:
       - name: Check sunrise/sunset window (Wagga Wagga -35.12, 147.37)
