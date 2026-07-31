@@ -283,12 +283,14 @@ html, body {
     /* Stack side panels vertically so names have full width */
     .side-panels { flex: none; flex-direction: column; height: auto; gap: 8px; }
     .side-card { flex: none; }
-    /* On mobile disable the infinite-scroll animation - just regular scroll so names don't duplicate */
-    .side-list { height: 220px; padding: 6px 10px 4px; overflow-y: auto; }
-    .side-list-inner.scrolling { animation: none; }
-    .side-list-inner { padding: 0; }
+    /* Side panels: fixed height + hidden overflow so the auto-scroll animation works on mobile */
+    .side-list { height: 260px; overflow: hidden; padding: 0; }
+    .side-list-inner { padding: 8px 12px 6px; }
 
-    .grade-strip { display: none !important; }
+    /* Grade strip: hidden during live play, shown in results mode */
+    .grade-strip { display: none; }
+    .grade-strip.visible { display: block; }
+    /* Results left-panel and layout adjustments not applicable on mobile */
     .main.results-mode .results-grade-panel { display: none !important; }
     .main.results-mode .lb-panel { flex: none; height: 55vh; }
 
@@ -299,15 +301,12 @@ html, body {
     .panel-title-bar { padding: 5px 10px; }
     .col-hdr { padding: 4px 10px; }
     .side-title-bar { padding: 5px 10px; font-size: 0.72em; }
-    .story-row { padding: 5px 0; }
-    .last-row  { padding: 5px 0; }
+    .story-row { padding: 8px 0; }
+    .last-row  { padding: 8px 0; }
 
     /* Leaderboard: allow team names to wrap and reduce font size */
     .r-name { white-space: normal; overflow: visible; font-size: 1.15em; }
 
-    /* Stories: static colours on mobile, no animation */
-    .story-name-gold   { animation: none; color: #f1c40f; }
-    .story-name-orange { animation: none; color: #e67e22; }
     .story-name  { font-size: 1.05em; }
     .story-title { font-size: 0.95em; }
     .story-detail { font-size: 0.8em; }
