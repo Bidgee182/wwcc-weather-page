@@ -171,7 +171,7 @@ def _hole_note(h: dict) -> str | None:
     return None
 
 
-def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
+def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> dict | None:
     """Generate a Scoreboard Story from a player's played holes (hole-number order).
 
     is_stableford: use points-based language (3-pointer, 4-pointer etc).
@@ -223,6 +223,9 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
 
     def story(title, detail, tier, emoji):
         return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
+
+    def _var(*opts: str) -> str:
+        return opts[abs(hash(player)) % len(opts)]
 
     # ── Per-hole priority stories ────────────────────────────────────────────
 
@@ -279,9 +282,9 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         else: break
     bogey_holes = played[-bogey_streak:] if bogey_streak else []
     if bogey_streak >= 6:
-        return story("Someone Check On Them", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)} - Cronulla Sharks finals form", "red", "🚑")
+        return story("Someone Check On Them", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)} - {_var('Cronulla Sharks finals form', 'playing like they lost the rulebook', 'pure Sunday arvo golf energy')}", "red", "🚑")
     if bogey_streak >= 5:
-        return story("Is This Fun Anymore?", f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)} - pure St Kilda fan energy", "red", "😭")
+        return story("Is This Fun Anymore?", f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)} - {_var('pure St Kilda fan energy', 'cricket pitch level patience required', 'V8s at Bathurst: going nowhere fast')}", "red", "😭")
     if bogey_streak >= 4:
         return story("Still Grinding...", f"{bogey_streak} straight {bogeys_word()} on {holes_str(bogey_holes)}", "blue", "😤")
     if bogey_streak >= 3:
@@ -292,9 +295,9 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         prev_h, last_h = played[-2], played[-1]
         two = holes_str([prev_h, last_h])
         if is_eagle(prev_h) and is_wipe(last_h):
-            return story("The Rollercoaster", f"{eagle_word(prev_h)} then a wipe on {two} - Adelaide Crows energy: brilliant then baffling", "orange", "🎢")
+            return story("The Rollercoaster", f"{eagle_word(prev_h)} then a wipe on {two} - {_var('Adelaide Crows energy: brilliant then baffling', 'cricket in one over: six then a wicket', 'peak Australian sport')}", "orange", "🎢")
         if is_birdie(prev_h) and is_wipe(last_h):
-            return story("Hero to Zero", f"{birdie_word(prev_h)} then a wipe on {two} - NZ Warriors in one set", "orange", "📉")
+            return story("Hero to Zero", f"{birdie_word(prev_h)} then a wipe on {two} - {_var('NZ Warriors in one set', 'feast then famine', 'hot start, cold finish')}", "orange", "📉")
         if gpts(prev_h) == 3 and is_bogey(last_h):
             detail = (f"3-pointer straight into a {bogey_word()} on {two}" if is_stableford
                       else f"Birdie straight into a bogey on {two}")
@@ -342,44 +345,46 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
 
     # Wipe-heavy rounds
     if total_wipes >= 8:
-        return story("The Colander", f"{total_wipes} wipes from {n} holes - more leakage than Essendon's defence", "red", "🪣")
+        _v = _var("more leakage than the Essendon defence", "more gaps than a country fence", "the course is just helping itself")
+        return story("The Colander", f"{total_wipes} wipes from {n} holes - {_v}", "red", "🪣")
     if total_wipes >= 6:
-        return story("Points-Free Diet", f"{total_wipes} wipes - scoring as often as North Melbourne make the finals", "red", "🌵")
+        return story("Points-Free Diet", f"{total_wipes} wipes - {_var('scoring as often as North Melbourne make the finals', 'the fairways are winning today', 'the course is undefeated today')}", "red", "🌵")
     if total_wipes >= 4 and n >= 9:
-        return story("The Streaker (Not That Kind)", f"{total_wipes} wipes in {n} holes - the course is winning. Gold Coast Titans form right here", "red", "😵")
+        return story("The Streaker (Not That Kind)", f"{total_wipes} wipes in {n} holes - {_var('Gold Coast Titans form right here', 'tough day at the office', 'the bogey count approves')}", "red", "😵")
 
     # Bogey storms (longest run anywhere, not just current tail)
     longest_bogey_run = _max_run(is_bogey)
     if longest_bogey_run >= 5:
         return story("Kick, Chase, Repeat",
-                     f"{longest_bogey_run} {bogeys_word()} in a row at some point - like Richmond in October: close but never converting",
+                     f"{longest_bogey_run} {bogeys_word()} in a row at some point - {_var('like Richmond in October: close but never converting', 'always knocking, never scoring', 'par country but the pars are in hiding')}",
                      "red", "🦶")
     if total_bogeys >= 9:
         return story("The 1-Pointer Specialist",
-                     f"{total_bogeys} {bogeys_word()} on the card - consistent as a Parramatta finals meltdown",
+                     f"{total_bogeys} {bogeys_word()} on the card - {_var('consistent as a Parramatta finals meltdown', 'the bogey machine is fully operational', 'nine holes, nine lessons')}",
                      "blue", "🔩")
     if total_bogeys >= 7 and total_wipes == 0:
         return story("Nothing But Bogeys",
-                     f"{total_bogeys} {bogeys_word()}, zero wipes - hanging in like a Bulldogs fan in July",
+                     f"{total_bogeys} {bogeys_word()}, zero wipes - {_var('hanging in like a Bulldogs fan in July', 'zero wipes is something to hang your hat on', 'grit without the glory')}",
                      "blue", "⚙️")
 
     # Total birdies haul (not bunched - streaks already caught above)
     bw = "3-pointers+" if is_stableford else "birdies"
     if total_birdies >= 5:
-        return story("The Merchant", f"{total_birdies} {bw} on the card - Brisbane Lions style, finding the scoreboard from everywhere", "orange", "🛍️")
+        return story("The Merchant", f"{total_birdies} {bw} on the card - {_var('Brisbane Lions style, finding the scoreboard from everywhere', 'like Warnie: never stops attacking', 'all over the card in the best possible way')}", "orange", "🛍️")
     if total_birdies >= 3 and n >= 12:
-        return story("Spot Fires", f"{total_birdies} {bw} scattered through the round - Souths Rabbitohs attack: unpredictable but it keeps coming", "orange", "✨")
+        return story("Spot Fires", f"{total_birdies} {bw} scattered through the round - {_var('Souths Rabbitohs attack: unpredictable but it keeps coming', 'keeps finding ways to score', 'scattered but effective')}", "orange", "✨")
 
     # Searching - wipes with no birdies
     if total_wipes >= 3 and total_birdies == 0 and n >= 9:
+        _v = _var("West Coast Eagles vibes: all effort, no score", "the flagstick is definitely moving", "hard work, light reward")
         return story("Still Searching",
-                     f"{total_wipes} wipes, no birdies from {n} holes - West Coast Eagles vibes: everyone's trying, nothing is clicking",
+                     f"{total_wipes} wipes, no birdies from {n} holes - {_v}",
                      "red", "🔍")
 
     # Clean card - no wipes
     if total_wipes == 0 and n >= 12:
         return story("Squeaky Clean",
-                     f"Zero wipes from {n} holes - cleaner than a Penrith defensive set",
+                     f"Zero wipes from {n} holes - {_var('cleaner than a Penrith defensive set', 'not a wipe in sight - incredible', 'faultless card so far')}",
                      "blue", "🧹")
 
     # Scoring average
@@ -387,27 +392,28 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         avg = total_pts / n
         if avg >= 2.8:
             return story("That's a Good Card",
-                         f"Averaging {avg:.1f}pts per hole through {n} - Geelong Cats efficiency: boring, effective, winning",
+                         f"Averaging {avg:.1f}pts per hole through {n} - {_var('Geelong Cats efficiency: boring, effective, winning', 'cricket scoring: controlled, methodical, relentless', 'V8 lap pace: consistent all day')}",
                          "gold", "📈")
         if avg >= 2.4:
             return story("On the Right Track",
-                         f"Averaging {avg:.1f}pts per hole through {n} - Newcastle Knights vibes: steady, building, watch this space",
+                         f"Averaging {avg:.1f}pts per hole through {n} - {_var('Newcastle Knights vibes: steady, building, watch this space', 'not flashy but solid', 'the engine is warm')}",
                          "orange", "🛤️")
         if avg < 0.8:
+            _v = _var("tougher than a Wests Tigers fan meeting", "the course is not cooperating", "character-building stuff")
             return story("Lost in the Rough",
-                         f"Under a point a hole through {n} - tougher than a Wests Tigers supporters' meeting",
+                         f"Under a point a hole through {n} - {_v}",
                          "red", "🌿")
 
     # All four outcomes seen (full experience)
     if total_wipes > 0 and total_bogeys > 0 and total_pars > 0 and total_birdies > 0:
         return story("The Complete Package",
-                     "Wipes, bogeys, pars AND birdies - the full Manly Sea Eagles package: drama, flair, and something for everyone",
+                     f"Wipes, bogeys, pars AND birdies - {_var('the full Manly Sea Eagles package: drama, flair, and something for everyone', 'a round that covers all four food groups', 'the full Australian golf experience')}",
                      "blue", "🎰")
 
     # Pure bogeys only - no other outcomes
     if total_bogeys >= 5 and total_wipes == 0 and total_birdies == 0 and n >= 9:
         return story("The Consistent Battler",
-                     f"{total_bogeys} {bogeys_word()} and nothing else - steady as a Canberra Raiders defensive set",
+                     f"{total_bogeys} {bogeys_word()} and nothing else - {_var('steady as a Canberra Raiders defensive set', 'exactly what it says on the tin', 'no surprises, no drama')}",
                      "blue", "🔩")
 
     return None
@@ -486,7 +492,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             "birdies": birdies,
             "holes": holes,
             "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points"), "pointsSum": h.get("pointsSum")} for h in last],
-            "_story": _story(played, is_stableford),
+            "_story": _story(played, is_stableford, base_["player"]),
         }
         players.append(p)
 
