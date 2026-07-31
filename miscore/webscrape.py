@@ -101,7 +101,12 @@ def _parse_holes(page: str) -> list[dict]:
                 extracted = []
                 for i, v in enumerate(vals):
                     if i in col_set:
-                        extracted.append(int(v) if re.fullmatch(r"\d+", v) else None)
+                        if re.fullmatch(r"\d+", v):
+                            extracted.append(int(v))
+                        elif v == "-":
+                            extracted.append(False)  # explicit dash = played, no value
+                        else:
+                            extracted.append(None)   # blank = not yet played
                 # 4BBB scorecards have two strokes rows and two score rows (one per player)
                 if label == "strokes" and current["strokes"]:
                     current["strokes2"] = extracted
@@ -119,19 +124,31 @@ def _parse_holes(page: str) -> list[dict]:
             points   = nine.get("score",    [])
             points2  = nine.get("score2",   [])
             for i, hole in enumerate(holes):
-                p1 = points[i]  if i < len(points)  else None
-                p2 = points2[i] if i < len(points2) else None
+                p1_raw = points[i]   if i < len(points)   else None
+                p2_raw = points2[i]  if i < len(points2)  else None
+                s1_raw = strokes[i]  if i < len(strokes)  else None
+                s2_raw = strokes2[i] if i < len(strokes2) else None
+                par_raw = pars[i]    if i < len(pars)     else None
+                # Explicit dash in score row = pickup = 0 stableford pts
+                p1 = 0 if p1_raw is False else p1_raw
+                p2 = 0 if p2_raw is False else p2_raw
+                # Explicit dash in strokes row = played but no stroke count
+                s1 = None if s1_raw is False else s1_raw
+                s2 = None if s2_raw is False else s2_raw
                 # 4BBB: take better score per hole; single-player: p2 is absent
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 # pointsSum = combined individual scores (used for 4BBB heater threshold)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
+                # "played" = any cell was explicitly entered (int OR dash), not merely blank
+                played_flag = any(v is not None for v in (p1_raw, p2_raw, s1_raw, s2_raw))
                 result.append({
                     "hole":      hole,
-                    "par":       pars[i]     if i < len(pars)     else None,
-                    "strokes":   strokes[i]  if i < len(strokes)  else None,
-                    "strokes2":  strokes2[i] if i < len(strokes2) else None,
+                    "par":       None if par_raw is False else par_raw,
+                    "strokes":   s1,
+                    "strokes2":  s2,
                     "points":    pts,
                     "pointsSum": pts_sum,
+                    "played":    played_flag,
                 })
         return result
 
@@ -143,9 +160,11 @@ def _parse_holes(page: str) -> list[dict]:
             for v in vals:
                 if re.fullmatch(r"\d+", v):
                     out.append(int(v))
+                elif v == "-":
+                    out.append(False)   # explicit dash = played but no value
                 else:
-                    out.append(None)  # "-" or blank = not played
-            return out[:-1] if out else []  # drop last = subtotal
+                    out.append(None)    # blank = not yet played
+            return out[:-1] if out else []  # drop last = nine subtotal
 
         nines_pos: list[dict] = []
         cur: dict | None = None
@@ -179,17 +198,28 @@ def _parse_holes(page: str) -> list[dict]:
             points   = _nine_vals(nine.get("score",    []))
             points2  = _nine_vals(nine.get("score2",   []))
             for i in range(len(pars)):
-                p1 = points[i]  if i < len(points)  else None
-                p2 = points2[i] if i < len(points2) else None
+                p1_raw = points[i]   if i < len(points)   else None
+                p2_raw = points2[i]  if i < len(points2)  else None
+                s1_raw = strokes[i]  if i < len(strokes)  else None
+                s2_raw = strokes2[i] if i < len(strokes2) else None
+                par_raw = pars[i]    if i < len(pars)     else None
+                # Explicit dash in score row = pickup = 0 stableford pts
+                p1 = 0 if p1_raw is False else p1_raw
+                p2 = 0 if p2_raw is False else p2_raw
+                # Explicit dash in strokes row = played but no stroke count
+                s1 = None if s1_raw is False else s1_raw
+                s2 = None if s2_raw is False else s2_raw
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
+                played_flag = any(v is not None for v in (p1_raw, p2_raw, s1_raw, s2_raw))
                 out.append({
                     "hole":      hole_num,
-                    "par":       pars[i]     if i < len(pars)     else None,
-                    "strokes":   strokes[i]  if i < len(strokes)  else None,
-                    "strokes2":  strokes2[i] if i < len(strokes2) else None,
+                    "par":       None if par_raw is False else par_raw,
+                    "strokes":   s1,
+                    "strokes2":  s2,
                     "points":    pts,
                     "pointsSum": pts_sum,
+                    "played":    played_flag,
                 })
                 hole_num += 1
         return out

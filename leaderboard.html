@@ -384,6 +384,10 @@ let _pendingData  = null;  // new data buffered until scroll cycle ends
 let _lbAnimDurMs  = 0;    // current scroll cycle duration (ms)
 let _forceTimer   = null; // fallback: force-apply if animationiteration is slow
 
+let _pendingStories  = null; // stories buffered until story scroll cycle ends
+let _storyForceTimer = null; // fallback timer for story panel
+let _storyAnimDurMs  = 0;    // current story scroll cycle duration (ms)
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -428,7 +432,7 @@ async function fetchData() {
             _forceTimer = setTimeout(_applyPending, Math.max(60000, _lbAnimDurMs + 10000));
             updateHeader(data);
             setBlueBallVisible(data.date);
-            renderStories(data.stories || []);
+            queueStories(data.stories || []);
             renderComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
@@ -446,6 +450,29 @@ function _applyPending() {
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
 }
 document.getElementById('lb-inner').addEventListener('animationiteration', _applyPending);
+
+// Apply buffered stories at the natural story-scroll loop point
+function _applyPendingStories() {
+    if (_storyForceTimer) { clearTimeout(_storyForceTimer); _storyForceTimer = null; }
+    if (_pendingStories === null) return;
+    const s = _pendingStories;
+    _pendingStories = null;
+    renderStories(s);
+}
+
+// Queue new stories; apply at next animationiteration (or force after timeout)
+function queueStories(stories) {
+    _pendingStories = stories;
+    if (_storyForceTimer) clearTimeout(_storyForceTimer);
+    // Force-apply after one full cycle + buffer; if not yet scrolling use 15s
+    _storyForceTimer = setTimeout(_applyPendingStories, Math.max(15000, _storyAnimDurMs + 5000));
+}
+
+// Attach scroll-cycle listener to the stories inner element (exists in HTML at load)
+(function () {
+    const el = document.querySelector('#heater-list .side-list-inner');
+    if (el) el.addEventListener('animationiteration', _applyPendingStories);
+})();
 
 // ── Full render (first load) ──────────────────────────────────────
 function render(d) {
@@ -770,12 +797,11 @@ function renderStories(stories) {
         return (now - _storyState[key].since) < EXPIRY_MS;
     });
 
-    const TIER_EMOJI = { gold: '⭐', orange: '🔥', red: '😬', blue: '🎯' };
-    const TIER_CSS   = { gold: 'story-name-gold', orange: 'story-name-orange', red: 'story-name-red', blue: 'story-name-blue' };
+    const TIER_CSS = { gold: 'story-name-gold', orange: 'story-name-orange', red: 'story-name-red', blue: 'story-name-blue' };
 
     const rows = visible.map(s => {
-        const emoji = TIER_EMOJI[s.tier] || '';
-        const css   = TIER_CSS[s.tier]  || 'story-name-blue';
+        const emoji = s.emoji || '';   // per-story emoji set in Python
+        const css   = TIER_CSS[s.tier] || 'story-name-blue';
         const name  = esc(stripHcp(s.player));
         return '<div class="story-row">' +
             '<div class="story-left">' +
@@ -790,6 +816,8 @@ function renderStories(stories) {
         '</div>';
     });
     renderSidePanel('heater-list', rows, 'Watching the field...', 6);
+    // Track animation duration so the force-timer is set correctly
+    _storyAnimDurMs = Math.max(15, visible.length * 2.5) * 1000;
 }
 
 function renderComingLast(comingLast, holeCount) {

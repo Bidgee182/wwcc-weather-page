@@ -97,21 +97,18 @@ def _board_players(page: str) -> list[dict]:
 
 
 def _played(holes: list[dict]) -> list[dict]:
-    # Include holes where either strokes OR points is recorded.
-    # MiClub sometimes uploads stableford points before raw strokes (app sync lag),
-    # so requiring strokes alone misses those holes and undercounts the score.
-    return [h for h in holes if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
+    # Use "played" flag set by the parser (True for any entered cell, including
+    # explicit "-" pickups which have no int value). Fall back to int checks for
+    # data parsed before the "played" field was introduced.
+    return [h for h in holes
+            if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
 def _thru(holes: list[dict]) -> int:
-    # Count holes with scores entered (strokes or points present).
-    # Never use hole number / index - shotgun starts mean a player on hole 10
-    # has index 9 but has only played 1 hole.
-    count = 0
-    for h in holes:
-        if isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int):
-            count += 1
-    return count
+    # Count all holes explicitly entered on the card - including pickups ("-").
+    # Never use hole index: shotgun starts mean the index order is not play order.
+    return sum(1 for h in holes
+               if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int))
 
 
 def _course_shape(page: str) -> tuple[int, int]:
@@ -167,14 +164,20 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     def hnum(h):      return h.get("hole", "?")
 
     def holes_str(hs):
-        """Format hole numbers: 'hole 5', 'holes 5 & 6', 'holes 5, 6 & 7', 'holes 5-8'."""
         nums = [hnum(h) for h in hs]
         if len(nums) == 1: return f"hole {nums[0]}"
         if len(nums) == 2: return f"holes {nums[0]} & {nums[1]}"
         if len(nums) == 3: return f"holes {nums[0]}, {nums[1]} & {nums[2]}"
         return f"holes {nums[0]}-{nums[-1]}"
 
-    # Terminology helpers: stableford uses pts, stroke uses names
+    def _max_run(pred):
+        """Longest consecutive run of holes matching pred anywhere in played."""
+        best = cur = 0
+        for h in played:
+            if pred(h): cur += 1; best = max(best, cur)
+            else: cur = 0
+        return best
+
     def birdie_word(h=None):
         if is_stableford:
             pts = gpts(h) if h else 3
@@ -191,19 +194,22 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     def bogey_word():    return "1-pointer"  if is_stableford else "bogey"
     def bogeys_word():   return "1-pointers" if is_stableford else "bogeys"
 
+    def story(title, detail, tier, emoji):
+        return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
+
+    # ── Per-hole priority stories ────────────────────────────────────────────
+
     # Hole in one
     for h in played:
         if h.get("strokes") == 1 and h.get("par") == 3:
-            return {"title": "ACE!", "detail": f"Hole in one on hole {hnum(h)} - buy them a drink!", "tier": "gold"}
+            return story("ACE!", f"Hole in one on hole {hnum(h)} - buy them a drink!", "gold", "🎯")
 
     # Two or more eagles in the round
     eagle_holes = [h for h in played if is_eagle(h)]
     if len(eagle_holes) >= 2:
-        if is_stableford:
-            detail = f"{len(eagle_holes)} big ones - {holes_str(eagle_holes)}"
-        else:
-            detail = f"{len(eagle_holes)} eagles on {holes_str(eagle_holes)} - this isn't fair"
-        return {"title": "Someone Call Security", "detail": detail, "tier": "gold"}
+        detail = (f"{len(eagle_holes)} big ones - {holes_str(eagle_holes)}" if is_stableford
+                  else f"{len(eagle_holes)} eagles on {holes_str(eagle_holes)} - this isn't fair")
+        return story("Someone Call Security", detail, "gold", "🚔")
 
     # Consecutive birdie streak from most recent hole backward
     birdie_streak = 0
@@ -213,20 +219,18 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
     streak_holes = played[-birdie_streak:] if birdie_streak else []
 
     if birdie_streak >= 3:
-        detail = f"{birdie_streak} straight {birdies_word()} on {holes_str(streak_holes)}"
-        return {"title": "Running Hot", "detail": detail, "tier": "gold"}
+        return story("Running Hot", f"{birdie_streak} straight {birdies_word()} on {holes_str(streak_holes)}", "gold", "🔥")
     if birdie_streak >= 2:
-        detail = f"Back-to-back {birdies_word()} on {holes_str(streak_holes)}"
-        return {"title": "On the Charge", "detail": detail, "tier": "orange"}
+        return story("On the Charge", f"Back-to-back {birdies_word()} on {holes_str(streak_holes)}", "orange", "⚡")
 
-    # Eagle/4-pointer on most recent hole
+    # Eagle on most recent hole
     if is_eagle(played[-1]):
         last_h = played[-1]
         if n >= 3 and is_wipe(played[-2]) and is_wipe(played[-3]):
-            detail = f"Two wipes then a {eagle_word(last_h)} on {holes_str([played[-3], played[-2], last_h])}"
-            return {"title": "Out of Nowhere", "detail": detail, "tier": "gold"}
-        detail = f"{eagle_word(last_h)} on hole {hnum(last_h)}"
-        return {"title": "The Big Gun", "detail": detail, "tier": "gold"}
+            return story("Out of Nowhere",
+                         f"Two wipes then a {eagle_word(last_h)} on {holes_str([played[-3], played[-2], last_h])}",
+                         "gold", "🎭")
+        return story("The Big Gun", f"{eagle_word(last_h)} on hole {hnum(last_h)}", "gold", "💥")
 
     # Wipe streak
     wipe_streak = 0
@@ -235,11 +239,11 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         else: break
     wipe_holes = played[-wipe_streak:] if wipe_streak else []
     if wipe_streak >= 4:
-        return {"title": "Already at the Bar", "detail": f"{wipe_streak} wipes in a row on {holes_str(wipe_holes)}", "tier": "red"}
+        return story("Already at the Bar", f"{wipe_streak} wipes in a row on {holes_str(wipe_holes)}", "red", "🍺")
     if wipe_streak == 3:
-        return {"title": "Left the Clubs at Home", "detail": f"3 wipes in a row on {holes_str(wipe_holes)}", "tier": "red"}
+        return story("Left the Clubs at Home", f"3 wipes in a row on {holes_str(wipe_holes)}", "red", "🏠")
     if wipe_streak == 2 and n >= 5:
-        return {"title": "Rough Patch", "detail": f"2 wipes on {holes_str(wipe_holes)} - club still in the bag", "tier": "red"}
+        return story("Rough Patch", f"2 wipes on {holes_str(wipe_holes)} - club still in the bag", "red", "🩹")
 
     # Bogey train (escalating shade)
     bogey_streak = 0
@@ -248,55 +252,136 @@ def _story(played: list[dict], is_stableford: bool = True) -> dict | None:
         else: break
     bogey_holes = played[-bogey_streak:] if bogey_streak else []
     if bogey_streak >= 6:
-        return {"title": "Someone Check On Them", "detail": f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)}", "tier": "red"}
+        return story("Someone Check On Them", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)}", "red", "🚑")
     if bogey_streak >= 5:
-        return {"title": "Is This Fun Anymore?", "detail": f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)}", "tier": "red"}
+        return story("Is This Fun Anymore?", f"{bogey_streak} {bogeys_word()} on the bounce on {holes_str(bogey_holes)}", "red", "😭")
     if bogey_streak >= 4:
-        return {"title": "Still Grinding...", "detail": f"{bogey_streak} straight {bogeys_word()} on {holes_str(bogey_holes)}", "tier": "blue"}
+        return story("Still Grinding...", f"{bogey_streak} straight {bogeys_word()} on {holes_str(bogey_holes)}", "blue", "😤")
     if bogey_streak >= 3:
-        return {"title": "The Grind", "detail": f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)}", "tier": "blue"}
+        return story("The Grind", f"{bogey_streak} {bogeys_word()} in a row on {holes_str(bogey_holes)}", "blue", "⛏️")
 
-    # Two-hole transitions (checked after streaks so streaks always dominate)
+    # Two-hole transitions
     if n >= 2:
         prev_h, last_h = played[-2], played[-1]
         two = holes_str([prev_h, last_h])
         if is_eagle(prev_h) and is_wipe(last_h):
-            return {"title": "The Rollercoaster", "detail": f"{eagle_word(prev_h)} then a wipe on {two}", "tier": "orange"}
+            return story("The Rollercoaster", f"{eagle_word(prev_h)} then a wipe on {two}", "orange", "🎢")
         if is_birdie(prev_h) and is_wipe(last_h):
-            return {"title": "Hero to Zero", "detail": f"{birdie_word(prev_h)} then a wipe on {two}", "tier": "orange"}
+            return story("Hero to Zero", f"{birdie_word(prev_h)} then a wipe on {two}", "orange", "📉")
         if gpts(prev_h) == 3 and is_bogey(last_h):
-            detail = f"3-pointer straight into a {bogey_word()} on {two}" if is_stableford else f"Birdie straight into a bogey on {two}"
-            return {"title": "Giveth and Taketh Away", "detail": detail, "tier": "orange"}
+            detail = (f"3-pointer straight into a {bogey_word()} on {two}" if is_stableford
+                      else f"Birdie straight into a bogey on {two}")
+            return story("Giveth and Taketh Away", detail, "orange", "🔄")
         if is_wipe(prev_h) and is_birdie(last_h):
-            return {"title": "The Bounce Back", "detail": f"Wipe then a {birdie_word(last_h)} on {two}", "tier": "orange"}
+            return story("The Bounce Back", f"Wipe then a {birdie_word(last_h)} on {two}", "orange", "↩️")
 
-    # Par streak (escalating shade)
+    # Par streak
     par_streak = 0
     for h in reversed(played):
         if is_par(h): par_streak += 1
         else: break
     par_holes = played[-par_streak:] if par_streak else []
     if par_streak >= 9:
-        return {"title": "The Metronome", "detail": f"{par_streak} pars on {holes_str(par_holes)}. Just. Pars.", "tier": "blue"}
+        return story("The Metronome", f"{par_streak} pars on {holes_str(par_holes)}. Just. Pars.", "blue", "⏱️")
     if par_streak >= 7:
-        return {"title": "Human Highway", "detail": f"{par_streak} pars in a row on {holes_str(par_holes)} - accountant energy", "tier": "blue"}
+        return story("Human Highway", f"{par_streak} pars in a row on {holes_str(par_holes)} - accountant energy", "blue", "🛣️")
     if par_streak >= 5:
-        return {"title": "Vanilla Golf", "detail": f"{par_streak} straight pars on {holes_str(par_holes)}", "tier": "blue"}
+        return story("Vanilla Golf", f"{par_streak} straight pars on {holes_str(par_holes)}", "blue", "🍦")
     if par_streak >= 3:
-        return {"title": "Finding a Rhythm", "detail": f"{par_streak} pars on the bounce on {holes_str(par_holes)}", "tier": "blue"}
+        return story("Finding a Rhythm", f"{par_streak} pars on the bounce on {holes_str(par_holes)}", "blue", "🎵")
 
-    # Bad start: wipes from the very first hole played
+    # Bad start: wipes from the very first hole
     wipes_from_start = 0
     for h in played:
         if is_wipe(h): wipes_from_start += 1
         else: break
     start_holes = played[:wipes_from_start]
     if wipes_from_start >= 7:
-        return {"title": "Save It For Next Week", "detail": f"Still searching - {wipes_from_start} wipes to open on {holes_str(start_holes)}", "tier": "red"}
+        return story("Save It For Next Week", f"Still searching - {wipes_from_start} wipes to open on {holes_str(start_holes)}", "red", "📅")
     if wipes_from_start >= 5:
-        return {"title": "Looking for the Course", "detail": f"Nothing from the first {wipes_from_start} on {holes_str(start_holes)}", "tier": "red"}
+        return story("Looking for the Course", f"Nothing from the first {wipes_from_start} on {holes_str(start_holes)}", "red", "🗺️")
     if wipes_from_start >= 3 and n <= 9:
-        return {"title": "Slow Starter", "detail": f"Nil from the first {wipes_from_start} on {holes_str(start_holes)}", "tier": "blue"}
+        return story("Slow Starter", f"Nil from the first {wipes_from_start} on {holes_str(start_holes)}", "blue", "🐢")
+
+    # ── Whole-round aggregate stories (fallback when no per-hole story fires) ─
+    if n < 6:
+        return None
+
+    total_wipes   = sum(1 for h in played if is_wipe(h))
+    total_bogeys  = sum(1 for h in played if is_bogey(h))
+    total_pars    = sum(1 for h in played if is_par(h))
+    total_birdies = sum(1 for h in played if is_birdie(h))
+    total_pts     = sum(gpts(h) or 0 for h in played)
+
+    # Wipe-heavy rounds
+    if total_wipes >= 8:
+        return story("The Colander", f"{total_wipes} wipes from {n} holes - more leakage than Essendon's defence", "red", "🪣")
+    if total_wipes >= 6:
+        return story("Points-Free Diet", f"{total_wipes} wipes - scoring as often as North Melbourne make the finals", "red", "🌵")
+    if total_wipes >= 4 and n >= 9:
+        return story("The Streaker (Not That Kind)", f"{total_wipes} wipes in {n} holes - the course is winning", "red", "😵")
+
+    # Bogey storms (longest run anywhere, not just current tail)
+    longest_bogey_run = _max_run(is_bogey)
+    if longest_bogey_run >= 5:
+        return story("Kick, Chase, Repeat",
+                     f"{longest_bogey_run} {bogeys_word()} in a row at some point - like Essendon kicking at goal this year",
+                     "red", "🦶")
+    if total_bogeys >= 9:
+        return story("The 1-Pointer Specialist",
+                     f"{total_bogeys} {bogeys_word()} on the card - consistent as a Parramatta finals meltdown",
+                     "blue", "🔩")
+    if total_bogeys >= 7 and total_wipes == 0:
+        return story("Nothing But Bogeys",
+                     f"{total_bogeys} {bogeys_word()}, zero wipes - hanging in like a Bulldogs fan in July",
+                     "blue", "⚙️")
+
+    # Total birdies haul (not bunched - streaks already caught above)
+    bw = "3-pointers+" if is_stableford else "birdies"
+    if total_birdies >= 5:
+        return story("The Merchant", f"{total_birdies} {bw} on the card - quality is there, just spread around", "orange", "🛍️")
+    if total_birdies >= 3 and n >= 12:
+        return story("Spot Fires", f"{total_birdies} {bw} scattered through the round - keeps it interesting", "orange", "✨")
+
+    # Searching - wipes with no birdies
+    if total_wipes >= 3 and total_birdies == 0 and n >= 9:
+        return story("Still Searching",
+                     f"{total_wipes} wipes, no birdies from {n} holes - scorecard looking for answers",
+                     "red", "🔍")
+
+    # Clean card - no wipes
+    if total_wipes == 0 and n >= 12:
+        return story("Squeaky Clean",
+                     f"Zero wipes from {n} holes - cleaner than a Penrith defensive set",
+                     "blue", "🧹")
+
+    # Scoring average
+    if n >= 9:
+        avg = total_pts / n
+        if avg >= 2.8:
+            return story("That's a Good Card",
+                         f"Averaging {avg:.1f}pts per hole through {n} - proper leaderboard round",
+                         "gold", "📈")
+        if avg >= 2.4:
+            return story("On the Right Track",
+                         f"Averaging {avg:.1f}pts per hole through {n} - steady and building",
+                         "orange", "🛤️")
+        if avg < 0.8:
+            return story("Lost in the Rough",
+                         f"Under a point a hole through {n} - tougher than a Wests Tigers supporters' meeting",
+                         "red", "🌿")
+
+    # All four outcomes seen (full experience)
+    if total_wipes > 0 and total_bogeys > 0 and total_pars > 0 and total_birdies > 0:
+        return story("The Complete Package",
+                     "Wipes, bogeys, pars AND birdies - they've sampled everything on the menu",
+                     "blue", "🎰")
+
+    # Pure bogeys only - no other outcomes
+    if total_bogeys >= 5 and total_wipes == 0 and total_birdies == 0 and n >= 9:
+        return story("The Consistent Battler",
+                     f"{total_bogeys} {bogeys_word()} and nothing else - steady as a Canberra Raiders defensive set",
+                     "blue", "🔩")
 
     return None
 
