@@ -1,0 +1,43 @@
+name: Pump Control Invite Email
+
+on:
+  workflow_dispatch:
+    inputs:
+      recipient_email:
+        description: 'New user email address'
+        required: true
+        type: string
+      recipient_name:
+        description: 'New user full name'
+        required: true
+        type: string
+      invite_code:
+        description: 'One-time 6-digit invite code'
+        required: true
+        type: string
+
+jobs:
+  send-invite:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests sendgrid
+
+      - name: Send invite email
+        env:
+          SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM:        ${{ secrets.EMAIL_FROM }}
+          RECIPIENT_EMAIL:   ${{ inputs.recipient_email }}
+          RECIPIENT_NAME:    ${{ inputs.recipient_name }}
+          INVITE_CODE:       ${{ inputs.invite_code }}
+          SITE_URL:          'https://bidgee182.github.io/wwcc-weather-page'
+        run: python scripts/pump_invite_email.py

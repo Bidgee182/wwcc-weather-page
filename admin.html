@@ -1862,12 +1862,23 @@ async function pcuAdd() {
         logAction('pump_user_add', email);
         $('pcu-name').value = ''; $('pcu-email').value = '';
         pcuRender(d.users);
-        st('Added. INVITE CODE (show to user then close): ' + inviteRaw);
-        // Highlight the invite code
+        // Send invite email via workflow_dispatch
+        let emailSent = false;
+        if (SES.token) {
+            try {
+                const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/pump-invite-email.yml/dispatches`, {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + SES.token, 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' },
+                    body: JSON.stringify({ ref: 'main', inputs: { recipient_email: email, recipient_name: name, invite_code: inviteRaw } }),
+                });
+                emailSent = r.ok;
+            } catch {}
+        }
         const statusEl = $('pcu-status');
-        if (statusEl) { statusEl.style.background = '#1d3a1d'; statusEl.style.color = '#2ecc71'; statusEl.style.padding = '10px'; statusEl.style.borderRadius = '6px'; statusEl.style.fontFamily = 'monospace'; statusEl.style.fontSize = '1em'; }
-        // Fade it out after 60 seconds
-        setTimeout(() => { if (statusEl) { statusEl.style = ''; statusEl.textContent = 'Invite code has been cleared. Share it verbally before it disappears.'; } }, 60000);
+        const emailNote = emailSent ? ' Invite email sent to ' + email + '.' : ' (Email not sent - trigger manually or share code verbally.)';
+        statusEl.style.background = '#1d3a1d'; statusEl.style.color = '#2ecc71'; statusEl.style.padding = '10px'; statusEl.style.borderRadius = '6px'; statusEl.style.fontFamily = 'monospace'; statusEl.style.fontSize = '1em';
+        statusEl.textContent = 'INVITE CODE: ' + inviteRaw + emailNote + ' (cleared in 60s)';
+        setTimeout(() => { if (statusEl) { statusEl.style = ''; statusEl.textContent = ''; } }, 60000);
     } catch(e) { st('Failed: ' + e.message); }
 }
 
@@ -1885,9 +1896,22 @@ async function pcuReset(email, name) {
         await ghPut(PCU_PATH, JSON.stringify(d, null, 2), 'Pump ctrl: PIN reset - ' + email + ' (by ' + SES.email + ')', f.sha);
         logAction('pump_pin_reset', email);
         pcuRender(d.users);
+        // Send new invite email
+        let emailSent = false;
+        if (SES.token) {
+            try {
+                const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/pump-invite-email.yml/dispatches`, {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + SES.token, 'Content-Type': 'application/json', Accept: 'application/vnd.github+json' },
+                    body: JSON.stringify({ ref: 'main', inputs: { recipient_email: email, recipient_name: name, invite_code: inviteRaw } }),
+                });
+                emailSent = r.ok;
+            } catch {}
+        }
         const statusEl = $('pcu-status');
+        const emailNote = emailSent ? ' Invite email sent to ' + email + '.' : ' (Share code verbally.)';
         statusEl.style.background = '#1d3a1d'; statusEl.style.color = '#2ecc71'; statusEl.style.padding = '10px'; statusEl.style.borderRadius = '6px'; statusEl.style.fontFamily = 'monospace'; statusEl.style.fontSize = '1em';
-        statusEl.textContent = 'NEW INVITE CODE for ' + name + ': ' + inviteRaw + '  (cleared in 60s)';
+        statusEl.textContent = 'NEW INVITE CODE for ' + name + ': ' + inviteRaw + emailNote + ' (cleared in 60s)';
         setTimeout(() => { statusEl.style = ''; statusEl.textContent = ''; }, 60000);
     } catch(e) { $('pcu-status').textContent = 'Failed: ' + e.message; }
 }
