@@ -127,11 +127,23 @@ def _played(holes: list[dict]) -> list[dict]:
             if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
-def _thru(holes: list[dict]) -> int:
+def _thru(holes: list[dict], hole_count: int = 0) -> int:
     # Count all holes explicitly entered on the card - including pickups ("-").
     # Never use hole index: shotgun starts mean the index order is not play order.
-    return sum(1 for h in holes
-               if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int))
+    played_nums = {h["hole"] for h in holes
+                   if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
+    played_count = len(played_nums)
+    if hole_count > 0 and 0 < played_count < hole_count:
+        # Detect blank NR holes sandwiched between played holes.
+        # A blank hole between min_played and max_played can only be an NR (the
+        # scorer left both strokes and score empty); a genuinely unplayed hole is
+        # always at the tail end of the played range.
+        all_nums = {h["hole"] for h in holes}
+        min_p, max_p = min(played_nums), max(played_nums)
+        sandwiched = sum(1 for n in all_nums if min_p < n < max_p and n not in played_nums)
+        if played_count + sandwiched >= hole_count:
+            return hole_count
+    return played_count
 
 
 def _course_shape(page: str) -> tuple[int, int]:
@@ -464,8 +476,19 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     with ThreadPoolExecutor(max_workers=workers) as ex:
         pages = list(ex.map(lambda p: _fetch_card(club, board_id, p["playerNo"]), field_))
 
+    # Pre-pass: establish course shape before the player loop so _thru() has the
+    # correct hole_count for sandwiched-NR detection.
     hole_count = 0
     par_total = 0
+    for page_c in pages:
+        if page_c:
+            sh, sp = _course_shape(page_c)
+            hole_count = max(hole_count, sh)
+            par_total = max(par_total, sp)
+    course_holes = hole_count
+    if HOLE_COUNT_OVERRIDE is not None:
+        hole_count = HOLE_COUNT_OVERRIDE
+
     players: list[dict] = []
     events: list[dict] = []
     for base_, page_c in zip(field_, pages):
@@ -473,13 +496,9 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
-        shape_holes, shape_par = _course_shape(page_c) if page_c else (0, 0)
-        hole_count = max(hole_count, shape_holes)
-        par_total = max(par_total, shape_par)
         played = _played(holes)
-        thru = _thru(holes)
-        # Board's Thru column is ground truth - use it when scorecard parse underestimates
-        # (e.g. blank NR cells where neither strokes nor score were explicitly entered)
+        thru = _thru(holes, hole_count)
+        # Board's Thru column override (fires when the board page has a Thru column)
         if board_thru is not None and board_thru > thru:
             thru = board_thru
         points = sum(h.get("points") or 0 for h in played)
@@ -504,10 +523,6 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 if note:
                     events.append({"player": name, "note": note, "hole": h["hole"]})
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
-
-    course_holes = hole_count  # actual holes from scorecard (before finished-threshold override)
-    if HOLE_COUNT_OVERRIDE is not None:
-        hole_count = HOLE_COUNT_OVERRIDE
 
     ranked = sorted(players, key=lambda p: (-p["points"], -p["thru"], p["player"]))
     for i, p in enumerate(ranked, 1):
