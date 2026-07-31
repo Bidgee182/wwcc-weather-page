@@ -485,6 +485,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 "title":  s["title"],
                 "detail": s["detail"],
                 "tier":   s["tier"],
+                "emoji":  s.get("emoji", ""),
                 "points": p["points"],
                 "thru":   p["thru"],
             })

@@ -583,18 +583,14 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
-function renderGradeStrip(activeSorted, grades, holeCount, competition) {
+function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete) {
     const strip = document.getElementById('grade-strip');
     if (!strip) return;
     // 4BBB has no grade split - best score wins overall
     if ((competition || '').toUpperCase().includes('4BBB')) { strip.classList.remove('visible'); return; }
     if (!grades || !activeSorted.length) { strip.classList.remove('visible'); return; }
-    // Wait until at least 3 finished players in every grade
-    const finByGrade = { A: 0, B: 0, C: 0 };
-    for (const p of activeSorted) {
-        if (p.thru >= holeCount) { const g = getGrade(p.hcp, grades); if (g) finByGrade[g]++; }
-    }
-    if (finByGrade.A < 3 || finByGrade.B < 3 || finByGrade.C < 3) { strip.classList.remove('visible'); return; }
+    // Only show grade winners once every player has finished
+    if (!roundComplete) { strip.classList.remove('visible'); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
@@ -644,6 +640,9 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
 
+    // Round is only "complete" when every active player has finished
+    const roundComplete = active.length > 0 && active.every(p => p.thru >= holeCount);
+
     // Sort by points desc, then countback (GA method) for tied finished players, then name
     active.sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
@@ -678,11 +677,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
         p = { ...p, liveRank: idx + 1 };
         const rank = p.liveRank || 0;
         let rankHtml, rankCls = 'r-rank';
-        const enoughHoles = p.thru >= 2;
         const cbMark = usedCB ? '<sup style="font-size:0.5em;color:#f39c12;vertical-align:super;font-weight:normal">CB</sup>' : '';
-        if      (rank === 1 && enoughHoles) { rankHtml = '🥇' + cbMark; rankCls += ' gold'; }
-        else if (rank === 2 && enoughHoles) { rankHtml = '🥈' + cbMark; rankCls += ' silver'; }
-        else if (rank === 3 && enoughHoles) { rankHtml = '🥉' + cbMark; rankCls += ' bronze'; }
+        if      (rank === 1 && roundComplete) { rankHtml = '🥇' + cbMark; rankCls += ' gold'; }
+        else if (rank === 2 && roundComplete) { rankHtml = '🥈' + cbMark; rankCls += ' silver'; }
+        else if (rank === 3 && roundComplete) { rankHtml = '🥉' + cbMark; rankCls += ' bronze'; }
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
@@ -733,7 +731,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
             _animRunning = false;
         }
         if (clip) clip.style.opacity = '1';
-        renderGradeStrip(active, grades, holeCount, competition);
+        renderGradeStrip(active, grades, holeCount, competition, roundComplete);
     }, 250);
 }
 
