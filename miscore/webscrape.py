@@ -139,11 +139,12 @@ def _parse_holes(page: str) -> list[dict]:
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 # pointsSum = combined individual scores (used for 4BBB heater threshold)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
-                # "played" = score/points row was explicitly entered (numeric or '-').
-                # Strokes row alone does NOT count: MiClub pre-fills strokes with '-'
-                # for all 18 holes before a player tees off, which would falsely mark
-                # unplayed holes as played if we included s1_raw/s2_raw here.
-                played_flag = (p1_raw is not None or p2_raw is not None)
+                # "played" = score/points row explicitly entered (numeric or '-'), OR actual
+                # strokes entered as an integer (not the pre-filled '-' which parses to False).
+                # The strokes check catches NR holes where MiClub leaves the score blank but
+                # a scorer entered the actual stroke count.
+                played_flag = (p1_raw is not None or p2_raw is not None
+                               or type(s1_raw) is int or type(s2_raw) is int)
                 result.append({
                     "hole":      hole,
                     "par":       None if par_raw is False else par_raw,
@@ -214,8 +215,9 @@ def _parse_holes(page: str) -> list[dict]:
                 s2 = None if s2_raw is False else s2_raw
                 pts = max(p1, p2) if p1 is not None and p2 is not None else (p1 if p1 is not None else p2)
                 pts_sum = (p1 or 0) + (p2 or 0) if (p1 is not None or p2 is not None) else None
-                # Score/points row only: MiClub pre-fills strokes with '-' before play
-                played_flag = (p1_raw is not None or p2_raw is not None)
+                # Score/points row explicitly entered, OR actual strokes entered (not pre-fill '-')
+                played_flag = (p1_raw is not None or p2_raw is not None
+                               or type(s1_raw) is int or type(s2_raw) is int)
                 out.append({
                     "hole":      hole_num,
                     "par":       None if par_raw is False else par_raw,

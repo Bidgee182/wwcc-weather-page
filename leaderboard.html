@@ -95,9 +95,9 @@ html, body {
 
 @keyframes lb-scroll {
     from { transform: translateY(0); }
-    to   { transform: translateY(-50%); }
+    to   { transform: translateY(-100%); }
 }
-.lb-scroll-inner.scrolling { animation: lb-scroll linear infinite; }
+.lb-scroll-inner.scrolling { animation: lb-scroll linear 1; }
 .lb-gap { height: 80px; }
 
 .lb-row {
@@ -141,8 +141,8 @@ html, body {
 /* Side panel scroll - same infinite-loop technique as main leaderboard */
 .side-list { flex: 1; overflow: hidden; padding: 0; position: relative; }
 .side-list-inner { padding: 8px 14px 6px; width: 100%; }
-@keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-.side-list-inner.scrolling { animation: side-scroll linear infinite; }
+@keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+.side-list-inner.scrolling { animation: side-scroll linear 1; }
 
 .story-row {
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -389,6 +389,10 @@ let _storyForceTimer     = null; // fallback timer for story panel
 let _storyAnimDurMs      = 0;    // current story scroll cycle duration (ms)
 let _lastStoryRenderTime = 0;    // timestamp of last story render (for minimum-hold guard)
 
+let _pendingComingLast    = null; // coming-last buffered until its scroll cycle ends
+let _comingLastForceTimer = null; // fallback timer for coming-last panel
+let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (ms)
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -428,13 +432,18 @@ async function fetchData() {
             // users see every player before the list refreshes with new data.
             // Side panels update immediately so stories/header stay live.
             _pendingData = data;
-            if (_forceTimer) clearTimeout(_forceTimer);
-            // Safety net: force-apply after one full cycle + 10s buffer
-            _forceTimer = setTimeout(_applyPending, Math.max(60000, _lbAnimDurMs + 10000));
+            if (_animRunning) {
+                // Scrolling - reset force-timer to one full cycle + buffer
+                if (_forceTimer) clearTimeout(_forceTimer);
+                _forceTimer = setTimeout(_applyPending, Math.max(60000, _lbAnimDurMs + 10000));
+            } else if (!_forceTimer) {
+                // Not scrolling (tiny field) - apply after short delay; don't reset if already counting
+                _forceTimer = setTimeout(_applyPending, 10000);
+            }
             updateHeader(data);
             setBlueBallVisible(data.date);
             queueStories(data.stories || []);
-            renderComingLast(data.comingLast || [], data.holeCount || 18);
+            queueComingLast(data.comingLast || [], data.holeCount || 18);
             setFooter(data.generatedAt, '');
         }
     } catch (e) {
@@ -450,7 +459,7 @@ function _applyPending() {
     _pendingData = null;
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
 }
-document.getElementById('lb-inner').addEventListener('animationiteration', _applyPending);
+document.getElementById('lb-inner').addEventListener('animationend', _applyPending);
 
 // Apply buffered stories at the natural story-scroll loop point.
 // Guards against applying before a full scroll cycle has passed - so viewers
@@ -471,18 +480,25 @@ function _applyPendingStories() {
     renderStories(s);
 }
 
-// Queue new stories; apply at next animationiteration (or force after 2 full cycles)
+// Queue new stories; apply at next animationend (or force after 2 full cycles)
 function queueStories(stories) {
     _pendingStories = stories;
-    if (_storyForceTimer) clearTimeout(_storyForceTimer);
-    // Deadline = 2 full cycles (generous) - animationiteration should fire first
-    _storyForceTimer = setTimeout(_applyPendingStories, Math.max(30000, _storyAnimDurMs * 2));
+    if (_storyAnimDurMs > 0) {
+        // Animation running - reset force-timer
+        if (_storyForceTimer) clearTimeout(_storyForceTimer);
+        _storyForceTimer = setTimeout(_applyPendingStories, Math.max(30000, _storyAnimDurMs * 2));
+    } else if (!_storyForceTimer) {
+        // Not animating (< minForScroll stories) - apply after short delay; don't reset if already counting
+        _storyForceTimer = setTimeout(_applyPendingStories, 5000);
+    }
 }
 
-// Attach scroll-cycle listener to the stories inner element (exists in HTML at load)
+// Attach animationend listeners to both side panels (elements exist in HTML at load)
 (function () {
-    const el = document.querySelector('#heater-list .side-list-inner');
-    if (el) el.addEventListener('animationiteration', _applyPendingStories);
+    const heater = document.querySelector('#heater-list .side-list-inner');
+    if (heater) heater.addEventListener('animationend', _applyPendingStories);
+    const last = document.querySelector('#last-list .side-list-inner');
+    if (last) last.addEventListener('animationend', _applyPendingComingLast);
 })();
 
 // ── Full render (first load) ──────────────────────────────────────
@@ -493,11 +509,13 @@ function render(d) {
         showNoData('lb-inner', '📋', 'No competition today', 'The poller found no active leaderboard.');
         showSideEmpty('heater-list', '-');
         showSideEmpty('last-list', '-');
+        setBlueBallVisible(null);
         setFooter(d.generatedAt, '');
         return;
     }
     if (d.status === 'error') {
         setBadge('offline', 'Poller error');
+        setBlueBallVisible(null);
         setFooter(d.generatedAt, d.error || 'Unknown error');
         return;
     }
@@ -726,18 +744,17 @@ function renderLeaderboard(players, holeCount, started, competition) {
         // Scrolling field (positions 4+)
         inner.classList.remove('scrolling');
         inner.innerHTML = restHtml;
-        void inner.offsetHeight; // measure single-copy height first
+        void inner.offsetHeight;
 
         const clipH = restClip ? restClip.clientHeight : window.innerHeight;
 
         if (field.length && inner.scrollHeight > clipH) {
-            inner.innerHTML = restHtml + restHtml; // duplicate only when content overflows
-            void inner.offsetHeight;
+            // single copy — translateY(-100%) scrolls full content off; animationend fires once
             const dur = Math.max(60, field.length * 0.85);
             inner.style.animationDuration = dur + 's';
             inner.classList.add('scrolling');
             _animRunning = true;
-            _lbAnimDurMs = dur * 1000; // used by fetch buffer to set fallback timer
+            _lbAnimDurMs = dur * 1000;
         } else {
             _animRunning = false;
         }
@@ -757,7 +774,7 @@ function setBlueBallVisible(dateStr) {
 
 function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     const el = document.getElementById(containerId);
-    if (!el) return;
+    if (!el) return 0;
     let inner = el.querySelector('.side-list-inner');
     if (!inner) {
         inner = document.createElement('div');
@@ -768,19 +785,19 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     if (!rows.length) {
         inner.classList.remove('scrolling');
         inner.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(emptyMsg) + '</div></div>';
-        return;
+        return 0;
     }
     const html = rows.join('');
     inner.classList.remove('scrolling');
+    inner.innerHTML = html; // single copy — translateY(-100%) scrolls full content off
     if (rows.length >= minForScroll) {
-        inner.innerHTML = html + html; // duplicate for seamless loop
         void inner.offsetHeight;
         const dur = Math.max(15, rows.length * 2.5);
         inner.style.animationDuration = dur + 's';
         inner.classList.add('scrolling');
-    } else {
-        inner.innerHTML = html;
+        return dur * 1000;
     }
+    return 0;
 }
 
 function stripHcp(s) {
@@ -825,12 +842,10 @@ function renderStories(stories) {
             '</div>' +
         '</div>';
     });
-    renderSidePanel('heater-list', rows, 'Watching the field...', 6);
-    // Track animation duration so the force-timer is set correctly
-    _storyAnimDurMs = Math.max(15, visible.length * 2.5) * 1000;
+    _storyAnimDurMs = renderSidePanel('heater-list', rows, 'Watching the field...', 6);
 }
 
-function renderComingLast(comingLast, holeCount) {
+function _doRenderComingLast(comingLast, holeCount) {
     const hc = holeCount || 18;
     const rows = comingLast.map(p => {
         const fin = p.thru >= hc;
@@ -844,12 +859,38 @@ function renderComingLast(comingLast, holeCount) {
             '<div class="last-pts">' + p.points + 'pts</div>' +
         '</div>';
     });
-    renderSidePanel('last-list', rows, 'No data yet', 5);
+    _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5);
+}
+
+// First-load call (not buffered)
+function renderComingLast(comingLast, holeCount) {
+    _doRenderComingLast(comingLast, holeCount);
+}
+
+// Apply buffered coming-last at the natural animationend point
+function _applyPendingComingLast() {
+    if (_comingLastForceTimer) { clearTimeout(_comingLastForceTimer); _comingLastForceTimer = null; }
+    if (_pendingComingLast === null) return;
+    const { comingLast, holeCount } = _pendingComingLast;
+    _pendingComingLast = null;
+    _doRenderComingLast(comingLast, holeCount);
+}
+
+// Queue new coming-last; apply at next animationend (or force after 2 full cycles)
+function queueComingLast(comingLast, holeCount) {
+    _pendingComingLast = { comingLast, holeCount };
+    if (_comingLastAnimDurMs > 0) {
+        if (_comingLastForceTimer) clearTimeout(_comingLastForceTimer);
+        _comingLastForceTimer = setTimeout(_applyPendingComingLast, Math.max(30000, _comingLastAnimDurMs * 2));
+    } else if (!_comingLastForceTimer) {
+        _comingLastForceTimer = setTimeout(_applyPendingComingLast, 5000);
+    }
 }
 
 // ── Error ─────────────────────────────────────────────────────────
 function onFetchError(msg) {
     setBadge('offline', 'Offline');
+    setBlueBallVisible(null);
     const sta = document.getElementById('ftr-status');
     if (sta) sta.textContent = msg;
     if (!_hasData) {

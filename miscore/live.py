@@ -114,7 +114,10 @@ def _thru(holes: list[dict]) -> int:
 def _course_shape(page: str) -> tuple[int, int]:
     """True (holeCount, par) for the course from a scorecard page."""
     holes = par = 0
-    seen_pars: set[int] = set()  # 4BBB scorecards have 2 player sections - deduplicate
+    # Dedup by the full par-row tuple (not just subtotal) so front/back nines with the same
+    # subtotal (e.g. Par 36 + Par 36 = Par 72) are kept distinct, while 4BBB repeated
+    # sections (identical rows) are still collapsed to one.
+    seen_rows: set[tuple] = set()
     for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
         cells = [html.unescape(re.sub(r"<[^>]+>", " ", c)).strip() for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", m.group(1))]
         cells = [c for c in cells if c]
@@ -123,10 +126,11 @@ def _course_shape(page: str) -> tuple[int, int]:
         nums = [int(c) for c in cells[1:] if re.fullmatch(r"\d+", c)]
         if not nums:
             continue
-        subtotal = nums[-1]
-        if subtotal in seen_pars:
+        key = tuple(nums)
+        if key in seen_rows:
             continue
-        seen_pars.add(subtotal)
+        seen_rows.add(key)
+        subtotal = nums[-1]
         par += subtotal
         holes += 18 if subtotal >= 60 else 9
     return holes, par
@@ -510,7 +514,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "started": any(p["thru"] > 0 for p in players),
         "players": ranked,
         "leaders": ranked[:10],
-        "stories": stories[:8],
+        "stories": stories[:12],
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
             for p in coming_last[:10]
