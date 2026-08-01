@@ -6,10 +6,10 @@ on:
     - cron: '0 21 * * 0'
     # Weekly — Monday 7:00 AM AEDT (UTC+11): Sunday 20:00 UTC
     - cron: '0 20 * * 0'
-    # Monthly — 1st of month 7:00 AM AEST: previous day 21:00 UTC
-    - cron: '0 21 1 * *'
-    # Monthly — 1st of month 7:00 AM AEDT: previous day 20:00 UTC
-    - cron: '0 20 1 * *'
+    # Monthly — 1st of month 7:00 PM AEST: 09:00 UTC same day
+    - cron: '0 9 1 * *'
+    # Monthly — 1st of month 7:00 PM AEDT: 08:00 UTC same day
+    - cron: '0 8 1 * *'
     # Weekly and monthly guards prevent double-sends.
 
   workflow_dispatch:
