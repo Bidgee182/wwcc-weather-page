@@ -503,6 +503,7 @@ let _ballWinners = new Set();
 let _pdfStandings = { grades: [], players: [] };
 // Cached surname→grade map built from pdfStandings; used in both renderLeaderboard and renderGradeStrip
 let _pdfGradeMap = {};  // lower-case pdf name → "A"|"B"|"C"
+let _pdfPosMap   = {};  // lower-case player name → official pdf position number
 
 // Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
 let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
@@ -823,8 +824,12 @@ function updateHeader(d) {
         if (d.pdfStandings) {
             _pdfStandings = d.pdfStandings;
             _pdfGradeMap = {};
+            _pdfPosMap   = {};
             for (const pp of (_pdfStandings.players || [])) {
                 if (pp.name && pp.grade) _pdfGradeMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
+                if (pp.name && !pp.name.includes(',') && pp.pos) {
+                    _pdfPosMap[pp.name.toLowerCase()] = pp.pos;
+                }
             }
         }
         const showResults = allDone && official;
@@ -1044,11 +1049,23 @@ function renderLeaderboard(players, holeCount, started, competition) {
 
     // Sort by score: best first (higher for stableford, lower for stroke/gross)
     const scoreDir = _isStableford ? 1 : -1;
-    active.sort((a, b) => {
-        if (b.points !== a.points) return scoreDir * (b.points - a.points);
-        const cb = countbackCompare(a, b, holeCount);
-        return cb !== 0 ? cb : a.player.localeCompare(b.player);
-    });
+    if (_officialResultsReady && Object.keys(_pdfPosMap).length) {
+        // PDF position is the authority once results are official — ensures exact match with standings
+        active.sort((a, b) => {
+            const pa = _pdfPosMap[(a.player || '').toLowerCase()] || 999;
+            const pb = _pdfPosMap[(b.player || '').toLowerCase()] || 999;
+            if (pa !== pb) return pa - pb;
+            if (b.points !== a.points) return scoreDir * (b.points - a.points);
+            const cb = countbackCompare(a, b, holeCount);
+            return cb !== 0 ? cb : a.player.localeCompare(b.player);
+        });
+    } else {
+        active.sort((a, b) => {
+            if (b.points !== a.points) return scoreDir * (b.points - a.points);
+            const cb = countbackCompare(a, b, holeCount);
+            return cb !== 0 ? cb : a.player.localeCompare(b.player);
+        });
+    }
 
     // Flag every position where countback broke a tie (tied pts with a finished neighbour)
     const cbFlags = active.map((p, i) => {
@@ -1161,10 +1178,12 @@ function renderLeaderboard(players, holeCount, started, competition) {
         if (scrollCount && inner.scrollHeight > clipH) {
             // single copy — translateY(-100%) scrolls full content off; animationend fires once
             const dur = Math.max(60, scrollCount * 0.85);
+            const scrollDelay = 5;
             inner.style.animationDuration = dur + 's';
+            inner.style.animationDelay = scrollDelay + 's';
             inner.classList.add('scrolling');
             _animRunning = true;
-            _lbAnimDurMs = dur * 1000;
+            _lbAnimDurMs = (dur + scrollDelay) * 1000;
         } else {
             _animRunning = false;
         }

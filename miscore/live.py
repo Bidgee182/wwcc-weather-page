@@ -215,9 +215,13 @@ def _parse_ball_winners(pdf_bytes: bytes) -> list:
         name_parts = [txt for _, txt in sorted(row, key=lambda e: e[0])
                       if any(c.isupper() for c in txt) and txt.lower() not in _name_skip
                       and not re.fullmatch(r'\+?-?[\d.]+', txt)]
-        name = ' '.join(name_parts[:4]).strip()
-        if len(name) >= 3:
-            winners.add(name)
+        for part in name_parts:
+            part = part.strip()
+            if ',' in part:
+                sp = part.split(',', 1)
+                part = f'{sp[1].strip()} {sp[0].strip()}'.strip()
+            if len(part) >= 4 and ' & ' not in part:
+                winners.add(part)
     return sorted(winners)
 
 
@@ -234,75 +238,107 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
     # Sort top-to-bottom (descending y), left-to-right (ascending x)
     entries.sort(key=lambda e: (-e[0], e[1]))
 
-    # Group into logical lines (entries within 6 y-units share a line)
-    lines: list[str] = []
+    # Group into logical lines keeping x coordinates; set() deduplicates identical stream copies
+    lines_cells: list[list[tuple[float, str]]] = []
     cur_y: float | None = None
-    cur_line: list[tuple[float, str]] = []
+    cur_cells: list[tuple[float, str]] = []
     for y, x, txt in entries:
         if cur_y is None or abs(y - cur_y) <= 6:
-            cur_line.append((x, txt))
+            cur_cells.append((x, txt))
             if cur_y is None:
                 cur_y = y
         else:
-            lines.append(' '.join(t for _, t in sorted(cur_line)))
-            cur_line = [(x, txt)]
+            if cur_cells:
+                lines_cells.append(sorted(set(cur_cells)))
+            cur_cells = [(x, txt)]
             cur_y = y
-    if cur_line:
-        lines.append(' '.join(t for _, t in sorted(cur_line)))
+    if cur_cells:
+        lines_cells.append(sorted(set(cur_cells)))
 
     ntp: list[dict] = []
     ld: list[dict] = []
+    ntp_holes_seen: set = set()
+    ld_holes_seen: set = set()
     section: str | None = None
 
-    for line in lines:
-        lower = line.lower()
+    _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin', 'longest', 'drive',
+                 'course', 'club', 'ga', 'green', 'grade', 'wagga', 'country',
+                 'golf', 'trophy', 'par', 'out', 'in', 'total', 'starters',
+                 'score', 'net', 'pts', 'winner', 'name', 'prize', 'distance',
+                 'description', 'other', 'null', 'aest'}
+
+    for cells in lines_cells:
+        texts = [t for _, t in cells]
+        full_line = ' '.join(texts)
+        lower = full_line.lower()
+
+        # Section detection
         if re.search(r'nearest.{0,15}pin|near.{0,5}pin|\bntp\b', lower):
             section = 'ntp'
             continue
         if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
             section = 'ld'
             continue
-        # New major section heading resets context
-        if re.search(r'\bgrade\s+[a-d]\b|\bwinner(?:s)?\b|\bprize(?:s)?\b', lower):
+        # Reset on true major headings only (NOT on "prize"/"winner" column header words)
+        if re.search(r'\bother\b|\boverall\s+winner|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
             section = None
             continue
+        # Skip column header rows: "Hole Name Prize Distance ..." or similar
+        if re.search(r'\bhole\b', lower) and re.search(r'\bname\b|\bdistance\b', lower):
+            continue
 
-        if section == 'ntp':
-            hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
-            if not hole_m:
-                continue
-            hole = hole_m.group(1)
-            _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin',
-                         'course', 'club', 'ga', 'temp', 'green', 'grade',
-                         'wagga', 'country', 'golf', 'trophy', 'par', 'pres',
-                         'out', 'in', 'total', 'entrants', 'starters',
-                         'score', 'card', 'net', 'pts', 'winner'}
-            name_words = [w for w in line.split()
-                          if w and w[0].isupper() and not w[0].isdigit()
-                          and w.lower() not in _ntp_skip]
-            dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
-            dist = dist_m.group(1).strip() if dist_m else ''
-            # Require at least 2 name words (First + Last) to avoid table headers
-            name = ' '.join(name_words[:4]) if len(name_words) >= 2 else ''
-            if name:
-                ntp.append({"hole": hole, "winner": name, "distance": dist, "type": "ntp"})
+        if section not in ('ntp', 'ld'):
+            continue
 
-        elif section == 'ld':
-            _ld_skip = {'hole', 'the', 'and', 'longest', 'drive',
-                        'course', 'club', 'ga', 'temp', 'green', 'grade',
-                        'wagga', 'country', 'golf', 'trophy',
-                        'out', 'in', 'total', 'entrants', 'starters',
-                        'score', 'card', 'net', 'pts', 'winner'}
-            name_words = [w for w in line.split()
-                          if w and w[0].isupper() and not w[0].isdigit()
-                          and w.lower() not in _ld_skip]
-            name = ' '.join(name_words[:4]) if len(name_words) >= 2 else ''
-            hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
-            hole = hole_m.group(1) if hole_m else ''
-            dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
-            dist = dist_m.group(1).strip() if dist_m else ''
-            if name:
-                ld.append({"hole": hole, "winner": name, "distance": dist, "type": "ld"})
+        # Find hole number: leftmost cell with 1-2 digit integer (x < 50 preferred)
+        hole = None
+        for x, txt in cells:
+            if x < 50 and re.fullmatch(r'\d{1,2}', txt.strip()):
+                hole = txt.strip()
+                break
+        if not hole:
+            hm = re.search(r'\b(\d{1,2})\b', full_line)
+            if hm:
+                hole = hm.group(1)
+        if not hole:
+            continue
+
+        # Find player name: prefer cell with "Lastname, Firstname" comma format
+        player_name = None
+        for x, txt in cells:
+            if ',' in txt and any(c.isalpha() and c.isupper() for c in txt):
+                parts = txt.split(',', 1)
+                last = parts[0].strip()
+                first = parts[1].strip() if len(parts) > 1 else ''
+                player_name = f'{first} {last}'.strip() if first else last
+                break
+        if not player_name:
+            # Fallback: first cell that looks like a name
+            for _, txt in cells:
+                if (any(c.isupper() for c in txt)
+                        and txt.lower() not in _ntp_skip
+                        and not re.fullmatch(r'[\d.,$+%-]+', txt)
+                        and len(txt) >= 3):
+                    player_name = txt
+                    break
+
+        if not player_name or len(player_name) < 3:
+            continue
+
+        # Find distance: "NNN cm" or "N.NN m" format
+        dist = ''
+        for _, txt in cells:
+            dm = re.search(r'(\d+(?:\.\d+)?)\s*(cm|m)\b', txt, re.IGNORECASE)
+            if dm:
+                dist = f'{dm.group(1)} {dm.group(2).lower()}'
+                break
+
+        if section == 'ntp' and hole not in ntp_holes_seen:
+            ntp.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ntp"})
+            ntp_holes_seen.add(hole)
+        elif section == 'ld' and hole not in ld_holes_seen:
+            ld.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ld"})
+            ld_holes_seen.add(hole)
 
     return {"ntp": ntp, "ld": ld}
 
@@ -369,6 +405,7 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             lines_raw.append(sorted(cur_cells))
 
         # Process lines in page order — grade headings precede their players
+        in_ntp_section = False
         for cells in lines_raw:
             texts = [t for _, t in cells]
             if not texts:
@@ -381,12 +418,16 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             if gm and len(texts) <= 6:
                 gname = (gm.group(1) or gm.group(2)).upper()
                 current_grade = gname
+                in_ntp_section = False  # grade section ends any NTP/LD block
                 if gname not in grades_found:
                     grades_found.append(gname)
                 continue
 
-            # Skip non-player section headings
+            # NTP/LD section headings - skip entries until a grade heading resets
             if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
+                in_ntp_section = True
+                continue
+            if in_ntp_section:
                 continue
 
             # Detect position number (1-20) in first few tokens
@@ -423,6 +464,8 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                     continue
                 if any(c.isupper() for c in t) and t.lower() not in _skip_words:
                     name_parts.append(t)
+                    if ',' in t:  # "Lastname, Firstname" - full name in one token; stop here
+                        break
 
             name = ' '.join(name_parts[:4]).strip()
             score = ' '.join(score_parts[:2]).strip()
