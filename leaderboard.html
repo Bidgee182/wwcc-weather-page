@@ -665,7 +665,7 @@ function updateHeader(d) {
     }
     _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
     const ptsHdr = document.getElementById('col-hdr-pts');
-    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Net';
+    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
     if (!started || !players.length) {
         setBadge('waiting', 'Not started');
     } else {
@@ -673,7 +673,8 @@ function updateHeader(d) {
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
-        if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
+        if (!_isStableford) { _ballWinners = new Set(); }
+        else if (d.ballWinners && d.ballWinners.length) { _ballWinners = new Set(d.ballWinners); }
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
@@ -750,6 +751,14 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
+function fmtScore(pts) {
+    if (!_isStableford) {
+        if (pts === 0) return 'E';
+        return (pts > 0 ? '+' : '') + pts;
+    }
+    return pts;
+}
+
 function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete, officialResultsReady) {
     const strip  = document.getElementById('grade-strip');
     const panel  = document.getElementById('results-grade-panel');
@@ -802,7 +811,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
             '<div class="grade-item">' +
                 '<span class="grade-medal-sm">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-name-sm">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
+                '<span class="grade-pts-sm">&nbsp;' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</span>' +
             '</div>'
         ).join('');
     });
@@ -818,7 +827,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
             '<div class="grade-podium-row">' +
                 '<span class="grade-podium-medal">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-podium-name">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-podium-pts">' + p.points + 'pts</span>' +
+                '<span class="grade-podium-pts">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</span>' +
             '</div>'
         ).join('');
     });
@@ -884,7 +893,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
-        const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
+        const ptsTxt  = (p.thru > 0 && started) ? fmtScore(p.points) : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
@@ -953,7 +962,7 @@ function setBlueBallVisible(dateStr) {
     if (!card) return;
     // Blue ball only runs on Wednesday (3) and Saturday (6) mens comps
     const day = dateStr ? new Date(dateStr + 'T12:00:00').getDay() : -1;
-    card.style.display = (day === 3 || day === 6) ? '' : 'none';
+    card.style.display = (day === 3 || day === 6) && _isStableford ? '' : 'none';
 }
 
 function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
@@ -1023,7 +1032,7 @@ function renderStories(stories, skipExpiry) {
                 '<div class="story-detail">' + esc(s.detail) + '</div>' +
             '</div>' +
             '<div class="story-right">' +
-                '<div class="story-pts">' + s.points + 'pts</div>' +
+                '<div class="story-pts">' + fmtScore(s.points) + (_isStableford ? 'pts' : '') + '</div>' +
                 '<div class="story-thru">thru ' + s.thru + '</div>' +
             '</div>' +
         '</div>';
@@ -1043,7 +1052,7 @@ function _doRenderComingLast(comingLast, holeCount) {
                 '<div class="last-name">' + esc(p.player) + '</div>' +
                 '<div class="' + thruCls + '">' + thruTxt + '</div>' +
             '</div>' +
-            '<div class="last-pts">' + p.points + 'pts</div>' +
+            '<div class="last-pts">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</div>' +
         '</div>';
     });
     _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5);

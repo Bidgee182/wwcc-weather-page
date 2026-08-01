@@ -358,16 +358,21 @@ def _board_players(page: str) -> list[dict]:
     return out
 
 
-def _played(holes: list[dict]) -> list[dict]:
-    # Use "played" flag set by the parser (True for any entered cell, including
-    # explicit "-" pickups which have no int value). Fall back to int checks for
-    # data parsed before the "played" field was introduced.
+def _played(holes: list[dict], is_stableford: bool = True) -> list[dict]:
+    if not is_stableford:
+        # Stroke play: MiClub pre-fills Score row with 0 for all unplayed holes.
+        # A hole is only played when actual strokes have been entered.
+        return [h for h in holes if isinstance(h.get("strokes"), int)]
+    # Stableford: use "played" flag (includes pickups) or int checks for older data.
     return [h for h in holes
             if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
-def _thru(holes: list[dict], hole_count: int = 0) -> int:
-    # Count all holes explicitly entered on the card - including pickups ("-").
+def _thru(holes: list[dict], hole_count: int = 0, is_stableford: bool = True) -> int:
+    if not is_stableford:
+        # Stroke play: only holes with actual strokes entered count as played.
+        return sum(1 for h in holes if isinstance(h.get("strokes"), int))
+    # Stableford: count all holes explicitly entered on the card - including pickups ("-").
     # Never use hole index: shotgun starts mean the index order is not play order.
     played_nums = {h["hole"] for h in holes
                    if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
@@ -436,12 +441,19 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
     if n < 2:
         return None
 
-    def gpts(h):      return h.get("points")
-    def is_wipe(h):   return gpts(h) is None or gpts(h) == 0
-    def is_bogey(h):  return gpts(h) == 1
-    def is_par(h):    return gpts(h) == 2
-    def is_birdie(h): return gpts(h) is not None and gpts(h) >= 3
-    def is_eagle(h):  return gpts(h) is not None and gpts(h) >= 4
+    def gpts(h): return h.get("points")
+    if is_stableford:
+        def is_wipe(h):   return gpts(h) is None or gpts(h) == 0
+        def is_bogey(h):  return gpts(h) == 1
+        def is_par(h):    return gpts(h) == 2
+        def is_birdie(h): return gpts(h) is not None and gpts(h) >= 3
+        def is_eagle(h):  return gpts(h) is not None and gpts(h) >= 4
+    else:
+        def is_wipe(h):   return gpts(h) is None or gpts(h) >= 2
+        def is_bogey(h):  return gpts(h) == 1
+        def is_par(h):    return gpts(h) == 0
+        def is_birdie(h): return gpts(h) is not None and gpts(h) <= -1
+        def is_eagle(h):  return gpts(h) is not None and gpts(h) <= -2
 
     def hnum(h):      return h.get("hole", "?")
 
@@ -612,7 +624,7 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
                 ("Speed Bump", f"{birdie_word(prev_h)} on hole {hnum(prev_h)}, wipe on hole {hnum(last_h)} - the course corrects"),
                 ("The Golf Tax", f"One good hole then one bad on {two} - the course charges a fee for everything"),
             ], "orange", "📉")
-        if gpts(prev_h) == 3 and is_bogey(last_h):
+        if not is_eagle(prev_h) and is_birdie(prev_h) and is_bogey(last_h):
             _bw = birdie_word(prev_h)
             _bo = bogey_word()
             return _pick([
@@ -845,6 +857,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
     type_m = re.search(r"-\s*(Stableford|Stroke|Par|Gross)\b", page)
     comp_type = (type_m.group(1) if type_m else "").strip()
+    if not comp_type and "medal" in board["name"].lower():
+        comp_type = "Stroke"
     is_stableford = comp_type.lower() not in ("stroke", "gross")
     field_ = _board_players(page)
 
@@ -871,13 +885,17 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
-        played = _played(holes)
-        thru = _thru(holes, hole_count)
+        played = _played(holes, is_stableford)
+        thru = _thru(holes, hole_count, is_stableford)
         # Board's Thru column override (fires when the board page has a Thru column)
         if board_thru is not None and board_thru > thru:
             thru = board_thru
-        points = sum(h.get("points") or 0 for h in played)
-        birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+        if is_stableford:
+            points = sum(h.get("points") or 0 for h in played)
+            birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+        else:
+            points = sum(0 if h.get("points") is None else h["points"] for h in played)
+            birdies = sum(1 for h in played if h.get("points") is not None and h["points"] <= -1)
         last = played[-3:]
         p = {
             **base_,
@@ -899,8 +917,12 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                     events.append({"player": name, "note": note, "hole": h["hole"]})
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
 
+    def _gp(h: dict) -> int:
+        v = h.get("points")
+        return 0 if v is None else v
+
     def _slice_pts(holes: list, n: int) -> int:
-        return sum((h.get("points") or 0) for h in holes[-n:])
+        return sum(_gp(h) for h in holes[-n:])
 
     # For stableford: higher points = better (b - a is positive → b first).
     # For stroke play: lower net strokes = better (a - b is positive → a first).
@@ -924,7 +946,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 if d:
                     return d
             for i in range(len(ah) - 1, -1, -1):
-                d = _dir * ((bh[i].get("points") or 0) - (ah[i].get("points") or 0)) if i < len(bh) else 0
+                d = _dir * (_gp(bh[i]) - _gp(ah[i])) if i < len(bh) else 0
                 if d:
                     return d
         if a["thru"] != b["thru"]:
@@ -952,10 +974,16 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             })
     stories.sort(key=lambda s: -_tier_rank.get(s["tier"], 0))
 
-    coming_last = sorted(
-        [p for p in players if p["thru"] >= 12],
-        key=lambda p: (p["points"], -p["thru"], p["player"]),
-    )
+    if is_stableford:
+        coming_last = sorted(
+            [p for p in players if p["thru"] >= 12],
+            key=lambda p: (p["points"], -p["thru"], p["player"]),
+        )
+    else:
+        coming_last = sorted(
+            [p for p in players if p["thru"] >= 12],
+            key=lambda p: (-p["points"], -p["thru"], p["player"]),
+        )
 
     # Detect round complete (all players who teed off have finished)
     active_players = [p for p in players if p["thru"] > 0]

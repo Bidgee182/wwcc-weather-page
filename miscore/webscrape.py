@@ -35,7 +35,8 @@ def list_competitions(club: str, days: int = 3) -> list[dict]:
         for td in tds:
             gender = _html.unescape(re.sub(r"<[^>]+>", "", td)).strip()
             if gender in ("Womens", "Mens", "Ladies", "Mixed"):
-                name = name + " " + gender
+                if not re.search(r'\b' + re.escape(gender) + r'\b', name, re.IGNORECASE):
+                    name = name + " " + gender
                 break
         date_m = re.search(r"(\d{2}/\d{2}/\d{4})", row)
         date_str = None
@@ -98,10 +99,11 @@ def _parse_holes(page: str) -> list[dict]:
                     nines.append(current)
             elif current is not None and label in ("par", "strokes", "score"):
                 col_set = {i for i, _ in current["hole_cols"]}
+                pat = r"-?\d+" if label == "score" else r"\d+"
                 extracted = []
                 for i, v in enumerate(vals):
                     if i in col_set:
-                        if re.fullmatch(r"\d+", v):
+                        if re.fullmatch(pat, v):
                             extracted.append(int(v))
                         elif v == "-":
                             extracted.append(False)  # explicit dash = played, no value
@@ -159,10 +161,11 @@ def _parse_holes(page: str) -> list[dict]:
     else:
         # Positional approach: each Par row starts a new nine; the last value
         # in every row is the nine subtotal - drop it to get per-hole values.
-        def _nine_vals(vals: list[str]) -> list:
+        def _nine_vals(vals: list[str], allow_negative: bool = False) -> list:
+            pat = r"-?\d+" if allow_negative else r"\d+"
             out = []
             for v in vals:
-                if re.fullmatch(r"\d+", v):
+                if re.fullmatch(pat, v):
                     out.append(int(v))
                 elif v == "-":
                     out.append(False)   # explicit dash = played but no value
@@ -216,8 +219,8 @@ def _parse_holes(page: str) -> list[dict]:
             pars     = _nine_vals(nine.get("par",      []))
             strokes  = _nine_vals(nine.get("strokes",  []))
             strokes2 = _nine_vals(nine.get("strokes2", []))
-            points   = _align_score_to_strokes(strokes,  _nine_vals(nine.get("score",  [])))
-            points2  = _align_score_to_strokes(strokes2, _nine_vals(nine.get("score2", [])))
+            points   = _align_score_to_strokes(strokes,  _nine_vals(nine.get("score",  []), allow_negative=True))
+            points2  = _align_score_to_strokes(strokes2, _nine_vals(nine.get("score2", []), allow_negative=True))
             for i in range(len(pars)):
                 p1_raw = points[i]   if i < len(points)   else None
                 p2_raw = points2[i]  if i < len(points2)  else None
