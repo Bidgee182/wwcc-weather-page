@@ -358,19 +358,26 @@ def _board_players(page: str) -> list[dict]:
     return out
 
 
-def _played(holes: list[dict]) -> list[dict]:
-    # Use "played" flag set by the parser (True for any entered cell, including
-    # explicit "-" pickups which have no int value). Fall back to int checks for
-    # data parsed before the "played" field was introduced.
+def _played(holes: list[dict], is_stableford: bool = True) -> list[dict]:
+    if not is_stableford:
+        # Stroke play: a hole is only counted when actual gross strokes are entered.
+        # MiClub pre-fills the Score row with dashes (parsed as played=True) but
+        # without real strokes the hole has not been played yet.
+        return [h for h in holes if isinstance(h.get("strokes"), int)]
+    # Stableford/par: use "played" flag (covers explicit "-" pickups) plus int checks
+    # for data parsed before the "played" field was introduced.
     return [h for h in holes
             if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
 
 
-def _thru(holes: list[dict], hole_count: int = 0) -> int:
+def _thru(holes: list[dict], hole_count: int = 0, is_stableford: bool = True) -> int:
     # Count all holes explicitly entered on the card - including pickups ("-").
     # Never use hole index: shotgun starts mean the index order is not play order.
-    played_nums = {h["hole"] for h in holes
-                   if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
+    if not is_stableford:
+        played_nums = {h["hole"] for h in holes if isinstance(h.get("strokes"), int)}
+    else:
+        played_nums = {h["hole"] for h in holes
+                       if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
     played_count = len(played_nums)
     if hole_count > 0 and 0 < played_count < hole_count:
         # Blank holes sandwiched between played holes whose par IS populated are
@@ -845,6 +852,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
     type_m = re.search(r"-\s*(Stableford|Stroke|Par|Gross)\b", page)
     comp_type = (type_m.group(1) if type_m else "").strip()
+    if not comp_type:
+        # Fallback: match comp type keyword in the board name when the page marker is absent
+        name_lower = board.get("name", "").lower()
+        if "stroke" in name_lower or "gross" in name_lower:
+            comp_type = "Stroke"
+        elif "stableford" in name_lower:
+            comp_type = "Stableford"
     is_stableford = comp_type.lower() not in ("stroke", "gross")
     field_ = _board_players(page)
 
@@ -871,13 +885,26 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
-        played = _played(holes)
-        thru = _thru(holes, hole_count)
+        played = _played(holes, is_stableford)
+        thru = _thru(holes, hole_count, is_stableford)
         # Board's Thru column override (fires when the board page has a Thru column)
         if board_thru is not None and board_thru > thru:
             thru = board_thru
-        points = sum(h.get("points") or 0 for h in played)
-        birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+        if is_stableford:
+            points = sum(h.get("points") or 0 for h in played)
+            birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+        else:
+            # Stroke play: net_vs_par using stableford-to-net conversion per hole
+            # (2=par, 3=birdie=-1, 1=bogey=+1, 0=pickup=+2). Falls back to gross-vs-par
+            # if stableford points are absent from the MiClub page.
+            points = 0
+            for h in played:
+                pts = h.get("points")
+                if isinstance(pts, int):
+                    points += 2 - pts
+                elif isinstance(h.get("strokes"), int) and isinstance(h.get("par"), int):
+                    points += h["strokes"] - h["par"]
+            birdies = sum(1 for h in played if isinstance(h.get("points"), int) and h.get("points", 0) >= 3)
         last = played[-3:]
         p = {
             **base_,
@@ -900,10 +927,14 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         prev[name] = {"thru": thru, "points": points, "birdies": birdies}
 
     def _slice_pts(holes: list, n: int) -> int:
+        # Returns sum of stableford-scale points for the last n holes.
+        # Higher stableford = better quality holes for BOTH stableford (higher total = better)
+        # and stroke play (higher stableford = lower net = better), so countback uses
+        # _slice_pts(b) - _slice_pts(a) directly without _dir multiplication.
         return sum((h.get("points") or 0) for h in holes[-n:])
 
-    # For stableford: higher points = better (b - a is positive → b first).
-    # For stroke play: lower net strokes = better (a - b is positive → a first).
+    # For stableford: higher points = better (b - a negative when a is better).
+    # For stroke play: points = net_vs_par (lower = better), _dir inverts the comparison.
     _dir = 1 if is_stableford else -1
 
     def _player_cmp(a: dict, b: dict) -> int:
@@ -920,11 +951,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         else:
             ah, bh = a.get("holes", []), b.get("holes", [])
             for n in (9, 6, 3):
-                d = _dir * (_slice_pts(bh, n) - _slice_pts(ah, n))
+                # Stableford scale: higher = better for both comp types (no _dir needed)
+                d = _slice_pts(bh, n) - _slice_pts(ah, n)
                 if d:
                     return d
             for i in range(len(ah) - 1, -1, -1):
-                d = _dir * ((bh[i].get("points") or 0) - (ah[i].get("points") or 0)) if i < len(bh) else 0
+                # Per-hole: stableford-scale, higher = better for both comp types
+                d = ((bh[i].get("points") or 0) - (ah[i].get("points") or 0)) if i < len(bh) else 0
                 if d:
                     return d
         if a["thru"] != b["thru"]:
