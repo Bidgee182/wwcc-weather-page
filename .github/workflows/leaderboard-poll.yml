@@ -32,7 +32,7 @@ jobs:
           python3 - << 'PYEOF'
           import math, datetime, zoneinfo, os
 
-          LAT, LON, MARGIN_MIN = -35.12, 147.37, 60
+          LAT, LON, MARGIN_MIN = -35.12, 147.37, 240  # 4h after sunset covers evening prize publication
           TZ = zoneinfo.ZoneInfo("Australia/Sydney")
 
           def sun_local_hours(lat, lon, tz, local_date):
@@ -54,7 +54,8 @@ jobs:
           cur        = now.hour + now.minute / 60
           start      = rise - MARGIN_MIN / 60
           end        = sset + MARGIN_MIN / 60
-          within     = start <= cur <= end
+          manual     = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+          within     = manual or (start <= cur <= end)
 
           def fmt(h):
               h = abs(h)
