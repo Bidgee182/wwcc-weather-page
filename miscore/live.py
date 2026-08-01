@@ -103,15 +103,14 @@ def _wwcc_login() -> "http.cookiejar.CookieJar | None":
         return None
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    data = urllib.parse.urlencode({"username": _WWCC_USERNAME, "password": _WWCC_PASSWORD}).encode()
+    data = urllib.parse.urlencode({"action": "login", "user": _WWCC_USERNAME, "password": _WWCC_PASSWORD}).encode()
     try:
         req = urllib.request.Request(
-            f"{_WWCC_BASE}/spring/login",
+            f"{_WWCC_BASE}/security/login.msp",
             data=data,
             headers={
                 "User-Agent": "Mozilla/5.0 (compatible; WWCC-Kiosk/1.0)",
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
             },
         )
         with opener.open(req, timeout=15) as r:
@@ -191,6 +190,98 @@ def _parse_ball_winners(pdf_bytes: bytes) -> list:
         if best_name:
             winners.add(best_name)
     return sorted(winners)
+
+
+def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
+    """Extract Nearest the Pin and Longest Drive results from a prize presentation PDF.
+
+    Returns {"ntp": [...], "ld": [...]} where each entry is
+    {"hole": str, "winner": str, "distance": str, "type": "ntp"|"ld"}.
+    """
+    entries = []
+    for stream_m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        try:
+            text = zlib.decompress(stream_m.group(1)).decode('latin-1', errors='replace')
+            for op in re.finditer(
+                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
+                r'(?:/F\d+ [\d.]+ Tf\s*)?'
+                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
+                r'\(([^)]*)\)Tj',
+                text,
+            ):
+                x, y = float(op.group(1)), float(op.group(2))
+                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+                if txt:
+                    entries.append((y, x, txt))
+        except Exception:
+            pass
+
+    if not entries:
+        return {"ntp": [], "ld": []}
+
+    # Sort top-to-bottom (descending y), left-to-right (ascending x)
+    entries.sort(key=lambda e: (-e[0], e[1]))
+
+    # Group into logical lines (entries within 6 y-units share a line)
+    lines: list[str] = []
+    cur_y: float | None = None
+    cur_line: list[tuple[float, str]] = []
+    for y, x, txt in entries:
+        if cur_y is None or abs(y - cur_y) <= 6:
+            cur_line.append((x, txt))
+            if cur_y is None:
+                cur_y = y
+        else:
+            lines.append(' '.join(t for _, t in sorted(cur_line)))
+            cur_line = [(x, txt)]
+            cur_y = y
+    if cur_line:
+        lines.append(' '.join(t for _, t in sorted(cur_line)))
+
+    ntp: list[dict] = []
+    ld: list[dict] = []
+    section: str | None = None
+
+    for line in lines:
+        lower = line.lower()
+        if re.search(r'nearest.{0,15}pin|near.{0,5}pin|\bntp\b', lower):
+            section = 'ntp'
+            continue
+        if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
+            section = 'ld'
+            continue
+        # New major section heading resets context
+        if re.search(r'\bgrade\s+[a-d]\b|\bwinner(?:s)?\b|\bprize(?:s)?\b', lower):
+            section = None
+            continue
+
+        if section == 'ntp':
+            hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
+            if not hole_m:
+                continue
+            hole = hole_m.group(1)
+            name_words = [w for w in line.split()
+                          if w and w[0].isupper() and not w[0].isdigit()
+                          and w.lower() not in ('hole', 'the', 'and', 'ntp', 'nearest', 'pin')]
+            dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
+            dist = dist_m.group(1).strip() if dist_m else ''
+            name = ' '.join(name_words[:4]) if name_words else ''
+            if name:
+                ntp.append({"hole": hole, "winner": name, "distance": dist, "type": "ntp"})
+
+        elif section == 'ld':
+            name_words = [w for w in line.split()
+                          if w and w[0].isupper() and not w[0].isdigit()
+                          and w.lower() not in ('hole', 'the', 'and', 'longest', 'drive')]
+            name = ' '.join(name_words[:4]) if name_words else ''
+            hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
+            hole = hole_m.group(1) if hole_m else ''
+            dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
+            dist = dist_m.group(1).strip() if dist_m else ''
+            if name:
+                ld.append({"hole": hole, "winner": name, "distance": dist, "type": "ld"})
+
+    return {"ntp": ntp, "ld": ld}
 
 
 def _ev_tag(ev_text: str, tag: str) -> str:
@@ -1465,17 +1556,33 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         result = _wwcc_check_results(board["name"], board.get("date"))
         result.setdefault("ballWinners", None)
         _official_cache = result
-    # Fetch and parse ball winners from PDF once results are confirmed
+    # Fetch and parse ball winners + NTP/LD from all PDFs once results are confirmed
     if (_official_cache.get("published")
             and _official_cache.get("reportLinks")
             and _official_cache.get("ballWinners") is None):
-        try:
-            pdf_bytes = _wwcc_get_bytes(_official_cache["reportLinks"][0])
-            _official_cache["ballWinners"] = _parse_ball_winners(pdf_bytes)
-            log.info("Ball winners parsed: %s", _official_cache["ballWinners"])
-        except Exception as exc:
-            log.debug("Ball winners PDF parse failed: %s", exc)
-            _official_cache["ballWinners"] = []
+        all_ball_winners: set = set()
+        ntp_all: list = []
+        ld_all: list = []
+        for link in _official_cache["reportLinks"]:
+            try:
+                pdf_bytes = _wwcc_get_bytes(link)
+                all_ball_winners.update(_parse_ball_winners(pdf_bytes))
+                parsed = _parse_ntp_ld(pdf_bytes)
+                seen_ntp = {e["hole"] for e in ntp_all}
+                for e in parsed.get("ntp", []):
+                    if e["hole"] not in seen_ntp:
+                        ntp_all.append(e)
+                        seen_ntp.add(e["hole"])
+                seen_ld = {e["winner"] for e in ld_all}
+                for e in parsed.get("ld", []):
+                    if e["winner"] not in seen_ld:
+                        ld_all.append(e)
+                        seen_ld.add(e["winner"])
+            except Exception as exc:
+                log.debug("PDF parse failed for %s: %s", link, exc)
+        _official_cache["ballWinners"] = sorted(all_ball_winners)
+        _official_cache["ntpLd"] = ntp_all + ld_all
+        log.info("Ball winners: %s  NTP/LD: %s", _official_cache["ballWinners"], _official_cache["ntpLd"])
 
     now = datetime.now(timezone.utc)
 
@@ -1511,6 +1618,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "officialResultsReady": _official_cache.get("published", False),
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
         "ballWinners": _official_cache.get("ballWinners") or [],
+        "ntpLd": _official_cache.get("ntpLd") or [],
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories[:12],

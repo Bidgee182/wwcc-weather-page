@@ -177,6 +177,34 @@ html, body {
     padding: 16px 0; font-style: italic;
 }
 
+/* ── NTP / Longest Drive ticker ─────────────────────────────────── */
+.ntpld-bar {
+    display: flex; align-items: center; flex-shrink: 0;
+    height: 2.4rem; background: #0a1520; border-top: 1px solid #1e3a50;
+    padding: 0 10px; gap: 10px; overflow: hidden;
+}
+.ntpld-label {
+    font-size: 0.68em; font-weight: 700; letter-spacing: 0.12em;
+    color: #4a9eca; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+}
+.ntpld-scroll {
+    flex: 1; overflow: hidden; position: relative;
+    mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+}
+.ntpld-inner {
+    display: inline-block; white-space: nowrap;
+    font-size: 0.75em; color: #dce8f0;
+    animation: ntpld-scroll 60s linear infinite;
+}
+.ntpld-inner .ntpld-entry { margin: 0 28px; }
+.ntpld-inner .ntpld-type { color: #4a9eca; font-weight: 700; margin-right: 5px; }
+.ntpld-inner .ntpld-sep { color: #2a4a64; margin: 0 16px; }
+@keyframes ntpld-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
 /* ── Footer ──────────────────────────────────────────────────────── */
 .ftr {
     display: flex; justify-content: space-between; align-items: center;
@@ -411,6 +439,13 @@ html, body {
     </aside>
 
   </main>
+
+  <div class="ntpld-bar" id="ntpld-bar" style="display:none">
+    <span class="ntpld-label">Prizes</span>
+    <div class="ntpld-scroll">
+      <span class="ntpld-inner" id="ntpld-inner"></span>
+    </div>
+  </div>
 
   <footer class="ftr">
     <div class="ftr-left">
@@ -703,6 +738,31 @@ function render(d) {
     renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
+function renderNtpLd(ntpld) {
+    const bar   = document.getElementById('ntpld-bar');
+    const inner = document.getElementById('ntpld-inner');
+    if (!bar || !inner) return;
+    if (!_officialResultsReady || !ntpld || !ntpld.length) {
+        bar.style.display = 'none';
+        return;
+    }
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const parts = ntpld.map(e => {
+        if (e.type === 'ntp') {
+            const label = 'NTP' + (e.hole ? ' Hole ' + e.hole : '');
+            return '<span class="ntpld-entry"><span class="ntpld-type">' + esc(label) + '</span>' + esc(e.winner) + (e.distance ? ' - ' + esc(e.distance) : '') + '</span>';
+        } else {
+            const label = 'Longest Drive' + (e.hole ? ' Hole ' + e.hole : '');
+            return '<span class="ntpld-entry"><span class="ntpld-type">' + esc(label) + '</span>' + esc(e.winner) + (e.distance ? ' - ' + esc(e.distance) : '') + '</span>';
+        }
+    });
+    const sep = '<span class="ntpld-sep">|</span>';
+    const text = parts.join(sep);
+    // Double content for seamless looping scroll
+    inner.innerHTML = text + sep + text;
+    bar.style.display = 'flex';
+}
+
 function updateHeader(d) {
     const started = d.started || false;
     const players = d.players || [];
@@ -746,7 +806,7 @@ function updateHeader(d) {
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
         if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
-        const showResults = allDone;
+        const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
             _refreshStopped  = true;
@@ -758,6 +818,7 @@ function updateHeader(d) {
             if (el) el.textContent = 'Awaiting official results';
         }
     }
+    renderNtpLd(d.ntpLd || []);
 }
 
 // ── Grade helpers ─────────────────────────────────────────────────
@@ -844,6 +905,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if ((competition || '').toUpperCase().includes('4BBB')) { exitResults(); return; }
     if (!grades || !activeSorted.length) { exitResults(); return; }
     if (!roundComplete) { exitResults(); return; }
+    if (!officialResultsReady) { exitResults(); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
