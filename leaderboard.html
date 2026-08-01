@@ -676,8 +676,7 @@ function updateHeader(d) {
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
-        if (!_isStableford) { _ballWinners = new Set(); }
-        else if (d.ballWinners && d.ballWinners.length) { _ballWinners = new Set(d.ballWinners); }
+        if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
@@ -967,7 +966,7 @@ function setBlueBallVisible(dateStr) {
     if (!card) return;
     // Blue ball only runs on Wednesday (3) and Saturday (6) mens comps
     const day = dateStr ? new Date(dateStr + 'T12:00:00').getDay() : -1;
-    card.style.display = (day === 3 || day === 6) && _isStableford ? '' : 'none';
+    card.style.display = (day === 3 || day === 6) ? '' : 'none';
 }
 
 function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
