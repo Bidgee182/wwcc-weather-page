@@ -435,7 +435,7 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
     """Scoreboard stories for stroke play (net vs par). Same structure as stableford
     stories - tweak thresholds and text here without touching the stableford version.
 
-    Score row values: -2=nett eagle, -1=nett birdie, 0=par, 1=bogey, 2+=blow-up.
+    Score row values: -3=nett albatross, -2=nett eagle, -1=nett birdie, 0=par, 1=bogey, 2=blow-up, 3=triple, 4+=quad.
     """
     n = len(played)
     if n < 2:
@@ -487,6 +487,16 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
         if h.get("strokes") == 1 and h.get("par") == 3:
             return story("ACE!", f"Hole in one on hole {hnum(h)} - buy them a drink!", "gold", "🎯")
 
+    # Nett albatross (-3 or better on a hole) - alert the authorities
+    albatross_holes = [h for h in played if gpts(h) is not None and gpts(h) <= -3]
+    if albatross_holes:
+        ah = albatross_holes[-1]
+        return _pick([
+            ("Call The Handicapper", f"Nett albatross on hole {hnum(ah)} - the committee has been notified and is already on their way"),
+            ("This Is Under Investigation", f"Nett albatross on hole {hnum(ah)} - police, handicapper, course ranger - send all of them immediately"),
+            ("Evidence Required", f"Nett albatross on hole {hnum(ah)} - the committee is questioning everything including the tape measure"),
+        ], "gold", "🚨")
+
     # Two or more nett eagles
     eagle_holes = [h for h in played if is_eagle(h)]
     if len(eagle_holes) >= 2:
@@ -533,6 +543,25 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
             ("Don't Mind Me", f"{eagle_word()} on hole {hnum(last_h)} - just casually"),
             ("Case Closed", f"{eagle_word()} on hole {hnum(last_h)} - that'll do nicely"),
         ], "gold", "💥")
+
+    # Quadruple bogey or worse on last hole (+4)
+    if gpts(played[-1]) is not None and gpts(played[-1]) >= 4:
+        last_h = played[-1]
+        pts_val = gpts(last_h)
+        return _pick([
+            ("What On Earth Happened", f"+{pts_val} on hole {hnum(last_h)} - the scorecard needs a moment to recover from that"),
+            ("Four and Forgotten", f"Quadruple bogey on hole {hnum(last_h)} - the committee has been informed and they are also confused"),
+            ("A Very Thorough Hole", f"+{pts_val} on hole {hnum(last_h)} - a comprehensive, detailed, expensive visit to that part of the course"),
+        ], "red", "💀")
+
+    # Triple bogey on last hole (+3)
+    if gpts(played[-1]) == 3:
+        last_h = played[-1]
+        return _pick([
+            ("Triple Trouble", f"Triple bogey on hole {hnum(last_h)} - that one is going to take some forgetting"),
+            ("Three Over, Moving On", f"+3 on hole {hnum(last_h)} - a moment of golf we shall never speak of again"),
+            ("The Nightmare Hole", f"Triple bogey on hole {hnum(last_h)} - the scorecard just copped a beating"),
+        ], "red", "🔴")
 
     # Blow-up streak
     wipe_streak = 0
