@@ -1219,29 +1219,39 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
 
 _AEST = timezone(timedelta(hours=10))
 
-# Background/sub-competitions that run alongside the main comp and should
-# never be picked as the primary leaderboard (add more patterns as needed).
+# Hard-excluded: always side-comps, never the main board.
 _EXCLUDED_COMP_PATTERNS = (
     "secret",        # Secret 6, Secret 8, etc.
     "nearest",       # Nearest the Pin
+    "ntp",           # NTP Comp
     "longest drive",
     "skins",
     "2s pool",
     "twos pool",
 )
 
+# Soft-excluded: de-prioritised but shown if nothing else runs that day.
+_DEPRIORITY_COMP_PATTERNS = (
+    "4bbb",          # 4BBB runs alongside main comp on Sat/Wed - prefer main
+)
+
 def _is_sub_comp(name: str) -> bool:
     low = name.lower()
     return any(pat in low for pat in _EXCLUDED_COMP_PATTERNS)
 
+def _is_depriority(name: str) -> bool:
+    low = name.lower()
+    return any(pat in low for pat in _DEPRIORITY_COMP_PATTERNS)
+
 def find_board(club: str, comp: str | None, days: int) -> dict | None:
     """Newest board today (or newest matching `comp`).
-    Sub-competitions (Secret 6, nearest pin, etc.) are always excluded.
+    Hard-excluded sub-comps (Secret 6, NTP, etc.) are always skipped.
+    Soft-excluded comps (4BBB) are only picked if nothing else runs that day.
     """
     comps = list_competitions(club, days)
     if not comps:
         return None
-    # Strip background sub-comps unless a specific --comp name was given
+    # Strip hard-excluded background comps unless a specific --comp was given
     if not comp:
         excluded = [c["name"] for c in comps if _is_sub_comp(c["name"])]
         if excluded:
@@ -1254,6 +1264,10 @@ def find_board(club: str, comp: str | None, days: int) -> dict | None:
     today = datetime.now(_AEST).date().isoformat()  # AEST date - runner is UTC
     todays = [c for c in comps if c.get("date") == today]
     pool = todays or comps
+    # Prefer non-4BBB comps; fall back to 4BBB only if nothing else is available
+    if not comp:
+        preferred = [c for c in pool if not _is_depriority(c["name"])]
+        pool = preferred or pool
     return pool[0] if pool else None
 
 
