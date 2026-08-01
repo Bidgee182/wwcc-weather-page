@@ -731,7 +731,7 @@ function updateHeader(d) {
         setBadge('waiting', 'Not started');
     } else {
         const active = players.filter(p => p.thru > 0);
-        const allDone = active.length > 0 && active.every(p => p.thru >= hc);
+        const allDone = active.length > 0 && active.filter(p => p.thru >= hc).length / active.length >= 0.95;
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
         if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
@@ -908,8 +908,9 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
 
-    // Round is only "complete" when every active player has finished
-    const roundComplete = active.length > 0 && active.every(p => p.thru >= holeCount);
+    // Round is "complete" when 95%+ of active players have finished (tolerates NR/WD)
+    const finishedCount = active.filter(p => p.thru >= holeCount).length;
+    const roundComplete = active.length > 0 && finishedCount / active.length >= 0.95;
 
     // Sort by score: best first (higher for stableford, lower for stroke/gross)
     const scoreDir = _isStableford ? 1 : -1;

@@ -1451,11 +1451,10 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             key=lambda p: (-p["points"], -p["thru"], p["player"]),
         )
 
-    # Detect round complete (all players who teed off have finished)
+    # Detect round complete (95%+ of players who teed off have finished, tolerates NR/WD)
     active_players = [p for p in players if p["thru"] > 0]
-    round_complete = bool(active_players) and all(
-        p["thru"] >= (hole_count or 18) for p in active_players
-    )
+    finished_count = sum(1 for p in active_players if p["thru"] >= (hole_count or 18))
+    round_complete = bool(active_players) and (finished_count / len(active_players) >= 0.95)
 
     # Official results gate: poll WWCC API after round complete; cache per board.
     global _official_cache, _official_cache_board
