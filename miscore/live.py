@@ -103,10 +103,10 @@ def _wwcc_login() -> "http.cookiejar.CookieJar | None":
         return None
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    data = urllib.parse.urlencode({"action": "login", "user": _WWCC_USERNAME, "password": _WWCC_PASSWORD}).encode()
+    data = urllib.parse.urlencode({"username": _WWCC_USERNAME, "password": _WWCC_PASSWORD}).encode()
     try:
         req = urllib.request.Request(
-            f"{_WWCC_BASE}/security/login.msp",
+            f"{_WWCC_BASE}/spring/login",
             data=data,
             headers={
                 "User-Agent": "Mozilla/5.0 (compatible; WWCC-Kiosk/1.0)",
@@ -114,12 +114,16 @@ def _wwcc_login() -> "http.cookiejar.CookieJar | None":
             },
         )
         with opener.open(req, timeout=15) as r:
-            r.read()
-            if r.status == 200:
+            body = r.read().decode("utf-8", errors="replace")
+            # Confirm we're not redirected back to the login page
+            if r.status == 200 and "pageName=login" not in r.url and "formLogin" not in body:
                 _wwcc_jar = jar
+                log.info("WWCC login OK; cookies: %s", [c.name for c in jar])
                 return jar
+            log.warning("WWCC login failed (status=%s url=%s login-in-body=%s)",
+                        r.status, r.url, "formLogin" in body)
     except Exception as exc:
-        log.debug("WWCC login failed: %s", exc)
+        log.warning("WWCC login error: %s", exc)
     return None
 
 
@@ -356,13 +360,16 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
                         re.findall(r"/upload/reportOutput/[^\"']+\.pdf", page)
                     ))
                     if pdf_links:
+                        log.info("WWCC multi-grade PDFs found: %s", pdf_links)
                         return {
                             "published": True,
                             "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
                             "eventId": ev_id,
                         }
+                    log.warning("WWCC multi-grade PDF page returned no links (url-contains-login=%s)",
+                                "pageName=login" in page)
                 except Exception as exc:
-                    log.debug("WWCC multi-grade result fetch failed: %s", exc)
+                    log.warning("WWCC multi-grade result fetch failed: %s", exc)
 
         return {"published": False, "reportLinks": [], "eventId": ev_id}
 

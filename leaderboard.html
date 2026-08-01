@@ -1095,7 +1095,8 @@ function renderLeaderboard(players, holeCount, started, competition) {
 function setBlueBallVisible(dateStr) {
     const card = document.getElementById('blue-ball-card');
     if (!card) return;
-    // Blue ball only runs on Wednesday (3) and Saturday (6) mens comps
+    // Blue ball only shows on Men's primary board (Wed/Sat) - never on companion boards
+    if (_boardIdx > 0) { card.style.display = 'none'; return; }
     const day = dateStr ? new Date(dateStr + 'T12:00:00').getDay() : -1;
     card.style.display = (day === 3 || day === 6) ? '' : 'none';
 }
