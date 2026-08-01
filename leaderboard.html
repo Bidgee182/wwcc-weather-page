@@ -501,6 +501,8 @@ let _officialResultsReady = false;
 let _ballWinners = new Set();
 // PDF standings from official results: {grades: ["A","B","C"], players: [{pos,name,grade,score}]}
 let _pdfStandings = { grades: [], players: [] };
+// Cached surname→grade map built from pdfStandings; used in both renderLeaderboard and renderGradeStrip
+let _pdfGradeMap = {};  // lower-case pdf name → "A"|"B"|"C"
 
 // Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
 let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
@@ -818,7 +820,13 @@ function updateHeader(d) {
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
         if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
-        if (d.pdfStandings) _pdfStandings = d.pdfStandings;
+        if (d.pdfStandings) {
+            _pdfStandings = d.pdfStandings;
+            _pdfGradeMap = {};
+            for (const pp of (_pdfStandings.players || [])) {
+                if (pp.name && pp.grade) _pdfGradeMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
+            }
+        }
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
@@ -857,6 +865,18 @@ function computeGrades(players) {
         return hcp;
     }
     return { aMax: boundaryHcp(aEnd - 1), bMax: boundaryHcp(bEnd - 1) };
+}
+
+// Return PDF-assigned grade for a player (surname match), or null if not found.
+function lookupPdfGrade(playerName) {
+    if (!Object.keys(_pdfGradeMap).length) return null;
+    const key = (playerName || '').toLowerCase();
+    if (_pdfGradeMap[key]) return _pdfGradeMap[key];
+    const surname = key.split(' ').pop();
+    for (const [pdfName, pdfGrade] of Object.entries(_pdfGradeMap)) {
+        if (pdfName.includes(surname)) return pdfGrade;
+    }
+    return null;
 }
 
 function getGrade(hcp, grades) {
@@ -924,32 +944,9 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if (activeSorted.length < 30) { exitResults(); return; }
     if (!grades) { exitResults(); return; }
 
-    // Use PDF grade assignments when the PDF confirms grades exist
-    const pdfHasGrades = _pdfStandings && (_pdfStandings.grades || []).length > 0;
-
-    // Build grade assignments: use PDF grade assignments if available, else dynamic thirds
-    const pdfPlayerMap = {};
-    if (pdfHasGrades && _pdfStandings.players) {
-        for (const pp of _pdfStandings.players) {
-            if (pp.name && pp.grade) {
-                pdfPlayerMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
-            }
-        }
-    }
-
+    // Grade assignment: PDF winners override dynamic thirds; everyone else uses dynamic thirds
     function getPlayerGrade(p) {
-        if (pdfHasGrades && Object.keys(pdfPlayerMap).length > 0) {
-            // Exact match first
-            const key = (p.player || '').toLowerCase();
-            if (pdfPlayerMap[key]) return pdfPlayerMap[key];
-            // Partial match: PDF name contained in player name or vice versa
-            for (const [pdfName, pdfGrade] of Object.entries(pdfPlayerMap)) {
-                if (key.includes(pdfName) || pdfName.includes(key.split(' ').pop())) {
-                    return pdfGrade;
-                }
-            }
-        }
-        return getGrade(p.hcp, grades);
+        return lookupPdfGrade(p.player) || getGrade(p.hcp, grades);
     }
 
     const gradeAll = { A: [], B: [], C: [] };
@@ -1056,12 +1053,13 @@ function renderLeaderboard(players, holeCount, started, competition) {
     const grades = computeGrades(players);
 
     // Build grade-sorted lists for ball marker logic (top-3 per grade = prize positions)
+    // Use PDF grade assignments where available (overrides dynamic thirds).
     const scoreDir2 = _isStableford ? 1 : -1;
     const _gradeTopN = {};
     if (grades && roundComplete && _officialResultsReady) {
         const _ga = { A: [], B: [], C: [] };
         for (const p of active) {
-            const g = getGrade(p.hcp, grades);
+            const g = lookupPdfGrade(p.player) || getGrade(p.hcp, grades);
             if (g && _ga[g]) _ga[g].push(p);
         }
         ['A', 'B', 'C'].forEach(gk => {

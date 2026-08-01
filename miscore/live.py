@@ -268,24 +268,29 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
             hole = hole_m.group(1)
             _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin',
                          'course', 'club', 'ga', 'temp', 'green', 'grade',
-                         'wagga', 'country', 'golf', 'trophy', 'par', 'pres'}
+                         'wagga', 'country', 'golf', 'trophy', 'par', 'pres',
+                         'out', 'in', 'total', 'entrants', 'starters',
+                         'score', 'card', 'net', 'pts', 'winner'}
             name_words = [w for w in line.split()
                           if w and w[0].isupper() and not w[0].isdigit()
                           and w.lower() not in _ntp_skip]
             dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
             dist = dist_m.group(1).strip() if dist_m else ''
-            name = ' '.join(name_words[:4]) if name_words else ''
+            # Require at least 2 name words (First + Last) to avoid table headers
+            name = ' '.join(name_words[:4]) if len(name_words) >= 2 else ''
             if name:
                 ntp.append({"hole": hole, "winner": name, "distance": dist, "type": "ntp"})
 
         elif section == 'ld':
             _ld_skip = {'hole', 'the', 'and', 'longest', 'drive',
                         'course', 'club', 'ga', 'temp', 'green', 'grade',
-                        'wagga', 'country', 'golf', 'trophy'}
+                        'wagga', 'country', 'golf', 'trophy',
+                        'out', 'in', 'total', 'entrants', 'starters',
+                        'score', 'card', 'net', 'pts', 'winner'}
             name_words = [w for w in line.split()
                           if w and w[0].isupper() and not w[0].isdigit()
                           and w.lower() not in _ld_skip]
-            name = ' '.join(name_words[:4]) if name_words else ''
+            name = ' '.join(name_words[:4]) if len(name_words) >= 2 else ''
             hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
             hole = hole_m.group(1) if hole_m else ''
             dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
@@ -300,122 +305,157 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
     """Extract grade headings and player positions from a WWCC prize presentation PDF.
 
     Returns {"grades": ["A","B","C",...], "players": [{"pos":int,"name":str,"grade":str,"score":str}]}.
-    Grades list is empty when the PDF has no grade sections (e.g. single-grade women's event).
+    Processes each PDF stream in document order so grade headings (which appear at the top
+    of each page) are always encountered before the players listed beneath them.
     """
-    entries = []
-    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
-        try:
-            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
-            for op in re.finditer(
-                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
-                r'(?:/F\d+ [\d.]+ Tf\s*)?'
-                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
-                r'\(([^)]*)\)Tj',
-                text,
-            ):
-                x, y = float(op.group(1)), float(op.group(2))
-                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
-                if txt:
-                    entries.append((y, x, txt))
-        except Exception:
-            pass
-
-    if not entries:
-        return {"grades": [], "players": []}
-
-    entries.sort(key=lambda e: (-e[0], e[1]))
-
-    # Group text elements into lines by y coordinate (±6 units)
-    lines_raw: list[list[tuple[float, str]]] = []
-    cur_y: float | None = None
-    cur_cells: list[tuple[float, str]] = []
-    for y, x, txt in entries:
-        if cur_y is None or abs(y - cur_y) <= 6:
-            cur_cells.append((x, txt))
-            if cur_y is None:
-                cur_y = y
-        else:
-            if cur_cells:
-                lines_raw.append(sorted(cur_cells))
-            cur_cells = [(x, txt)]
-            cur_y = y
-    if cur_cells:
-        lines_raw.append(sorted(cur_cells))
-
     _skip_words = {
         'course', 'club', 'ga', 'temp', 'green', 'grade', 'wagga', 'country',
         'golf', 'trophy', 'par', 'pres', 'hole', 'the', 'and', 'nearest',
         'pin', 'longest', 'drive', 'ball', 'balls', 'prize', 'prizes',
         'nett', 'gross', 'scratch', 'medal', 'stableford', 'stroke',
+        'out', 'in', 'total', 'entrants', 'starters', 'score', 'card',
     }
 
     players: list[dict] = []
     grades_found: list[str] = []
     current_grade: str = ""
 
-    for cells in lines_raw:
-        texts = [t for _, t in cells]
-        if not texts:
-            continue
-        full_line = ' '.join(texts)
-        lower = full_line.lower()
+    _op_re = re.compile(
+        r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
+        r'(?:/F\d+ [\d.]+ Tf\s*)?'
+        r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
+        r'\(([^)]*)\)Tj'
+    )
 
-        # Grade heading: "Grade A", "GRADE B", "A Grade", "A GRADE", etc.
-        gm = re.search(r'\bgrade\s+([A-D])\b|\b([A-D])\s+grade\b', full_line, re.IGNORECASE)
-        if gm and len(texts) <= 5:
-            gname = (gm.group(1) or gm.group(2)).upper()
-            current_grade = gname
-            if gname not in grades_found:
-                grades_found.append(gname)
+    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        try:
+            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
+        except Exception:
             continue
 
-        # Section headings reset context (NTP, LD, ball draw, etc.)
-        if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
+        # Extract positioned text from this stream/page only
+        stream_entries: list[tuple[float, float, str]] = []
+        for op in _op_re.finditer(text):
+            x, y = float(op.group(1)), float(op.group(2))
+            txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+            if txt:
+                stream_entries.append((y, x, txt))
+
+        if not stream_entries:
             continue
 
-        # Look for a position number (1-20) as the first or second text element
-        pos: int | None = None
-        name_start_idx = 0
-        for i, t in enumerate(texts[:3]):
-            pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
-            if pm:
-                v = int(pm.group(1))
-                if 1 <= v <= 20:
-                    pos = v
-                    name_start_idx = i + 1
-                    break
+        # Sort within this page: highest y first (top of page), then left-to-right
+        stream_entries.sort(key=lambda e: (-e[0], e[1]))
 
-        if pos is None:
-            continue
+        # Group into logical lines by y proximity (±6 units)
+        lines_raw: list[list[tuple[float, str]]] = []
+        cur_y: float | None = None
+        cur_cells: list[tuple[float, str]] = []
+        for y, x, txt in stream_entries:
+            if cur_y is None or abs(y - cur_y) <= 6:
+                cur_cells.append((x, txt))
+                if cur_y is None:
+                    cur_y = y
+            else:
+                if cur_cells:
+                    lines_raw.append(sorted(cur_cells))
+                cur_cells = [(x, txt)]
+                cur_y = y
+        if cur_cells:
+            lines_raw.append(sorted(cur_cells))
 
-        # Collect name words (capitalised, not numbers, not skip words)
-        name_parts: list[str] = []
-        score_parts: list[str] = []
-        for t in texts[name_start_idx:]:
-            t = t.strip()
-            if not t:
+        # Process lines in page order — grade headings precede their players
+        for cells in lines_raw:
+            texts = [t for _, t in cells]
+            if not texts:
                 continue
-            # Ball prize column (far right) - skip
-            if re.fullmatch(r'\d+\s*Balls?', t, re.IGNORECASE):
-                continue
-            # Number only = could be score, handicap, or page number
-            if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
-                score_parts.append(t)
-                continue
-            # Score text like "Net 72" or "38 Pts" etc.
-            if re.search(r'\d', t) and len(t) < 15:
-                score_parts.append(t)
-                continue
-            # Capitalised word = likely part of the name
-            if t and any(c.isupper() for c in t) and t.lower() not in _skip_words:
-                name_parts.append(t)
+            full_line = ' '.join(texts)
+            lower = full_line.lower()
 
-        name = ' '.join(name_parts[:4]).strip()
-        score = ' '.join(score_parts[:2]).strip()
-        if len(name) < 3:
-            continue
+            # Grade heading: "Grade A", "GRADE B", "A Grade", etc.
+            gm = re.search(r'\bgrade\s+([A-D])\b|\b([A-D])\s+grade\b', full_line, re.IGNORECASE)
+            if gm and len(texts) <= 6:
+                gname = (gm.group(1) or gm.group(2)).upper()
+                current_grade = gname
+                if gname not in grades_found:
+                    grades_found.append(gname)
+                continue
 
-        players.append({"pos": pos, "name": name, "grade": current_grade, "score": score})
+            # Skip non-player section headings
+            if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
+                continue
+
+            # Detect position number (1-20) in first few tokens
+            pos: int | None = None
+            name_start_idx = 0
+            for i, t in enumerate(texts[:3]):
+                pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
+                if pm:
+                    v = int(pm.group(1))
+                    if 1 <= v <= 20:
+                        pos = v
+                        name_start_idx = i + 1
+                        break
+
+            if pos is None:
+                continue
+
+            # Build name and score from remaining tokens
+            name_parts: list[str] = []
+            score_parts: list[str] = []
+            for t in texts[name_start_idx:]:
+                t = t.strip()
+                if not t:
+                    continue
+                if re.fullmatch(r'\d+\s*Balls?', t, re.IGNORECASE):
+                    continue
+                if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
+                    score_parts.append(t)
+                    continue
+                if re.search(r'\d', t) and len(t) < 15:
+                    score_parts.append(t)
+                    continue
+                if any(c.isupper() for c in t) and t.lower() not in _skip_words:
+                    name_parts.append(t)
+
+            name = ' '.join(name_parts[:4]).strip()
+            score = ' '.join(score_parts[:2]).strip()
+
+            # Skip 4BBB team entries (pairs joined by &)
+            if ' & ' in name or len(name) < 3:
+                continue
+
+            players.append({"pos": pos, "name": name, "grade": current_grade, "score": score})
+
+    # Post-process: PDF grade column headers (A / B / C on one table-header row) leave
+    # current_grade="C" so all overall-standings players get Grade C incorrectly.
+    # Grade-specific prize winner sections use "Lastname, Firstname" format.
+    # Reassign: each new pos=1 in a Lastname, Firstname run starts a new grade group.
+    # Groups are ordered A → B → C as they appear in the prize presentation.
+    # Clear grade from Firstname Lastname entries (overall standings) - JS uses dynamic thirds.
+    lf_players = [(i, p) for i, p in enumerate(players) if ',' in p['name']]
+    if lf_players and grades_found:
+        # Group by pos resets to 1
+        groups: list[list[int]] = []
+        cur_group: list[int] = []
+        for i, p in lf_players:
+            if p['pos'] == 1:
+                if cur_group:
+                    groups.append(cur_group)
+                cur_group = [i]
+            else:
+                cur_group.append(i)
+        if cur_group:
+            groups.append(cur_group)
+        # Assign grade to each group in order
+        for gi, group in enumerate(groups):
+            grade = grades_found[gi] if gi < len(grades_found) else ""
+            for i in group:
+                players[i]['grade'] = grade
+    # Clear incorrect grade assignments from overall-standings entries (Firstname Lastname)
+    for p in players:
+        if ',' not in p['name']:
+            p['grade'] = ''
 
     return {"grades": grades_found, "players": players}
 
