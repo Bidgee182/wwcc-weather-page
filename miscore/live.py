@@ -348,35 +348,26 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
                 "eventId": ev_id,
             }
 
-        # Multi-grade event: need authenticated session to find individual PDF links
+        # Multi-grade event: use the public AJAX endpoint that the mobile portal calls.
+        # Returns XML with PDF links embedded - no auth required.
         if result_count > 1:
-            jar = _wwcc_login()
-            if jar:
-                # Try multiple endpoint patterns; mobile portal uses AJAX so may not embed links
-                candidate_urls = [
-                    f"{_WWCC_BASE}/members/mobile?doAction=displayJsp&pageName=displayResultsPdf&eventId={ev_id}",
-                    f"{_WWCC_BASE}/members/getResultsReport?eventId={ev_id}",
-                    f"{_WWCC_BASE}/members/results.msp?eventId={ev_id}",
-                ]
-                for cand_url in candidate_urls:
-                    try:
-                        page = _wwcc_get(cand_url, jar=jar)
-                        pdf_links = list(dict.fromkeys(
-                            re.findall(r"/upload/[^\"'<>\s]+\.pdf", page)
-                        ))
-                        if pdf_links:
-                            log.info("WWCC multi-grade PDFs found at %s: %s", cand_url, pdf_links)
-                            return {
-                                "published": True,
-                                "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
-                                "eventId": ev_id,
-                            }
-                        log.warning("WWCC no PDFs at %s (login-in-page=%s) snippet: %s",
-                                    cand_url.split("?")[0].split("/")[-1],
-                                    "pageName=login" in page,
-                                    page[:300].replace("\n", " "))
-                    except Exception as exc:
-                        log.warning("WWCC fetch failed %s: %s", cand_url.split("?")[0].split("/")[-1], exc)
+            try:
+                xml_pdf = _wwcc_get(
+                    f"{_WWCC_BASE}/common/Ajax?doAction=getResultsPdf&eventId={ev_id}"
+                )
+                pdf_links = list(dict.fromkeys(
+                    re.findall(r"/upload/[^\"'<>\s]+\.pdf", xml_pdf)
+                ))
+                if pdf_links:
+                    log.info("WWCC multi-grade PDFs found: %s", pdf_links)
+                    return {
+                        "published": True,
+                        "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
+                        "eventId": ev_id,
+                    }
+                log.info("WWCC getResultsPdf returned no PDFs yet for eventId=%s", ev_id)
+            except Exception as exc:
+                log.warning("WWCC getResultsPdf failed: %s", exc)
 
         return {"published": False, "reportLinks": [], "eventId": ev_id}
 
