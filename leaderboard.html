@@ -120,6 +120,7 @@ html, body {
 .r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
 .ball-win     { font-size: 0.7em; margin-left: 4px; vertical-align: middle; opacity: 0.9; }
 .r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
+.r-gross { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-right: 3px; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; }
 .r-pts.dim { color: #4a6a84; }
 .r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
@@ -451,6 +452,7 @@ let _refreshStopped  = false;  // true once round is complete - no more fetches 
 let _stoppedForDate  = null;   // competition date when _refreshStopped was set
 let _stoppedTick     = 0;      // counts 1-s ticks while stopped (for periodic date checks)
 let _isStableford    = true;   // false for stroke/gross comps (lower score = better)
+let _coursePar       = 72;    // course par from JSON; used to compute net total for display
 
 // Last-render snapshots: used to keep panels scrolling after refresh stops
 let _lastRenderData        = null;
@@ -664,6 +666,7 @@ function updateHeader(d) {
         _countdown      = REFRESH_SEC;
     }
     _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
+    if (d.par) _coursePar = d.par;
     const ptsHdr = document.getElementById('col-hdr-pts');
     if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
     if (!started || !players.length) {
@@ -893,7 +896,9 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
-        const ptsTxt  = (p.thru > 0 && started) ? fmtScore(p.points) : '-';
+        const grossTag = (!_isStableford && p.thru >= holeCount && _coursePar)
+            ? '<span class="r-gross">(' + (_coursePar + p.points) + ')</span> ' : '';
+        const ptsTxt  = (p.thru > 0 && started) ? grossTag + fmtScore(p.points) : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
