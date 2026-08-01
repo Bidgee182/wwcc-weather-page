@@ -987,9 +987,11 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Only show players who have actually teed off
     const active = started ? players.filter(p => p.thru > 0) : players;
 
-    // Round is "complete" when 95%+ of active players have finished (tolerates NR/WD)
+    // Round is "complete" when 95%+ of active players have finished (tolerates NR/WD),
+    // OR when official results are published (PDF gate = the true source of truth).
     const finishedCount = active.filter(p => p.thru >= holeCount).length;
-    const roundComplete = active.length > 0 && finishedCount / active.length >= 0.95;
+    const roundComplete = _officialResultsReady ||
+        (active.length > 0 && finishedCount / active.length >= 0.95);
 
     // Sort by score: best first (higher for stableford, lower for stroke/gross)
     const scoreDir = _isStableford ? 1 : -1;
