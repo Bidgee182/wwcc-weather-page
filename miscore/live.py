@@ -1243,6 +1243,23 @@ def _is_depriority(name: str) -> bool:
     low = name.lower()
     return any(pat in low for pat in _DEPRIORITY_COMP_PATTERNS)
 
+def find_companion_board(club: str, primary: dict, days: int) -> dict | None:
+    """On Monthly Medal days, return the women's companion board if one exists."""
+    if not primary or "medal" not in primary["name"].lower():
+        return None
+    comps = list_competitions(club, days)
+    today = primary.get("date")
+    for c in comps:
+        if c.get("date") != today:
+            continue
+        if c["leaderboardId"] == primary["leaderboardId"]:
+            continue
+        name = c["name"].lower()
+        if "medal" in name and any(g in name for g in ("ladies", "womens", "women")):
+            return c
+    return None
+
+
 def find_board(club: str, comp: str | None, days: int) -> dict | None:
     """Newest board today (or newest matching `comp`).
     Hard-excluded sub-comps (Secret 6, NTP, etc.) are always skipped.
@@ -1569,6 +1586,23 @@ def main(argv=None) -> int:
                     "started" if blob["started"] else "not started",
                     f'{lead["player"]} {lead["points"]}pts' if lead else "-",
                 )
+                # On Monthly Medal days, also poll the women's companion board
+                companion = find_companion_board(args.club, board, args.days)
+                if companion:
+                    try:
+                        cb = poll(args.club, companion, args.workers, {})
+                        blob["companion"] = {
+                            "competition": cb.get("competition", companion["name"]),
+                            "players":     cb.get("players", []),
+                            "holeCount":   cb.get("holeCount", 18),
+                            "started":     cb.get("started", False),
+                            "isStableford": cb.get("isStableford", True),
+                            "par":         cb.get("par"),
+                            "type":        cb.get("type", ""),
+                        }
+                        log.info("companion %s: %d players", cb.get("competition", "?"), len(cb.get("players", [])))
+                    except Exception as ce:  # noqa: BLE001
+                        log.warning("companion poll failed: %s", ce)
         except Exception as e:  # noqa: BLE001
             log.warning("poll failed: %s", e)
             blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat()}

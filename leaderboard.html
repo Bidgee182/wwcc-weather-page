@@ -465,6 +465,10 @@ let _lastComingLastArgs    = null; // { comingLast, holeCount }
 let _officialResultsReady = false;
 let _ballWinners = new Set();
 
+// Dual-board (Monthly Medal): companion = women's board data; alternates after each scroll cycle
+let _companion        = null;
+let _showingCompanion = false;
+
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
     const syd = { timeZone: 'Australia/Sydney' };
@@ -512,6 +516,9 @@ async function fetchData() {
             _bEl.style.color = behind ? '#e74c3c' : '';
         }
 
+        // Store companion board (women's on Monthly Medal days); null if not present
+        _companion = data.companion || null;
+
         if (!_hasData) {
             // First successful load - render everything immediately
             _hasData = true;
@@ -551,10 +558,50 @@ async function fetchData() {
 function _applyPending() {
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     if (_needsReload) { location.reload(); return; }
+
+    // On Monthly Medal days: alternate between men's and women's boards each scroll cycle
+    if (_companion) {
+        _showingCompanion = !_showingCompanion;
+        if (_showingCompanion) {
+            const c = _companion;
+            const hc = c.holeCount || 18;
+            const meta = ['Wagga Wagga Country Club', 'Women'];
+            if (c.type) meta.push(c.type);
+            if (hc)     meta.push(hc + ' holes');
+            if (c.par)  meta.push('Par ' + c.par);
+            if ((c.players || []).length) meta.push(c.players.length + ' players');
+            _isStableford = c.isStableford !== false;
+            if (c.par) _coursePar = c.par;
+            const ptsHdr = document.getElementById('col-hdr-pts');
+            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
+            renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
+            setHeader('⛳ ' + (c.competition || "Women's Leaderboard") + ' - Leaderboard', meta.join(' - '));
+            return;
+        }
+        // Switching back to primary (men's) - restore isStableford/par from last primary data
+        const dr = _pendingData || _lastRenderData;
+        if (dr) {
+            _isStableford = dr.isStableford !== false;
+            if (dr.par) _coursePar = dr.par;
+            const ptsHdr = document.getElementById('col-hdr-pts');
+            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
+        }
+    }
+
+    // Primary (men's) board
     const d = _pendingData || (_refreshStopped ? _lastRenderData : null);
     if (!d) return;
     if (_pendingData) { _lastRenderData = d; _pendingData = null; }
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
+    // Restore primary header immediately on switch-back (don't wait for next poll)
+    const hcP = d.holeCount || 18;
+    const metaP = ['Wagga Wagga Country Club'];
+    if (_companion) metaP.push('Men');
+    if (d.type) metaP.push(d.type);
+    if (hcP)    metaP.push(hcP + ' holes');
+    if (d.par)  metaP.push('Par ' + d.par);
+    if ((d.players || []).length) metaP.push(d.players.length + ' players');
+    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', metaP.join(' - '));
 }
 document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 5000));
 
@@ -644,6 +691,7 @@ function updateHeader(d) {
     const hc      = d.holeCount || 18;
 
     const meta = ['Wagga Wagga Country Club'];
+    if (_companion) meta.push('Men');   // gender label only when dual-board mode is active
     if (d.type) meta.push(d.type);
     if (hc)     meta.push(hc + ' holes');
     if (d.par)  meta.push('Par ' + d.par);
@@ -658,7 +706,10 @@ function updateHeader(d) {
             meta.push(players.length + ' players');
         }
     }
-    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
+    // Only update title when showing the primary (men's) board - companion updates its own title
+    if (!_showingCompanion) {
+        setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
+    }
     // Un-stop when a new competition day is detected (overnight auto-reset)
     if (_refreshStopped && d.date && d.date !== _stoppedForDate) {
         _refreshStopped = false;
