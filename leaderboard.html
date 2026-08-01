@@ -742,12 +742,19 @@ function renderNtpLd(ntpld) {
     const bar   = document.getElementById('ntpld-bar');
     const inner = document.getElementById('ntpld-inner');
     if (!bar || !inner) return;
-    if (!_officialResultsReady || !ntpld || !ntpld.length) {
+    // Filter out entries that look like course/admin labels rather than player names
+    const _golfWords = new Set(['course','temp','golf','club','grade','green','hole','the',
+                                 'a','b','c','d','mens','womens','ladies','mixed']);
+    const _looksLikeName = w => w.length >= 3 && !_golfWords.has(w.toLowerCase());
+    const valid = (ntpld || []).filter(e =>
+        e.winner && e.winner.split(' ').filter(_looksLikeName).length >= 2
+    );
+    if (!_officialResultsReady || !valid.length) {
         bar.style.display = 'none';
         return;
     }
     const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const parts = ntpld.map(e => {
+    const parts = valid.map(e => {
         if (e.type === 'ntp') {
             const label = 'NTP' + (e.hole ? ' Hole ' + e.hole : '');
             return '<span class="ntpld-entry"><span class="ntpld-type">' + esc(label) + '</span>' + esc(e.winner) + (e.distance ? ' - ' + esc(e.distance) : '') + '</span>';
