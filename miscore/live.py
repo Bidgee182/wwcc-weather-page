@@ -272,8 +272,8 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
         full_line = ' '.join(texts)
         lower = full_line.lower()
 
-        # Section detection
-        if re.search(r'nearest.{0,15}pin|near.{0,5}pin|\bntp\b', lower):
+        # Section detection (do NOT match bare "ntp" — competition title "NTP Comp" appears in page header)
+        if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
             section = 'ntp'
             continue
         if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
@@ -1799,7 +1799,6 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         for link in _official_cache["reportLinks"]:
             try:
                 pdf_bytes = _wwcc_get_bytes(link)
-                all_ball_winners.update(_parse_ball_winners(pdf_bytes))
                 parsed = _parse_ntp_ld(pdf_bytes)
                 seen_ntp = {e["hole"] for e in ntp_all}
                 for e in parsed.get("ntp", []):
@@ -1818,10 +1817,16 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 pdf_players_all.extend(standings.get("players", []))
             except Exception as exc:
                 log.debug("PDF parse failed for %s: %s", link, exc)
-        # Also pull ball winners captured on player rows in the overall standings
+        # Pull ball winners from all parsed standings rows (overall + grade sections)
         for p in pdf_players_all:
-            if p.get("balls") and ',' not in p["name"]:
-                all_ball_winners.add(p["name"])
+            if not p.get("balls"):
+                continue
+            pname = p["name"]
+            if ',' in pname:  # "Lastname, Firstname" grade-section format
+                sp = pname.split(',', 1)
+                pname = f'{sp[1].strip()} {sp[0].strip()}'
+            if ' & ' not in pname and len(pname) >= 3:
+                all_ball_winners.add(pname)
         _official_cache["ballWinners"] = sorted(all_ball_winners)
         _official_cache["ntpLd"] = ntp_all + ld_all
         _official_cache["pdfStandings"] = {
