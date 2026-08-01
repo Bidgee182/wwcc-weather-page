@@ -587,6 +587,12 @@ function _applyPending() {
             if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
             renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
             setHeader('⛳ ' + (c.competition || 'Leaderboard') + ' - Leaderboard', meta.join(' - '));
+            // Show companion stories immediately; hide blue ball (men's-only feature)
+            const cStories = c.stories || [];
+            renderStories(cStories, false);
+            _pendingStories = cStories; _pendingStoriesSkipExpiry = false;
+            const bbCard = document.getElementById('blue-ball-card');
+            if (bbCard) bbCard.style.display = 'none';
             return;
         }
     }
@@ -609,6 +615,11 @@ function _applyPending() {
     if (d.par)  metaP.push('Par ' + d.par);
     if ((d.players || []).length) metaP.push(d.players.length + ' players');
     setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', metaP.join(' - '));
+    // Restore primary stories and blue ball when switching back from a companion
+    const ps = _pickStories(d);
+    renderStories(ps.stories, ps.skipExpiry);
+    _pendingStories = ps.stories; _pendingStoriesSkipExpiry = ps.skipExpiry;
+    setBlueBallVisible(d.date);
 }
 document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 5000));
 
@@ -735,7 +746,7 @@ function updateHeader(d) {
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
         if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
-        const showResults = allDone && official;
+        const showResults = allDone;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
             _refreshStopped  = true;
@@ -833,7 +844,6 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if ((competition || '').toUpperCase().includes('4BBB')) { exitResults(); return; }
     if (!grades || !activeSorted.length) { exitResults(); return; }
     if (!roundComplete) { exitResults(); return; }
-    if (!officialResultsReady) { exitResults(); return; }
 
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {

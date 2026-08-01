@@ -1612,6 +1612,7 @@ def main(argv=None) -> int:
                         "isStableford": cb.get("isStableford", True),
                         "par":          cb.get("par"),
                         "type":         cb.get("type", ""),
+                        "stories":      cb.get("stories", []),
                     }
                 companions = []
                 for label, finder in (
