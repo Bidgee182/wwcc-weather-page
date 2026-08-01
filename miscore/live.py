@@ -1260,6 +1260,22 @@ def find_companion_board(club: str, primary: dict, days: int) -> dict | None:
     return None
 
 
+def find_4bbb_board(club: str, primary: dict, days: int) -> dict | None:
+    """Return the 4BBB companion board running on the same day, if any."""
+    if not primary:
+        return None
+    comps = list_competitions(club, days)
+    today = primary.get("date")
+    for c in comps:
+        if c.get("date") != today:
+            continue
+        if c["leaderboardId"] == primary["leaderboardId"]:
+            continue
+        if "4bbb" in c["name"].lower():
+            return c
+    return None
+
+
 def find_board(club: str, comp: str | None, days: int) -> dict | None:
     """Newest board today (or newest matching `comp`).
     Hard-excluded sub-comps (Secret 6, NTP, etc.) are always skipped.
@@ -1586,23 +1602,33 @@ def main(argv=None) -> int:
                     "started" if blob["started"] else "not started",
                     f'{lead["player"]} {lead["points"]}pts' if lead else "-",
                 )
-                # On Monthly Medal days, also poll the women's companion board
-                companion = find_companion_board(args.club, board, args.days)
-                if companion:
-                    try:
-                        cb = poll(args.club, companion, args.workers, {})
-                        blob["companion"] = {
-                            "competition": cb.get("competition", companion["name"]),
-                            "players":     cb.get("players", []),
-                            "holeCount":   cb.get("holeCount", 18),
-                            "started":     cb.get("started", False),
-                            "isStableford": cb.get("isStableford", True),
-                            "par":         cb.get("par"),
-                            "type":        cb.get("type", ""),
-                        }
-                        log.info("companion %s: %d players", cb.get("competition", "?"), len(cb.get("players", [])))
-                    except Exception as ce:  # noqa: BLE001
-                        log.warning("companion poll failed: %s", ce)
+                # Poll companion boards: women's (Medal days) + 4BBB (all Sat/Wed days)
+                def _poll_companion(c_board):
+                    cb = poll(args.club, c_board, args.workers, {})
+                    return {
+                        "competition":  cb.get("competition", c_board["name"]),
+                        "players":      cb.get("players", []),
+                        "holeCount":    cb.get("holeCount", 18),
+                        "started":      cb.get("started", False),
+                        "isStableford": cb.get("isStableford", True),
+                        "par":          cb.get("par"),
+                        "type":         cb.get("type", ""),
+                    }
+                companions = []
+                for label, finder in (
+                    ("women's", find_companion_board),
+                    ("4BBB",    find_4bbb_board),
+                ):
+                    cboard = finder(args.club, board, args.days)
+                    if cboard:
+                        try:
+                            cd = _poll_companion(cboard)
+                            companions.append(cd)
+                            log.info("%s companion %s: %d players", label, cd["competition"], len(cd["players"]))
+                        except Exception as ce:  # noqa: BLE001
+                            log.warning("%s companion poll failed: %s", label, ce)
+                if companions:
+                    blob["companions"] = companions
         except Exception as e:  # noqa: BLE001
             log.warning("poll failed: %s", e)
             blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat()}

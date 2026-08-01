@@ -465,9 +465,9 @@ let _lastComingLastArgs    = null; // { comingLast, holeCount }
 let _officialResultsReady = false;
 let _ballWinners = new Set();
 
-// Dual-board (Monthly Medal): companion = women's board data; alternates after each scroll cycle
-let _companion        = null;
-let _showingCompanion = false;
+// Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
+let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
+let _boardIdx   = 0;    // 0 = primary; 1..N = companions[0..N-1]
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -516,8 +516,8 @@ async function fetchData() {
             _bEl.style.color = behind ? '#e74c3c' : '';
         }
 
-        // Store companion board (women's on Monthly Medal days); null if not present
-        _companion = data.companion || null;
+        // Store companion boards array; fall back to old single-companion field for compat
+        _companions = data.companions || (data.companion ? [data.companion] : []);
 
         if (!_hasData) {
             // First successful load - render everything immediately
@@ -555,17 +555,28 @@ async function fetchData() {
 // Apply buffered leaderboard data at the natural scroll loop point (last player scrolls off).
 // When refresh is stopped (round complete), fall back to last render data so the scroll loop
 // keeps cycling without needing new data from the poller.
+// Return a short display label for a companion board based on its comp name
+function _companionLabel(c) {
+    const name = (c.competition || '').toLowerCase();
+    if (name.includes('4bbb'))                                return '4BBB';
+    if (name.includes('ladies') || name.includes('women'))   return 'Women';
+    return '';
+}
+
 function _applyPending() {
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     if (_needsReload) { location.reload(); return; }
 
-    // On Monthly Medal days: alternate between men's and women's boards each scroll cycle
-    if (_companion) {
-        _showingCompanion = !_showingCompanion;
-        if (_showingCompanion) {
-            const c = _companion;
+    // Rotate through primary + companion boards on each scroll cycle
+    if (_companions.length > 0) {
+        _boardIdx = (_boardIdx + 1) % (1 + _companions.length);
+        if (_boardIdx > 0) {
+            // Showing a companion board
+            const c  = _companions[_boardIdx - 1];
             const hc = c.holeCount || 18;
-            const meta = ['Wagga Wagga Country Club', 'Women'];
+            const lbl = _companionLabel(c);
+            const meta = ['Wagga Wagga Country Club'];
+            if (lbl) meta.push(lbl);
             if (c.type) meta.push(c.type);
             if (hc)     meta.push(hc + ' holes');
             if (c.par)  meta.push('Par ' + c.par);
@@ -575,28 +586,24 @@ function _applyPending() {
             const ptsHdr = document.getElementById('col-hdr-pts');
             if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
             renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
-            setHeader('⛳ ' + (c.competition || "Women's Leaderboard") + ' - Leaderboard', meta.join(' - '));
+            setHeader('⛳ ' + (c.competition || 'Leaderboard') + ' - Leaderboard', meta.join(' - '));
             return;
-        }
-        // Switching back to primary (men's) - restore isStableford/par from last primary data
-        const dr = _pendingData || _lastRenderData;
-        if (dr) {
-            _isStableford = dr.isStableford !== false;
-            if (dr.par) _coursePar = dr.par;
-            const ptsHdr = document.getElementById('col-hdr-pts');
-            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
         }
     }
 
-    // Primary (men's) board
+    // Primary board (_boardIdx == 0)
     const d = _pendingData || (_refreshStopped ? _lastRenderData : null);
     if (!d) return;
     if (_pendingData) { _lastRenderData = d; _pendingData = null; }
+    _isStableford = d.isStableford !== false;
+    if (d.par) _coursePar = d.par;
+    const ptsHdr2 = document.getElementById('col-hdr-pts');
+    if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : 'Score';
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     // Restore primary header immediately on switch-back (don't wait for next poll)
     const hcP = d.holeCount || 18;
     const metaP = ['Wagga Wagga Country Club'];
-    if (_companion) metaP.push('Men');
+    if (_companions.length > 0) metaP.push('Men');
     if (d.type) metaP.push(d.type);
     if (hcP)    metaP.push(hcP + ' holes');
     if (d.par)  metaP.push('Par ' + d.par);
@@ -691,7 +698,7 @@ function updateHeader(d) {
     const hc      = d.holeCount || 18;
 
     const meta = ['Wagga Wagga Country Club'];
-    if (_companion) meta.push('Men');   // gender label only when dual-board mode is active
+    if (_companions.length > 0) meta.push('Men');   // gender label only when multi-board mode is active
     if (d.type) meta.push(d.type);
     if (hc)     meta.push(hc + ' holes');
     if (d.par)  meta.push('Par ' + d.par);
@@ -707,7 +714,7 @@ function updateHeader(d) {
         }
     }
     // Only update title when showing the primary (men's) board - companion updates its own title
-    if (!_showingCompanion) {
+    if (_boardIdx === 0) {
         setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', meta.join(' - '));
     }
     // Un-stop when a new competition day is detected (overnight auto-reset)
