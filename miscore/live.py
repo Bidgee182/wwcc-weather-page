@@ -352,26 +352,31 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
         if result_count > 1:
             jar = _wwcc_login()
             if jar:
-                try:
-                    page = _wwcc_get(
-                        f"{_WWCC_BASE}/members/mobile?doAction=displayJsp"
-                        f"&pageName=displayResultsPdf&eventId={ev_id}",
-                        jar=jar,
-                    )
-                    pdf_links = list(dict.fromkeys(
-                        re.findall(r"/upload/reportOutput/[^\"']+\.pdf", page)
-                    ))
-                    if pdf_links:
-                        log.info("WWCC multi-grade PDFs found: %s", pdf_links)
-                        return {
-                            "published": True,
-                            "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
-                            "eventId": ev_id,
-                        }
-                    log.warning("WWCC multi-grade PDF page returned no links (url-contains-login=%s)",
-                                "pageName=login" in page)
-                except Exception as exc:
-                    log.warning("WWCC multi-grade result fetch failed: %s", exc)
+                # Try multiple endpoint patterns; mobile portal uses AJAX so may not embed links
+                candidate_urls = [
+                    f"{_WWCC_BASE}/members/mobile?doAction=displayJsp&pageName=displayResultsPdf&eventId={ev_id}",
+                    f"{_WWCC_BASE}/members/getResultsReport?eventId={ev_id}",
+                    f"{_WWCC_BASE}/members/results.msp?eventId={ev_id}",
+                ]
+                for cand_url in candidate_urls:
+                    try:
+                        page = _wwcc_get(cand_url, jar=jar)
+                        pdf_links = list(dict.fromkeys(
+                            re.findall(r"/upload/[^\"'<>\s]+\.pdf", page)
+                        ))
+                        if pdf_links:
+                            log.info("WWCC multi-grade PDFs found at %s: %s", cand_url, pdf_links)
+                            return {
+                                "published": True,
+                                "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
+                                "eventId": ev_id,
+                            }
+                        log.warning("WWCC no PDFs at %s (login-in-page=%s) snippet: %s",
+                                    cand_url.split("?")[0].split("/")[-1],
+                                    "pageName=login" in page,
+                                    page[:300].replace("\n", " "))
+                    except Exception as exc:
+                        log.warning("WWCC fetch failed %s: %s", cand_url.split("?")[0].split("/")[-1], exc)
 
         return {"published": False, "reportLinks": [], "eventId": ev_id}
 
