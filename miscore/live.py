@@ -1219,9 +1219,34 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
 
 _AEST = timezone(timedelta(hours=10))
 
+# Background/sub-competitions that run alongside the main comp and should
+# never be picked as the primary leaderboard (add more patterns as needed).
+_EXCLUDED_COMP_PATTERNS = (
+    "secret",        # Secret 6, Secret 8, etc.
+    "nearest",       # Nearest the Pin
+    "longest drive",
+    "skins",
+    "2s pool",
+    "twos pool",
+)
+
+def _is_sub_comp(name: str) -> bool:
+    low = name.lower()
+    return any(pat in low for pat in _EXCLUDED_COMP_PATTERNS)
+
 def find_board(club: str, comp: str | None, days: int) -> dict | None:
-    """Newest board today (or newest matching `comp`)."""
+    """Newest board today (or newest matching `comp`).
+    Sub-competitions (Secret 6, nearest pin, etc.) are always excluded.
+    """
     comps = list_competitions(club, days)
+    if not comps:
+        return None
+    # Strip background sub-comps unless a specific --comp name was given
+    if not comp:
+        excluded = [c["name"] for c in comps if _is_sub_comp(c["name"])]
+        if excluded:
+            log.info("Skipping sub-competitions: %s", ", ".join(excluded))
+        comps = [c for c in comps if not _is_sub_comp(c["name"])]
     if not comps:
         return None
     if comp:
