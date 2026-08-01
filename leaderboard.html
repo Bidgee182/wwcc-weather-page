@@ -499,6 +499,8 @@ let _lastComingLastArgs    = null; // { comingLast, holeCount }
 // Results mode (3-column layout) only activates when this is true.
 let _officialResultsReady = false;
 let _ballWinners = new Set();
+// PDF standings from official results: {grades: ["A","B","C"], players: [{pos,name,grade,score}]}
+let _pdfStandings = { grades: [], players: [] };
 
 // Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
 let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
@@ -612,7 +614,8 @@ function _applyPending() {
             const lbl = _companionLabel(c);
             const meta = ['Wagga Wagga Country Club'];
             if (lbl) meta.push(lbl);
-            if (c.type) meta.push(c.type);
+            const cType = c.type || ((c.competition || '').toLowerCase().includes('stableford') ? 'Stableford' : '');
+            if (cType) meta.push(cType);
             if (hc)     meta.push(hc + ' holes');
             if (c.par)  meta.push('Par ' + c.par);
             if ((c.players || []).length) meta.push(c.players.length + ' players');
@@ -777,7 +780,9 @@ function updateHeader(d) {
 
     const meta = ['Wagga Wagga Country Club'];
     if (_companions.length > 0) meta.push('Men');   // gender label only when multi-board mode is active
-    if (d.type) meta.push(d.type);
+    // Type label: use explicit type, or infer from competition name
+    const typeLabel = d.type || ((d.competition || '').toLowerCase().includes('stableford') ? 'Stableford' : '');
+    if (typeLabel) meta.push(typeLabel);
     if (hc)     meta.push(hc + ' holes');
     if (d.par)  meta.push('Par ' + d.par);
     if (players.length) {
@@ -813,6 +818,7 @@ function updateHeader(d) {
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
         if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
+        if (d.pdfStandings) _pdfStandings = d.pdfStandings;
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
@@ -910,15 +916,51 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     }
 
     if ((competition || '').toUpperCase().includes('4BBB')) { exitResults(); return; }
-    if (!grades || !activeSorted.length) { exitResults(); return; }
+    if (!activeSorted.length) { exitResults(); return; }
     if (!roundComplete) { exitResults(); return; }
     if (!officialResultsReady) { exitResults(); return; }
 
+    // Skip grade strip for small fields (< 30 players) - single-grade comps like women's
+    if (activeSorted.length < 30) { exitResults(); return; }
+    if (!grades) { exitResults(); return; }
+
+    // Use PDF grade assignments when the PDF confirms grades exist
+    const pdfHasGrades = _pdfStandings && (_pdfStandings.grades || []).length > 0;
+
+    // Build grade assignments: use PDF grade assignments if available, else dynamic thirds
+    const pdfPlayerMap = {};
+    if (pdfHasGrades && _pdfStandings.players) {
+        for (const pp of _pdfStandings.players) {
+            if (pp.name && pp.grade) {
+                pdfPlayerMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
+            }
+        }
+    }
+
+    function getPlayerGrade(p) {
+        if (pdfHasGrades && Object.keys(pdfPlayerMap).length > 0) {
+            // Exact match first
+            const key = (p.player || '').toLowerCase();
+            if (pdfPlayerMap[key]) return pdfPlayerMap[key];
+            // Partial match: PDF name contained in player name or vice versa
+            for (const [pdfName, pdfGrade] of Object.entries(pdfPlayerMap)) {
+                if (key.includes(pdfName) || pdfName.includes(key.split(' ').pop())) {
+                    return pdfGrade;
+                }
+            }
+        }
+        return getGrade(p.hcp, grades);
+    }
+
     const gradeAll = { A: [], B: [], C: [] };
     for (const p of activeSorted) {
-        const g = getGrade(p.hcp, grades);
-        if (g) gradeAll[g].push(p);
+        const g = getPlayerGrade(p);
+        if (g && gradeAll[g]) gradeAll[g].push(p);
     }
+
+    // Require at least 2 of 3 grades to have players, else field is effectively single-grade
+    const gradesWithPlayers = Object.values(gradeAll).filter(arr => arr.length > 0).length;
+    if (gradesWithPlayers < 2) { exitResults(); return; }
 
     // Sort each grade: best score first (higher for stableford, lower for stroke)
     const scoreDir = _isStableford ? 1 : -1;
@@ -1013,6 +1055,24 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Grade calculations (use full field for boundaries, active for grade strip leaders)
     const grades = computeGrades(players);
 
+    // Build grade-sorted lists for ball marker logic (top-3 per grade = prize positions)
+    const scoreDir2 = _isStableford ? 1 : -1;
+    const _gradeTopN = {};
+    if (grades && roundComplete && _officialResultsReady) {
+        const _ga = { A: [], B: [], C: [] };
+        for (const p of active) {
+            const g = getGrade(p.hcp, grades);
+            if (g && _ga[g]) _ga[g].push(p);
+        }
+        ['A', 'B', 'C'].forEach(gk => {
+            _ga[gk].sort((a, b) => {
+                if (b.points !== a.points) return scoreDir2 * (b.points - a.points);
+                return countbackCompare(a, b, holeCount) || a.player.localeCompare(b.player);
+            });
+            _ga[gk].slice(0, 3).forEach(p => { _gradeTopN[p.player] = true; });
+        });
+    }
+
     if (!active.length) {
         if (top3El) top3El.innerHTML = '';
         inner.classList.remove('scrolling');
@@ -1044,7 +1104,12 @@ function renderLeaderboard(players, holeCount, started, competition) {
         const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
             '<span class="r-hcp-token">[$1]</span>');
         const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
-        const ballTag = _ballWinners.has(p.player) ? ' <span class="ball-win">&#x26AA;</span>' : '';
+        // In results mode: show ball only for grade prize positions (top-3/grade) - no gaps.
+        // During live play: use parsed ball winner names (empty until PDF published).
+        const isBallWinner = (roundComplete && _officialResultsReady)
+            ? _gradeTopN[p.player]
+            : _ballWinners.has(p.player);
+        const ballTag = isBallWinner ? ' <span class="ball-win">&#x26AA;</span>' : '';
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
             '<span class="r-name">' + escapedName + hcpTag + ballTag + '</span>' +

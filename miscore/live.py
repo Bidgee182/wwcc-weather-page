@@ -266,9 +266,12 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
             if not hole_m:
                 continue
             hole = hole_m.group(1)
+            _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin',
+                         'course', 'club', 'ga', 'temp', 'green', 'grade',
+                         'wagga', 'country', 'golf', 'trophy', 'par', 'pres'}
             name_words = [w for w in line.split()
                           if w and w[0].isupper() and not w[0].isdigit()
-                          and w.lower() not in ('hole', 'the', 'and', 'ntp', 'nearest', 'pin')]
+                          and w.lower() not in _ntp_skip]
             dist_m = re.search(r'([\d.]+\s*m)\b', line, re.IGNORECASE)
             dist = dist_m.group(1).strip() if dist_m else ''
             name = ' '.join(name_words[:4]) if name_words else ''
@@ -276,9 +279,12 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
                 ntp.append({"hole": hole, "winner": name, "distance": dist, "type": "ntp"})
 
         elif section == 'ld':
+            _ld_skip = {'hole', 'the', 'and', 'longest', 'drive',
+                        'course', 'club', 'ga', 'temp', 'green', 'grade',
+                        'wagga', 'country', 'golf', 'trophy'}
             name_words = [w for w in line.split()
                           if w and w[0].isupper() and not w[0].isdigit()
-                          and w.lower() not in ('hole', 'the', 'and', 'longest', 'drive')]
+                          and w.lower() not in _ld_skip]
             name = ' '.join(name_words[:4]) if name_words else ''
             hole_m = re.search(r'(?:hole\s+)?(\d{1,2})', lower)
             hole = hole_m.group(1) if hole_m else ''
@@ -288,6 +294,130 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
                 ld.append({"hole": hole, "winner": name, "distance": dist, "type": "ld"})
 
     return {"ntp": ntp, "ld": ld}
+
+
+def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
+    """Extract grade headings and player positions from a WWCC prize presentation PDF.
+
+    Returns {"grades": ["A","B","C",...], "players": [{"pos":int,"name":str,"grade":str,"score":str}]}.
+    Grades list is empty when the PDF has no grade sections (e.g. single-grade women's event).
+    """
+    entries = []
+    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        try:
+            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
+            for op in re.finditer(
+                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
+                r'(?:/F\d+ [\d.]+ Tf\s*)?'
+                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
+                r'\(([^)]*)\)Tj',
+                text,
+            ):
+                x, y = float(op.group(1)), float(op.group(2))
+                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+                if txt:
+                    entries.append((y, x, txt))
+        except Exception:
+            pass
+
+    if not entries:
+        return {"grades": [], "players": []}
+
+    entries.sort(key=lambda e: (-e[0], e[1]))
+
+    # Group text elements into lines by y coordinate (±6 units)
+    lines_raw: list[list[tuple[float, str]]] = []
+    cur_y: float | None = None
+    cur_cells: list[tuple[float, str]] = []
+    for y, x, txt in entries:
+        if cur_y is None or abs(y - cur_y) <= 6:
+            cur_cells.append((x, txt))
+            if cur_y is None:
+                cur_y = y
+        else:
+            if cur_cells:
+                lines_raw.append(sorted(cur_cells))
+            cur_cells = [(x, txt)]
+            cur_y = y
+    if cur_cells:
+        lines_raw.append(sorted(cur_cells))
+
+    _skip_words = {
+        'course', 'club', 'ga', 'temp', 'green', 'grade', 'wagga', 'country',
+        'golf', 'trophy', 'par', 'pres', 'hole', 'the', 'and', 'nearest',
+        'pin', 'longest', 'drive', 'ball', 'balls', 'prize', 'prizes',
+        'nett', 'gross', 'scratch', 'medal', 'stableford', 'stroke',
+    }
+
+    players: list[dict] = []
+    grades_found: list[str] = []
+    current_grade: str = ""
+
+    for cells in lines_raw:
+        texts = [t for _, t in cells]
+        if not texts:
+            continue
+        full_line = ' '.join(texts)
+        lower = full_line.lower()
+
+        # Grade heading: "Grade A", "GRADE B", "A Grade", "A GRADE", etc.
+        gm = re.search(r'\bgrade\s+([A-D])\b|\b([A-D])\s+grade\b', full_line, re.IGNORECASE)
+        if gm and len(texts) <= 5:
+            gname = (gm.group(1) or gm.group(2)).upper()
+            current_grade = gname
+            if gname not in grades_found:
+                grades_found.append(gname)
+            continue
+
+        # Section headings reset context (NTP, LD, ball draw, etc.)
+        if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
+            continue
+
+        # Look for a position number (1-20) as the first or second text element
+        pos: int | None = None
+        name_start_idx = 0
+        for i, t in enumerate(texts[:3]):
+            pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
+            if pm:
+                v = int(pm.group(1))
+                if 1 <= v <= 20:
+                    pos = v
+                    name_start_idx = i + 1
+                    break
+
+        if pos is None:
+            continue
+
+        # Collect name words (capitalised, not numbers, not skip words)
+        name_parts: list[str] = []
+        score_parts: list[str] = []
+        for t in texts[name_start_idx:]:
+            t = t.strip()
+            if not t:
+                continue
+            # Ball prize column (far right) - skip
+            if re.fullmatch(r'\d+\s*Balls?', t, re.IGNORECASE):
+                continue
+            # Number only = could be score, handicap, or page number
+            if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
+                score_parts.append(t)
+                continue
+            # Score text like "Net 72" or "38 Pts" etc.
+            if re.search(r'\d', t) and len(t) < 15:
+                score_parts.append(t)
+                continue
+            # Capitalised word = likely part of the name
+            if t and any(c.isupper() for c in t) and t.lower() not in _skip_words:
+                name_parts.append(t)
+
+        name = ' '.join(name_parts[:4]).strip()
+        score = ' '.join(score_parts[:2]).strip()
+        if len(name) < 3:
+            continue
+
+        players.append({"pos": pos, "name": name, "grade": current_grade, "score": score})
+
+    return {"grades": grades_found, "players": players}
 
 
 def _ev_tag(ev_text: str, tag: str) -> str:
@@ -1417,11 +1547,15 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     """One full read of a board -> kiosk JSON."""
     board_id = board["leaderboardId"]
     page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
-    type_m = re.search(r"-\s*(Stableford|Stroke|Par|Gross)\b", page)
-    comp_type = (type_m.group(1) if type_m else "").strip()
-    if not comp_type and "medal" in board["name"].lower():
+    # Monthly Medal is ALWAYS stroke regardless of what the scrape says.
+    if "medal" in board["name"].lower():
         comp_type = "Stroke"
-    is_stableford = comp_type.lower() not in ("stroke", "gross")
+    elif "stableford" in board["name"].lower():
+        comp_type = "Stableford"
+    else:
+        type_m = re.search(r"-?\s*(Stableford|Stroke|Par|Gross|Nett)\b", page, re.IGNORECASE)
+        comp_type = (type_m.group(1) if type_m else "").strip()
+    is_stableford = comp_type.lower() not in ("stroke", "gross", "nett")
     field_ = _board_players(page)
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -1568,6 +1702,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         all_ball_winners: set = set()
         ntp_all: list = []
         ld_all: list = []
+        pdf_grades_found: list = []
+        pdf_players_all: list = []
         for link in _official_cache["reportLinks"]:
             try:
                 pdf_bytes = _wwcc_get_bytes(link)
@@ -1583,11 +1719,22 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                     if e["winner"] not in seen_ld:
                         ld_all.append(e)
                         seen_ld.add(e["winner"])
+                standings = _parse_pdf_standings(pdf_bytes)
+                for g in standings.get("grades", []):
+                    if g not in pdf_grades_found:
+                        pdf_grades_found.append(g)
+                pdf_players_all.extend(standings.get("players", []))
             except Exception as exc:
                 log.debug("PDF parse failed for %s: %s", link, exc)
         _official_cache["ballWinners"] = sorted(all_ball_winners)
         _official_cache["ntpLd"] = ntp_all + ld_all
-        log.info("Ball winners: %s  NTP/LD: %s", _official_cache["ballWinners"], _official_cache["ntpLd"])
+        _official_cache["pdfStandings"] = {
+            "grades": pdf_grades_found,
+            "players": pdf_players_all,
+        }
+        log.info("Ball winners: %d  NTP/LD: %d  PDF grades: %s  PDF players: %d",
+                 len(_official_cache["ballWinners"]), len(_official_cache["ntpLd"]),
+                 pdf_grades_found, len(pdf_players_all))
 
     now = datetime.now(timezone.utc)
 
@@ -1625,6 +1772,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
         "ballWinners": _official_cache.get("ballWinners") or [],
         "ntpLd": _official_cache.get("ntpLd") or [],
+        "pdfStandings": _official_cache.get("pdfStandings") or {"grades": [], "players": []},
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories[:12],
@@ -1716,27 +1864,47 @@ def main(argv=None) -> int:
                     f'{lead["player"]} {lead["points"]}pts' if lead else "-",
                 )
                 # Poll companion boards: women's (Medal days) + 4BBB (all Sat/Wed days)
-                def _poll_companion(c_board):
+                is_medal_day = "medal" in board["name"].lower()
+
+                def _poll_companion(c_board, force_stroke=False):
                     cb = poll(args.club, c_board, args.workers, {})
+                    is_sf = cb.get("isStableford", True)
+                    players_out = cb.get("players", [])
+                    comp_type_out = cb.get("type", "")
+                    # On monthly medal days, 4BBB is stroke/nett: convert stableford
+                    # points to net-vs-par and re-sort.
+                    if force_stroke and is_sf:
+                        for p in players_out:
+                            thru = p.get("thru") or 0
+                            pts = p.get("points") or 0
+                            # net_vs_par = -(stableford_pts - 2*thru)
+                            p["points"] = -(pts - 2 * thru)
+                        players_out.sort(key=lambda p: (
+                            p.get("points", 0), -(p.get("thru") or 0), p.get("player", "")
+                        ))
+                        for i, p in enumerate(players_out, 1):
+                            p["liveRank"] = i
+                        is_sf = False
+                        comp_type_out = "Stroke"
                     return {
                         "competition":  cb.get("competition", c_board["name"]),
-                        "players":      cb.get("players", []),
+                        "players":      players_out,
                         "holeCount":    cb.get("holeCount", 18),
                         "started":      cb.get("started", False),
-                        "isStableford": cb.get("isStableford", True),
+                        "isStableford": is_sf,
                         "par":          cb.get("par"),
-                        "type":         cb.get("type", ""),
+                        "type":         comp_type_out,
                         "stories":      cb.get("stories", []),
                     }
                 companions = []
-                for label, finder in (
-                    ("women's", find_companion_board),
-                    ("4BBB",    find_4bbb_board),
+                for label, finder, force_stroke in (
+                    ("women's", find_companion_board, False),
+                    ("4BBB",    find_4bbb_board, is_medal_day),
                 ):
                     cboard = finder(args.club, board, args.days)
                     if cboard:
                         try:
-                            cd = _poll_companion(cboard)
+                            cd = _poll_companion(cboard, force_stroke=force_stroke)
                             companions.append(cd)
                             log.info("%s companion %s: %d players", label, cd["competition"], len(cd["players"]))
                         except Exception as ce:  # noqa: BLE001
