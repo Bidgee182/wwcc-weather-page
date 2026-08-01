@@ -93,11 +93,11 @@ html, body {
 .lb-rest-clip {
     flex: 1; overflow: hidden; position: relative;
 }
-.lb-scroll-inner { width: 100%; will-change: transform; }
+.lb-scroll-inner { width: 100%; }
 
 @keyframes lb-scroll {
-    from { transform: translate3d(0, 0, 0); }
-    to   { transform: translate3d(0, -100%, 0); }
+    from { transform: translateY(0); }
+    to   { transform: translateY(-100%); }
 }
 .lb-scroll-inner.scrolling { animation: lb-scroll linear 1; }
 .lb-gap { height: 80px; }
@@ -141,11 +141,11 @@ html, body {
     background: rgba(0,0,0,0.4); padding: 7px 14px; flex-shrink: 0;
     font-size: 0.78em; font-weight: bold; letter-spacing: 2.5px; text-transform: uppercase;
 }
-/* Side panel scroll - seamless infinite loop: content doubled in JS, -50% = one copy height */
+/* Side panel scroll - same infinite-loop technique as main leaderboard */
 .side-list { flex: 1; overflow: hidden; padding: 0; position: relative; }
-.side-list-inner { padding: 8px 14px 6px; width: 100%; will-change: transform; }
-@keyframes side-scroll { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, -50%, 0); } }
-.side-list-inner.scrolling { animation: side-scroll linear infinite; }
+.side-list-inner { padding: 8px 14px 6px; width: 100%; }
+@keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+.side-list-inner.scrolling { animation: side-scroll linear 1; }
 
 .story-row {
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -665,7 +665,7 @@ function updateHeader(d) {
     }
     _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
     const ptsHdr = document.getElementById('col-hdr-pts');
-    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
+    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Net';
     if (!started || !players.length) {
         setBadge('waiting', 'Not started');
     } else {
@@ -673,7 +673,7 @@ function updateHeader(d) {
         const allDone = active.length > 0 && active.every(p => p.thru >= hc);
         const official = d.officialResultsReady || false;
         _officialResultsReady = official;
-        if (d.ballWinners != null) _ballWinners = new Set(d.ballWinners);
+        if (d.ballWinners && d.ballWinners.length) _ballWinners = new Set(d.ballWinners);
         const showResults = allDone && official;
         setBadge(showResults ? 'results' : 'live', showResults ? 'Results' : 'Live');
         if (allDone && official && !_refreshStopped) {
@@ -733,16 +733,13 @@ function countbackCompare(a, b, holeCount, dir) {
     if (!bFin) return -1;
     const ah = a.holes || [];
     const bh = b.holes || [];
-    // Stableford-scale per-hole points: higher = better quality hole for BOTH scoring types
-    // (higher stableford pts = more birdies = lower net for stroke play too).
-    // No dir multiplication needed here - the scale already points toward the better player.
     const sliceSum = (arr, n) => arr.slice(-n).reduce((s, h) => s + (h.points || 0), 0);
     for (const n of [9, 6, 3]) {
-        const d = sliceSum(bh, n) - sliceSum(ah, n);
+        const d = dir * (sliceSum(bh, n) - sliceSum(ah, n));
         if (d !== 0) return d;
     }
     for (let i = ah.length - 1; i >= 0; i--) {
-        const d = ((bh[i] || {}).points || 0) - ((ah[i] || {}).points || 0);
+        const d = dir * (((bh[i] || {}).points || 0) - ((ah[i] || {}).points || 0));
         if (d !== 0) return d;
     }
     return 0;
@@ -751,22 +748,6 @@ function countbackCompare(a, b, holeCount, dir) {
 function fmtHcp(hcp) {
     if (hcp == null) return '';
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
-}
-
-// Format a player's score for display.
-// Stableford: raw number (e.g. 38).
-// Stroke: net-vs-par format: -4, E, +3.
-function fmtScore(pts) {
-    if (_isStableford) return pts;
-    if (pts == null)   return '-';
-    if (pts === 0)     return 'E';
-    if (pts > 0)       return '+' + pts;
-    return '' + pts;
-}
-// Like fmtScore but appends "pts" suffix for stableford.
-function fmtScoreLabel(pts) {
-    if (_isStableford) return (pts != null ? pts : '-') + 'pts';
-    return fmtScore(pts);
 }
 
 function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete, officialResultsReady) {
@@ -821,7 +802,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
             '<div class="grade-item">' +
                 '<span class="grade-medal-sm">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-name-sm">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-pts-sm">&nbsp;' + fmtScoreLabel(p.points) + '</span>' +
+                '<span class="grade-pts-sm">&nbsp;' + p.points + 'pts</span>' +
             '</div>'
         ).join('');
     });
@@ -837,7 +818,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
             '<div class="grade-podium-row">' +
                 '<span class="grade-podium-medal">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-podium-name">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-podium-pts">' + fmtScoreLabel(p.points) + '</span>' +
+                '<span class="grade-podium-pts">' + p.points + 'pts</span>' +
             '</div>'
         ).join('');
     });
@@ -903,7 +884,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
-        const ptsTxt  = (p.thru > 0 && started) ? fmtScore(p.points) : '-';
+        const ptsTxt  = (p.thru > 0 && started) ? p.points : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
@@ -990,24 +971,15 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
         inner.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(emptyMsg) + '</div></div>';
         return 0;
     }
-    const singleHtml = rows.join('');
+    const html = rows.join('');
     inner.classList.remove('scrolling');
-    inner.innerHTML = singleHtml;
+    inner.innerHTML = html; // single copy — translateY(-100%) scrolls full content off
     if (rows.length >= minForScroll) {
         void inner.offsetHeight;
-        const singleH = inner.scrollHeight;
-        const clipH   = el.clientHeight;
-        if (singleH > clipH) {
-            // Double content so -50% (= one copy height) gives a seamless infinite loop.
-            // The animation scrolls exactly one copy off the top; the second copy is
-            // already positioned to resume seamlessly, eliminating the snap-back jitter.
-            inner.innerHTML = singleHtml + singleHtml;
-            void inner.offsetHeight;
-            const dur = Math.max(15, rows.length * 2.5);
-            inner.style.animationDuration = dur + 's';
-            inner.classList.add('scrolling');
-            return dur * 1000;
-        }
+        const dur = Math.max(15, rows.length * 2.5);
+        inner.style.animationDuration = dur + 's';
+        inner.classList.add('scrolling');
+        return dur * 1000;
     }
     return 0;
 }
@@ -1051,7 +1023,7 @@ function renderStories(stories, skipExpiry) {
                 '<div class="story-detail">' + esc(s.detail) + '</div>' +
             '</div>' +
             '<div class="story-right">' +
-                '<div class="story-pts">' + fmtScoreLabel(s.points) + '</div>' +
+                '<div class="story-pts">' + s.points + 'pts</div>' +
                 '<div class="story-thru">thru ' + s.thru + '</div>' +
             '</div>' +
         '</div>';
@@ -1071,7 +1043,7 @@ function _doRenderComingLast(comingLast, holeCount) {
                 '<div class="last-name">' + esc(p.player) + '</div>' +
                 '<div class="' + thruCls + '">' + thruTxt + '</div>' +
             '</div>' +
-            '<div class="last-pts">' + fmtScoreLabel(p.points) + '</div>' +
+            '<div class="last-pts">' + p.points + 'pts</div>' +
         '</div>';
     });
     _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5);
