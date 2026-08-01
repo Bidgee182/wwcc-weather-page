@@ -1118,7 +1118,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else if (rank === 2 && roundComplete) { rankHtml = '🥈' + cbMark; rankCls += ' silver'; }
         else if (rank === 3 && roundComplete) { rankHtml = '🥉' + cbMark; rankCls += ' bronze'; }
         else                                { rankHtml = rank + cbMark; }
-        const thruTxt = p.thru === 0 ? '-' : p.thru;
+        const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
         const grossTag = (!_isStableford && p.thru >= holeCount && _coursePar)
             ? '<span class="r-gross">(' + (_coursePar + p.points) + ')</span> ' : '';

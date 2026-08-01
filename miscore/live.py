@@ -683,8 +683,11 @@ def _played(holes: list[dict], is_stableford: bool = True) -> list[dict]:
         # A hole is only played when actual strokes have been entered.
         return [h for h in holes if isinstance(h.get("strokes"), int)]
     # Stableford: use "played" flag (includes pickups) or int checks for older data.
+    # par=None means MiClub pre-filled the hole as a registration placeholder before the
+    # player has reached it; exclude these so pre-fills don't inflate thru counts.
     return [h for h in holes
-            if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)]
+            if h.get("par") is not None
+            and (h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int))]
 
 
 def _thru(holes: list[dict], hole_count: int = 0, is_stableford: bool = True) -> int:
@@ -693,8 +696,10 @@ def _thru(holes: list[dict], hole_count: int = 0, is_stableford: bool = True) ->
         return sum(1 for h in holes if isinstance(h.get("strokes"), int))
     # Stableford: count all holes explicitly entered on the card - including pickups ("-").
     # Never use hole index: shotgun starts mean the index order is not play order.
+    # par=None = genuinely unplayed (MiClub does not pre-fill par for unreached holes).
     played_nums = {h["hole"] for h in holes
-                   if h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int)}
+                   if h.get("par") is not None
+                   and (h.get("played") or isinstance(h.get("strokes"), int) or isinstance(h.get("points"), int))}
     played_count = len(played_nums)
     if hole_count > 0 and 0 < played_count < hole_count:
         # Blank holes sandwiched between played holes whose par IS populated are
