@@ -867,14 +867,24 @@ function computeGrades(players) {
     return { aMax: boundaryHcp(aEnd - 1), bMax: boundaryHcp(bEnd - 1) };
 }
 
-// Return PDF-assigned grade for a player (surname match), or null if not found.
+// Return PDF-assigned grade for a player, or null if not found.
+// PDF map keys are "lastname, firstname" (from grade prize sections).
+// Player names from live board are "Firstname Lastname".
 function lookupPdfGrade(playerName) {
     if (!Object.keys(_pdfGradeMap).length) return null;
     const key = (playerName || '').toLowerCase();
     if (_pdfGradeMap[key]) return _pdfGradeMap[key];
-    const surname = key.split(' ').pop();
+    // Derive surname and first initial for disambiguation when two players share a surname
+    const parts = key.split(' ').filter(Boolean);
+    const surname = parts[parts.length - 1] || '';
+    const initial = parts[0] ? parts[0][0] : '';
     for (const [pdfName, pdfGrade] of Object.entries(_pdfGradeMap)) {
-        if (pdfName.includes(surname)) return pdfGrade;
+        if (!pdfName.includes(surname)) continue;
+        // pdfName is "lastname, firstname" — extract first initial after the comma
+        const commaIdx = pdfName.indexOf(',');
+        const pdfFirst = commaIdx >= 0 ? pdfName.slice(commaIdx + 1).trimStart() : '';
+        const pdfInitial = pdfFirst ? pdfFirst[0] : '';
+        if (!initial || !pdfInitial || pdfInitial === initial) return pdfGrade;
     }
     return null;
 }
@@ -1102,11 +1112,11 @@ function renderLeaderboard(players, holeCount, started, competition) {
         const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
             '<span class="r-hcp-token">[$1]</span>');
         const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
-        // In results mode: show ball only for grade prize positions (top-3/grade) - no gaps.
-        // During live play: use parsed ball winner names (empty until PDF published).
-        const isBallWinner = (roundComplete && _officialResultsReady)
-            ? _gradeTopN[p.player]
-            : _ballWinners.has(p.player);
+        // PDF ball winners (from "1 Ball" column) are authoritative when available.
+        // Fall back to top-3 per grade only when no PDF ball data has loaded.
+        const isBallWinner = _ballWinners.size > 0
+            ? _ballWinners.has(p.player)
+            : (roundComplete && _officialResultsReady && !!_gradeTopN[p.player]);
         const ballTag = isBallWinner ? ' <span class="ball-win">&#x26AA;</span>' : '';
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +

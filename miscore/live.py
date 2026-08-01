@@ -43,6 +43,47 @@ from .webscrape import BASE, _get, _parse_holes, list_competitions
 
 log = logging.getLogger("miscore.live")
 
+# ---------------------------------------------------------------------------
+# Shared PDF text-extraction utilities
+# ---------------------------------------------------------------------------
+
+# Matches any 6-parameter PDF Tm operator (not just identity 1 0 0 1).
+# Params 5 and 6 are the x/y translation; captured as groups 1 and 2.
+# Group 3 is the text string from the Tj operator on the same sequence.
+_TM_RE = re.compile(
+    r'[-+]?[\d.]+\s+[-+]?[\d.]+\s+[-+]?[\d.]+\s+[-+]?[\d.]+\s+'
+    r'([\d.]+)\s+([\d.]+)\s+Tm\s*'
+    r'(?:/F\d+ [\d.]+ Tf\s*)?'
+    r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
+    r'\(([^)]*)\)Tj'
+)
+
+
+def _pdf_text_entries(pdf_bytes: bytes) -> list:
+    """Extract (y, x, text) tuples from all streams in a PDF.
+
+    Handles deflate-compressed and uncompressed streams, and any Tm matrix.
+    """
+    results = []
+    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        raw = m.group(1)
+        try:
+            raw = zlib.decompress(raw)
+        except Exception:
+            pass  # try as uncompressed
+        try:
+            text = raw.decode('latin-1', errors='replace')
+        except Exception:
+            continue
+        for op in _TM_RE.finditer(text):
+            x = float(op.group(1))
+            y = float(op.group(2))
+            txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+            if txt:
+                results.append((y, x, txt))
+    return results
+
+
 def _git_hash() -> str | None:
     try:
         return subprocess.check_output(
@@ -148,53 +189,35 @@ def _wwcc_get_bytes(url: str) -> bytes:
 
 
 def _parse_ball_winners(pdf_bytes: bytes) -> list:
-    """Parse a WWCC prize presentation PDF and return names of players who won a ball.
+    """Parse a WWCC prize PDF and return names of players who won a ball.
 
-    Handles split-row names: when a player's name appears on the row just above
-    or below their prize cell (a PDF layout quirk at section boundaries).
+    Finds all rows containing "N Ball(s)" text and extracts the player name
+    from the same y-line (±15 units to handle split-row PDF layouts).
+    Uses the shared _pdf_text_entries helper so any Tm matrix works.
     """
-    entries = []
-    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
-        try:
-            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
-            for op in re.finditer(
-                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
-                r'(?:/F\d+ [\d.]+ Tf\s*)?'
-                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
-                r'\(([^)]*)\)Tj',
-                text,
-            ):
-                x, y = float(op.group(1)), float(op.group(2))
-                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
-                if txt:
-                    entries.append((y, x, txt))
-        except Exception:
-            pass
+    entries = _pdf_text_entries(pdf_bytes)
+    if not entries:
+        return []
 
-    # Index all name-column entries (x ~ 55) by y position
-    name_by_y: dict = {}
-    for y, x, txt in entries:
-        if 50 <= x <= 80:
-            name_by_y[y] = txt
+    _name_skip = {'hole', 'the', 'and', 'grade', 'wagga', 'country', 'golf',
+                  'course', 'club', 'trophy', 'prize', 'prizes', 'nett', 'gross',
+                  'out', 'in', 'total', 'entrants', 'starters', 'ball', 'balls',
+                  'nearest', 'pin', 'longest', 'drive', 'ntp'}
 
-    # Find all ball-prize y positions (x ~ 505)
-    ball_ys: list = []
-    for y, x, txt in entries:
-        if 490 <= x <= 520 and re.fullmatch(r'\d+ Balls?', txt, re.IGNORECASE):
-            ball_ys.append(y)
-
+    ball_entries = [(y, x, txt) for y, x, txt in entries
+                    if re.fullmatch(r'\d+\s*Balls?', txt, re.IGNORECASE)]
     winners: set = set()
-    for by in ball_ys:
-        # Look for a name within ±15 y units (same row or adjacent split row)
-        best_name = None
-        best_dist = 999
-        for ny, name in name_by_y.items():
-            dist = abs(ny - by)
-            if dist <= 15 and dist < best_dist:
-                best_dist = dist
-                best_name = name
-        if best_name:
-            winners.add(best_name)
+    for by, bx, _ in ball_entries:
+        row = [(x, txt) for y, x, txt in entries
+               if abs(y - by) <= 15
+               and not re.fullmatch(r'\d+\s*Balls?', txt, re.IGNORECASE)
+               and not re.fullmatch(r'\d{1,2}(?:st|nd|rd|th)?\.?', txt.strip(), re.IGNORECASE)]
+        name_parts = [txt for _, txt in sorted(row, key=lambda e: e[0])
+                      if any(c.isupper() for c in txt) and txt.lower() not in _name_skip
+                      and not re.fullmatch(r'\+?-?[\d.]+', txt)]
+        name = ' '.join(name_parts[:4]).strip()
+        if len(name) >= 3:
+            winners.add(name)
     return sorted(winners)
 
 
@@ -204,24 +227,7 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
     Returns {"ntp": [...], "ld": [...]} where each entry is
     {"hole": str, "winner": str, "distance": str, "type": "ntp"|"ld"}.
     """
-    entries = []
-    for stream_m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
-        try:
-            text = zlib.decompress(stream_m.group(1)).decode('latin-1', errors='replace')
-            for op in re.finditer(
-                r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
-                r'(?:/F\d+ [\d.]+ Tf\s*)?'
-                r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
-                r'\(([^)]*)\)Tj',
-                text,
-            ):
-                x, y = float(op.group(1)), float(op.group(2))
-                txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
-                if txt:
-                    entries.append((y, x, txt))
-        except Exception:
-            pass
-
+    entries = _pdf_text_entries(pdf_bytes)
     if not entries:
         return {"ntp": [], "ld": []}
 
@@ -320,22 +326,20 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
     grades_found: list[str] = []
     current_grade: str = ""
 
-    _op_re = re.compile(
-        r'1 0 0 1 ([\d.]+) ([\d.]+) Tm\s*'
-        r'(?:/F\d+ [\d.]+ Tf\s*)?'
-        r'(?:(?:[\d.]+ ){1,4}rg\s*)?'
-        r'\(([^)]*)\)Tj'
-    )
-
     for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        raw = m.group(1)
         try:
-            text = zlib.decompress(m.group(1)).decode('latin-1', errors='replace')
+            raw = zlib.decompress(raw)
+        except Exception:
+            pass  # try as uncompressed
+        try:
+            text = raw.decode('latin-1', errors='replace')
         except Exception:
             continue
 
         # Extract positioned text from this stream/page only
         stream_entries: list[tuple[float, float, str]] = []
-        for op in _op_re.finditer(text):
+        for op in _TM_RE.finditer(text):
             x, y = float(op.group(1)), float(op.group(2))
             txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
             if txt:
@@ -400,14 +404,16 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             if pos is None:
                 continue
 
-            # Build name and score from remaining tokens
+            # Build name, score, and ball prize from remaining tokens
             name_parts: list[str] = []
             score_parts: list[str] = []
+            balls_text: str = ""
             for t in texts[name_start_idx:]:
                 t = t.strip()
                 if not t:
                     continue
                 if re.fullmatch(r'\d+\s*Balls?', t, re.IGNORECASE):
+                    balls_text = t  # capture — this is the prize indicator
                     continue
                 if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
                     score_parts.append(t)
@@ -425,7 +431,10 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             if ' & ' in name or len(name) < 3:
                 continue
 
-            players.append({"pos": pos, "name": name, "grade": current_grade, "score": score})
+            players.append({
+                "pos": pos, "name": name, "grade": current_grade,
+                "score": score, "balls": balls_text,
+            })
 
     # Post-process: PDF grade column headers (A / B / C on one table-header row) leave
     # current_grade="C" so all overall-standings players get Grade C incorrectly.
@@ -1766,6 +1775,10 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 pdf_players_all.extend(standings.get("players", []))
             except Exception as exc:
                 log.debug("PDF parse failed for %s: %s", link, exc)
+        # Also pull ball winners captured on player rows in the overall standings
+        for p in pdf_players_all:
+            if p.get("balls") and ',' not in p["name"]:
+                all_ball_winners.add(p["name"])
         _official_cache["ballWinners"] = sorted(all_ball_winners)
         _official_cache["ntpLd"] = ntp_all + ld_all
         _official_cache["pdfStandings"] = {
