@@ -1039,7 +1039,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
     if (!inner) return;
 
     // Only show players who have actually teed off
-    const active = started ? players.filter(p => p.thru > 0) : players;
+    const active = players.filter(p => p.thru > 0);
 
     // Round is "complete" when 95%+ of active players have finished (tolerates NR/WD),
     // OR when official results are published (PDF gate = the true source of truth).
