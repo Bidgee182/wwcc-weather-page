@@ -100,6 +100,8 @@ def _wwcc_login() -> "http.cookiejar.CookieJar | None":
     if _wwcc_jar:
         return _wwcc_jar
     if not _WWCC_USERNAME or not _WWCC_PASSWORD:
+        log.warning("WWCC login skipped: credentials not set (WWCC_USERNAME=%s WWCC_PASSWORD=%s)",
+                    bool(_WWCC_USERNAME), bool(_WWCC_PASSWORD))
         return None
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
@@ -1623,6 +1625,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "started": any(p["thru"] > 0 for p in players),
         "isStableford": is_stableford,
         "officialResultsReady": _official_cache.get("published", False),
+        "wwccCredSet": bool(_WWCC_USERNAME and _WWCC_PASSWORD),
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
         "ballWinners": _official_cache.get("ballWinners") or [],
         "ntpLd": _official_cache.get("ntpLd") or [],
