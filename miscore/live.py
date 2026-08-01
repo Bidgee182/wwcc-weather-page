@@ -26,6 +26,7 @@ import http.cookiejar
 import json
 import logging
 import os
+import random
 import re
 import subprocess
 import threading
@@ -475,9 +476,9 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
     def story(title, detail, tier, emoji):
         return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
 
-    def _var(*opts): return opts[abs(hash(player)) % len(opts)]
+    def _var(*opts): return random.choice(opts)
     def _pick(combos, tier, emoji):
-        t, d = combos[abs(hash(player)) % len(combos)]
+        t, d = random.choice(combos)
         return story(t, d, tier, emoji)
 
     # ── Per-hole priority stories ────────────────────────────────────────────
@@ -885,10 +886,10 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
         return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
 
     def _var(*opts: str) -> str:
-        return opts[abs(hash(player)) % len(opts)]
+        return random.choice(opts)
 
     def _pick(combos, tier, emoji):
-        t, d = combos[abs(hash(player)) % len(combos)]
+        t, d = random.choice(combos)
         return story(t, d, tier, emoji)
 
     # ── Per-hole priority stories ────────────────────────────────────────────
