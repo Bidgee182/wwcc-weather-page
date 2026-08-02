@@ -158,7 +158,7 @@ html, body {
     </div>
     <div id="det-grades" class="grade-section"></div>
     <div class="standings-title">Final Standings</div>
-    <div class="standings-hdr"><span>Rank</span><span>Player</span><span style="text-align:right">Pts</span><span style="text-align:right">Thru</span></div>
+    <div class="standings-hdr"><span>Rank</span><span>Player</span><span id="pts-col-hdr" style="text-align:right">Pts</span><span style="text-align:right">Thru</span></div>
     <div id="det-standings"></div>
   </div>
 
@@ -186,7 +186,7 @@ function fmtHcp(hcp) {
 // ── Countback (GA method: back9 -> back6 -> back3 -> hole by hole) ──
 // Uses holePoints array (compact per-hole pts saved in archive from today forward).
 // Falls back gracefully to no tiebreak if holePoints absent (older archives).
-function countbackCompare(a, b, holeCount) {
+function countbackCompare(a, b, holeCount, isStroke) {
     const aFin = a.thru >= holeCount;
     const bFin = b.thru >= holeCount;
     if (!aFin && !bFin) return 0;
@@ -197,11 +197,12 @@ function countbackCompare(a, b, holeCount) {
     if (!ah.length && !bh.length) return 0;
     const sliceSum = (arr, n) => arr.slice(-n).reduce((s, v) => s + (v || 0), 0);
     for (const n of [9, 6, 3]) {
-        const d = sliceSum(bh, n) - sliceSum(ah, n);
+        // Stroke: lower score over back holes wins; Stableford: higher pts over back holes wins
+        const d = isStroke ? sliceSum(ah, n) - sliceSum(bh, n) : sliceSum(bh, n) - sliceSum(ah, n);
         if (d !== 0) return d;
     }
     for (let i = Math.max(ah.length, bh.length) - 1; i >= 0; i--) {
-        const d = (bh[i] || 0) - (ah[i] || 0);
+        const d = isStroke ? (ah[i] || 0) - (bh[i] || 0) : (bh[i] || 0) - (ah[i] || 0);
         if (d !== 0) return d;
     }
     return 0;
@@ -323,7 +324,7 @@ async function loadIndex() {
                   <div class="comp-meta">${c.playerCount} players &bull; ${c.courseHoles || c.holeCount} holes</div>
                 </div>
                 <div class="comp-right">
-                  <div class="comp-leader-pts">${c.leaderPts}pts</div>
+                  <div class="comp-leader-pts">${c.leaderPts}${c.type === 'Stroke' ? '' : 'pts'}</div>
                   <div class="comp-leader-name">${esc(c.leader)}</div>
                 </div>
                 <div class="comp-arrow">›</div>
@@ -359,6 +360,19 @@ function renderDetail(data) {
     const players  = data.players || [];
     const holeCount = data.holeCount || 18;
     const grades   = computeGrades(players);
+    const isStroke = data.isStableford === false;
+    window._scIsStroke = isStroke;
+
+    // Update column header label
+    const ptsHdr = document.getElementById('pts-col-hdr');
+    if (ptsHdr) ptsHdr.textContent = isStroke ? 'Score' : 'Pts';
+
+    // Sort helper: lower is better for stroke, higher for stableford
+    const sortPlayers = (a, b) => {
+        if (a.points !== b.points) return isStroke ? a.points - b.points : b.points - a.points;
+        const cb = countbackCompare(a, b, holeCount, isStroke);
+        return cb !== 0 ? cb : a.player.localeCompare(b.player);
+    };
 
     // ── Grade winners ──
     const gradeEl = document.getElementById('det-grades');
@@ -368,11 +382,7 @@ function renderDetail(data) {
             const g = playerGrade(p.hcp, grades);
             if (g) byGrade[g].push(p);
         });
-        ['A','B','C'].forEach(g => byGrade[g].sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
-            const cb = countbackCompare(a, b, holeCount);
-            return cb !== 0 ? cb : a.player.localeCompare(b.player);
-        }));
+        ['A','B','C'].forEach(g => byGrade[g].sort(sortPlayers));
 
         const blockHtml = g => {
             const all = byGrade[g];
@@ -386,7 +396,7 @@ function renderDetail(data) {
                     const cbMark = usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
                     return '<div class="grade-winner"><span class="grade-medal">' + medals[i] + cbMark + '</span>' +
                         '<span class="grade-wname">' + esc(p.player.trim()) + '</span>' +
-                        '<span class="grade-wpts">' + p.points + 'pts</span></div>';
+                        '<span class="grade-wpts">' + p.points + (isStroke ? '' : 'pts') + '</span></div>';
                 }).join('');
         };
 
@@ -399,11 +409,7 @@ function renderDetail(data) {
     }
 
     // ── Standings ──
-    const sorted = [...players].sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        const cb = countbackCompare(a, b, holeCount);
-        return cb !== 0 ? cb : a.player.localeCompare(b.player);
-    });
+    const sorted = [...players].sort(sortPlayers);
     // Flag every position where countback broke a tie
     const cbFlags = sorted.map((p, i) => {
         if (p.thru < holeCount || !(p.holePoints || []).length) return false;
@@ -416,6 +422,7 @@ function renderDetail(data) {
     window._scPlayers   = sorted;
     window._scComp      = data.competition;
     window._scHoleCount = holeCount;
+    window._scIsStroke  = isStroke;
     const isTeamComp = /4bbb|ambrose/i.test(data.competition || '') || /4bbb|ambrose/i.test(data.type || '');
     const ballCount = isTeamComp ? 0 : Math.ceil(sorted.length * 0.4);
     const BALL_SVG = '<svg width="13" height="13" viewBox="0 0 14 14" style="vertical-align:middle;margin-right:4px;flex-shrink:0" title="Ball winner"><circle cx="7" cy="7" r="6.2" fill="#ffffff" stroke="#b0b0b0" stroke-width="0.8"/><circle cx="5" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="9" cy="5.5" r="1.1" fill="rgba(0,0,0,0.12)"/><circle cx="7" cy="9.2" r="1.1" fill="rgba(0,0,0,0.12)"/></svg>';
@@ -480,6 +487,7 @@ function buildScorecard(player, comp, holeCount) {
     const pars     = player.holePars     || [];
     const hcp      = player.hcp;
     const isTeam   = !!strokes2;
+    const isStroke = window._scIsStroke || false;
     const n        = Math.max(strokes.length, points.length, pars.length);
 
     if (!strokes.length && !pars.length) {
@@ -523,20 +531,20 @@ function buildScorecard(player, comp, holeCount) {
         idxs.forEach(i => { h += '<td>' + (pars[i] != null ? pars[i] : '-') + '</td>'; });
         h += '<td class="sc-total">' + sumPar + '</td></tr>';
 
-        // Score row P1 (or solo player) - colour by stableford pts result
+        // Score row P1 (or solo player)
         h += '<tr class="sc-row-label"><td>' + p1Label + '</td>';
         idxs.forEach(i => {
             const g = strokes[i];
             if (g == null) {
                 if (!isTeam) {
-                    // Individual pickup/wipe - show red "-"
                     h += '<td><span class="score-pill" style="background:#e74c3c;color:#fff">-</span></td>';
                 } else {
                     h += '<td style="color:#4a6a84">-</td>';
                 }
                 return;
             }
-            const col = ptColour(points[i]);
+            // Stroke: colour gross strokes vs par; Stableford: colour by stableford pts
+            const col = isStroke ? (scoreColour(g, pars[i]) || {bg:'#fff',tx:'#1c2620'}) : ptColour(points[i]);
             h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
         });
         h += '<td class="sc-total">' + (anyS1 ? sumS1 : '-') + '</td></tr>';
@@ -547,16 +555,22 @@ function buildScorecard(player, comp, holeCount) {
             idxs.forEach(i => {
                 const g = strokes2[i];
                 if (g == null) { h += '<td style="color:#4a6a84">-</td>'; return; }
-                const col = ptColour(points[i]);
+                const col = isStroke ? (scoreColour(g, pars[i]) || {bg:'#fff',tx:'#1c2620'}) : ptColour(points[i]);
                 h += '<td><span class="score-pill" style="background:' + col.bg + ';color:' + col.tx + '">' + g + '</span></td>';
             });
             h += '<td class="sc-total">' + (anyS2 ? sumS2 : '-') + '</td></tr>';
         }
 
-        // Stableford points
-        h += '<tr class="sc-pts-row sc-row-label"><td>Pts</td>';
-        idxs.forEach(i => { h += '<td>' + (points[i] != null ? points[i] : '-') + '</td>'; });
-        h += '<td class="sc-total">' + sumPts + '</td></tr>';
+        // Score vs par row (stroke) or Stableford points row
+        if (isStroke) {
+            h += '<tr class="sc-pts-row sc-row-label"><td>Score</td>';
+            idxs.forEach(i => { h += '<td>' + (points[i] != null ? (points[i] > 0 ? '+' + points[i] : points[i]) : '-') + '</td>'; });
+            h += '<td class="sc-total">' + (sumPts > 0 ? '+' + sumPts : sumPts) + '</td></tr>';
+        } else {
+            h += '<tr class="sc-pts-row sc-row-label"><td>Pts</td>';
+            idxs.forEach(i => { h += '<td>' + (points[i] != null ? points[i] : '-') + '</td>'; });
+            h += '<td class="sc-total">' + sumPts + '</td></tr>';
+        }
 
         // Nett (individual only, when hcp is known)
         if (!isTeam && hcp != null) {
@@ -577,9 +591,11 @@ function buildScorecard(player, comp, holeCount) {
     const frontN = Math.min(9, n);
     const backN  = n > 9 ? n - 9 : 0;
 
+    const legendItems = isStroke
+        ? [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#f2a89c','Dbl+']]
+        : [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#e74c3c','Wipe']];
     const legend = '<div class="sc-legend">' +
-        [['#f5c518','Eagle+'],['#7dd3fc','Birdie'],['#ffffff','Par'],['#f59e42','Bogey'],['#e74c3c','Wipe']]
-        .map(([bg, lbl]) => '<div class="sc-leg-item"><div class="sc-leg-dot" style="background:' + bg + '"></div>' + lbl + '</div>')
+        legendItems.map(([bg, lbl]) => '<div class="sc-leg-item"><div class="sc-leg-dot" style="background:' + bg + '"></div>' + lbl + '</div>')
         .join('') + '</div>';
 
     return '<div class="sc-wrap">' +
