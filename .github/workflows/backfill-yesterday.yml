@@ -1,0 +1,46 @@
+name: Backfill Yesterday Scores
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python dependencies
+        run: pip install requests 2>/dev/null || true
+
+      - name: Run backfill script
+        env:
+          WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+          WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
+        run: python scripts/backfill_yesterday_scores.py
+
+      - name: Configure git
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+
+      - name: Commit and push
+        run: |
+          git add out/history/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Backfill yesterday scores + companion boards $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 3
+            done
+          fi
