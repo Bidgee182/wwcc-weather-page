@@ -23,6 +23,7 @@ The kiosk reads either out/live-leaderboard.json or GET http://<pc>:8787/.
 import argparse
 import html
 import http.cookiejar
+import io
 import math
 import zoneinfo
 import json
@@ -227,140 +228,160 @@ def _parse_ball_winners(pdf_bytes: bytes) -> list:
     return sorted(winners)
 
 
+def _pdf_lines(pdf_bytes: bytes) -> list[list[dict]]:
+    """Return all text words grouped into lines across all pages using pdfplumber.
+
+    Each line is a list of word dicts (keys: text, x0, top) sorted left-to-right.
+    Lines are in document order (page 1 top-to-bottom, then page 2, etc.).
+    """
+    import pdfplumber
+    lines_all: list[list[dict]] = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            words = page.extract_words(x_tolerance=4, y_tolerance=4,
+                                       keep_blank_chars=False, use_text_flow=False)
+            if not words:
+                continue
+            # Group by rounded top coordinate (within 4pt = same line)
+            cur_y: float | None = None
+            cur_line: list[dict] = []
+            for w in sorted(words, key=lambda w: (round(w['top'], 0), w['x0'])):
+                if cur_y is None or abs(w['top'] - cur_y) <= 4:
+                    cur_line.append(w)
+                    if cur_y is None:
+                        cur_y = w['top']
+                else:
+                    if cur_line:
+                        lines_all.append(sorted(cur_line, key=lambda w: w['x0']))
+                    cur_line = [w]
+                    cur_y = w['top']
+            if cur_line:
+                lines_all.append(sorted(cur_line, key=lambda w: w['x0']))
+    return lines_all
+
+
 def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
     """Extract Nearest the Pin and Longest Drive results from a prize presentation PDF.
 
     Returns {"ntp": [...], "ld": [...]} where each entry is
     {"hole": str, "winner": str, "distance": str, "type": "ntp"|"ld"}.
-
-    Processes each PDF stream (page) independently so that ball-winner rank
-    numbers on earlier pages cannot contaminate hole numbers on the NTP page.
+    Uses pdfplumber for reliable text extraction with proper coordinates.
     """
     ntp: list[dict] = []
     ld: list[dict] = []
     ntp_holes_seen: set = set()
     ld_holes_seen: set = set()
 
-    _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin', 'longest', 'drive',
-                 'course', 'club', 'ga', 'green', 'grade', 'wagga', 'country',
-                 'golf', 'trophy', 'par', 'out', 'in', 'total', 'starters',
-                 'score', 'net', 'pts', 'winner', 'name', 'prize', 'distance',
-                 'description', 'other', 'null', 'aest'}
+    _skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin', 'longest', 'drive',
+             'course', 'club', 'ga', 'green', 'grade', 'wagga', 'country',
+             'golf', 'trophy', 'par', 'out', 'in', 'total', 'starters',
+             'score', 'net', 'pts', 'winner', 'name', 'prize', 'distance',
+             'description', 'other', 'null', 'aest'}
 
-    for stream_m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
-        raw = stream_m.group(1)
-        try:
-            raw = zlib.decompress(raw)
-        except Exception:
-            pass
-        try:
-            stream_text = raw.decode('latin-1', errors='replace')
-        except Exception:
+    try:
+        lines = _pdf_lines(pdf_bytes)
+    except Exception as exc:
+        log.debug("pdfplumber NTP parse failed: %s", exc)
+        return {"ntp": [], "ld": []}
+
+    section: str | None = None
+
+    for line_words in lines:
+        texts = [w['text'] for w in line_words]
+        full_line = ' '.join(texts)
+        lower = full_line.lower()
+
+        # Section detection
+        if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
+            section = 'ntp'
+            continue
+        if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
+            section = 'ld'
+            continue
+        # Section resets on grade headings or other prize sections
+        if re.search(r'\bother\b|\boverall\s+winner|\bplace\s+getter'
+                     r'|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b'
+                     r'|\bball\s+draw\b|\bsponsor\b', lower):
+            section = None
+            continue
+        # Skip column header rows ("Hole Name Distance ...")
+        if re.search(r'\bhole\b', lower) and re.search(r'\bname\b|\bdistance\b', lower):
             continue
 
-        # Extract positioned text from this stream only, sort within this page
-        stream_entries: list[tuple[float, float, str]] = []
-        for op in _TM_RE.finditer(stream_text):
-            x, y = float(op.group(1)), float(op.group(2))
-            txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
-            if txt:
-                stream_entries.append((y, x, txt))
-        if not stream_entries:
+        # Reset section on page footer lines
+        if re.search(r'\bprinted\b|\bmiclub\b|\bpage\s*:', lower):
+            section = None
             continue
-        stream_entries.sort(key=lambda e: (-e[0], e[1]))
 
-        # Group into logical lines within this stream
-        lines_cells: list[list[tuple[float, str]]] = []
-        cur_y: float | None = None
-        cur_cells: list[tuple[float, str]] = []
-        for y, x, txt in stream_entries:
-            if cur_y is None or abs(y - cur_y) <= 6:
-                cur_cells.append((x, txt))
-                if cur_y is None:
-                    cur_y = y
+        if section not in ('ntp', 'ld'):
+            continue
+
+        # Hole number: leftmost word that is a 1-2 digit integer 1-18
+        hole: str | None = None
+        for w in line_words:
+            t = w['text'].strip()
+            if re.fullmatch(r'\d{1,2}', t) and 1 <= int(t) <= 18:
+                hole = t
+                break
+        if not hole:
+            continue
+
+        # Distance: search the full reconstructed line for "NNN cm" or "N.NN m"
+        dist = ''
+        dm = re.search(r'(\d+(?:\.\d+)?)\s*(cm|m)\b', full_line, re.I)
+        if dm:
+            # Make sure it's not the hole number
+            if dm.group(2).lower() in ('cm', 'm'):
+                dist = f'{dm.group(1)} {dm.group(2).lower()}'
+
+        # Player name: "Lastname, Firstname" may be split across two words in pdfplumber.
+        # Collect until we hit a $, number-only token, or NTP/description keywords.
+        player_name: str | None = None
+        name_parts: list[str] = []
+        found_comma_name = False
+        for w in line_words:
+            t = w['text'].strip()
+            if re.fullmatch(r'\d{1,2}', t) and 1 <= int(t) <= 18 and not name_parts:
+                continue  # leading hole number only
+            if t.startswith('$') or re.fullmatch(r'[\d.,]+', t):
+                if found_comma_name:
+                    break  # numbers after the name = score/distance
+                continue
+            if t.lower() in _skip or t in ('(', ')', ':'):
+                if found_comma_name:
+                    break
+                continue
+            if any(c.isupper() for c in t) and len(t) >= 2:
+                if t.endswith(','):
+                    # "Lastname," - collect lastname without the comma
+                    name_parts.append(t.rstrip(','))
+                    found_comma_name = True
+                elif found_comma_name and not name_parts[-1].endswith(','):
+                    # Already collected lastname, this is firstname
+                    name_parts.append(t)
+                    break
+                elif found_comma_name:
+                    name_parts.append(t)
+                    break
+                else:
+                    name_parts.append(t)
+
+        if name_parts:
+            # If we collected "Lastname" first then "Firstname", reorder to "Firstname Lastname"
+            if found_comma_name and len(name_parts) >= 2:
+                player_name = f'{name_parts[1]} {name_parts[0]}'
             else:
-                if cur_cells:
-                    lines_cells.append(sorted(set(cur_cells)))
-                cur_cells = [(x, txt)]
-                cur_y = y
-        if cur_cells:
-            lines_cells.append(sorted(set(cur_cells)))
+                player_name = ' '.join(name_parts)
 
-        # Section resets at the start of each stream (page boundary)
-        section: str | None = None
+        if not player_name or len(player_name) < 3:
+            continue
 
-        for cells in lines_cells:
-            texts = [t for _, t in cells]
-            full_line = ' '.join(texts)
-            lower = full_line.lower()
-
-            # Section detection (do NOT match bare "ntp" — competition title "NTP Comp" appears in page header)
-            if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
-                section = 'ntp'
-                continue
-            if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
-                section = 'ld'
-                continue
-            # Reset on true major headings only (NOT on "prize"/"winner" column header words)
-            if re.search(r'\bother\b|\boverall\s+winner|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
-                section = None
-                continue
-            # Skip column header rows: "Hole Name Prize Distance ..." or similar
-            if re.search(r'\bhole\b', lower) and re.search(r'\bname\b|\bdistance\b', lower):
-                continue
-
-            if section not in ('ntp', 'ld'):
-                continue
-
-            # Find hole number: leftmost cell with 1-2 digit integer in valid range (x < 50 preferred)
-            hole = None
-            for x, txt in cells:
-                if x < 50 and re.fullmatch(r'\d{1,2}', txt.strip()) and 1 <= int(txt.strip()) <= 18:
-                    hole = txt.strip()
-                    break
-            if not hole:
-                hm = re.search(r'\b([1-9]|1[0-8])\b', full_line)
-                if hm:
-                    hole = hm.group(1)
-            if not hole:
-                continue
-
-            # Find player name: prefer cell with "Lastname, Firstname" comma format
-            player_name = None
-            for x, txt in cells:
-                if ',' in txt and any(c.isalpha() and c.isupper() for c in txt):
-                    parts = txt.split(',', 1)
-                    last = parts[0].strip()
-                    first = parts[1].strip() if len(parts) > 1 else ''
-                    player_name = f'{first} {last}'.strip() if first else last
-                    break
-            if not player_name:
-                # Fallback: first cell that looks like a name
-                for _, txt in cells:
-                    if (any(c.isupper() for c in txt)
-                            and txt.lower() not in _ntp_skip
-                            and not re.fullmatch(r'[\d.,$+%-]+', txt)
-                            and len(txt) >= 3):
-                        player_name = txt
-                        break
-
-            if not player_name or len(player_name) < 3:
-                continue
-
-            # Find distance: "NNN cm" or "N.NN m" format
-            dist = ''
-            for _, txt in cells:
-                dm = re.search(r'(\d+(?:\.\d+)?)\s*(cm|m)\b', txt, re.IGNORECASE)
-                if dm:
-                    dist = f'{dm.group(1)} {dm.group(2).lower()}'
-                    break
-
-            if section == 'ntp' and hole not in ntp_holes_seen:
-                ntp.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ntp"})
-                ntp_holes_seen.add(hole)
-            elif section == 'ld' and hole not in ld_holes_seen:
-                ld.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ld"})
-                ld_holes_seen.add(hole)
+        if section == 'ntp' and hole not in ntp_holes_seen:
+            ntp.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ntp"})
+            ntp_holes_seen.add(hole)
+        elif section == 'ld' and hole not in ld_holes_seen:
+            ld.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ld"})
+            ld_holes_seen.add(hole)
 
     return {"ntp": ntp, "ld": ld}
 
@@ -369,8 +390,7 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
     """Extract grade headings and player positions from a WWCC prize presentation PDF.
 
     Returns {"grades": ["A","B","C",...], "players": [{"pos":int,"name":str,"grade":str,"score":str}]}.
-    Processes each PDF stream in document order so grade headings (which appear at the top
-    of each page) are always encountered before the players listed beneath them.
+    Uses pdfplumber for reliable text/coordinate extraction.
     """
     _skip_words = {
         'course', 'club', 'ga', 'temp', 'green', 'grade', 'wagga', 'country',
@@ -383,133 +403,123 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
     players: list[dict] = []
     grades_found: list[str] = []
     current_grade: str = ""
+    in_ntp_section = False
 
-    for m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
-        raw = m.group(1)
-        try:
-            raw = zlib.decompress(raw)
-        except Exception:
-            pass  # try as uncompressed
-        try:
-            text = raw.decode('latin-1', errors='replace')
-        except Exception:
+    try:
+        lines = _pdf_lines(pdf_bytes)
+    except Exception as exc:
+        log.debug("pdfplumber standings parse failed: %s", exc)
+        return {"grades": [], "players": []}
+
+    for line_words in lines:
+        texts = [w['text'] for w in line_words]
+        if not texts:
+            continue
+        full_line = ' '.join(texts)
+        lower = full_line.lower()
+
+        # Skip page headers/footers and metadata lines
+        if re.search(r'\bprinted\b|\bmiclub\b|\bpage\s*:', lower):
+            continue
+        if re.search(r'\b(competition|course|type|description|gender|tee\s+block|entrant|time\s+of\s+day)\s*:', lower):
+            continue
+        if re.search(r'\bran\s+name\b|\bpcc\s+h', lower):
+            continue
+        # Skip date lines (contain a 4-digit year 2020-2035)
+        if re.search(r'\b20[23]\d\b', full_line):
             continue
 
-        # Extract positioned text from this stream/page only
-        stream_entries: list[tuple[float, float, str]] = []
-        for op in _TM_RE.finditer(text):
-            x, y = float(op.group(1)), float(op.group(2))
-            txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
-            if txt:
-                stream_entries.append((y, x, txt))
-
-        if not stream_entries:
+        # Grade heading: "Grade A", "A Grade", "Men's A Grade", "Ladies A Grade", etc.
+        gm = re.search(r'\bgrade\s+([A-D])\b|\b([A-D])\s+grade\b', full_line, re.IGNORECASE)
+        if gm and len(texts) <= 8:
+            gname = (gm.group(1) or gm.group(2)).upper()
+            current_grade = gname
+            in_ntp_section = False
+            if gname not in grades_found:
+                grades_found.append(gname)
             continue
 
-        # Sort within this page: highest y first (top of page), then left-to-right
-        stream_entries.sort(key=lambda e: (-e[0], e[1]))
-
-        # Group into logical lines by y proximity (±6 units)
-        lines_raw: list[list[tuple[float, str]]] = []
-        cur_y: float | None = None
-        cur_cells: list[tuple[float, str]] = []
-        for y, x, txt in stream_entries:
-            if cur_y is None or abs(y - cur_y) <= 6:
-                cur_cells.append((x, txt))
-                if cur_y is None:
-                    cur_y = y
+        # NTP/LD/sponsor section headings - skip until next grade heading or section reset
+        if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
+            in_ntp_section = True
+            continue
+        if in_ntp_section:
+            # Reset on section titles like "Overall Winners", "Place Getters"
+            if re.search(r'\boverall\b|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
+                in_ntp_section = False
+                current_grade = ""
             else:
-                if cur_cells:
-                    lines_raw.append(sorted(cur_cells))
-                cur_cells = [(x, txt)]
-                cur_y = y
-        if cur_cells:
-            lines_raw.append(sorted(cur_cells))
-
-        # Process lines in page order — grade headings precede their players
-        in_ntp_section = False
-        for cells in lines_raw:
-            texts = [t for _, t in cells]
-            if not texts:
-                continue
-            full_line = ' '.join(texts)
-            lower = full_line.lower()
-
-            # Grade heading: "Grade A", "GRADE B", "A Grade", etc.
-            gm = re.search(r'\bgrade\s+([A-D])\b|\b([A-D])\s+grade\b', full_line, re.IGNORECASE)
-            if gm and len(texts) <= 6:
-                gname = (gm.group(1) or gm.group(2)).upper()
-                current_grade = gname
-                in_ntp_section = False  # grade section ends any NTP/LD block
-                if gname not in grades_found:
-                    grades_found.append(gname)
                 continue
 
-            # NTP/LD section headings - skip entries until a grade heading resets
-            if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
-                in_ntp_section = True
-                continue
-            if in_ntp_section:
-                continue
+        # Detect position number (1-20) in first two words
+        pos: int | None = None
+        name_start_idx = 0
+        for i, t in enumerate(texts[:3]):
+            pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
+            if pm:
+                v = int(pm.group(1))
+                if 1 <= v <= 20:
+                    pos = v
+                    name_start_idx = i + 1
+                    break
 
-            # Detect position number (1-20) in first few tokens
-            pos: int | None = None
-            name_start_idx = 0
-            for i, t in enumerate(texts[:3]):
-                pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
-                if pm:
-                    v = int(pm.group(1))
-                    if 1 <= v <= 20:
-                        pos = v
-                        name_start_idx = i + 1
-                        break
+        if pos is None:
+            continue
 
-            if pos is None:
+        # Build name from tokens following the position.
+        # pdfplumber splits "Jenkins, Jim" into ["Jenkins,", "Jim"] so we collect
+        # until the first purely-numeric token (score) or price token.
+        name_parts: list[str] = []
+        score_parts: list[str] = []
+        balls_count = 0
+        remaining = texts[name_start_idx:]
+        i = 0
+        while i < len(remaining):
+            t = remaining[i].strip()
+            i += 1
+            if not t:
                 continue
-
-            # Build name, score, and ball prize from remaining tokens
-            name_parts: list[str] = []
-            score_parts: list[str] = []
-            balls_text: str = ""
-            for t in texts[name_start_idx:]:
-                t = t.strip()
-                if not t:
-                    continue
-                if re.fullmatch(r'\d+\s*Balls?', t, re.IGNORECASE):
-                    balls_text = t  # capture — this is the prize indicator
-                    continue
-                if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
+            # "N Ball(s)" as one token OR "N" followed by "Ball(s)" (strip trailing commas)
+            if re.fullmatch(r'\d+\s*Balls?', t.rstrip(','), re.IGNORECASE):
+                m = re.search(r'\d+', t)
+                if m:
+                    balls_count = int(m.group())
+                continue
+            next_tok = remaining[i].rstrip(',') if i < len(remaining) else ''
+            if re.fullmatch(r'\d+', t) and re.fullmatch(r'Balls?', next_tok, re.I):
+                balls_count = int(t)
+                i += 1  # consume "Ball(s)"
+                continue
+            # Once we've started collecting name, a number means score
+            if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
+                if name_parts:
                     score_parts.append(t)
-                    continue
-                if re.search(r'\d', t) and len(t) < 15:
-                    score_parts.append(t)
-                    continue
-                if any(c.isupper() for c in t) and t.lower() not in _skip_words:
-                    name_parts.append(t)
-                    if ',' in t:  # "Lastname, Firstname" - full name in one token; stop here
-                        break
-
-            name = ' '.join(name_parts[:4]).strip()
-            score = ' '.join(score_parts[:2]).strip()
-
-            # Skip 4BBB team entries (pairs joined by &)
-            if ' & ' in name or len(name) < 3:
                 continue
+            if t.startswith('$') or re.search(r'\d', t):
+                continue  # prize money or mixed token - not a name, not a plain score
+            if any(c.isupper() for c in t) and t.lower().rstrip(',') not in _skip_words:
+                clean = t.rstrip(',')
+                name_parts.append(clean)
+                # We do NOT break here — "Lastname," is followed by "Firstname" as separate word
 
-            players.append({
-                "pos": pos, "name": name, "grade": current_grade,
-                "score": score, "balls": balls_text,
-            })
+        name = ' '.join(name_parts[:4]).strip()
+        # GA Score = last purely-numeric score before prize columns
+        numeric_scores = [s for s in score_parts if re.fullmatch(r'\d+', s)]
+        score = numeric_scores[-1] if numeric_scores else ''
+        balls_text = f'{balls_count} Ball{"s" if balls_count != 1 else ""}' if balls_count else ''
 
-    # Post-process: PDF grade column headers (A / B / C on one table-header row) leave
-    # current_grade="C" so all overall-standings players get Grade C incorrectly.
-    # Grade-specific prize winner sections use "Lastname, Firstname" format.
-    # Reassign: each new pos=1 in a Lastname, Firstname run starts a new grade group.
-    # Groups are ordered A → B → C as they appear in the prize presentation.
-    # Clear grade from Firstname Lastname entries (overall standings) - JS uses dynamic thirds.
+        if ' & ' in name or len(name) < 3:
+            continue
+
+        players.append({
+            "pos": pos, "name": name, "grade": current_grade,
+            "score": score, "balls": balls_text,
+        })
+
+    # Grade-specific sections use "Lastname, Firstname" format; assign grades by pos-reset groups.
+    # Overall-standings entries (Firstname Lastname) get grade cleared - JS uses dynamic thirds.
     lf_players = [(i, p) for i, p in enumerate(players) if ',' in p['name']]
     if lf_players and grades_found:
-        # Group by pos resets to 1
         groups: list[list[int]] = []
         cur_group: list[int] = []
         for i, p in lf_players:
@@ -521,12 +531,10 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                 cur_group.append(i)
         if cur_group:
             groups.append(cur_group)
-        # Assign grade to each group in order
         for gi, group in enumerate(groups):
             grade = grades_found[gi] if gi < len(grades_found) else ""
             for i in group:
                 players[i]['grade'] = grade
-    # Clear incorrect grade assignments from overall-standings entries (Firstname Lastname)
     for p in players:
         if ',' not in p['name']:
             p['grade'] = ''
@@ -1842,16 +1850,20 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         result = _wwcc_check_results(board["name"], board.get("date"))
         result.setdefault("ballWinners", None)
         _official_cache = result
-    # Fetch and parse ball winners + NTP/LD from all PDFs once results are confirmed
+    # Fetch and parse ball winners + NTP/LD from all PDFs once results are confirmed.
+    # Always include the competition report PDF for the current board ID directly — the WWCC
+    # API may match a companion comp's PDFs instead of the main leaderboard's report.
     if (_official_cache.get("published")
-            and _official_cache.get("reportLinks")
             and _official_cache.get("ballWinners") is None):
         all_ball_winners: set = set()
         ntp_all: list = []
         ld_all: list = []
         pdf_grades_found: list = []
         pdf_players_all: list = []
-        for link in _official_cache["reportLinks"]:
+        direct_report = f"{_WWCC_BASE}/upload/reportOutput/Golf_Competition_Report_{board_id}.pdf"
+        api_links = _official_cache.get("reportLinks") or []
+        all_links = list(dict.fromkeys([direct_report] + api_links))
+        for link in all_links:
             try:
                 pdf_bytes = _wwcc_get_bytes(link)
                 parsed = _parse_ntp_ld(pdf_bytes)
