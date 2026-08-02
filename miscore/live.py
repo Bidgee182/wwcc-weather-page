@@ -439,15 +439,20 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                 grades_found.append(gname)
             continue
 
+        # "Place Getters" and "Overall Winners" are overall sections — clear grade
+        if re.search(r'\bplace\s+getter|\boverall\s+winner', lower):
+            current_grade = ""
+            in_ntp_section = False
+            continue
+
         # NTP/LD/sponsor section headings - skip until next grade heading or section reset
         if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
             in_ntp_section = True
             continue
         if in_ntp_section:
-            # Reset on section titles like "Overall Winners", "Place Getters"
-            if re.search(r'\boverall\b|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
+            if re.search(r'\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
                 in_ntp_section = False
-                current_grade = ""
+                # fall through to grade heading detection below
             else:
                 continue
 
@@ -516,28 +521,32 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             "score": score, "balls": balls_text,
         })
 
-    # Grade-specific sections use "Lastname, Firstname" format; assign grades by pos-reset groups.
-    # Overall-standings entries (Firstname Lastname) get grade cleared - JS uses dynamic thirds.
+    # Post-processing only applies when names are in "Lastname, Firstname" format
+    # (competition report PDFs). Prize presentation PDFs use "Firstname Lastname" and
+    # current_grade is already correctly set per-player during the parse loop above.
     lf_players = [(i, p) for i, p in enumerate(players) if ',' in p['name']]
-    if lf_players and grades_found:
-        groups: list[list[int]] = []
-        cur_group: list[int] = []
-        for i, p in lf_players:
-            if p['pos'] == 1:
-                if cur_group:
-                    groups.append(cur_group)
-                cur_group = [i]
-            else:
-                cur_group.append(i)
-        if cur_group:
-            groups.append(cur_group)
-        for gi, group in enumerate(groups):
-            grade = grades_found[gi] if gi < len(grades_found) else ""
-            for i in group:
-                players[i]['grade'] = grade
-    for p in players:
-        if ',' not in p['name']:
-            p['grade'] = ''
+    if lf_players:
+        # Reassign grades to comma-name players by pos-reset groups
+        if grades_found:
+            groups: list[list[int]] = []
+            cur_group: list[int] = []
+            for i, p in lf_players:
+                if p['pos'] == 1:
+                    if cur_group:
+                        groups.append(cur_group)
+                    cur_group = [i]
+                else:
+                    cur_group.append(i)
+            if cur_group:
+                groups.append(cur_group)
+            for gi, group in enumerate(groups):
+                grade = grades_found[gi] if gi < len(grades_found) else ""
+                for i in group:
+                    players[i]['grade'] = grade
+        # Clear grade from overall-standings entries (no comma = overall, not grade-specific)
+        for p in players:
+            if ',' not in p['name']:
+                p['grade'] = ''
 
     return {"grades": grades_found, "players": players}
 
@@ -600,11 +609,14 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
 
             wwcc_words = _norm_title(title)
             common = our_words & wwcc_words
-            threshold = max(1, min(len(our_words), len(wwcc_words)) // 2)
-            if not common or len(common) < threshold:
+            if not common:
                 continue
-            # Same date is a strong signal; title overlap breaks remaining ties
-            score = len(common) + (10 if ev_date == comp_date else 0)
+            # Jaccard similarity: penalises events with extra words not in our title
+            # (prevents "9 Hole Medley Stableford" beating "Medley Stableford" when
+            # our comp is "Sunday Medley Stableford" — both share 2 words but the
+            # extra "Hole" in the 9-hole event inflates its union, lowering its score)
+            union = our_words | wwcc_words
+            score = len(common) / len(union) * 100 + (10 if ev_date == comp_date else 0)
             if score > best_score:
                 best_score = score
                 best = {
