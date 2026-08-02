@@ -393,8 +393,16 @@ function buildEnrich(data, indexEntry) {
         }
     }
 
-    const ballHtml = balls > 0 && !isTeam
-        ? `<span class="enrich-balls">&#9898; ${balls} ball${balls !== 1 ? 's' : ''}</span>` : '';
+    let ballHtml = '';
+    if (balls > 0 && !isTeam) {
+        const scoreType = isStroke ? 'Stroke' : 'Stableford';
+        const holeCount = data.holeCount || 18;
+        const finished  = (data.players || []).filter(p => (p.thru || 0) >= holeCount);
+        finished.sort((a, b) => isStroke ? a.points - b.points : b.points - a.points);
+        const cutoff    = balls <= finished.length ? finished[balls - 1].points : null;
+        const cutoffStr = cutoff != null ? ' - down to ' + fmtListScore(cutoff, scoreType) : '';
+        ballHtml = `<span class="enrich-balls">&#9898; ${balls} balls${cutoffStr}</span>`;
+    }
 
     if (!gradeHtml && !ballHtml) return '';
     return `<div class="enrich-row">${gradeHtml}${ballHtml}</div>`;
