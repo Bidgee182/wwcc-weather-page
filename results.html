@@ -35,21 +35,46 @@ html, body {
 /* ── Competition list ── */
 .comp-card {
     background: rgba(255,255,255,0.05); border: 1px solid #1e3a5a;
+    border-left: 3px solid #2a4a6a;
     border-radius: 12px; margin-bottom: 10px;
     cursor: pointer; transition: background 0.15s;
     overflow: hidden;
 }
 .comp-card:hover { background: rgba(255,255,255,0.09); }
 .comp-card:active { background: rgba(255,255,255,0.13); }
-.comp-main { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; }
-.comp-left { min-width: 0; }
-.comp-date  { font-size: 0.75em; color: #7f8c8d; margin-bottom: 3px; }
+.card-stableford { border-left-color: #27ae60; }
+.card-stroke     { border-left-color: #3498db; }
+.card-team       { border-left-color: #9b59b6; }
+
+.comp-main { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 12px 16px; }
+.comp-left { min-width: 0; flex: 1; }
+.comp-date  { font-size: 0.72em; color: #7f8c8d; margin-bottom: 4px; }
 .comp-name  { font-size: 1.05em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.comp-meta  { font-size: 0.78em; color: #4a6a84; margin-top: 3px; }
-.comp-right { text-align: right; flex-shrink: 0; padding-left: 10px; width: 100px; min-width: 100px; }
-.comp-leader-pts { font-size: 1.5em; font-weight: 700; color: #f1c40f; }
-.comp-leader-name { font-size: 0.72em; color: #bdc3c7; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.comp-arrow { color: #4a6a84; margin-left: 8px; font-size: 1.1em; }
+.comp-meta  { font-size: 0.75em; color: #4a6a84; margin-top: 3px; }
+
+.comp-right { text-align: right; flex-shrink: 0; padding-left: 12px; width: 110px; min-width: 110px; }
+.type-pill  { display: inline-block; font-size: 0.6em; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+              text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+.pill-stableford { background: rgba(39,174,96,0.2);  color: #2ecc71; }
+.pill-stroke     { background: rgba(52,152,219,0.2);  color: #5dade2; }
+.pill-team       { background: rgba(155,89,182,0.2);  color: #bb8fce; }
+.pill-other      { background: rgba(127,140,141,0.2); color: #aab7b8; }
+.comp-leader-pts  { font-size: 1.45em; font-weight: 700; color: #f1c40f; line-height: 1.1; }
+.comp-leader-name { font-size: 0.7em; color: #bdc3c7; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comp-arrow { color: #4a6a84; margin-left: 8px; font-size: 1.1em; flex-shrink: 0; }
+
+/* ── Enriched card footer (grade winners + ball count) ── */
+.comp-enrich { padding: 0 16px 10px; }
+.enrich-row  { display: flex; align-items: center; flex-wrap: wrap; gap: 0 10px;
+               padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+.enrich-grade-row  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.enrich-grade-item { display: flex; align-items: center; gap: 0; font-size: 0.71em; color: #bdc3c7; white-space: nowrap; }
+.enrich-grade-pill { font-size: 0.8em; font-weight: 700; padding: 1px 5px; border-radius: 5px; margin-right: 4px; flex-shrink: 0; }
+.gp-a { background: rgba(241,196,15,0.22);  color: #f1c40f; }
+.gp-b { background: rgba(52,152,219,0.22);  color: #5dade2; }
+.gp-c { background: rgba(39,174,96,0.22);   color: #2ecc71; }
+.enrich-grade-score { color: #f1c40f; font-weight: 600; margin-left: 4px; }
+.enrich-balls { font-size: 0.71em; color: #aab7b8; flex-shrink: 0; margin-left: auto; white-space: nowrap; }
 
 /* ── Detail view ── */
 #detail { display: none; }
@@ -304,6 +329,77 @@ function playerGrade(hcp, grades) {
     return 'C';
 }
 
+// ── List view helpers ─────────────────────────────────────────────
+function fmtListScore(pts, type) {
+    if (type === 'Stroke') return (pts > 0 ? '+' : '') + pts;
+    return pts + 'pts';
+}
+
+function cardTypeClass(type) {
+    if (!type) return 'other';
+    const t = type.toLowerCase();
+    if (t.includes('stroke')) return 'stroke';
+    if (t.includes('4bbb') || t.includes('ambrose')) return 'team';
+    return 'stableford';
+}
+
+function shortName(full) {
+    const parts = (full || '').trim().split(/\s+/);
+    if (parts.length <= 1) return parts[0] || '';
+    return parts[0][0] + '. ' + parts.slice(1).join(' ');
+}
+
+function buildCard(c, i) {
+    const tc = cardTypeClass(c.type);
+    const pillLabel = c.type || 'Golf';
+    return `<div class="comp-card card-${tc}" id="card-${i}" onclick="loadDetail(${i})">
+      <div class="comp-main">
+        <div class="comp-left">
+          <div class="comp-date">${esc(fmtDate(c.date))}</div>
+          <div class="comp-name">${esc(c.competition)}</div>
+          <div class="comp-meta">${c.playerCount} players &bull; ${c.courseHoles || c.holeCount} holes</div>
+        </div>
+        <div class="comp-right">
+          <div class="type-pill pill-${tc}">${esc(pillLabel)}</div>
+          <div class="comp-leader-pts">${esc(fmtListScore(c.leaderPts, c.type))}</div>
+          <div class="comp-leader-name">${esc(c.leader)}</div>
+        </div>
+        <div class="comp-arrow">›</div>
+      </div>
+      <div class="comp-enrich" id="enrich-${i}"></div>
+    </div>`;
+}
+
+function buildEnrich(data, indexEntry) {
+    const isStroke  = data.isStableford === false;
+    const isTeam    = /4bbb|ambrose/i.test(indexEntry.competition || '') || /4bbb|ambrose/i.test(indexEntry.type || '');
+    const balls     = (data.ballWinners || []).length;
+
+    let gradeHtml = '';
+    if (!isTeam) {
+        const players = data.players || [];
+        const grades  = computeGrades(players);
+        if (grades) {
+            const byGrade = { A: [], B: [], C: [] };
+            players.forEach(p => { const g = playerGrade(p.hcp, grades); if (g) byGrade[g].push(p); });
+            ['A','B','C'].forEach(g => byGrade[g].sort((a, b) => isStroke ? a.points - b.points : b.points - a.points));
+            const items = ['A','B','C'].map(g => {
+                const w = byGrade[g][0];
+                if (!w) return '';
+                const score = fmtListScore(w.points, isStroke ? 'Stroke' : 'Stableford');
+                return `<span class="enrich-grade-item"><span class="enrich-grade-pill gp-${g.toLowerCase()}">${g}</span>${esc(shortName(w.player))}<span class="enrich-grade-score">${esc(score)}</span></span>`;
+            }).filter(Boolean);
+            if (items.length) gradeHtml = `<span class="enrich-grade-row">${items.join('')}</span>`;
+        }
+    }
+
+    const ballHtml = balls > 0 && !isTeam
+        ? `<span class="enrich-balls">&#9898; ${balls} ball${balls !== 1 ? 's' : ''}</span>` : '';
+
+    if (!gradeHtml && !ballHtml) return '';
+    return `<div class="enrich-row">${gradeHtml}${ballHtml}</div>`;
+}
+
 // ── List view ─────────────────────────────────────────────────────
 async function loadIndex() {
     const el = document.getElementById('comp-list');
@@ -315,22 +411,22 @@ async function loadIndex() {
             el.innerHTML = '<div class="no-results"><div class="no-results-icon">📋</div><div class="no-results-title">No past results yet</div><div class="no-results-sub">Results are archived automatically after each competition day.</div></div>';
             return;
         }
-        el.innerHTML = index.map((c, i) => `
-            <div class="comp-card" onclick="loadDetail(${i})">
-              <div class="comp-main">
-                <div class="comp-left">
-                  <div class="comp-date">${esc(fmtDate(c.date))}</div>
-                  <div class="comp-name">${esc(c.competition)}</div>
-                  <div class="comp-meta">${c.playerCount} players &bull; ${c.courseHoles || c.holeCount} holes</div>
-                </div>
-                <div class="comp-right">
-                  <div class="comp-leader-pts">${c.leaderPts}${c.type === 'Stroke' ? '' : 'pts'}</div>
-                  <div class="comp-leader-name">${esc(c.leader)}</div>
-                </div>
-                <div class="comp-arrow">›</div>
-              </div>
-            </div>`).join('');
+        el.innerHTML = index.map((c, i) => buildCard(c, i)).join('');
         window._index = index;
+
+        // Enrich each card with grade winners + ball count (parallel fetches)
+        index.forEach((c, i) => {
+            fetch('./' + c.file + '?_=' + Date.now())
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    const enrichEl = document.getElementById('enrich-' + i);
+                    if (!enrichEl) return;
+                    const html = buildEnrich(data, c);
+                    if (html) enrichEl.innerHTML = html;
+                })
+                .catch(() => {});
+        });
     } catch (e) {
         el.innerHTML = '<div class="no-results"><div class="no-results-icon">⚠️</div><div class="no-results-title">Could not load results</div><div class="no-results-sub">' + esc(e.message) + '</div></div>';
     }

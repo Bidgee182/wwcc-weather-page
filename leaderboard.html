@@ -99,7 +99,7 @@ html, body {
     from { transform: translateY(0); }
     to   { transform: translateY(-100%); }
 }
-.lb-scroll-inner.scrolling { animation: lb-scroll linear 1; }
+.lb-scroll-inner.scrolling { animation: lb-scroll linear 1 forwards; }
 .lb-gap { height: 80px; }
 
 .lb-row {
@@ -146,7 +146,7 @@ html, body {
 .side-list { flex: 1; overflow: hidden; padding: 0; position: relative; }
 .side-list-inner { padding: 8px 14px 6px; width: 100%; }
 @keyframes side-scroll { from { transform: translateY(0); } to { transform: translateY(-100%); } }
-.side-list-inner.scrolling { animation: side-scroll linear 1; }
+.side-list-inner.scrolling { animation: side-scroll linear 1 forwards; }
 
 .story-row {
     display: flex; justify-content: space-between; align-items: flex-start;
