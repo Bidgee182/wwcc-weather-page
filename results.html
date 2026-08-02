@@ -367,6 +367,9 @@ function renderDetail(data) {
     const ptsHdr = document.getElementById('pts-col-hdr');
     if (ptsHdr) ptsHdr.textContent = isStroke ? 'Score' : 'Pts';
 
+    // Format a player's score for display
+    const fmtPts = pts => isStroke ? (pts > 0 ? '+' + pts : String(pts)) : pts + 'pts';
+
     // Sort helper: lower is better for stroke, higher for stableford
     const sortPlayers = (a, b) => {
         if (a.points !== b.points) return isStroke ? a.points - b.points : b.points - a.points;
@@ -396,7 +399,7 @@ function renderDetail(data) {
                     const cbMark = usedCB ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
                     return '<div class="grade-winner"><span class="grade-medal">' + medals[i] + cbMark + '</span>' +
                         '<span class="grade-wname">' + esc(p.player.trim()) + '</span>' +
-                        '<span class="grade-wpts">' + p.points + (isStroke ? '' : 'pts') + '</span></div>';
+                        '<span class="grade-wpts">' + fmtPts(p.points) + '</span></div>';
                 }).join('');
         };
 
@@ -449,7 +452,7 @@ function renderDetail(data) {
             '<div class="s-row' + (rank <= 3 ? ' top3' : '') + (hasCard ? '' : ' no-card') + '"' + rowClick + '>' +
             '<span class="s-rank">' + rankHtml + '</span>' +
             '<span class="s-name">' + ball + esc(p.player.trim()) + hcpTag + badge + chev + '</span>' +
-            '<span class="s-pts">' + p.points + '</span>' +
+            '<span class="s-pts">' + fmtPts(p.points) + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>' +
             '<div id="sc-' + i + '" class="sc-outer"></div>' +
