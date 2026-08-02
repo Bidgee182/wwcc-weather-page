@@ -230,36 +230,14 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
 
     Returns {"ntp": [...], "ld": [...]} where each entry is
     {"hole": str, "winner": str, "distance": str, "type": "ntp"|"ld"}.
+
+    Processes each PDF stream (page) independently so that ball-winner rank
+    numbers on earlier pages cannot contaminate hole numbers on the NTP page.
     """
-    entries = _pdf_text_entries(pdf_bytes)
-    if not entries:
-        return {"ntp": [], "ld": []}
-
-    # Sort top-to-bottom (descending y), left-to-right (ascending x)
-    entries.sort(key=lambda e: (-e[0], e[1]))
-
-    # Group into logical lines keeping x coordinates; set() deduplicates identical stream copies
-    lines_cells: list[list[tuple[float, str]]] = []
-    cur_y: float | None = None
-    cur_cells: list[tuple[float, str]] = []
-    for y, x, txt in entries:
-        if cur_y is None or abs(y - cur_y) <= 6:
-            cur_cells.append((x, txt))
-            if cur_y is None:
-                cur_y = y
-        else:
-            if cur_cells:
-                lines_cells.append(sorted(set(cur_cells)))
-            cur_cells = [(x, txt)]
-            cur_y = y
-    if cur_cells:
-        lines_cells.append(sorted(set(cur_cells)))
-
     ntp: list[dict] = []
     ld: list[dict] = []
     ntp_holes_seen: set = set()
     ld_holes_seen: set = set()
-    section: str | None = None
 
     _ntp_skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin', 'longest', 'drive',
                  'course', 'club', 'ga', 'green', 'grade', 'wagga', 'country',
@@ -267,78 +245,120 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
                  'score', 'net', 'pts', 'winner', 'name', 'prize', 'distance',
                  'description', 'other', 'null', 'aest'}
 
-    for cells in lines_cells:
-        texts = [t for _, t in cells]
-        full_line = ' '.join(texts)
-        lower = full_line.lower()
-
-        # Section detection (do NOT match bare "ntp" — competition title "NTP Comp" appears in page header)
-        if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
-            section = 'ntp'
-            continue
-        if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
-            section = 'ld'
-            continue
-        # Reset on true major headings only (NOT on "prize"/"winner" column header words)
-        if re.search(r'\bother\b|\boverall\s+winner|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
-            section = None
-            continue
-        # Skip column header rows: "Hole Name Prize Distance ..." or similar
-        if re.search(r'\bhole\b', lower) and re.search(r'\bname\b|\bdistance\b', lower):
+    for stream_m in re.finditer(rb'stream\r?\n(.*?)\r?\nendstream', pdf_bytes, re.DOTALL):
+        raw = stream_m.group(1)
+        try:
+            raw = zlib.decompress(raw)
+        except Exception:
+            pass
+        try:
+            stream_text = raw.decode('latin-1', errors='replace')
+        except Exception:
             continue
 
-        if section not in ('ntp', 'ld'):
+        # Extract positioned text from this stream only, sort within this page
+        stream_entries: list[tuple[float, float, str]] = []
+        for op in _TM_RE.finditer(stream_text):
+            x, y = float(op.group(1)), float(op.group(2))
+            txt = op.group(3).replace(r'\(', '(').replace(r'\)', ')').strip()
+            if txt:
+                stream_entries.append((y, x, txt))
+        if not stream_entries:
             continue
+        stream_entries.sort(key=lambda e: (-e[0], e[1]))
 
-        # Find hole number: leftmost cell with 1-2 digit integer (x < 50 preferred)
-        hole = None
-        for x, txt in cells:
-            if x < 50 and re.fullmatch(r'\d{1,2}', txt.strip()):
-                hole = txt.strip()
-                break
-        if not hole:
-            hm = re.search(r'\b(\d{1,2})\b', full_line)
-            if hm:
-                hole = hm.group(1)
-        if not hole:
-            continue
+        # Group into logical lines within this stream
+        lines_cells: list[list[tuple[float, str]]] = []
+        cur_y: float | None = None
+        cur_cells: list[tuple[float, str]] = []
+        for y, x, txt in stream_entries:
+            if cur_y is None or abs(y - cur_y) <= 6:
+                cur_cells.append((x, txt))
+                if cur_y is None:
+                    cur_y = y
+            else:
+                if cur_cells:
+                    lines_cells.append(sorted(set(cur_cells)))
+                cur_cells = [(x, txt)]
+                cur_y = y
+        if cur_cells:
+            lines_cells.append(sorted(set(cur_cells)))
 
-        # Find player name: prefer cell with "Lastname, Firstname" comma format
-        player_name = None
-        for x, txt in cells:
-            if ',' in txt and any(c.isalpha() and c.isupper() for c in txt):
-                parts = txt.split(',', 1)
-                last = parts[0].strip()
-                first = parts[1].strip() if len(parts) > 1 else ''
-                player_name = f'{first} {last}'.strip() if first else last
-                break
-        if not player_name:
-            # Fallback: first cell that looks like a name
+        # Section resets at the start of each stream (page boundary)
+        section: str | None = None
+
+        for cells in lines_cells:
+            texts = [t for _, t in cells]
+            full_line = ' '.join(texts)
+            lower = full_line.lower()
+
+            # Section detection (do NOT match bare "ntp" — competition title "NTP Comp" appears in page header)
+            if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
+                section = 'ntp'
+                continue
+            if re.search(r'longest.{0,10}drive|long.{0,5}drive', lower):
+                section = 'ld'
+                continue
+            # Reset on true major headings only (NOT on "prize"/"winner" column header words)
+            if re.search(r'\bother\b|\boverall\s+winner|\bplace\s+getter|\bgrade\s+[a-d]\b|\b[a-d]\s+grade\b', lower):
+                section = None
+                continue
+            # Skip column header rows: "Hole Name Prize Distance ..." or similar
+            if re.search(r'\bhole\b', lower) and re.search(r'\bname\b|\bdistance\b', lower):
+                continue
+
+            if section not in ('ntp', 'ld'):
+                continue
+
+            # Find hole number: leftmost cell with 1-2 digit integer in valid range (x < 50 preferred)
+            hole = None
+            for x, txt in cells:
+                if x < 50 and re.fullmatch(r'\d{1,2}', txt.strip()) and 1 <= int(txt.strip()) <= 18:
+                    hole = txt.strip()
+                    break
+            if not hole:
+                hm = re.search(r'\b([1-9]|1[0-8])\b', full_line)
+                if hm:
+                    hole = hm.group(1)
+            if not hole:
+                continue
+
+            # Find player name: prefer cell with "Lastname, Firstname" comma format
+            player_name = None
+            for x, txt in cells:
+                if ',' in txt and any(c.isalpha() and c.isupper() for c in txt):
+                    parts = txt.split(',', 1)
+                    last = parts[0].strip()
+                    first = parts[1].strip() if len(parts) > 1 else ''
+                    player_name = f'{first} {last}'.strip() if first else last
+                    break
+            if not player_name:
+                # Fallback: first cell that looks like a name
+                for _, txt in cells:
+                    if (any(c.isupper() for c in txt)
+                            and txt.lower() not in _ntp_skip
+                            and not re.fullmatch(r'[\d.,$+%-]+', txt)
+                            and len(txt) >= 3):
+                        player_name = txt
+                        break
+
+            if not player_name or len(player_name) < 3:
+                continue
+
+            # Find distance: "NNN cm" or "N.NN m" format
+            dist = ''
             for _, txt in cells:
-                if (any(c.isupper() for c in txt)
-                        and txt.lower() not in _ntp_skip
-                        and not re.fullmatch(r'[\d.,$+%-]+', txt)
-                        and len(txt) >= 3):
-                    player_name = txt
+                dm = re.search(r'(\d+(?:\.\d+)?)\s*(cm|m)\b', txt, re.IGNORECASE)
+                if dm:
+                    dist = f'{dm.group(1)} {dm.group(2).lower()}'
                     break
 
-        if not player_name or len(player_name) < 3:
-            continue
-
-        # Find distance: "NNN cm" or "N.NN m" format
-        dist = ''
-        for _, txt in cells:
-            dm = re.search(r'(\d+(?:\.\d+)?)\s*(cm|m)\b', txt, re.IGNORECASE)
-            if dm:
-                dist = f'{dm.group(1)} {dm.group(2).lower()}'
-                break
-
-        if section == 'ntp' and hole not in ntp_holes_seen:
-            ntp.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ntp"})
-            ntp_holes_seen.add(hole)
-        elif section == 'ld' and hole not in ld_holes_seen:
-            ld.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ld"})
-            ld_holes_seen.add(hole)
+            if section == 'ntp' and hole not in ntp_holes_seen:
+                ntp.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ntp"})
+                ntp_holes_seen.add(hole)
+            elif section == 'ld' and hole not in ld_holes_seen:
+                ld.append({"hole": hole, "winner": player_name, "distance": dist, "type": "ld"})
+                ld_holes_seen.add(hole)
 
     return {"ntp": ntp, "ld": ld}
 
