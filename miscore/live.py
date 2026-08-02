@@ -1769,12 +1769,12 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
 
     if is_stableford:
         coming_last = sorted(
-            [p for p in players if p["thru"] >= 12],
+            [p for p in players if p["thru"] >= 12 and p["points"] / p["thru"] < 1.5],
             key=lambda p: (p["points"], -p["thru"], p["player"]),
         )
     else:
         coming_last = sorted(
-            [p for p in players if p["thru"] >= 12],
+            [p for p in players if p["thru"] >= 12 and p["points"] > 9],
             key=lambda p: (-p["points"], -p["thru"], p["player"]),
         )
 
