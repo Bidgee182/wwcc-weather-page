@@ -1,0 +1,43 @@
+name: Fix 4BBB Scores (2026-08-01)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Re-poll 4BBB board as Stableford
+        env:
+          WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+          WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
+        run: python scripts/fix_4bbb_scores.py
+
+      - name: Configure git
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+
+      - name: Commit and push
+        run: |
+          git add out/history/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "Fix 4BBB 2026-08-01: re-poll as Stableford (PDF confirms 78/74/73pts not stroke)"
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 3
+            done
+          fi

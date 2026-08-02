@@ -116,16 +116,14 @@ primary_board = {
     "name":          BOARD_NAME,
     "date":          BOARD_DATE,
 }
-is_medal_day = True  # Saturday Monthly Medal
-
 index = []
 if INDEX_PATH.exists():
     with open(INDEX_PATH) as f:
         index = json.load(f)
 
-for label, finder, force_stroke in (
-    ("women's",  find_companion_board, False),
-    ("4BBB",     find_4bbb_board,     is_medal_day),
+for label, finder in (
+    ("women's", find_companion_board),
+    ("4BBB",    find_4bbb_board),
 ):
     cboard = finder(CLUB, primary_board, days=3)
     if not cboard:
@@ -141,22 +139,9 @@ for label, finder, force_stroke in (
     print(f"Polling {label} companion board {c_lb_id}...", flush=True)
     try:
         cb = poll(CLUB, cboard, WORKERS, {})
-        is_sf     = cb.get("isStableford", True)
+        is_sf       = cb.get("isStableford", True)
         players_out = cb.get("players", [])
-        comp_type = cb.get("type", "")
-
-        if force_stroke and is_sf:
-            for p in players_out:
-                thru = p.get("thru") or 0
-                pts  = p.get("points") or 0
-                p["points"] = -(pts - 2 * thru)
-            players_out.sort(key=lambda p: (
-                p.get("points", 0), -(p.get("thru") or 0), p.get("player", "")
-            ))
-            for i, p in enumerate(players_out, 1):
-                p["liveRank"] = i
-            is_sf     = False
-            comp_type = "Stroke"
+        comp_type   = cb.get("type", "")
 
         c_data = {
             "competition":   cb.get("competition", cboard["name"]),
