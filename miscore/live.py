@@ -23,6 +23,8 @@ The kiosk reads either out/live-leaderboard.json or GET http://<pc>:8787/.
 import argparse
 import html
 import http.cookiejar
+import math
+import zoneinfo
 import json
 import logging
 import os
@@ -535,6 +537,34 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
 def _ev_tag(ev_text: str, tag: str) -> str:
     t = re.search(f"<{tag}>(.*?)</{tag}>", ev_text)
     return t.group(1).strip() if t else ""
+
+
+_KIOSK_TZ  = zoneinfo.ZoneInfo("Australia/Sydney")
+_KIOSK_LAT = -35.12
+_KIOSK_LON =  147.37
+
+
+def _sunset_hour_local(local_date) -> float:
+    """Return sunset as a decimal local hour (e.g. 17.5 = 17:30) for Wagga Wagga."""
+    n = local_date.timetuple().tm_yday
+    d = math.asin(math.sin(math.radians(23.45))
+                  * math.sin(math.radians(360 / 365 * (n - 81))))
+    cos_h = ((math.sin(math.radians(-0.833)) - math.sin(math.radians(_KIOSK_LAT)) * math.sin(d))
+             / (math.cos(math.radians(_KIOSK_LAT)) * math.cos(d)))
+    h_deg = math.degrees(math.acos(max(-1.0, min(1.0, cos_h))))
+    B = math.radians(360 / 365 * (n - 81))
+    eot_min = 9.87 * math.sin(2 * B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
+    noon_utc = 12 - _KIOSK_LON / 15 - eot_min / 60
+    utc_off_h = datetime.now(_KIOSK_TZ).utcoffset().total_seconds() / 3600
+    return noon_utc + utc_off_h + h_deg / 15
+
+
+def _past_sunset_plus(minutes: int) -> bool:
+    """True if local Sydney time is at least `minutes` after sunset today."""
+    now = datetime.now(_KIOSK_TZ)
+    sunset = _sunset_hour_local(now.date())
+    cur = now.hour + now.minute / 60
+    return cur >= sunset + minutes / 60
 
 
 def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
@@ -1808,7 +1838,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     if board_id != _official_cache_board:
         _official_cache = {"published": False, "reportLinks": [], "eventId": None, "ballWinners": None}
         _official_cache_board = board_id
-    if round_complete and not _official_cache.get("published"):
+    if round_complete and not _official_cache.get("published") and _past_sunset_plus(60):
         result = _wwcc_check_results(board["name"], board.get("date"))
         result.setdefault("ballWinners", None)
         _official_cache = result
