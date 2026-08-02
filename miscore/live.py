@@ -1993,14 +1993,18 @@ def main(argv=None) -> int:
                         is_sf = False
                         comp_type_out = "Stroke"
                     return {
-                        "competition":  cb.get("competition", c_board["name"]),
-                        "players":      players_out,
-                        "holeCount":    cb.get("holeCount", 18),
-                        "started":      cb.get("started", False),
-                        "isStableford": is_sf,
-                        "par":          cb.get("par"),
-                        "type":         comp_type_out,
-                        "stories":      cb.get("stories", []),
+                        "competition":   cb.get("competition", c_board["name"]),
+                        "leaderboardId": cb.get("leaderboardId", c_board.get("leaderboardId")),
+                        "date":          cb.get("date"),
+                        "playerCount":   len(players_out),
+                        "players":       players_out,
+                        "holeCount":     cb.get("holeCount", 18),
+                        "courseHoles":   cb.get("courseHoles") or cb.get("holeCount", 18),
+                        "started":       cb.get("started", False),
+                        "isStableford":  is_sf,
+                        "par":           cb.get("par"),
+                        "type":          comp_type_out,
+                        "stories":       cb.get("stories", []),
                     }
                 companions = []
                 for label, finder, force_stroke in (

@@ -57,7 +57,7 @@ jobs:
                           d["holeStrokes2"] = s2s
                   return d
 
-              slim = {k: v for k, v in data.items() if k not in ("events",)}
+              slim = {k: v for k, v in data.items() if k not in ("events", "companions")}
               slim["players"] = [slim_player(p) for p in data.get("players", [])]
               slim["leaders"] = [slim_player(p) for p in data.get("leaders", [])]
               with open(archive_path, "w") as f:
@@ -70,27 +70,55 @@ jobs:
                   with open(index_path) as f:
                       index = json.load(f)
 
-              # Skip if already indexed (idempotent re-runs)
-              if not any(e.get("leaderboardId") == lb_id for e in index):
-                  players = data.get("players", [])
-                  leaders = data.get("leaders", [])
-                  leader      = leaders[0]["player"] if leaders else (players[0]["player"] if players else "")
-                  leader_pts  = leaders[0]["points"] if leaders else (players[0]["points"] if players else 0)
-                  index.insert(0, {
-                      "date":         date_str,
-                      "competition":  data["competition"],
-                      "type":         data.get("type"),
-                      "playerCount":  data.get("playerCount", len(players)),
-                      "holeCount":    data.get("holeCount", 0),
-                      "courseHoles":  data.get("courseHoles") or data.get("holeCount", 0),
-                      "leader":       leader,
-                      "leaderPts":    leader_pts,
+              def make_index_entry(d, lb_id, archive_name):
+                  is_sf = d.get("isStableford", True)
+                  players = d.get("players", [])
+                  leaders = d.get("leaders", [])
+                  if leaders:
+                      leader, leader_pts = leaders[0]["player"], leaders[0]["points"]
+                  elif players:
+                      sorted_p = sorted(players, key=lambda p: -(p.get("points") or 0) if is_sf else (p.get("points") or 0))
+                      leader, leader_pts = sorted_p[0]["player"], sorted_p[0]["points"]
+                  else:
+                      leader, leader_pts = "", 0
+                  return {
+                      "date":          date_str,
+                      "competition":   d.get("competition", ""),
+                      "type":          d.get("type"),
+                      "playerCount":   d.get("playerCount", len(players)),
+                      "holeCount":     d.get("holeCount", 0),
+                      "courseHoles":   d.get("courseHoles") or d.get("holeCount", 0),
+                      "leader":        leader,
+                      "leaderPts":     leader_pts,
                       "leaderboardId": lb_id,
-                      "file":         f"out/history/{archive_name}",
-                  })
+                      "file":          f"out/history/{archive_name}",
+                  }
+
+              # Collect new entries: primary first, then companions
+              new_entries = []
+              if not any(e.get("leaderboardId") == lb_id for e in index):
+                  new_entries.append(make_index_entry(data, lb_id, archive_name))
+
+              # Archive companion boards (women's, 4BBB, etc.)
+              for companion in data.get("companions", []):
+                  c_lb_id = companion.get("leaderboardId")
+                  if not c_lb_id:
+                      continue
+                  c_archive_name = f"{date_str}-{c_lb_id}.json"
+                  c_archive_path = history_dir / c_archive_name
+                  c_slim = {k: v for k, v in companion.items() if k not in ("events", "stories")}
+                  c_slim["players"] = [slim_player(p) for p in companion.get("players", [])]
+                  with open(c_archive_path, "w") as f:
+                      json.dump(c_slim, f, separators=(",", ":"))
+                  print(f"Companion archived to {c_archive_path} ({c_archive_path.stat().st_size} bytes)")
+                  if not any(e.get("leaderboardId") == c_lb_id for e in index):
+                      new_entries.append(make_index_entry(companion, c_lb_id, c_archive_name))
+
+              if new_entries:
+                  index = new_entries + index
                   with open(index_path, "w") as f:
                       json.dump(index, f, indent=2)
-                  print(f"Index updated: {len(index)} competitions")
+                  print(f"Index updated: {len(index)} competitions ({len(new_entries)} new)")
           else:
               print("No competition data to archive - skipping")
 
