@@ -79,6 +79,7 @@ LATEST_FILE        = os.path.join(DATA_DIR, "pump_station_latest.json")
 HISTORY_FILE       = os.path.join(DATA_DIR, "pump_station_history.json")
 DAILY_FILE         = os.path.join(DATA_DIR, "pump_station_daily.json")
 ALARM_HISTORY_FILE = os.path.join(DATA_DIR, "pump_alarm_history.json")
+RAW_ARCHIVE_DIR    = os.path.join(DATA_DIR, "raw")
 
 MAX_24H   = 288   # 5-min polls for 24 h
 MAX_90D   = 8640  # 15-min polls for 90 d
@@ -206,6 +207,14 @@ def scan_mge_temperatures(client, pump_count=4):
     return temps
 
 
+# Ranges to sweep for the raw register archive.
+# addr 6000+ causes IO exception on GENIECON booster profile - excluded.
+RAW_SCAN_RANGES = [
+    (0,   156),   # CIM config, diagnostics, control registers
+    (200, 288),   # status + data block + pump blocks + per-pump energy
+    (700, 100),   # alarm simulation block + user registers (750-799)
+]
+
 MAX_ALARM_HISTORY = 200
 
 
@@ -305,6 +314,42 @@ def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_s
     return combined[:40]
 
 
+def raw_scan(client):
+    """Read all plausibly useful Modbus registers and return as a flat dict {str(addr): value}.
+
+    Only non-NA (not 65535) values are included so the archive stays compact.
+    Called inside the existing try/finally block so the client is still open.
+    """
+    result = {}
+    for start, count in RAW_SCAN_RANGES:
+        vals = rhr(client, start, count)
+        for i, v in enumerate(vals):
+            if v is not None and v != NA:
+                result[str(start + i)] = v
+    return result
+
+
+def append_raw(ts_iso, registers):
+    """Append one poll's raw register snapshot to the daily JSONL archive file."""
+    os.makedirs(RAW_ARCHIVE_DIR, exist_ok=True)
+    dt_aest = datetime.fromisoformat(ts_iso.replace("Z", "+00:00")) + timedelta(hours=10)
+    fname = os.path.join(RAW_ARCHIVE_DIR, f"{dt_aest.strftime('%Y-%m-%d')}.jsonl")
+    with open(fname, "a") as fh:
+        fh.write(json.dumps({"ts": ts_iso, "r": registers}) + "\n")
+    # Prune files older than 90 days
+    cutoff = (dt_aest - timedelta(days=90)).date()
+    try:
+        for f in os.listdir(RAW_ARCHIVE_DIR):
+            if f.endswith(".jsonl") and len(f) == 15:
+                try:
+                    if datetime.strptime(f[:10], "%Y-%m-%d").date() < cutoff:
+                        os.remove(os.path.join(RAW_ARCHIVE_DIR, f))
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -331,6 +376,7 @@ def main():
         ain_unit_regs = rhr(client, 224, 7)    # regs 00225-00231: AnalogIn1-7 unit codes
         ain_val_regs  = rhr(client, 375, 7)    # regs 00376-00382: AnalogIn1-7 values
         mge_temps     = scan_mge_temperatures(client, len(PUMP_DEFS))
+        raw_regs      = raw_scan(client)
     finally:
         client.close()
 
@@ -584,12 +630,14 @@ def main():
     # -- Update daily summaries --------------------------------------------------
     update_daily(long_readings, history_24h)
 
+    append_raw(now_iso, raw_regs)
+
     n_run = sum(1 for p in pump_data if p["running"])
     mge_str = ", ".join(f"P{i+1}={t}C" for i, t in enumerate(mge_temps) if t is not None) or "none"
     print(f"OK: discharge={actual_bar} bar, setpoint={setpoint_bar} bar, "
           f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}, "
           f"spec_energy={spec_energy} Wh/m3, mge_temps=[{mge_str}], "
-          f"alarm_history={len(event_log)} events")
+          f"alarm_history={len(event_log)} events, raw_regs={len(raw_regs)}")
 
 
 def _offline_pump(defn):

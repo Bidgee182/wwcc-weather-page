@@ -43,7 +43,8 @@ jobs:
           git add data/pump_station_latest.json \
                   data/pump_station_history.json \
                   data/pump_station_daily.json \
-                  data/pump_alarm_history.json
+                  data/pump_alarm_history.json \
+                  data/raw/
           if git diff --staged --quiet; then
             echo "No data changes — skipping commit"
           else
