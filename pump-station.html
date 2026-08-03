@@ -187,6 +187,7 @@
 
         /* Alarm list */
         .alarm-none { text-align:center; color:#566573; font-size:0.88em; padding:20px; }
+        /* Legacy active-alarm row (small section at top) */
         .alarm-row  { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #3d5166; }
         .alarm-row:last-child { border-bottom:none; }
         .alarm-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:5px; }
@@ -196,6 +197,22 @@
         .alarm-desc { font-size:0.88em; font-weight:bold; }
         .alarm-pump { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
         .alarm-ts   { font-size:0.7em; color:#566573; white-space:nowrap; flex-shrink:0; }
+        /* Alarm history event cards */
+        .alarm-evt  { display:flex; align-items:flex-start; gap:11px; padding:11px 14px; margin-bottom:5px; border-radius:8px; background:#1a252f; border-left:4px solid; }
+        .alarm-evt.ae-active  { border-color:#e74c3c; }
+        .alarm-evt.ae-cleared { border-color:#27ae60; }
+        .alarm-evt.ae-warning { border-color:#f39c12; }
+        .alarm-evt.ae-info    { border-color:#3498db; }
+        .ae-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+        .ae-dot.ae-active  { background:#e74c3c; }
+        .ae-dot.ae-cleared { background:#27ae60; }
+        .ae-dot.ae-warning { background:#f39c12; }
+        .ae-dot.ae-info    { background:#3498db; }
+        .ae-body { flex:1; min-width:0; }
+        .ae-name { font-size:1em; font-weight:bold; color:#ecf0f1; line-height:1.3; }
+        .ae-meta { font-size:0.78em; color:#7f8c8d; margin-top:3px; }
+        .ae-meta .ae-sep { color:#3d5166; margin:0 5px; }
+        .cu352-badge { font-size:.65em; background:#1a3a5f; color:#5dade2; border-radius:3px; padding:1px 4px; vertical-align:middle; }
 
         /* Metric selector (trends tab) */
         .metric-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:7px 16px; font-size:0.82em; cursor:pointer; transition:all 0.2s; }
@@ -899,6 +916,8 @@ function openControlAction(act, val) {
 // ─── Data loading ─────────────────────────────────────────────────────────────
 async function loadData() {
     alarmHistoryData = null;  // reset so it refetches on next renderAlarms()
+    dailyData        = null;  // reset so trends always get latest on each 60s cycle
+    historyData      = null;  // reset so performance chart always gets latest
     try {
         const r = await fetch('data/pump_station_latest.json?_='+Date.now());
         if (r.ok) latestData = await r.json();
@@ -1583,10 +1602,11 @@ async function renderAlarms() {
 
     if (merged.length) {
         const connected = latestData && latestData.connected;
-        const srcNote   = connected ? 'Live poller + CU352 import' : 'CU352 import only';
+        const srcNote   = connected ? 'Live + CU352 import' : 'CU352 import only';
+        const pairs     = pairAlarmEvents(merged);
         document.getElementById('alarm-history').innerHTML =
-            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">'+merged.length+' events - '+srcNote+' (newest first)</div>' +
-            merged.map(eventLogRow).join('');
+            '<div style="font-size:.72em;color:#566573;margin-bottom:8px;">'+pairs.length+' alarms - '+srcNote+'</div>' +
+            pairs.map(renderAlarmPair).join('');
     } else {
         const connected = latestData && latestData.connected;
         document.getElementById('alarm-history').innerHTML =
@@ -1606,23 +1626,66 @@ function alarmRow(a) {
     '</div>';
 }
 
-function eventLogRow(e) {
-    // type_code: 1=alarm appeared, 2=alarm cleared, 3=warning appeared, 4=warning cleared
-    const isActive  = e.type_code === 1 || e.type_code === 3;
-    const isWarning = e.type_code === 3 || e.type_code === 4;
-    const dotCls = isActive ? (isWarning ? '' : 'active') : 'cleared';
-    const dotStyle = isWarning && isActive ? 'background:#f39c12;' : '';
-    const pumpTxt = e.pump_label ? e.pump_label : (e.source_name||'System');
-    const typeTxt = e.type_name || '';
-    const badge = e.imported ? ' <span style="font-size:.65em;background:#1a3a5f;color:#5dade2;border-radius:3px;padding:1px 4px;vertical-align:middle;">CU352</span>' : '';
-    return '<div class="alarm-row">'+
-        '<div class="alarm-dot '+dotCls+'" style="'+dotStyle+'"></div>'+
-        '<div style="flex:1;min-width:0;">'+
-            '<div class="alarm-code">'+e.code+badge+'</div>'+
-            '<div class="alarm-desc">'+(e.description||'Code '+e.code)+'</div>'+
-            '<div class="alarm-pump">'+pumpTxt+(typeTxt?' - '+typeTxt:'')+'</div>'+
+function pairAlarmEvents(events) {
+    const sorted = [...events].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso));
+    const paired = [];
+    const pending = {};
+    for (const e of sorted) {
+        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
+        const isApp = e.type_code===1||e.type_code===3;
+        const isClr = e.type_code===2||e.type_code===4;
+        if (isApp) {
+            if (pending[key]) paired.push({appeared:pending[key],cleared:null});
+            pending[key]=e;
+        } else if (isClr && pending[key]) {
+            paired.push({appeared:pending[key],cleared:e});
+            delete pending[key];
+        } else if (isClr) {
+            paired.push({appeared:null,cleared:e});
+        } else {
+            paired.push({appeared:e,cleared:null});
+        }
+    }
+    for (const k of Object.keys(pending)) paired.push({appeared:pending[k],cleared:null});
+    paired.sort((a,b)=>new Date((b.appeared||b.cleared).timestamp_iso)-new Date((a.appeared||a.cleared).timestamp_iso));
+    return paired;
+}
+
+function sameDay(a,b) {
+    return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+}
+
+function fmtTimeOnly(d) {
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+function renderAlarmPair(p) {
+    const e = p.appeared||p.cleared;
+    if (!e) return '';
+    const isActive  = !p.cleared;
+    const isWarning = e.type_code===3||e.type_code===4;
+    const evCls = isActive ? (isWarning?'ae-warning':'ae-active') : (isWarning?'ae-warning':'ae-cleared');
+    const name  = e.description||('Code '+e.code);
+    const src   = e.pump_label||e.source_name||'System';
+    const badge = e.imported?'  <span class="cu352-badge">CU352</span>':'';
+    let timePart='';
+    if (p.appeared&&p.cleared) {
+        const t1=new Date(p.appeared.timestamp_iso), t2=new Date(p.cleared.timestamp_iso);
+        const ms=t2-t1;
+        const d1=fmtDate(p.appeared.timestamp_iso);
+        const d2=sameDay(t1,t2)?fmtTimeOnly(t2):fmtDate(p.cleared.timestamp_iso);
+        timePart = ms<120000 ? d1+' <span style="color:#566573;">(transient)</span>' : d1+' &rarr; '+d2;
+    } else if (p.appeared) {
+        timePart = fmtDate(p.appeared.timestamp_iso)+' <span style="color:#e74c3c;">active</span>';
+    } else {
+        timePart = fmtDate(p.cleared.timestamp_iso);
+    }
+    return '<div class="alarm-evt '+evCls+'">'+
+        '<div class="ae-dot '+evCls+'"></div>'+
+        '<div class="ae-body">'+
+            '<div class="ae-name">'+name+badge+'</div>'+
+            '<div class="ae-meta">'+src+'<span class="ae-sep">|</span>'+timePart+'</div>'+
         '</div>'+
-        '<div class="alarm-ts">'+(e.timestamp_iso?fmtDate(e.timestamp_iso):'')+'</div>'+
     '</div>';
 }
 
