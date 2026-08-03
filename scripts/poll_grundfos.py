@@ -75,9 +75,10 @@ PUMP_DEFS = [
 ]
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-LATEST_FILE  = os.path.join(DATA_DIR, "pump_station_latest.json")
-HISTORY_FILE = os.path.join(DATA_DIR, "pump_station_history.json")
-DAILY_FILE   = os.path.join(DATA_DIR, "pump_station_daily.json")
+LATEST_FILE        = os.path.join(DATA_DIR, "pump_station_latest.json")
+HISTORY_FILE       = os.path.join(DATA_DIR, "pump_station_history.json")
+DAILY_FILE         = os.path.join(DATA_DIR, "pump_station_daily.json")
+ALARM_HISTORY_FILE = os.path.join(DATA_DIR, "pump_alarm_history.json")
 
 MAX_24H   = 288   # 5-min polls for 24 h
 MAX_90D   = 8640  # 15-min polls for 90 d
@@ -205,82 +206,116 @@ def scan_mge_temperatures(client, pump_count=4):
     return temps
 
 
-def read_event_log(client):
-    """Read CU352 event log from addr 6000. Returns list of event dicts, newest first."""
-    try:
-        count_r = client.read_holding_registers(6000, count=1, device_id=1)
-        if count_r.isError():
-            return []
-        count = min(int(count_r.registers[0]), 40)
-        if count == 0:
-            return []
+MAX_ALARM_HISTORY = 200
 
-        raw = []
-        remaining = count * 7
-        addr = 6001
-        while remaining > 0:
-            chunk = min(remaining, 125)
-            r = client.read_holding_registers(addr, count=chunk, device_id=1)
-            if r.isError():
-                break
-            raw.extend(r.registers)
-            addr += chunk
-            remaining -= chunk
 
-        events = []
-        for i in range(count):
-            base = i * 7
-            if base + 6 >= len(raw):
-                break
-            event_id = raw[base]
-            code     = raw[base + 1]
-            source   = raw[base + 2]
-            device_no = raw[base + 3]
-            type_code = raw[base + 4]
-            ts_hi    = raw[base + 5]
-            ts_lo    = raw[base + 6]
-            ts_unix  = ts_hi * 65536 + ts_lo
+def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_sys, now_iso):
+    """Detect alarm state transitions vs previous poll and append to persistent history.
 
-            try:
-                ts_iso = datetime.fromtimestamp(ts_unix, tz=timezone.utc).isoformat()
-            except Exception:
-                ts_iso = None
+    The CU352 GENIECON booster profile does not support the event log at addr 6000
+    (returns Modbus IO exception). We build our own history by comparing each poll's
+    alarm codes against the previous poll's values saved in latest.json.
+    """
+    history = load_json(ALARM_HISTORY_FILE, {"events": []})
+    events  = history.get("events", [])
+    new_events = []
 
-            pump_label = ""
-            if source == 6 and device_no > 0:
-                pump_label = PUMP_DEVICE_LABELS.get(device_no, f"Pump {device_no}")
-            elif source == 10:
-                pump_label = "Pilot"
+    # Per-pump alarm transitions
+    for i, pump in enumerate(pump_data):
+        curr_code = pump.get("alarm_code") or 0
+        prev_code = 0
+        if i < len(prev_pumps) and prev_pumps[i]:
+            prev_code = prev_pumps[i].get("alarm_code") or 0
 
-            events.append({
-                "event_id":      event_id,
-                "code":          code,
-                "source":        source,
-                "source_name":   EVENT_SOURCE_NAMES.get(source, f"Source {source}"),
-                "device_no":     device_no,
-                "pump_label":    pump_label,
-                "type_code":     type_code,
-                "type_name":     EVENT_TYPE_NAMES.get(type_code, f"Type {type_code}"),
-                "description":   ALARM_DESCRIPTIONS.get(code, f"Alarm code {code}"),
-                "timestamp_unix": ts_unix,
-                "timestamp_iso": ts_iso,
+        if curr_code == prev_code:
+            continue
+
+        if curr_code and not prev_code:
+            tc, tn = 1, "Alarm appeared"
+            code_to_log = curr_code
+        elif prev_code and not curr_code:
+            tc, tn = 2, "Alarm cleared"
+            code_to_log = prev_code
+        else:
+            tc, tn = 1, "Alarm changed"
+            code_to_log = curr_code
+
+        new_events.append({
+            "timestamp_iso": now_iso,
+            "type_code":     tc,
+            "type_name":     tn,
+            "code":          code_to_log,
+            "description":   ALARM_DESCRIPTIONS.get(code_to_log, f"Alarm code {code_to_log}"),
+            "pump_label":    pump["label"],
+            "source_name":   "Pump",
+        })
+
+    # System alarm transition
+    prev_alarm = (prev_sys or {}).get("alarm_code") or 0
+    curr_alarm = alarm_code or 0
+    if curr_alarm != prev_alarm:
+        if curr_alarm:
+            new_events.append({
+                "timestamp_iso": now_iso,
+                "type_code":     1,
+                "type_name":     "Alarm appeared",
+                "code":          curr_alarm,
+                "description":   ALARM_DESCRIPTIONS.get(curr_alarm, f"Alarm code {curr_alarm}"),
+                "pump_label":    "System",
+                "source_name":   "System",
+            })
+        elif prev_alarm:
+            new_events.append({
+                "timestamp_iso": now_iso,
+                "type_code":     2,
+                "type_name":     "Alarm cleared",
+                "code":          prev_alarm,
+                "description":   ALARM_DESCRIPTIONS.get(prev_alarm, f"Alarm code {prev_alarm}"),
+                "pump_label":    "System",
+                "source_name":   "System",
             })
 
-        return events
-    except Exception as exc:
-        print(f"Event log read failed: {exc}")
-        return []
+    # System warning transition
+    prev_warn = (prev_sys or {}).get("warning_code") or 0
+    curr_warn = warning_code or 0
+    if curr_warn != prev_warn:
+        if curr_warn:
+            new_events.append({
+                "timestamp_iso": now_iso,
+                "type_code":     3,
+                "type_name":     "Warning appeared",
+                "code":          curr_warn,
+                "description":   ALARM_DESCRIPTIONS.get(curr_warn, f"Warning code {curr_warn}"),
+                "pump_label":    "System",
+                "source_name":   "System",
+            })
+        elif prev_warn:
+            new_events.append({
+                "timestamp_iso": now_iso,
+                "type_code":     4,
+                "type_name":     "Warning cleared",
+                "code":          prev_warn,
+                "description":   ALARM_DESCRIPTIONS.get(prev_warn, f"Warning code {prev_warn}"),
+                "pump_label":    "System",
+                "source_name":   "System",
+            })
+
+    combined = (new_events + events)[:MAX_ALARM_HISTORY]
+    write_json(ALARM_HISTORY_FILE, {"events": combined})
+    return combined[:40]
 
 
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
+
+    # Load previous state before connecting - needed for alarm transition detection
+    prev = load_json(LATEST_FILE, {"history": []})
 
     client = ModbusTcpClient(HOST, port=PORT, timeout=10)
     connected = client.connect()
     now_iso = datetime.now(timezone.utc).isoformat()
 
     if not connected:
-        prev = load_json(LATEST_FILE, {})
         prev["connected"] = False
         prev["last_seen"]  = prev.get("timestamp")
         prev["timestamp"]  = now_iso
@@ -295,10 +330,7 @@ def main():
         energy_regs   = rhr(client, 480, 8)    # per-pump energy kWh (00481-00488)
         ain_unit_regs = rhr(client, 224, 7)    # regs 00225-00231: AnalogIn1-7 unit codes
         ain_val_regs  = rhr(client, 375, 7)    # regs 00376-00382: AnalogIn1-7 values
-
-        # Event log and MGE temp scan run after main registers
-        event_log = read_event_log(client)
-        mge_temps = scan_mge_temperatures(client, len(PUMP_DEFS))
+        mge_temps     = scan_mge_temperatures(client, len(PUMP_DEFS))
     finally:
         client.close()
 
@@ -499,10 +531,21 @@ def main():
         "volume_m3":                 volume_m3,
         "di_bits":                   di_raw,
         "do_bits":                   do_raw,
+        "alarm_code":                alarm_code or 0,
+        "warning_code":              warning_code or 0,
     }
 
+    # -- Alarm history (local transition tracking - CU352 addr 6000 not supported on GENIECON)
+    event_log = update_alarm_history(
+        pump_data,
+        prev.get("pumps", []),
+        alarm_code or 0,
+        warning_code or 0,
+        prev.get("system"),
+        now_iso,
+    )
+
     # -- Update 24h history in latest.json --------------------------------------
-    prev = load_json(LATEST_FILE, {"history": []})
     history_24h = prev.get("history", [])
     history_24h.append(new_reading)
     cutoff_24h = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -546,7 +589,7 @@ def main():
     print(f"OK: discharge={actual_bar} bar, setpoint={setpoint_bar} bar, "
           f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}, "
           f"spec_energy={spec_energy} Wh/m3, mge_temps=[{mge_str}], "
-          f"events={len(event_log)}")
+          f"alarm_history={len(event_log)} events")
 
 
 def _offline_pump(defn):

@@ -1505,16 +1505,16 @@ function renderAlarms() {
     const active  = alarms.filter(a=>a.active);
     document.getElementById('active-alarms').innerHTML = active.length ? active.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
 
-    // CU352 event log (up to 40 entries with UNIX timestamps, newest first)
+    // Local alarm history - state transitions tracked by poller (newest first, up to 40)
     const events = latestData && latestData.event_log ? latestData.event_log : [];
     if (events.length) {
         document.getElementById('alarm-history').innerHTML =
-            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">CU352 event log - '+events.length+' entries (newest first)</div>' +
+            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">Alarm history - '+events.length+' events (newest first)</div>' +
             events.map(eventLogRow).join('');
     } else {
         const connected = latestData && latestData.connected;
         document.getElementById('alarm-history').innerHTML =
-            '<div class="alarm-none">' + (connected ? 'No events in CU352 log' : 'No alarm history available') + '</div>';
+            '<div class="alarm-none">' + (connected ? 'No alarm events recorded yet' : 'No alarm history available') + '</div>';
     }
 }
 
