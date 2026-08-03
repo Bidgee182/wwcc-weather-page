@@ -1674,7 +1674,7 @@ function renderAlarmPair(p) {
         const ms=t2-t1;
         const d1=fmtDate(p.appeared.timestamp_iso);
         const d2=sameDay(t1,t2)?fmtTimeOnly(t2):fmtDate(p.cleared.timestamp_iso);
-        timePart = ms<120000 ? d1+' <span style="color:#566573;">(transient)</span>' : d1+' &rarr; '+d2;
+        timePart = ms<120000 ? d1+' <span style="color:#27ae60;">cleared (transient)</span>' : d1+' &rarr; <span style="color:#27ae60;">cleared</span> '+d2;
     } else if (p.appeared) {
         timePart = fmtDate(p.appeared.timestamp_iso)+' <span style="color:#e74c3c;">active</span>';
     } else {
