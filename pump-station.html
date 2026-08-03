@@ -841,8 +841,8 @@ const CHART_OPT_BASE = {
     interaction: { mode:'index', intersect:false },
     plugins: { legend: { display:false }, tooltip: {} },
     scales: {
-        x: { ticks:{color:'#7f8c8d',maxTicksLimit:7,font:{size:9}}, grid:{color:'#2c3e50'} },
-        y: { ticks:{color:'#7f8c8d',font:{size:9}},                  grid:{color:'#2c3e50'}, min:0 }
+        x: { type:'linear', ticks:{color:'#7f8c8d',maxTicksLimit:7,font:{size:9}}, grid:{color:'#2c3e50'} },
+        y: { ticks:{color:'#7f8c8d',font:{size:9}},                                grid:{color:'#2c3e50'}, min:0 }
     }
 };
 
@@ -1245,13 +1245,14 @@ async function setPerfRange(h, btn) {
 
 async function renderPerfCharts() {
     const pts = await getPerfReadings();
-    const labels = pts.map(r => fmtChartTime(r.ts, perfRangeH));
     const noData = pts.length === 0;
+    const tsMs = r => new Date(r.ts).getTime();
+    const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
 
     // Pressure
-    renderLineChart('c-pressure', noData, labels, [
-        { label:'Actual (bar)', data: pts.map(r=>r.pa), borderColor:'#e67e22', bg:'rgba(230,126,34,.12)', dashed:false },
-        { label:'Setpoint (bar)', data: pts.map(r=>r.ps), borderColor:'#3498db', bg:'transparent', dashed:true }
+    renderLineChart('c-pressure', noData, pts, [
+        { label:'Actual (bar)', data: xy(pts, r=>r.pa), borderColor:'#e67e22', bg:'rgba(230,126,34,.12)', dashed:false },
+        { label:'Setpoint (bar)', data: xy(pts, r=>r.ps), borderColor:'#3498db', bg:'transparent', dashed:true }
     ], v=>v!=null?v.toFixed(2)+' bar':null);
     if (!noData) {
         const vals = pts.map(r=>r.pa).filter(v=>v!=null);
@@ -1261,8 +1262,8 @@ async function renderPerfCharts() {
     } else { setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']); }
 
     // Flow
-    renderLineChart('c-flow', noData, labels, [
-        { label:'Flow (m³/h)', data: pts.map(r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
+    renderLineChart('c-flow', noData, pts, [
+        { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
     ], v=>v!=null?v.toFixed(1)+' m³/h':null);
     if (!noData) {
         const vals = pts.map(r=>r.fl).filter(v=>v!=null);
@@ -1272,31 +1273,31 @@ async function renderPerfCharts() {
     } else { setStats(['cf-min','cf-max','cf-avg'],['--','--','--']); }
 
     // Activity (pumps running count)
-    renderLineChart('c-activity', noData, labels, [
-        { label:'Pumps Running', data: pts.map(r=>r.nr), borderColor:'#27ae60', bg:'rgba(39,174,96,.15)', dashed:false, stepped:true }
+    renderLineChart('c-activity', noData, pts, [
+        { label:'Pumps Running', data: xy(pts, r=>r.nr), borderColor:'#27ae60', bg:'rgba(39,174,96,.15)', dashed:false, stepped:true }
     ], v=>v!=null?v+' pumps':null, {max:4, stepSize:1});
 
     // Pump speeds (5 lines)
     buildPumpLegend('speed-legend');
-    renderLineChart('c-speed', noData, labels,
+    renderLineChart('c-speed', noData, pts,
         PUMP_LABELS.map((lbl,i) => ({
-            label: lbl, data: pts.map(r => r.sp ? r.sp[i] : null),
+            label: lbl, data: xy(pts, r => r.sp ? r.sp[i] : null),
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(0)+'%':null, {max:100});
 
     // Pump power (5 lines)
     buildPumpLegend('power-legend');
-    renderLineChart('c-power', noData, labels,
+    renderLineChart('c-power', noData, pts,
         PUMP_LABELS.map((lbl,i) => ({
-            label: lbl, data: pts.map(r => r.pw ? r.pw[i] : null),
+            label: lbl, data: xy(pts, r => r.pw ? r.pw[i] : null),
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(1)+' kW':null);
 
     // Motor temperatures
     buildPumpLegend('temp-legend');
-    renderLineChart('c-temp', noData, labels,
+    renderLineChart('c-temp', noData, pts,
         PUMP_LABELS.map((lbl,i) => ({
-            label: lbl, data: pts.map(r => r.tm ? r.tm[i] : null),
+            label: lbl, data: xy(pts, r => r.tm ? r.tm[i] : null),
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(0)+'°C':null, {min:0});
 
@@ -1350,15 +1351,8 @@ async function renderPerfCharts() {
     renderHoursGrid();
 }
 
-function renderLineChart(id, noData, labels, datasets, tooltipFmt, yOpts) {
-    const loader = document.getElementById('c-'+id.split('c-')[1]+'-loader') ||
-                   document.getElementById(id.replace('c-','c-')+'-loader');
-    const wrap   = document.getElementById(id+'-wrap') ||
-                   document.getElementById('c-'+id.split('c-')[1]+'-wrap');
+function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     const canvasId = id;
-
-    // Find loader/wrap by convention: id is canvas id, loader is id+'-loader'? No, convention in HTML is c-pressure-loader, canvas is c-pressure.
-    // Let's use a simpler helper: we always call with canvasId = 'c-pressure' etc., loader is canvasId+'-loader', wrap is canvasId+'-wrap'
     const loaderEl = document.getElementById(canvasId+'-loader');
     const wrapEl   = document.getElementById(canvasId+'-wrap');
 
@@ -1371,10 +1365,17 @@ function renderLineChart(id, noData, labels, datasets, tooltipFmt, yOpts) {
     if (yOpts && yOpts.max != null) opts.scales.y.max = yOpts.max;
     if (yOpts && yOpts.min != null) opts.scales.y.min = yOpts.min;
     if (yOpts && yOpts.stepSize) opts.scales.y.ticks.stepSize = yOpts.stepSize;
-    if (tooltipFmt) opts.plugins.tooltip.callbacks = { label: ctx => { const v=tooltipFmt(ctx.parsed.y); return v?' '+ctx.dataset.label+': '+v:null; } };
     opts.plugins.legend.display = datasets.length > 1;
     opts.plugins.legend.labels = { color:'#bdc3c7', font:{size:10}, boxWidth:12 };
 
+    // Time axis: format tick labels and tooltip title from epoch-ms x value
+    opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
+    opts.plugins.tooltip.callbacks = {
+        title: ctxArr => ctxArr.length ? fmtChartTime(new Date(ctxArr[0].parsed.x).toISOString(), perfRangeH) : '',
+        label: ctx => { const v = tooltipFmt ? tooltipFmt(ctx.parsed.y) : null; return v ? ' '+ctx.dataset.label+': '+v : null; }
+    };
+
+    const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
     const ds = datasets.map(d => ({
         label: d.label,
         data:  d.data,
@@ -1383,15 +1384,15 @@ function renderLineChart(id, noData, labels, datasets, tooltipFmt, yOpts) {
         borderWidth: 2,
         borderDash: d.dashed ? [7,4] : [],
         tension: 0.3,
-        pointRadius: labels.length > 120 ? 0 : 3,
+        pointRadius: nPts > 120 ? 0 : 3,
         fill: !!(d.bg && d.bg !== 'transparent'),
-        spanGaps: true,
+        spanGaps: false,
         stepped: d.stepped || false,
     }));
 
     if (charts[canvasId]) { charts[canvasId].destroy(); }
     charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
-        type: 'line', data: { labels, datasets: ds }, options: opts
+        type: 'line', data: { datasets: ds }, options: opts
     });
 }
 
