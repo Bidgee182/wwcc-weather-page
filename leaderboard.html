@@ -740,6 +740,34 @@ function render(d) {
     }
 
     _lastRenderData = d;
+
+    // When today's competition hasn't started yet and official results from the previous
+    // comp are available (saved by the poller), show those results while we wait.
+    const lr = (!d.started && d.lastResults && d.lastResults.officialResultsReady) ? d.lastResults : null;
+    if (lr) {
+        _isStableford        = lr.isStableford !== false;
+        _isAmbrose           = lr.isAmbrose === true;
+        _officialResultsReady = true;
+        _ballWinners         = new Set(lr.ballWinners || []);
+        _pdfStandings        = lr.pdfStandings || { grades: [], players: [] };
+        _pdfGradeMap = {};
+        _pdfPosMap   = {};
+        for (const pp of (_pdfStandings.players || [])) {
+            if (pp.name && pp.grade) _pdfGradeMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
+            if (pp.name && !pp.name.includes(',') && pp.pos) _pdfPosMap[pp.name.toLowerCase()] = pp.pos;
+        }
+        const ptsHdrLr = document.getElementById('col-hdr-pts');
+        if (ptsHdrLr) ptsHdrLr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+        setBadge('results', 'Results');
+        setHeader('⛳ ' + lr.competition + ' - Official Results',
+                  'Wagga Wagga Country Club - ' + (d.competition || 'next comp') + ' not yet started');
+        setBlueBallVisible(lr.date);
+        renderLeaderboard(lr.players || [], lr.holeCount || 18, true, lr.competition || '');
+        renderNtpLd(lr.ntpLd || []);
+        setFooter(d.generatedAt, '');
+        return;
+    }
+
     updateHeader(d);
     setFooter(d.generatedAt, '');
     setBlueBallVisible(d.date);
