@@ -20,9 +20,10 @@
 
         .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
         .header-logo { height:64px; width:auto; flex-shrink:0; }
-        .header-text h1 { font-size:1.6em; letter-spacing:2px; color:#ecf0f1; line-height:1.1; }
-        .header-text .subtitle { font-size:0.85em; color:#7f8c8d; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
-        @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.15em;} .header-text .subtitle{font-size:0.72em;} }
+        .header-text { flex:1; text-align:center; }
+        .header-text h1 { font-size:2em; font-weight:700; letter-spacing:6px; color:#ecf0f1; line-height:1.1; text-transform:uppercase; }
+        .header-text .subtitle { font-size:0.78em; color:#7f8c8d; letter-spacing:2px; text-transform:uppercase; margin-top:5px; }
+        @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.2em; letter-spacing:3px;} .header-text .subtitle{font-size:0.68em; letter-spacing:1px;} }
 
         /* Tab bar */
         .tab-bar { display:flex; justify-content:center; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
