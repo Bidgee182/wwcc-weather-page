@@ -130,8 +130,8 @@ def main():
         prev["last_seen"]  = prev.get("timestamp")
         prev["timestamp"]  = now_iso
         write_json(LATEST_FILE, prev)
-        print(f"OFFLINE: could not connect to {HOST}:{PORT}", file=sys.stderr)
-        sys.exit(1)
+        print(f"OFFLINE: could not connect to {HOST}:{PORT}")
+        sys.exit(0)  # exit 0 so the workflow doesn't spam failure emails during outages
 
     try:
         status_regs  = rhr(client, 200, 32)  # regs 00201-00232
