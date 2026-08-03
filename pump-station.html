@@ -1274,10 +1274,10 @@ async function renderPerfCharts() {
              vals.length?(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):'--', pts.length]);
     } else { setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']); }
 
-    // Suction pressure
+    // Suction pressure (can go negative under vacuum - autoMin lets chart scale freely)
     renderLineChart('c-suction', noData, pts, [
         { label:'Suction (bar)', data: xy(pts, r=>r.pi), borderColor:'#3498db', bg:'rgba(52,152,219,.12)', dashed:false }
-    ], v=>v!=null?v.toFixed(2)+' bar':null);
+    ], v=>v!=null?v.toFixed(2)+' bar':null, {autoMin:true});
     if (!noData) {
         const valsS = pts.map(r=>r.pi).filter(v=>v!=null);
         setStats(['cs-min','cs-max','cs-avg','cs-pts'],
@@ -1388,6 +1388,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
     if (yOpts && yOpts.max != null) opts.scales.y.max = yOpts.max;
     if (yOpts && yOpts.min != null) opts.scales.y.min = yOpts.min;
+    if (yOpts && yOpts.autoMin) delete opts.scales.y.min;
     if (yOpts && yOpts.stepSize) opts.scales.y.ticks.stepSize = yOpts.stepSize;
     opts.plugins.legend.display = datasets.length > 1;
     opts.plugins.legend.labels = { color:'#bdc3c7', font:{size:10}, boxWidth:12 };

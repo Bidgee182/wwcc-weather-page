@@ -151,6 +151,18 @@ def valid(raw):
     return None if raw is None or raw == NA else raw
 
 
+def signed16(raw):
+    """Interpret a Modbus holding register as signed 16-bit (two's complement).
+
+    Pressure registers that can go negative (e.g. InletPressure under vacuum)
+    are stored as signed values by the CU352. pymodbus returns them as unsigned,
+    so values > 32767 must be adjusted: 65196 raw = -340 = -0.340 bar.
+    """
+    if raw is None or raw == NA:
+        return None
+    return raw - 65536 if raw > 32767 else raw
+
+
 def pct_to_bar(pct_raw, sensor_max_mbar):
     if pct_raw is None or not sensor_max_mbar:
         return None
@@ -414,7 +426,7 @@ def main():
     setpoint_raw = valid(data_regs[7])   # 00308: ActualSetpoint (0.01%)
     power_hi     = valid(data_regs[11])  # 00312: PowerHI
     power_lo     = valid(data_regs[12])  # 00313: PowerLO
-    inlet_raw    = valid(data_regs[14])  # 00315: InletPressure (0.001 bar)
+    inlet_raw    = signed16(data_regs[14])  # 00315: InletPressure (0.001 bar, signed - can be negative under vacuum)
     outlet_raw   = valid(data_regs[40])  # 00341: OutletPressure (0.001 bar)
 
     op_time_hi      = valid(data_regs[26])  # 00327: OperationTimeHI (hours)
