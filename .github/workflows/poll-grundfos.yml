@@ -1,0 +1,62 @@
+name: Grundfos Pump Station Poll
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # Every 5 minutes
+
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'
+      - 'out/**'
+      - '**.md'
+
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pymodbus==3.14.0
+
+      - name: Poll Grundfos CIM 500
+        env:
+          GRUNDFOS_HOST: ${{ secrets.GRUNDFOS_HOST }}
+          GRUNDFOS_PORT: '502'
+        run: python scripts/poll_grundfos.py
+
+      - name: Commit updated data to repository
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/pump_station_latest.json \
+                  data/pump_station_history.json \
+                  data/pump_station_daily.json
+          if git diff --staged --quiet; then
+            echo "No data changes — skipping commit"
+          else
+            git commit -m "Grundfos poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi
