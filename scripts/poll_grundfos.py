@@ -230,96 +230,133 @@ RAW_SCAN_RANGES = [
 MAX_ALARM_HISTORY = 200
 
 
-def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_sys, now_iso):
-    """Detect alarm state transitions vs previous poll and append to persistent history.
+# Pump index → label for comm fault bit decoding
+PUMP_BIT_LABELS = {0: "P1", 1: "P2", 2: "P3", 3: "P4", 4: "P5", 5: "P6", 6: "Pilot", 7: "Backup"}
 
-    The CU352 GENIECON booster profile does not support the event log at addr 6000
-    (returns Modbus IO exception). We build our own history by comparing each poll's
-    alarm codes against the previous poll's values saved in latest.json.
+# SystemActiveFunctions bits worth surfacing as events: {bit: (name, type_code, description)}
+SYS_FUNC_EVENTS = {
+    1:  ("Emergency Run",     1, "Emergency run mode activated"),
+    9:  ("Pressure Relief",   3, "Pressure relief active - overpressure protection"),
+    11: ("Low-Flow Boost",    3, "Low-flow boost active"),
+    12: ("Low-Flow Stop",     3, "Low-flow stop active - possible system leak or zero demand"),
+}
+
+
+def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_sys,
+                         now_iso, pumps_comm_fault=None, sys_active_funcs=None,
+                         inlet_bar=None, power_ons=None, system_on=False):
+    """Detect state transitions vs previous poll and append to persistent alarm history.
+
+    Tracks: pump alarm codes, system alarm/warning codes, per-pump GENIbus comm faults,
+    key SystemActiveFunctions bits (emergency run, low-flow stop, pressure relief),
+    suction under-range (below -1.0 bar transmitter floor), and power cycles.
+
+    The CU352 event log at addr 6000 is inaccessible on GENIECON - confirmed by full
+    diagnostic scan of all device IDs. Local transition tracking is the only viable approach.
     """
     history = load_json(ALARM_HISTORY_FILE, {"events": []})
     events  = history.get("events", [])
     new_events = []
+    ps = prev_sys or {}
 
-    # Per-pump alarm transitions
+    def evt(tc, tn, code, desc, label, source):
+        return {"timestamp_iso": now_iso, "type_code": tc, "type_name": tn,
+                "code": code, "description": desc, "pump_label": label, "source_name": source}
+
+    # --- Per-pump alarm code transitions ---
     for i, pump in enumerate(pump_data):
         curr_code = pump.get("alarm_code") or 0
-        prev_code = 0
-        if i < len(prev_pumps) and prev_pumps[i]:
-            prev_code = prev_pumps[i].get("alarm_code") or 0
-
+        prev_code = (prev_pumps[i].get("alarm_code") or 0) if i < len(prev_pumps) and prev_pumps[i] else 0
         if curr_code == prev_code:
             continue
-
         if curr_code and not prev_code:
-            tc, tn = 1, "Alarm appeared"
-            code_to_log = curr_code
+            tc, tn, code_to_log = 1, "Alarm appeared", curr_code
         elif prev_code and not curr_code:
-            tc, tn = 2, "Alarm cleared"
-            code_to_log = prev_code
+            tc, tn, code_to_log = 2, "Alarm cleared", prev_code
         else:
-            tc, tn = 1, "Alarm changed"
-            code_to_log = curr_code
+            tc, tn, code_to_log = 1, "Alarm changed", curr_code
+        new_events.append(evt(tc, tn, code_to_log,
+                              ALARM_DESCRIPTIONS.get(code_to_log, f"Alarm code {code_to_log}"),
+                              pump["label"], "Pump"))
 
-        new_events.append({
-            "timestamp_iso": now_iso,
-            "type_code":     tc,
-            "type_name":     tn,
-            "code":          code_to_log,
-            "description":   ALARM_DESCRIPTIONS.get(code_to_log, f"Alarm code {code_to_log}"),
-            "pump_label":    pump["label"],
-            "source_name":   "Pump",
-        })
-
-    # System alarm transition
-    prev_alarm = (prev_sys or {}).get("alarm_code") or 0
+    # --- System alarm transition ---
+    prev_alarm = ps.get("alarm_code") or 0
     curr_alarm = alarm_code or 0
     if curr_alarm != prev_alarm:
         if curr_alarm:
-            new_events.append({
-                "timestamp_iso": now_iso,
-                "type_code":     1,
-                "type_name":     "Alarm appeared",
-                "code":          curr_alarm,
-                "description":   ALARM_DESCRIPTIONS.get(curr_alarm, f"Alarm code {curr_alarm}"),
-                "pump_label":    "System",
-                "source_name":   "System",
-            })
+            new_events.append(evt(1, "Alarm appeared", curr_alarm,
+                                  ALARM_DESCRIPTIONS.get(curr_alarm, f"Alarm code {curr_alarm}"),
+                                  "System", "System"))
         elif prev_alarm:
-            new_events.append({
-                "timestamp_iso": now_iso,
-                "type_code":     2,
-                "type_name":     "Alarm cleared",
-                "code":          prev_alarm,
-                "description":   ALARM_DESCRIPTIONS.get(prev_alarm, f"Alarm code {prev_alarm}"),
-                "pump_label":    "System",
-                "source_name":   "System",
-            })
+            new_events.append(evt(2, "Alarm cleared", prev_alarm,
+                                  ALARM_DESCRIPTIONS.get(prev_alarm, f"Alarm code {prev_alarm}"),
+                                  "System", "System"))
 
-    # System warning transition
-    prev_warn = (prev_sys or {}).get("warning_code") or 0
-    curr_warn = warning_code or 0
+    # --- System warning transition ---
+    prev_warn = ps.get("warning_code") or 0
+    curr_warn  = warning_code or 0
     if curr_warn != prev_warn:
         if curr_warn:
-            new_events.append({
-                "timestamp_iso": now_iso,
-                "type_code":     3,
-                "type_name":     "Warning appeared",
-                "code":          curr_warn,
-                "description":   ALARM_DESCRIPTIONS.get(curr_warn, f"Warning code {curr_warn}"),
-                "pump_label":    "System",
-                "source_name":   "System",
-            })
+            new_events.append(evt(3, "Warning appeared", curr_warn,
+                                  ALARM_DESCRIPTIONS.get(curr_warn, f"Warning code {curr_warn}"),
+                                  "System", "System"))
         elif prev_warn:
-            new_events.append({
-                "timestamp_iso": now_iso,
-                "type_code":     4,
-                "type_name":     "Warning cleared",
-                "code":          prev_warn,
-                "description":   ALARM_DESCRIPTIONS.get(prev_warn, f"Warning code {prev_warn}"),
-                "pump_label":    "System",
-                "source_name":   "System",
-            })
+            new_events.append(evt(4, "Warning cleared", prev_warn,
+                                  ALARM_DESCRIPTIONS.get(prev_warn, f"Warning code {prev_warn}"),
+                                  "System", "System"))
+
+    # --- Per-pump GENIbus comm fault transitions (addr 210) ---
+    prev_cf = ps.get("pumps_comm_fault") or 0
+    curr_cf  = pumps_comm_fault or 0
+    changed_cf = prev_cf ^ curr_cf
+    if changed_cf:
+        for bit, label in PUMP_BIT_LABELS.items():
+            if changed_cf & (1 << bit):
+                faulted = bool(curr_cf & (1 << bit))
+                new_events.append(evt(
+                    1 if faulted else 2,
+                    "GENIbus comm fault" if faulted else "GENIbus comm restored",
+                    10,  # alarm code 10 = GENIbus comms fault
+                    f"{label} lost GENIbus communication with CU352" if faulted
+                    else f"{label} GENIbus communication restored",
+                    label, "GENIbus"))
+
+    # --- SystemActiveFunctions bit transitions (addr 211) ---
+    prev_saf = ps.get("sys_active_funcs") or 0
+    curr_saf  = sys_active_funcs or 0
+    changed_saf = prev_saf ^ curr_saf
+    if changed_saf:
+        for bit, (name, tc_on, desc_on) in SYS_FUNC_EVENTS.items():
+            if changed_saf & (1 << bit):
+                activated = bool(curr_saf & (1 << bit))
+                new_events.append(evt(
+                    tc_on if activated else 4,
+                    f"{name} activated" if activated else f"{name} deactivated",
+                    bit,
+                    desc_on if activated else f"{name} no longer active",
+                    "System", "SystemFunction"))
+
+    # --- Suction pressure under-range transitions ---
+    prev_suction = ps.get("pressure_suction_bar")
+    curr_suction  = inlet_bar
+    if system_on:
+        if prev_suction is not None and curr_suction is None:
+            new_events.append(evt(3, "Suction under-range", 57,
+                                  "Suction pressure below -1.0 bar (transmitter floor) - extreme vacuum or supply failure",
+                                  "System", "Suction"))
+        elif prev_suction is None and curr_suction is not None:
+            new_events.append(evt(4, "Suction pressure restored", 57,
+                                  f"Suction pressure recovered to {curr_suction:.3f} bar",
+                                  "System", "Suction"))
+
+    # --- Power cycle detection (addr 344 NumberOfPowerOns) ---
+    prev_po = ps.get("power_ons")
+    curr_po  = power_ons
+    if prev_po is not None and curr_po is not None and curr_po != prev_po:
+        new_events.append(evt(3, "Power cycle", 0,
+                              f"System power-on count changed {prev_po} -> {curr_po} "
+                              f"(controller was restarted or powered off)",
+                              "System", "System"))
 
     combined = (new_events + events)[:MAX_ALARM_HISTORY]
     write_json(ALARM_HISTORY_FILE, {"events": combined})
@@ -406,13 +443,15 @@ def main():
         sensor_max_mbar = sensor_max_raw
 
     # -- Status block ------------------------------------------------------------
-    status_bits   = valid(status_regs[0])    # 00201
-    process_fb    = valid(status_regs[1])    # 00202: ProcessFeedback
-    control_mode  = valid(status_regs[2])    # 00203
-    alarm_code    = valid(status_regs[4])    # 00205
-    warning_code  = valid(status_regs[5])    # 00206
-    pumps_present = valid(status_regs[7])    # 00208
-    pumps_running = valid(status_regs[8])    # 00209
+    status_bits      = valid(status_regs[0])   # 00201
+    process_fb       = valid(status_regs[1])   # 00202: ProcessFeedback
+    control_mode     = valid(status_regs[2])   # 00203
+    alarm_code       = valid(status_regs[4])   # 00205
+    warning_code     = valid(status_regs[5])   # 00206
+    pumps_present    = valid(status_regs[7])   # 00208
+    pumps_running    = valid(status_regs[8])   # 00209
+    pumps_comm_fault = valid(status_regs[10])  # 00211: per-pump GENIbus comm fault bits
+    sys_active_funcs = valid(status_regs[11])  # 00212: active function bits (emergency run, low-flow stop, etc.)
 
     system_on  = bool(status_bits & (1 << 9))  if status_bits is not None else False
     alarm_act  = bool(status_bits & (1 << 10)) if status_bits is not None else False
@@ -593,6 +632,8 @@ def main():
         "do_bits":                   do_raw,
         "alarm_code":                alarm_code or 0,
         "warning_code":              warning_code or 0,
+        "pumps_comm_fault":          pumps_comm_fault or 0,
+        "sys_active_funcs":          sys_active_funcs or 0,
     }
 
     # -- Alarm history (local transition tracking - CU352 addr 6000 not supported on GENIECON)
@@ -603,6 +644,11 @@ def main():
         warning_code or 0,
         prev.get("system"),
         now_iso,
+        pumps_comm_fault=pumps_comm_fault,
+        sys_active_funcs=sys_active_funcs,
+        inlet_bar=inlet_bar,
+        power_ons=power_ons_raw,
+        system_on=system_on,
     )
 
     # -- Update 24h history in latest.json --------------------------------------
