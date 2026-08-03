@@ -2,7 +2,7 @@ name: Grundfos Pump Station Poll
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # Every 5 minutes
+    - cron: '2,12,22,32,42,52 * * * *'   # Every 10 minutes, offset by 2 min
 
   push:
     branches: [main]
