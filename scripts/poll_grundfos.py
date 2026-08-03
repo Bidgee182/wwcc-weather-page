@@ -37,7 +37,7 @@ Key register map (all are FC03 holding registers):
   Pump blocks (addr 400-479 = doc regs 00401-00480, 10 regs per pump):
     +0: Status bits (bit1=OnOff/running, bit2=Alarm)
     +1: AlarmCode
-    +2: OperationTimeHI, +3: OperationTimeLO (0.01 h, 32-bit)
+    +2: OperationTimeHI, +3: OperationTimeLO (1 h, 32-bit) - confirmed live: P1=5148h, System=40552h
     +4: Speed (0.01%)
     +5: LineCurrent (0.1 A)
     +6: Power (10 W)
@@ -456,7 +456,7 @@ def main():
             "speed_pct":    round(spd_raw * 0.01, 1) if spd_raw is not None else None,
             "power_kw":     round(pwr_raw * 10 / 1000, 2) if pwr_raw is not None else None,
             "current_a":    round(cur_raw * 0.1, 2) if cur_raw is not None else None,
-            "run_hours":    round(op_combined * 0.01, 1) if op_combined is not None else None,
+            "run_hours":    float(op_combined) if op_combined is not None else None,
             "starts_total": None,   # not available in booster Modbus profile
             "temp_c":       temp_c,
             "alarm_code":   alarm_c,
