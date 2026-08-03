@@ -134,9 +134,11 @@ def main():
         sys.exit(1)
 
     try:
-        status_regs = rhr(client, 200, 32)  # regs 00201-00232
-        data_regs   = rhr(client, 300, 50)  # regs 00301-00350
-        pump_regs   = rhr(client, 400, 80)  # regs 00401-00480 (8 pump blocks x 10)
+        status_regs  = rhr(client, 200, 32)  # regs 00201-00232
+        data_regs    = rhr(client, 300, 50)  # regs 00301-00350
+        pump_regs    = rhr(client, 400, 80)  # regs 00401-00480 (8 pump blocks x 10)
+        ain_unit_regs = rhr(client, 224, 7)  # regs 00225-00231: AnalogIn1-7 unit codes
+        ain_val_regs  = rhr(client, 375, 7)  # regs 00376-00382: AnalogIn1-7 values
     finally:
         client.close()
 
@@ -227,6 +229,27 @@ def main():
 
     pump_data = [parse_pump(pd) for pd in PUMP_DEFS]
 
+    # -- Analog inputs (AnalogIn1-7) ---------------------------------------------
+    # Unit codes from PDF: 10=°C(0.01), 13=K(0.01)->°C, 84=K(0.01)->°C, 110=°C(0.01)
+    TEMP_UNIT_CODES = {10, 13, 84, 110}
+    analog_inputs = []
+    for i in range(7):
+        u_raw   = ain_unit_regs[i] if ain_unit_regs else None
+        v_raw   = ain_val_regs[i]  if ain_val_regs  else None
+        u_valid = valid(u_raw)
+        v_valid = valid(v_raw)
+        is_temp = u_valid in TEMP_UNIT_CODES
+        if is_temp and v_valid is not None:
+            temp_c = round(v_valid * 0.01 - 273.15, 1) if u_valid in (13, 84) else round(v_valid * 0.01, 1)
+        else:
+            temp_c = None
+        analog_inputs.append({
+            "index":  i + 1,
+            "unit":   u_valid,
+            "raw":    v_valid,
+            "temp_c": temp_c,
+        })
+
     # -- Alarms ------------------------------------------------------------------
     alarms = []
     if alarm_code:
@@ -273,13 +296,14 @@ def main():
     history_24h = [r for r in history_24h if parse_ts(r["ts"]) >= cutoff_24h][-MAX_24H:]
 
     write_json(LATEST_FILE, {
-        "connected": True,
-        "timestamp": now_iso,
-        "last_seen": now_iso,
-        "system":    system,
-        "pumps":     pump_data,
-        "alarms":    alarms,
-        "history":   history_24h,
+        "connected":     True,
+        "timestamp":     now_iso,
+        "last_seen":     now_iso,
+        "system":        system,
+        "pumps":         pump_data,
+        "alarms":        alarms,
+        "analog_inputs": analog_inputs,
+        "history":       history_24h,
     })
 
     # -- Update 90-day history (15-min cadence) ----------------------------------
@@ -302,8 +326,10 @@ def main():
     update_daily(long_readings, history_24h)
 
     n_run = sum(1 for p in pump_data if p["running"])
+    ain_temps = [(a["index"], a["temp_c"]) for a in analog_inputs if a["temp_c"] is not None]
+    ain_str = ", ".join(f"AIn{i}={t}C" for i, t in ain_temps) if ain_temps else "none"
     print(f"OK: discharge={actual_bar} bar, setpoint={setpoint_bar} bar, "
-          f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}")
+          f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}, analog_temps=[{ain_str}]")
 
 
 def _offline_pump(defn):
