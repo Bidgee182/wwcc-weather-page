@@ -251,6 +251,7 @@ def main():
         "pw": [p["power_kw"]     for p in pump_data],
         "rh": [p["run_hours"]    for p in pump_data],  # cumulative h since install
         "st": [p["starts_total"] for p in pump_data],  # cumulative starts since install
+        "tm": [p["temp_c"]       for p in pump_data],  # motor temp deg C (PT100)
     }
 
     system = {

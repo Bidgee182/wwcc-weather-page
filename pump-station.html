@@ -472,6 +472,14 @@
         <div class="chart-wrap h220" id="c-power-wrap"><canvas id="c-power"></canvas></div>
     </div>
 
+    <!-- Motor temperatures -->
+    <div class="card">
+        <h2>Motor Temperatures - PT100 (°C)</h2>
+        <div class="pump-legend" id="temp-legend"></div>
+        <div class="chart-loader" id="c-temp-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(231,76,60,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h220" id="c-temp-wrap"><canvas id="c-temp"></canvas></div>
+    </div>
+
     <!-- Pump cycling / starts per poll -->
     <div class="card">
         <h2>Pump Cycling - Starts per 5-min Poll</h2>
@@ -1265,6 +1273,14 @@ async function renderPerfCharts() {
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(1)+' kW':null);
 
+    // Motor temperatures
+    buildPumpLegend('temp-legend');
+    renderLineChart('c-temp', noData, labels,
+        PUMP_LABELS.map((lbl,i) => ({
+            label: lbl, data: pts.map(r => r.tm ? r.tm[i] : null),
+            borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
+        })), v=>v!=null?v.toFixed(0)+'°C':null, {min:0});
+
     // Pump cycling - starts delta per poll
     buildPumpLegend('starts-legend');
     const startDeltas = [];
@@ -1334,6 +1350,7 @@ function renderLineChart(id, noData, labels, datasets, tooltipFmt, yOpts) {
 
     const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
     if (yOpts && yOpts.max != null) opts.scales.y.max = yOpts.max;
+    if (yOpts && yOpts.min != null) opts.scales.y.min = yOpts.min;
     if (yOpts && yOpts.stepSize) opts.scales.y.ticks.stepSize = yOpts.stepSize;
     if (tooltipFmt) opts.plugins.tooltip.callbacks = { label: ctx => { const v=tooltipFmt(ctx.parsed.y); return v?' '+ctx.dataset.label+': '+v:null; } };
     opts.plugins.legend.display = datasets.length > 1;
