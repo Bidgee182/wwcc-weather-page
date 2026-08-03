@@ -1172,8 +1172,9 @@ function renderLeaderboard(players, holeCount, started, competition) {
             const raw = p.player || '';
             const m = raw.match(/\[(\+?\d+(?:\.\d+)?)\]/);
             const cleanName = esc(raw.replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
-            escapedName = cleanName + (m
-                ? '<span class="r-hcp-team">Combined Handicap [' + m[1] + ']</span>'
+            const hcpVal = m ? parseFloat(m[1]).toFixed(2) : null;
+            escapedName = cleanName + (hcpVal
+                ? '<span class="r-hcp-team">Combined Handicap [' + hcpVal + ']</span>'
                 : '');
         } else {
             // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
