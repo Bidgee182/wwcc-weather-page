@@ -1,0 +1,41 @@
+name: Alarm Diagnostic Scan (one-shot)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pymodbus==3.14.0
+
+      - name: Run alarm diagnostic scan
+        env:
+          GRUNDFOS_HOST: ${{ secrets.GRUNDFOS_HOST }}
+          GRUNDFOS_PORT: '502'
+        run: python scripts/diag_alarm_scan.py
+
+      - name: Commit results
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/diag_alarm_scan.json
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Alarm diagnostic scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase -X theirs origin main && git push
+          fi
