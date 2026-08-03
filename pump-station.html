@@ -454,6 +454,19 @@
         </div>
     </div>
 
+    <!-- Suction Pressure -->
+    <div class="card">
+        <h2>Suction Pressure - Inlet (B2)</h2>
+        <div class="chart-loader" id="c-suction-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(52,152,219,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h200" id="c-suction-wrap"><canvas id="c-suction"></canvas></div>
+        <div class="stat-grid-4">
+            <div class="sys-metric"><div class="sm-val" id="cs-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cs-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cs-avg" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cs-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Points</div></div>
+        </div>
+    </div>
+
     <!-- Flow -->
     <div class="card">
         <h2>Flow Rate</h2>
@@ -1260,6 +1273,17 @@ async function renderPerfCharts() {
             [vals.length?Math.min(...vals).toFixed(2):'--', vals.length?Math.max(...vals).toFixed(2):'--',
              vals.length?(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):'--', pts.length]);
     } else { setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']); }
+
+    // Suction pressure
+    renderLineChart('c-suction', noData, pts, [
+        { label:'Suction (bar)', data: xy(pts, r=>r.pi), borderColor:'#3498db', bg:'rgba(52,152,219,.12)', dashed:false }
+    ], v=>v!=null?v.toFixed(2)+' bar':null);
+    if (!noData) {
+        const valsS = pts.map(r=>r.pi).filter(v=>v!=null);
+        setStats(['cs-min','cs-max','cs-avg','cs-pts'],
+            [valsS.length?Math.min(...valsS).toFixed(2):'--', valsS.length?Math.max(...valsS).toFixed(2):'--',
+             valsS.length?(valsS.reduce((a,b)=>a+b)/valsS.length).toFixed(2):'--', pts.length]);
+    } else { setStats(['cs-min','cs-max','cs-avg','cs-pts'],['--','--','--','0']); }
 
     // Flow
     renderLineChart('c-flow', noData, pts, [
