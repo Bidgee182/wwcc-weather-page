@@ -175,7 +175,8 @@ def main():
     outlet_raw   = valid(data_regs[40])  # 00341: OutletPressure (0.001 bar)
 
     actual_bar   = round(head_raw * 0.001, 3) if head_raw is not None else pct_to_bar(process_fb, sensor_max_mbar)
-    setpoint_bar = pct_to_bar(setpoint_raw, sensor_max_mbar)
+    _sp_raw      = pct_to_bar(setpoint_raw, sensor_max_mbar)
+    setpoint_bar = round(_sp_raw, 1) if _sp_raw is not None else None  # round to 1dp: 7.811 -> 7.8 -> displays as 7.80
     flow_m3h     = round(flow_raw * 0.1, 2) if flow_raw is not None else None
     inlet_bar    = round(inlet_raw * 0.001, 3) if inlet_raw is not None else None
 

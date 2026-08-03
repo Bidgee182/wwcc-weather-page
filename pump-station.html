@@ -368,6 +368,18 @@
         </div>
     </div>
 
+    <div class="card" id="leak-watch-card" style="border-left:3px solid #27ae60;">
+        <h2>Leak Watch</h2>
+        <div id="leak-watch-inner" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px;">
+            <div id="leak-watch-pill" class="pump-badge badge-stopped">NO DATA</div>
+            <div>
+                <div id="leak-watch-jockey" style="font-size:0.88em;color:#bdc3c7;">No overnight readings yet</div>
+                <div id="leak-watch-main"   style="font-size:0.82em;color:#7f8c8d;margin-top:2px;"></div>
+            </div>
+        </div>
+        <div style="font-size:0.68em;color:#566573;line-height:1.5;">Midnight to 5am AEST - high jockey cycling with zero flow = possible system leak. See Charts tab for cycling detail.</div>
+    </div>
+
     <div class="card" style="border-left:3px solid #e74c3c;">
         <h2>Remote Control (PIN Protected)</h2>
         <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
@@ -458,6 +470,15 @@
         <div class="pump-legend" id="power-legend"></div>
         <div class="chart-loader" id="c-power-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
         <div class="chart-wrap h220" id="c-power-wrap"><canvas id="c-power"></canvas></div>
+    </div>
+
+    <!-- Pump cycling / starts per poll -->
+    <div class="card">
+        <h2>Pump Cycling - Starts per 5-min Poll</h2>
+        <div class="pump-legend" id="starts-legend"></div>
+        <div class="chart-loader" id="c-starts-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(231,76,60,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">NO CYCLING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h160" id="c-starts-wrap"><canvas id="c-starts"></canvas></div>
+        <div style="font-size:0.68em;color:#566573;margin-top:6px;">Each bar = starts recorded between consecutive polls. Jockey cycling overnight with zero flow = possible leak.</div>
     </div>
 
     <!-- Run hours (current) -->
@@ -870,6 +891,7 @@ async function getPerfReadings() {
 function renderAll() {
     renderBanner();
     renderOverview();
+    renderLeakWatch();
     renderPumps();
     renderAlarms();
     renderSetupStatus();
@@ -877,6 +899,62 @@ function renderAll() {
     const trendsActive = document.getElementById('tab-trends').classList.contains('active');
     if (perfActive)   renderPerfCharts();
     if (trendsActive) renderTrendCharts();
+}
+
+// ─── Leak Watch ──────────────────────────────────────────────────────────────
+function renderLeakWatch() {
+    const history = latestData && latestData.history ? latestData.history : [];
+    const card = document.getElementById('leak-watch-card');
+    const pill = document.getElementById('leak-watch-pill');
+    const jEl  = document.getElementById('leak-watch-jockey');
+    const mEl  = document.getElementById('leak-watch-main');
+
+    // Overnight window: last midnight AEST to 5am AEST (UTC+10)
+    const aestMs = 10 * 3600 * 1000;
+    const nowUTC = Date.now();
+    const dayMs  = 86400000;
+    let midUTC   = Math.floor((nowUTC + aestMs) / dayMs) * dayMs - aestMs;
+    if (nowUTC < midUTC) midUTC -= dayMs;   // before tonight's midnight, use last night
+    const fiveAmUTC = midUTC + 5 * 3600000;
+
+    const overnight = history
+        .filter(r => { const t = new Date(r.ts).getTime(); return t >= midUTC && t <= fiveAmUTC; })
+        .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+
+    if (overnight.length < 2) {
+        card.style.borderLeftColor = '#566573';
+        pill.className = 'pump-badge badge-offline';
+        pill.textContent = 'NO DATA';
+        jEl.textContent  = 'No overnight readings yet (midnight-5am AEST)';
+        mEl.textContent  = '';
+        return;
+    }
+
+    const starts = [0, 0, 0, 0];
+    for (let i = 1; i < overnight.length; i++) {
+        const p = overnight[i-1].st, c = overnight[i].st;
+        if (!p || !c) continue;
+        for (let j = 0; j < 4; j++) {
+            if (p[j] != null && c[j] != null && c[j] >= p[j]) starts[j] += c[j] - p[j];
+        }
+    }
+
+    const jSt   = starts[3];
+    const mainSt = starts[0] + starts[1] + starts[2];
+    let level = jSt >= 13 || mainSt >= 2 ? 'investigate' : jSt >= 4 || mainSt >= 1 ? 'monitor' : 'normal';
+
+    const cfg = {
+        normal:      { border:'#27ae60', cls:'badge-running',  label:'NORMAL' },
+        monitor:     { border:'#f39c12', cls:'badge-standby',  label:'MONITOR' },
+        investigate: { border:'#e74c3c', cls:'badge-fault',    label:'INVESTIGATE' },
+    }[level];
+
+    card.style.borderLeftColor = cfg.border;
+    pill.className = 'pump-badge ' + cfg.cls;
+    pill.textContent = cfg.label;
+    jEl.textContent  = 'Jockey: ' + jSt + ' start' + (jSt !== 1 ? 's' : '') + ' (midnight to 5am)';
+    mEl.textContent  = 'Main pumps P1/P2/P3: ' + mainSt + ' start' + (mainSt !== 1 ? 's' : '');
+    mEl.style.color  = mainSt > 0 ? '#f39c12' : '#7f8c8d';
 }
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
@@ -1186,6 +1264,52 @@ async function renderPerfCharts() {
             label: lbl, data: pts.map(r => r.pw ? r.pw[i] : null),
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(1)+' kW':null);
+
+    // Pump cycling - starts delta per poll
+    buildPumpLegend('starts-legend');
+    const startDeltas = [];
+    for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i-1], curr = pts[i];
+        const delta = [0, 0, 0, 0];
+        if (prev.st && curr.st) {
+            for (let j = 0; j < 4; j++) {
+                const p = prev.st[j], c = curr.st[j];
+                if (p != null && c != null) delta[j] = Math.max(0, c - p);
+            }
+        }
+        startDeltas.push({ ts: curr.ts, delta });
+    }
+    const hasStarts = startDeltas.some(r => r.delta.some(v => v > 0));
+    const startLabels = startDeltas.map(r => fmtChartTime(r.ts, perfRangeH));
+    const startsLoader = document.getElementById('c-starts-loader');
+    const startsWrap   = document.getElementById('c-starts-wrap');
+    if (!hasStarts || noData) {
+        startsLoader.style.display = 'flex'; startsWrap.style.display = 'none';
+        if (charts['c-starts']) { charts['c-starts'].destroy(); delete charts['c-starts']; }
+    } else {
+        startsLoader.style.display = 'none'; startsWrap.style.display = 'block';
+        const startsOpts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        startsOpts.scales.y.ticks.stepSize = 1;
+        startsOpts.scales.y.ticks.callback = v => Number.isInteger(v) ? v : null;
+        startsOpts.plugins.legend.display = true;
+        startsOpts.plugins.legend.labels  = { color:'#bdc3c7', font:{size:10}, boxWidth:12 };
+        startsOpts.plugins.tooltip.callbacks = { label: ctx => ctx.parsed.y > 0 ? ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + ' start' + (ctx.parsed.y !== 1 ? 's' : '') : null };
+        if (charts['c-starts']) charts['c-starts'].destroy();
+        charts['c-starts'] = new Chart(document.getElementById('c-starts').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: startLabels,
+                datasets: PUMP_LABELS.map((lbl, i) => ({
+                    label: lbl,
+                    data:  startDeltas.map(r => r.delta[i] || 0),
+                    backgroundColor: PUMP_COLORS[i],
+                    borderRadius: 2,
+                    stack: 'starts',
+                }))
+            },
+            options: startsOpts
+        });
+    }
 
     // Run hours current reading
     renderHoursGrid();
