@@ -669,6 +669,7 @@
             <div class="ctrl-sys-btns">
                 <button class="ctrl-sys-btn sstop"  onclick="ctrlQueue('system_stop',null,true)">STOP ALL PUMPS</button>
                 <button class="ctrl-sys-btn sstart"  onclick="ctrlQueue('system_start',null,false)">START SYSTEM</button>
+                <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;" onclick="ctrlQueue('alarm_reset',null,false)">RESET ALARMS</button>
             </div>
             <div class="ctrl-mode-row">
                 <label>Mode:</label>
@@ -747,6 +748,17 @@
 
 <!-- ═══════════════════════════ SETUP ═══════════════════════════ -->
 <div id="tab-setup" class="tab-panel">
+
+    <!-- CU352 Live Settings -->
+    <div class="card">
+        <h2>CU352 Live Settings</h2>
+        <div id="su-settings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:10px;"></div>
+        <div style="font-size:.68em;color:#566573;line-height:1.5;border-top:1px solid #2c3e50;padding-top:8px;margin-top:4px;">
+            Read-only view. To change setpoint or mode: use the <strong>Control</strong> tab (PIN required).<br>
+            Kp/Ti (PID tuning) and sensor range are set on the CU352 panel only.
+        </div>
+    </div>
+
     <div class="card">
         <h2>CIM 500 Configuration</h2>
         <div class="info-box">
@@ -886,6 +898,7 @@ function openControlAction(act, val) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 async function loadData() {
+    alarmHistoryData = null;  // reset so it refetches on next renderAlarms()
     try {
         const r = await fetch('data/pump_station_latest.json?_='+Date.now());
         if (r.ok) latestData = await r.json();
@@ -911,6 +924,16 @@ async function ensureDaily() {
         if (r.ok) dailyData = await r.json();
         else dailyData = { days:[] };
     } catch(e) { dailyData = { days:[] }; }
+}
+
+let alarmHistoryData = null;
+async function ensureAlarmHistory() {
+    if (alarmHistoryData !== null) return;
+    try {
+        const r = await fetch('data/pump_alarm_history.json?_='+Date.now());
+        if (r.ok) alarmHistoryData = await r.json();
+        else alarmHistoryData = { events:[] };
+    } catch(e) { alarmHistoryData = { events:[] }; }
 }
 
 // Get filtered readings for selected performance range
@@ -1538,17 +1561,32 @@ async function renderTrendCharts() {
 }
 
 // ─── Alarms ──────────────────────────────────────────────────────────────────
-function renderAlarms() {
+async function renderAlarms() {
     const alarms  = latestData && latestData.alarms ? latestData.alarms : [];
     const active  = alarms.filter(a=>a.active);
     document.getElementById('active-alarms').innerHTML = active.length ? active.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
 
-    // Local alarm history - state transitions tracked by poller (newest first, up to 40)
-    const events = latestData && latestData.event_log ? latestData.event_log : [];
-    if (events.length) {
+    // Load full alarm history file (up to 200 events) and merge with any live event_log entries
+    await ensureAlarmHistory();
+    const histEvents  = alarmHistoryData && alarmHistoryData.events ? alarmHistoryData.events : [];
+    const liveEvents  = latestData && latestData.event_log ? latestData.event_log : [];
+
+    // Merge: live events first (from current poll), then history file, deduplicate by timestamp+code
+    const seen = new Set();
+    const merged = [];
+    for (const e of [...liveEvents, ...histEvents]) {
+        const key = (e.timestamp_iso||'') + '|' + (e.code||'') + '|' + (e.type_code||'') + '|' + (e.pump_label||'');
+        if (!seen.has(key)) { seen.add(key); merged.push(e); }
+    }
+    // Sort newest first
+    merged.sort((a,b)=> new Date(b.timestamp_iso||0) - new Date(a.timestamp_iso||0));
+
+    if (merged.length) {
+        const connected = latestData && latestData.connected;
+        const srcNote   = connected ? 'Live poller + CU352 import' : 'CU352 import only';
         document.getElementById('alarm-history').innerHTML =
-            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">Alarm history - '+events.length+' events (newest first)</div>' +
-            events.map(eventLogRow).join('');
+            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">'+merged.length+' events - '+srcNote+' (newest first)</div>' +
+            merged.map(eventLogRow).join('');
     } else {
         const connected = latestData && latestData.connected;
         document.getElementById('alarm-history').innerHTML =
@@ -1576,10 +1614,11 @@ function eventLogRow(e) {
     const dotStyle = isWarning && isActive ? 'background:#f39c12;' : '';
     const pumpTxt = e.pump_label ? e.pump_label : (e.source_name||'System');
     const typeTxt = e.type_name || '';
+    const badge = e.imported ? ' <span style="font-size:.65em;background:#1a3a5f;color:#5dade2;border-radius:3px;padding:1px 4px;vertical-align:middle;">CU352</span>' : '';
     return '<div class="alarm-row">'+
         '<div class="alarm-dot '+dotCls+'" style="'+dotStyle+'"></div>'+
         '<div style="flex:1;min-width:0;">'+
-            '<div class="alarm-code">'+e.code+'</div>'+
+            '<div class="alarm-code">'+e.code+badge+'</div>'+
             '<div class="alarm-desc">'+(e.description||'Code '+e.code)+'</div>'+
             '<div class="alarm-pump">'+pumpTxt+(typeTxt?' - '+typeTxt:'')+'</div>'+
         '</div>'+
@@ -1594,6 +1633,34 @@ function renderSetupStatus() {
     if (d && d.connected) { el.textContent='ONLINE';  el.style.color='#27ae60'; }
     else                  { el.textContent='OFFLINE'; el.style.color='#e67e22'; }
     document.getElementById('su-age').textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
+
+    // CU352 Live Settings grid
+    const sg = document.getElementById('su-settings-grid');
+    if (!sg) return;
+    const sys = d && d.system ? d.system : null;
+    const pumps = d && d.pumps ? d.pumps : [];
+    if (!sys) {
+        sg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM 500 data...</div>';
+        return;
+    }
+    const sp_bar = sys.pressure_setpoint_bar;
+    const settings = [
+        {l:'Setpoint',      v: sp_bar!=null?sp_bar.toFixed(2)+' bar':'--',            c:'#e67e22'},
+        {l:'Mode',          v: sys.mode?sys.mode.toUpperCase():'--',                   c:'#3498db'},
+        {l:'Discharge (B1)',v: sys.pressure_actual_bar!=null?sys.pressure_actual_bar.toFixed(2)+' bar':'--', c:'#ecf0f1'},
+        {l:'Suction (B2)',  v: sys.pressure_suction_bar!=null?sys.pressure_suction_bar.toFixed(2)+' bar':'--', c:'#ecf0f1'},
+        {l:'PI Kp',         v: sys.pid_kp!=null?sys.pid_kp.toString():'--',           c:'#9b59b6'},
+        {l:'PI Ti',         v: sys.pid_ti!=null?sys.pid_ti+'s':'--',                  c:'#9b59b6'},
+        {l:'Sensor max',    v: sys.sensor_max_bar!=null?sys.sensor_max_bar+' bar':'--', c:'#7f8c8d'},
+        {l:'Energy total',  v: sys.energy_kwh!=null?sys.energy_kwh.toLocaleString()+' kWh':'--', c:'#f39c12'},
+        {l:'Run hours',     v: sys.run_hours!=null?sys.run_hours.toLocaleString()+'h':'--', c:'#7f8c8d'},
+        {l:'Power cycles',  v: sys.power_ons!=null?sys.power_ons.toString():'--',     c:'#7f8c8d'},
+        ...pumps.map(p=>({l:p.label+' kWh', v: d.pump_energy_kwh&&d.pump_energy_kwh[pumps.indexOf(p)]!=null?d.pump_energy_kwh[pumps.indexOf(p)].toLocaleString()+' kWh':'--', c:'#566573'})),
+    ];
+    sg.innerHTML = settings.map(s=>`<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+        <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${s.l}</div>
+        <div style="font-weight:bold;color:${s.c};font-size:.9em;">${s.v}</div>
+    </div>`).join('');
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -2027,9 +2094,14 @@ function ctrlRenderParams() {
         {l:'Flow (est.)',    v: sys.flow_m3h!=null?sys.flow_m3h.toFixed(1)+' m³/h':'--'},
         {l:'Mode',           v: sys.mode?sys.mode.toUpperCase():'--'},
         {l:'Running',        v: pumps.filter(p=>p.running).length+' / '+pumps.length},
+        {l:'PI Kp',          v: sys.pid_kp!=null?sys.pid_kp.toString():'--'},
+        {l:'PI Ti (s)',      v: sys.pid_ti!=null?sys.pid_ti.toString()+' s':'--'},
+        {l:'Sensor max',     v: sys.sensor_max_bar!=null?sys.sensor_max_bar+' bar':'--'},
+        {l:'Energy total',   v: sys.energy_kwh!=null?sys.energy_kwh.toLocaleString()+' kWh':'--'},
+        {l:'Run hours',      v: sys.run_hours!=null?sys.run_hours.toLocaleString()+'h':'--'},
+        {l:'Power cycles',   v: sys.power_ons!=null?sys.power_ons.toString():'--'},
         ...pumps.map(p=>({l:p.label+' Temp',  v:p.temp_c!=null?p.temp_c.toFixed(0)+'°C':'--'})),
         ...pumps.map(p=>({l:p.label+' Hours', v:p.run_hours!=null?p.run_hours.toFixed(0)+'h':'--'})),
-        ...pumps.map(p=>({l:p.label+' Starts',v:p.starts_total!=null?p.starts_total.toString():'--'})),
     ];
     el.innerHTML = rows.map(r=>`<div style="background:#1a252f;border-radius:6px;padding:8px;">
         <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;">${r.l}</div>
@@ -2041,6 +2113,7 @@ function ctrlRenderParams() {
 const CTRL_ALBL = {
     system_start: 'Start system (AUTO mode)',
     system_stop:  'Stop all pumps',
+    alarm_reset:  'Reset active alarms',
     start_pump:   id => 'Force start pump M'+id,
     stop_pump:    id => 'Force stop pump M'+id,
     set_setpoint: v  => 'Set setpoint to '+parseFloat(v).toFixed(1)+' bar',

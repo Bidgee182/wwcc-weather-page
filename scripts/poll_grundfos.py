@@ -97,6 +97,7 @@ CONTROL_MODE_NAMES = {
 }
 
 ALARM_DESCRIPTIONS = {
+    4:   "Too many restarts",
     10:  "GENIbus comms fault",
     15:  "Modbus watchdog timeout",
     32:  "Overvoltage",
@@ -111,6 +112,9 @@ ALARM_DESCRIPTIONS = {
     65:  "Motor temperature high",
     148: "PT100 bearing temperature high (DE)",
     149: "PT100 bearing temperature high (NDE)",
+    190: "Limit 1 exceeded",
+    210: "Pressure high",
+    214: "Water shortage",
 }
 
 EVENT_TYPE_NAMES = {
@@ -228,6 +232,11 @@ RAW_SCAN_RANGES = [
 ]
 
 MAX_ALARM_HISTORY = 200
+COMMANDS_FILE     = os.path.join(DATA_DIR, "pump_commands.json")
+
+# Pump control Modbus addresses (FC06 write): P1=104, P2=105, P3=106, Jockey=116
+# Write 0=Auto, 1=Force start, 2=Force stop
+PUMP_CTRL_ADDRS = [104, 105, 106, 116]
 
 
 # Pump index → label for comm fault bit decoding
@@ -399,6 +408,110 @@ def append_raw(ts_iso, registers):
         pass
 
 
+def execute_pending_command(client):
+    """Execute one pending command from pump_commands.json, update its status.
+
+    Commands are written by the pump-station.html Control tab via GitHub API.
+    Prerequisite: HMI -> Settings -> Communication -> Bus/Cloud control -> On.
+    Without that setting, Modbus writes to addr 100+ are ignored by the CU352.
+    """
+    try:
+        cmds = load_json(COMMANDS_FILE, {"pending": None, "log": []})
+    except Exception:
+        return
+
+    pending = cmds.get("pending")
+    if not pending or pending.get("status") != "pending":
+        return
+
+    act     = pending.get("action")
+    val     = pending.get("value")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    result  = None
+    success = False
+
+    try:
+        def wr(addr, value):
+            r = client.write_register(addr, value, device_id=1)
+            return r
+
+        if act == "set_setpoint":
+            bar     = float(val)
+            reg_val = max(0, min(10000, int(round(bar * 625))))
+            r1 = wr(100, 0x0003)   # remote mode ON + start
+            r2 = wr(103, reg_val)  # write setpoint
+            if not r1.isError() and not r2.isError():
+                success = True
+                result  = f"Setpoint set to {bar:.2f} bar (reg={reg_val})"
+            else:
+                result = f"Write failed: ControlBits={r1} Setpoint={r2}"
+
+        elif act == "system_stop":
+            r = wr(100, 0x0001)    # remote ON + stop (bit0=remote, bit1=start)
+            success = not r.isError()
+            result  = "Stop command sent" if success else f"Write failed: {r}"
+
+        elif act == "system_start":
+            r = wr(100, 0x0003)    # remote ON + start
+            success = not r.isError()
+            result  = "Start command sent" if success else f"Write failed: {r}"
+
+        elif act == "set_mode":
+            MODE_MAP = {
+                "auto": 3, "constant head": 3, "constant pressure": 4,
+                "constant flow": 5, "constant level": 8,
+                "constant differential pressure": 1, "constant pressure setpoint": 2,
+            }
+            code = MODE_MAP.get(str(val).lower().strip())
+            if code:
+                r1 = wr(100, 0x0003)
+                r2 = wr(101, code)
+                success = not r1.isError() and not r2.isError()
+                result  = f"Mode set to {val} (code {code})" if success else "Write failed"
+            else:
+                result = f"Unknown mode '{val}'"
+
+        elif act in ("start_pump", "stop_pump"):
+            pump_id  = int(val)   # 1-based (1=P1, 2=P2, 3=P3, 4=Jockey)
+            pump_idx = pump_id - 1
+            if 0 <= pump_idx < len(PUMP_CTRL_ADDRS):
+                ctrl_addr = PUMP_CTRL_ADDRS[pump_idx]
+                state_val = 1 if act == "start_pump" else 2
+                r1 = wr(100, 0x0003)
+                r2 = wr(ctrl_addr, state_val)
+                success = not r1.isError() and not r2.isError()
+                action_lbl = "started" if act == "start_pump" else "stopped"
+                result = f"Pump {pump_id} {action_lbl}" if success else "Write failed"
+            else:
+                result = f"Invalid pump id {pump_id}"
+
+        elif act == "alarm_reset":
+            # Write remote + start + reset alarm bit (bit2)
+            r = wr(100, 0x0007)
+            if not r.isError():
+                # Clear the reset bit after sending
+                wr(100, 0x0003)
+                success = True
+                result  = "Alarm reset sent"
+            else:
+                result = f"Write failed: {r}"
+
+    except Exception as ex:
+        result = f"Exception: {ex}"
+
+    # Update log entry status
+    for cmd in cmds.get("log", []):
+        if cmd.get("id") == pending.get("id"):
+            cmd["status"]      = "executed" if success else "failed"
+            cmd["executed_at"] = now_iso
+            cmd["result"]      = result
+            break
+
+    cmds["pending"] = None
+    write_json(COMMANDS_FILE, cmds)
+    print(f"CMD {act}={val}: {'OK' if success else 'FAIL'} - {result}")
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -418,7 +531,10 @@ def main():
         sys.exit(0)
 
     try:
-        status_regs   = rhr(client, 200, 32)   # regs 00201-00232
+        # Execute any pending command BEFORE reading state (so next poll sees new state)
+        execute_pending_command(client)
+
+        status_regs   = rhr(client, 200, 32)   # regs 00201-00232 (incl Kp addr230, Ti addr231)
         data_regs     = rhr(client, 300, 64)   # regs 00301-00364 (extended from 50 to 64)
         pump_regs     = rhr(client, 400, 80)   # regs 00401-00480 (8 pump blocks x 10)
         energy_regs   = rhr(client, 480, 8)    # per-pump energy kWh (00481-00488)
@@ -452,6 +568,8 @@ def main():
     pumps_running    = valid(status_regs[8])   # 00209
     pumps_comm_fault = valid(status_regs[10])  # 00211: per-pump GENIbus comm fault bits
     sys_active_funcs = valid(status_regs[11])  # 00212: active function bits (emergency run, low-flow stop, etc.)
+    kp_raw           = valid(status_regs[30])  # 00231: PI controller Kp (scale 0.1)
+    ti_raw           = valid(status_regs[31])  # 00232: PI controller Ti in seconds (scale 0.1)
 
     system_on  = bool(status_bits & (1 << 9))  if status_bits is not None else False
     alarm_act  = bool(status_bits & (1 << 10)) if status_bits is not None else False
@@ -501,6 +619,9 @@ def main():
     volume_m3         = round(volume_combined * 0.1, 1) if volume_combined is not None else None
 
     mode_name = CONTROL_MODE_NAMES.get(control_mode, f"mode {control_mode}") if control_mode else "unknown"
+    pid_kp    = round(kp_raw * 0.1, 1) if kp_raw is not None else None
+    pid_ti    = round(ti_raw * 0.1, 1) if ti_raw is not None else None
+    sensor_max_bar = round(sensor_max_mbar / 1000, 1) if sensor_max_mbar else None
 
     # -- Per-pump energy ---------------------------------------------------------
     pump_energy_kwh = []
@@ -634,6 +755,9 @@ def main():
         "warning_code":              warning_code or 0,
         "pumps_comm_fault":          pumps_comm_fault or 0,
         "sys_active_funcs":          sys_active_funcs or 0,
+        "pid_kp":                    pid_kp,
+        "pid_ti":                    pid_ti,
+        "sensor_max_bar":            sensor_max_bar,
     }
 
     # -- Alarm history (local transition tracking - CU352 addr 6000 not supported on GENIECON)
