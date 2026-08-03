@@ -486,13 +486,23 @@ def execute_pending_command(client):
                 result = f"Invalid pump id {pump_id}"
 
         elif act == "alarm_reset":
-            # Write remote + start + reset alarm bit (bit2)
+            # Read current control mode (reg 203 = status_regs[2]) before reset,
+            # so we can restore it after - alarm reset forces Remote mode which
+            # would otherwise load a stale/wrong CU352 remote mode setting.
+            mode_to_restore = 3  # default: constant head
+            try:
+                mr = client.read_holding_registers(202, 1, device_id=1)
+                if not mr.isError() and mr.registers:
+                    mode_to_restore = mr.registers[0] or 3
+            except Exception:
+                pass
+            # Write remote + start + alarm reset bit (bit2)
             r = wr(100, 0x0007)
             if not r.isError():
-                # Clear the reset bit after sending
-                wr(100, 0x0003)
+                wr(100, 0x0003)           # clear alarm reset bit
+                wr(101, mode_to_restore)  # restore operating mode
                 success = True
-                result  = "Alarm reset sent"
+                result  = f"Alarm reset sent; mode restored to {mode_to_restore}"
             else:
                 result = f"Write failed: {r}"
 
