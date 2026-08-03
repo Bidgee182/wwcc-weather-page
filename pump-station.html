@@ -278,7 +278,24 @@
     </div>
     <div class="header-text">
         <h1>PUMP STATION</h1>
-        <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 18.5kW + Jockey CRNE10-9 5.5kW - Integrated VFD</div>
+        <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
+    </div>
+    <div style="margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:8px;opacity:0.9;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" aria-label="Grundfos">
+            <defs><clipPath id="gf-c"><circle cx="24" cy="24" r="22"/></clipPath></defs>
+            <circle cx="24" cy="24" r="22" fill="#CC0000"/>
+            <g clip-path="url(#gf-c)" fill="white">
+                <rect x="0" y="1"  width="48" height="4"/>
+                <rect x="0" y="7"  width="48" height="4"/>
+                <rect x="0" y="13" width="48" height="4"/>
+                <rect x="0" y="19" width="48" height="4"/>
+                <rect x="0" y="25" width="48" height="4"/>
+                <rect x="0" y="31" width="48" height="4"/>
+                <rect x="0" y="37" width="48" height="4"/>
+                <rect x="0" y="43" width="48" height="4"/>
+            </g>
+        </svg>
+        <span style="font-family:Arial,sans-serif;font-weight:700;font-size:1.1em;letter-spacing:2px;color:#ecf0f1;white-space:nowrap;">GRUNDFOS</span>
     </div>
 </div>
 
@@ -1577,8 +1594,10 @@ function fmtDate(iso) {
 
 function fmtChartTime(iso, rangeH) {
     const d = new Date(iso);
-    if (rangeH<=6)  return d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false});
-    if (rangeH<=48) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+String(d.getHours()).padStart(2,'0')+':00';
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    if (rangeH <= 24) return hh+':'+mm;
+    if (rangeH <= 48) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+hh+':'+mm;
     return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
 }
 
