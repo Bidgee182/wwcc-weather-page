@@ -25,12 +25,17 @@
         .header-text .subtitle { font-size:0.78em; color:#7f8c8d; letter-spacing:2px; text-transform:uppercase; margin-top:5px; }
         @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.2em; letter-spacing:3px;} .header-text .subtitle{font-size:0.68em; letter-spacing:1px;} }
 
-        /* Tab bar */
-        .tab-bar { display:flex; justify-content:center; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
-        .tab-btn { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:8px; padding:9px 18px; font-size:0.85em; letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:background 0.2s,color 0.2s,border-color 0.2s; white-space:nowrap; }
-        .tab-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
-        .tab-btn:hover:not(.active) { background:#3d5166; color:#ecf0f1; }
-        @media (max-width:540px) { .tab-btn { padding:7px 10px; font-size:0.72em; } }
+        /* Sidebar nav */
+        .main-layout { display:flex; align-items:flex-start; gap:14px; }
+        .sidebar { width:148px; flex-shrink:0; background:#1e2e3e; border-radius:10px; padding:8px 6px; position:sticky; top:16px; }
+        .nav-btn { display:flex; align-items:center; gap:9px; width:100%; background:none; border:1px solid transparent; color:#7f8c8d; padding:9px 11px; border-radius:7px; font-size:0.8em; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; text-align:left; transition:background 0.15s,color 0.15s,border-color 0.15s; white-space:nowrap; margin-bottom:2px; font-family:inherit; }
+        .nav-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
+        .nav-btn:hover:not(.active) { background:#2c3e50; color:#ecf0f1; }
+        .nav-btn.nav-control:not(.active) { color:#e74c3c; border-color:rgba(231,76,60,.35); }
+        .nav-icon { font-size:1em; width:15px; text-align:center; flex-shrink:0; opacity:0.8; }
+        .nav-divider { height:1px; background:#2c3e50; margin:6px 4px; }
+        .content-area { flex:1; min-width:0; }
+        @media (max-width:700px) { .main-layout{flex-direction:column} .sidebar{width:100%;position:static;display:flex;flex-wrap:wrap;gap:4px;padding:6px} .nav-btn{flex:1;min-width:80px;justify-content:center} }
 
         /* Cards */
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
@@ -226,6 +231,17 @@
         .loading-note { font-size:0.72em; color:#566573; text-align:center; padding:4px 0 8px; display:none; }
 
         .page-footer { text-align:center; font-size:0.72em; color:#566573; padding:14px 0; }
+        .log-filter-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:4px 12px; font-size:.75em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; text-transform:uppercase; letter-spacing:.5px; }
+        .log-filter-btn.active { background:#e67e22; border-color:#e67e22; color:white; font-weight:bold; }
+        .log-filter-btn:hover:not(.active) { background:#2c3e50; color:#ecf0f1; }
+        .log-entry { display:flex; align-items:flex-start; gap:12px; padding:9px 0; border-bottom:1px solid #253545; }
+        .log-entry:last-child { border-bottom:none; }
+        .log-bar { width:3px; border-radius:2px; flex-shrink:0; align-self:stretch; min-height:20px; }
+        .log-type-badge { font-size:.58em; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.08em; font-weight:bold; flex-shrink:0; margin-top:2px; }
+        .log-badge-command { background:#0a1a2e; color:#5dade2; border:1px solid #1a3a5f; }
+        .log-badge-alarm   { background:#1e0a0a; color:#e74c3c; border:1px solid #4a1818; }
+        .log-badge-cleared { background:#0a1e12; color:#27ae60; border:1px solid #1a4d2e; }
+        .log-badge-audit   { background:#1a1a2a; color:#566573; border:1px solid #2c2c3e; }
 
         /* Control tab - PIN keypad */
         .ctrl-pin-wrap { max-width:300px; margin:0 auto; text-align:center; padding:10px 0 6px; }
@@ -280,7 +296,7 @@
             body { padding:8px; }
             .header-logo { height:42px; }
             .header-text h1 { font-size:1em; }
-            .tab-btn { padding:6px 8px; font-size:0.65em; }
+            .nav-btn { padding:6px 8px; font-size:0.65em; }
             .pres-val { font-size:1.9em; }
             .sm-val { font-size:1.6em; }
         }
@@ -326,16 +342,21 @@
     </div>
 </div>
 
-<!-- TAB BAR -->
-<div class="tab-bar">
-    <button class="tab-btn active"  onclick="showTab('overview',this)">Overview</button>
-    <button class="tab-btn"         onclick="showTab('pumps',this)">Pumps</button>
-    <button class="tab-btn"         onclick="showTab('performance',this)">Charts</button>
-    <button class="tab-btn"         onclick="showTab('trends',this)">Trends</button>
-    <button class="tab-btn"         onclick="showTab('alarms',this)">Alarms</button>
-    <button class="tab-btn"         onclick="showTab('control',this)" style="border-color:#e74c3c;color:#e74c3c;" id="tab-btn-control">Control</button>
-    <button class="tab-btn"         onclick="showTab('setup',this)">Setup</button>
-</div>
+<!-- MAIN LAYOUT: sidebar + content -->
+<div class="main-layout">
+<nav class="sidebar">
+    <button class="nav-btn active"      onclick="showTab('overview',this)"><span class="nav-icon">⊙</span>Overview</button>
+    <button class="nav-btn"             onclick="showTab('pumps',this)"><span class="nav-icon">⚙</span>Pumps</button>
+    <button class="nav-btn"             onclick="showTab('performance',this)"><span class="nav-icon">≋</span>Charts</button>
+    <button class="nav-btn"             onclick="showTab('trends',this)"><span class="nav-icon">↗</span>Trends</button>
+    <button class="nav-btn"             onclick="showTab('alarms',this)"><span class="nav-icon">⚠</span>Alarms</button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn nav-control" onclick="showTab('control',this)" id="nav-btn-control"><span class="nav-icon">◈</span>Control</button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn"             onclick="showTab('log',this)"><span class="nav-icon">≡</span>Log</button>
+    <button class="nav-btn"             onclick="showTab('setup',this)"><span class="nav-icon">◌</span>Setup</button>
+</nav>
+<div class="content-area">
 
 <!-- ═══════════════════════════ OVERVIEW ═══════════════════════════ -->
 <div id="tab-overview" class="tab-panel active">
@@ -419,7 +440,7 @@
         <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
             <a href="#" onclick="openControlAction('system_stop',null);return false;" class="ctrl-link stop">STOP ALL PUMPS</a>
             <a href="#" onclick="openControlAction('system_start',null);return false;" class="ctrl-link start">START SYSTEM</a>
-            <a href="#" onclick="showTab('control',document.getElementById('tab-btn-control'));return false;" class="ctrl-link settings">FULL CONTROL</a>
+            <a href="#" onclick="showTab('control',document.getElementById('nav-btn-control'));return false;" class="ctrl-link settings">FULL CONTROL</a>
         </div>
         <div style="font-size:0.72em;color:#566573;line-height:1.5;">
             PIN required - opens control page. Commands execute on next Modbus poll (up to 5 min).
@@ -875,13 +896,33 @@
     </div>
 </div>
 
+<!-- ═══════════════════════════ LOG ═══════════════════════════ -->
+<div id="tab-log" class="tab-panel">
+    <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin:0;padding:0;border:none;">Activity Log</h2>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="logSetFilter('all',this)"   class="log-filter-btn active" id="lfbtn-all">All</button>
+                <button onclick="logSetFilter('command',this)" class="log-filter-btn" id="lfbtn-command">Commands</button>
+                <button onclick="logSetFilter('alarm',this)"   class="log-filter-btn" id="lfbtn-alarm">Alarms</button>
+                <button onclick="logSetFilter('audit',this)"   class="log-filter-btn" id="lfbtn-audit">Logins</button>
+                <button onclick="loadLogTab()" style="background:#1a252f;border:1px solid #3d5166;color:#7f8c8d;border-radius:6px;padding:4px 10px;font-size:.75em;cursor:pointer;">&#8635; Refresh</button>
+            </div>
+        </div>
+        <div id="log-content"><div style="color:#566573;text-align:center;padding:24px;font-size:.85em;">Select Log tab to load</div></div>
+    </div>
+</div>
+
+</div><!-- /content-area -->
+</div><!-- /main-layout -->
+
 <div class="page-footer">
-    Pump Station Monitor &mdash; WWCC &mdash; CIM 500 Modbus TCP &mdash; Refreshes every 60s
+    Pump Station Monitor -- WWCC -- CIM 500 Modbus TCP -- Refreshes every 60s
 </div>
 
 <script>
 // ─── Constants ───────────────────────────────────────────────────────────────
-const TABS = ['overview','pumps','performance','trends','alarms','control','setup'];
+const TABS = ['overview','pumps','performance','trends','alarms','control','log','setup'];
 const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6'];
 const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)'];
 const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','Jockey CRNE10'];
@@ -907,18 +948,20 @@ const charts = {};
 // ─── Tab switching ───────────────────────────────────────────────────────────
 function showTab(name, btn) {
     TABS.forEach(t => document.getElementById('tab-'+t).classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-'+name).classList.add('active');
     if (btn) btn.classList.add('active');
     if (name === 'performance') renderPerfCharts();
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
+    if (name === 'log')         loadLogTab();
 }
 
 function openControlAction(act, val) {
-    showTab('control', document.getElementById('tab-btn-control'));
+    showTab('control', document.getElementById('nav-btn-control'));
     if (ctrlSes.unlocked) ctrlQueueOrConfirm(act, val);
     else ctrlPendingOnUnlock = { act, val };
+
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -2396,6 +2439,107 @@ async function ctrlLogPump(event, detail, extra) {
         if (arr.length > 500) arr = arr.slice(-500);
         await ctrlGhPut(PUMP_LOG_PATH, JSON.stringify(arr, null, 2), 'Pump log: ' + event, f.sha);
     } catch(e) { console.warn('pump log write failed', e); }
+}
+
+// ─── Log tab ──────────────────────────────────────────────────────────────────
+let logAllEntries = [];
+let logActiveFilter = 'all';
+
+function logSetFilter(filter, btn) {
+    logActiveFilter = filter;
+    document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderLogEntries();
+}
+
+async function loadLogTab() {
+    const el = document.getElementById('log-content');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#566573;text-align:center;padding:24px;font-size:.85em;">Loading...</div>';
+
+    let alarmEvents = [], cmdLog = [], auditLog = [];
+    const bust = '?_=' + Date.now();
+
+    try { const r = await fetch('data/pump_alarm_history.json' + bust); if (r.ok) alarmEvents = await r.json(); } catch {}
+    try { const r = await fetch('data/pump_commands.json' + bust); if (r.ok) { const d = await r.json(); cmdLog = d.log || []; } } catch {}
+    try { const r = await fetch('data/pump_ctrl_log.json' + bust); if (r.ok) auditLog = await r.json(); } catch {}
+
+    logAllEntries = [];
+
+    // Alarm events
+    alarmEvents.forEach(e => {
+        const isApp = e.type_code===1||e.type_code===3;
+        const isClr = e.type_code===2||e.type_code===4;
+        logAllEntries.push({
+            ts: e.timestamp_iso,
+            filter: 'alarm',
+            badgeClass: isApp ? 'log-badge-alarm' : 'log-badge-cleared',
+            badgeText: isApp ? 'Alarm' : 'Cleared',
+            barColor: isApp ? '#e74c3c' : '#27ae60',
+            title: e.description || ('Code ' + e.code),
+            detail: (e.pump_label || e.source_name || 'System') + (e.imported ? ' (CU352)' : ''),
+            sub: null
+        });
+    });
+
+    // Command log
+    cmdLog.forEach(c => {
+        const ok = c.status==='executed'||c.status==='done';
+        const fail = c.status==='failed';
+        logAllEntries.push({
+            ts: c.ts,
+            filter: 'command',
+            badgeClass: 'log-badge-command',
+            badgeText: 'Command',
+            barColor: ok ? '#5dade2' : fail ? '#e74c3c' : '#f39c12',
+            title: ctrlActionLabel(c.action, c.value),
+            detail: c.status.toUpperCase() + (c.requested_by_name ? ' by ' + c.requested_by_name : ''),
+            sub: (c.from_value && c.to_value) ? c.from_value + ' → ' + c.to_value : (c.result || null)
+        });
+    });
+
+    // Audit log - logins and non-command events
+    auditLog.forEach(e => {
+        if (e.event === 'command') return; // already in cmdLog
+        logAllEntries.push({
+            ts: e.ts,
+            filter: 'audit',
+            badgeClass: 'log-badge-audit',
+            badgeText: e.event==='login' ? 'Login' : 'Audit',
+            barColor: '#3d5166',
+            title: e.detail || e.event,
+            detail: e.by_name || e.by || '',
+            sub: null
+        });
+    });
+
+    // Sort newest first
+    logAllEntries.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+    renderLogEntries();
+}
+
+function renderLogEntries() {
+    const el = document.getElementById('log-content');
+    if (!el) return;
+    const entries = logActiveFilter === 'all'
+        ? logAllEntries
+        : logAllEntries.filter(e => e.filter === logActiveFilter);
+
+    if (!entries.length) {
+        el.innerHTML = '<div style="color:#566573;text-align:center;padding:24px;font-size:.85em;">No entries' + (logActiveFilter!=='all' ? ' for this filter' : '') + '.</div>';
+        return;
+    }
+    el.innerHTML = entries.slice(0, 300).map(e => `
+        <div class="log-entry">
+            <div class="log-bar" style="background:${e.barColor}"></div>
+            <span class="log-type-badge ${e.badgeClass}">${e.badgeText}</span>
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:600;color:#ecf0f1;font-size:.88em">${e.title}</div>
+                ${e.sub ? `<div style="color:#5dade2;font-size:.78em;margin-top:1px">${e.sub}</div>` : ''}
+                ${e.detail ? `<div style="color:#566573;font-size:.75em;margin-top:1px">${e.detail}</div>` : ''}
+            </div>
+            <div style="color:#566573;font-size:.75em;white-space:nowrap;flex-shrink:0;padding-top:2px">${fmtDate(e.ts)}</div>
+        </div>`).join('');
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
