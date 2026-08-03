@@ -121,6 +121,7 @@ html, body {
 .r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
 .ball-win     { font-size: 0.7em; margin-left: 4px; vertical-align: middle; opacity: 0.9; }
 .r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
+.r-hcp-team   { display: block; font-size: 0.68em; color: #4a6a84; font-weight: normal; margin-top: 3px; letter-spacing: 0.02em; }
 .r-gross { font-size: 0.72em; color: #8fb8cc; font-weight: normal; margin-right: 3px; }
 .r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; white-space: nowrap; }
 .r-pts.dim { color: #4a6a84; }
@@ -666,7 +667,7 @@ function _applyPending() {
     _pendingStories = ps.stories; _pendingStoriesSkipExpiry = ps.skipExpiry;
     setBlueBallVisible(d.date);
 }
-document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 5000));
+document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 2000));
 
 // Apply buffered stories at the natural story-scroll loop point.
 // Guards against applying before a full scroll cycle has passed - so viewers
@@ -1164,9 +1165,21 @@ function renderLeaderboard(players, holeCount, started, competition) {
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         const isTeam  = p.player && p.player.indexOf(' & ') !== -1;
-        // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
-        const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
-            '<span class="r-hcp-token">[$1]</span>');
+        // For ambrose: strip the embedded handicap token from the name and show it on a
+        // separate line as "Combined Handicap [X]" so the player list reads cleanly.
+        let escapedName;
+        if (_isAmbrose && isTeam) {
+            const raw = p.player || '';
+            const m = raw.match(/\[(\+?\d+(?:\.\d+)?)\]/);
+            const cleanName = esc(raw.replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
+            escapedName = cleanName + (m
+                ? '<span class="r-hcp-team">Combined Handicap [' + m[1] + ']</span>'
+                : '');
+        } else {
+            // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
+            escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
+                '<span class="r-hcp-token">[$1]</span>');
+        }
         const hcpTag = p.hcp != null ? ' <span class="r-hcp-inline">[' + fmtHcp(p.hcp) + ']</span>' : '';
         // PDF ball winners (from "1 Ball" column) are authoritative when available.
         // Fall back to top-3 per grade only when no PDF ball data has loaded.
@@ -1217,8 +1230,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
 
         if (scrollCount && inner.scrollHeight > clipH) {
             // single copy — translateY(-100%) scrolls full content off; animationend fires once
-            const dur = Math.max(60, scrollCount * 0.85);
-            const scrollDelay = 5;
+            // Speed: 50px/s, minimum 20s - proportional to scroll distance so all fields
+            // feel similar pace regardless of field size.
+            const dur = Math.max(20, Math.ceil(inner.scrollHeight / 50));
+            const scrollDelay = 3;
             inner.style.animationDuration = dur + 's';
             inner.style.animationDelay = scrollDelay + 's';
             inner.classList.add('scrolling');
