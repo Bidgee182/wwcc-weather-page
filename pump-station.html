@@ -754,7 +754,10 @@
 <!-- ═══════════════════════════ ALARMS ═══════════════════════════ -->
 <div id="tab-alarms" class="tab-panel">
     <div class="card">
-        <h2>Active Alarms</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h2 style="margin:0;">Active Alarms</h2>
+            <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;padding:6px 14px;font-size:.8em;" onclick="ctrlQueue('alarm_reset',null,false)">RESET ALARMS</button>
+        </div>
         <div id="active-alarms"><div class="alarm-none">No active alarms</div></div>
     </div>
     <div class="card">
