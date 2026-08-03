@@ -83,6 +83,35 @@
         .pres-note { font-size:0.7em; color:#566573; text-align:center; margin-top:2px; }
         @media (max-width:480px) { .pres-val{font-size:2.2em;} .pressure-display{padding:14px 10px;} }
 
+        /* Pressure pills (overview card) */
+        .pres-pills-row { display:flex; align-items:stretch; gap:0; }
+        .pp-sep { display:flex; align-items:center; padding:0 12px; color:#3d5166; font-size:1em; flex-shrink:0; }
+        .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:15px 12px 12px; text-align:center; position:relative; transition:border-color .4s; }
+        .pp-lbl  { font-size:.6em; text-transform:uppercase; letter-spacing:1.5px; color:#7f8c8d; margin-bottom:7px; }
+        .pp-val  { font-size:2.1em; font-weight:bold; line-height:1; }
+        .pp-unit { font-size:.7em; color:#7f8c8d; margin-top:5px; }
+        .pp-edit { position:absolute; top:7px; right:7px; background:none; border:1px solid #3d5166; color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; }
+        .pp-edit:hover { background:#2c3e50; color:#ecf0f1; border-color:#5dade2; }
+        @keyframes ppPulseGreen { 0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,0)}   60%{box-shadow:0 0 12px 4px rgba(46,204,113,.45)} }
+        @keyframes ppPulseRed   { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}    60%{box-shadow:0 0 16px 5px rgba(231,76,60,.55)} }
+        @keyframes ppPulseAmber { 0%,100%{box-shadow:0 0 0 0 rgba(243,156,18,0)}   60%{box-shadow:0 0 12px 3px rgba(243,156,18,.4)} }
+        .pres-pill.pp-ok   { border-color:#27ae60; animation:ppPulseGreen 3s   ease-in-out infinite; }
+        .pres-pill.pp-warn { border-color:#f39c12; animation:ppPulseAmber 2.5s ease-in-out infinite; }
+        .pres-pill.pp-bad  { border-color:#e74c3c; animation:ppPulseRed   1.6s ease-in-out infinite; }
+        @media (max-width:560px) { .pres-pills-row{flex-direction:column;gap:8px} .pp-sep{padding:0;text-align:center;font-size:.8em} .pp-val{font-size:1.7em} }
+
+        /* Setpoint quick-picker */
+        .sp-picker { background:#1a252f; border:1px solid #3d5166; border-radius:9px; padding:14px 16px; margin-top:10px; }
+        .sp-picker-title { font-size:.65em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; margin-bottom:10px; }
+        .sp-picker-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .sp-picker input[type=range] { flex:1; accent-color:#5dade2; }
+        .sp-picker input[type=number] { width:74px; background:#2c3e50; border:1px solid #3d5166; color:#ecf0f1; border-radius:6px; padding:7px 8px; font-size:.9em; font-family:inherit; }
+        .sp-picker input[type=number]:focus { outline:none; border-color:#5dade2; }
+        .sp-picker-btns { display:flex; gap:8px; }
+        .sp-picker-apply  { flex:1; background:#1d3a28; border:1px solid #27ae60; color:#2ecc71; border-radius:7px; padding:9px; font-weight:bold; cursor:pointer; font-family:inherit; font-size:.85em; letter-spacing:.5px; }
+        .sp-picker-apply:hover { background:#1d5a38; }
+        .sp-picker-cancel { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:7px; padding:9px 14px; cursor:pointer; font-family:inherit; font-size:.85em; }
+
         /* Pump summary rows */
         .pump-summary-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #3d5166; }
         .pump-summary-row:last-child { border-bottom:none; }
@@ -363,29 +392,44 @@
 
     <div class="card">
         <h2>System Pressure</h2>
-        <div class="pressure-display">
-            <div class="pres-block">
-                <div class="pres-val" id="ov-suction" style="color:#3498db;">--</div>
-                <div class="pres-unit">bar</div>
-                <div class="pres-lbl">Suction (B2)</div>
+        <div class="pres-pills-row">
+            <!-- Suction -->
+            <div class="pres-pill" id="pp-suction">
+                <div class="pp-lbl">Suction (B2)</div>
+                <div class="pp-val" id="ov-suction">--</div>
+                <div class="pp-unit">bar</div>
             </div>
-            <div class="pres-vs" style="font-size:1em;color:#4a6a84;">--&gt;</div>
-            <div class="pres-block">
-                <div class="pres-val" id="ov-actual" style="color:#e67e22;">--</div>
-                <div class="pres-unit">bar</div>
-                <div class="pres-lbl">Discharge (B1)</div>
+            <div class="pp-sep">&#8594;</div>
+            <!-- Discharge -->
+            <div class="pres-pill" id="pp-discharge">
+                <div class="pp-lbl">Discharge (B1)</div>
+                <div class="pp-val" id="ov-actual">--</div>
+                <div class="pp-unit">bar</div>
             </div>
-            <div class="pres-vs">vs</div>
-            <div class="pres-block">
-                <div class="pres-val" id="ov-setpoint" style="color:#7f8c8d;">--</div>
-                <div class="pres-unit">bar</div>
-                <div class="pres-lbl">Setpoint</div>
+            <div class="pp-sep">vs</div>
+            <!-- Setpoint -->
+            <div class="pres-pill" id="pp-setpoint">
+                <div class="pp-lbl">Setpoint</div>
+                <div class="pp-val" id="ov-setpoint">--</div>
+                <div class="pp-unit">bar</div>
+                <button class="pp-edit" onclick="ovEditSetpoint()" title="Change setpoint (PIN required)">&#9998;</button>
             </div>
         </div>
-        <div class="pres-bar-bg">
-            <div class="pres-bar-fill" id="ov-pres-bar" style="width:0%;background:#3d5166;"></div>
+        <!-- Inline setpoint quick-picker (shown after unlock) -->
+        <div class="sp-picker" id="ov-sp-picker" style="display:none;">
+            <div class="sp-picker-title">Change Setpoint</div>
+            <div class="sp-picker-row">
+                <input type="range"  id="ov-sp-slider" min="4" max="14" step="0.1" value="7.8"
+                       oninput="document.getElementById('ov-sp-input').value=parseFloat(this.value).toFixed(1)">
+                <input type="number" id="ov-sp-input"  min="4" max="14" step="0.1" value="7.8"
+                       oninput="document.getElementById('ov-sp-slider').value=this.value">
+                <span style="color:#7f8c8d;font-size:.85em;flex-shrink:0">bar</span>
+            </div>
+            <div class="sp-picker-btns">
+                <button class="sp-picker-apply"  onclick="ovApplySetpoint()">APPLY</button>
+                <button class="sp-picker-cancel" onclick="ovCloseSetpointPicker()">Cancel</button>
+            </div>
         </div>
-        <div class="pres-note" id="ov-pres-note">Waiting for CIM 500 connection</div>
     </div>
 
     <div class="sys-metrics">
@@ -1125,23 +1169,32 @@ function renderOverview() {
     const actual   = sys.pressure_actual_bar;
     const setpoint = sys.pressure_setpoint_bar;
 
-    document.getElementById('ov-suction').textContent  = sys.pressure_suction_bar != null ? sys.pressure_suction_bar.toFixed(2) : '--';
+    const suction = sys.pressure_suction_bar;
+    document.getElementById('ov-suction').textContent  = suction  != null ? suction.toFixed(2)  : '--';
     document.getElementById('ov-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
     document.getElementById('ov-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
 
-    const bar = document.getElementById('ov-pres-bar');
-    const note = document.getElementById('ov-pres-note');
+    // Discharge pill — pulses green/amber/red vs setpoint
+    const ppDischarge = document.getElementById('pp-discharge');
     if (actual != null && setpoint != null && setpoint > 0) {
-        const pct = Math.min(100, Math.max(0, (actual/setpoint)*100));
-        const diff = actual - setpoint;
-        bar.style.width = pct+'%';
-        if (Math.abs(diff)<0.15)     { bar.style.background='#27ae60'; note.textContent='Pressure on target'; }
-        else if (Math.abs(diff)<0.4) { bar.style.background='#f39c12'; note.textContent=diff<0?'Slightly below setpoint':'Slightly above setpoint'; }
-        else                          { bar.style.background='#e74c3c'; note.textContent=diff<0?'Pressure below setpoint':'Pressure above setpoint'; }
+        const diff = Math.abs(actual - setpoint);
+        ppDischarge.className = diff < 0.25 ? 'pres-pill pp-ok'
+                              : diff < 0.55 ? 'pres-pill pp-warn'
+                              :               'pres-pill pp-bad';
     } else {
-        bar.style.width='0%'; bar.style.background='#3d5166';
-        note.textContent = d && d.connected ? 'No pressure sensor data' : 'Waiting for CIM 500 connection';
+        ppDischarge.className = 'pres-pill';
     }
+
+    // Suction pill — green if in normal inlet range (-1.0 to 0.5 bar), red if outside
+    const ppSuction = document.getElementById('pp-suction');
+    if (suction != null) {
+        ppSuction.className = (suction >= -1.0 && suction <= 0.5) ? 'pres-pill pp-ok' : 'pres-pill pp-bad';
+    } else {
+        ppSuction.className = 'pres-pill';
+    }
+
+    // Setpoint pill — static, no pulse
+    document.getElementById('pp-setpoint').className = 'pres-pill';
 
     document.getElementById('ov-flow').textContent    = sys.flow_m3h != null ? sys.flow_m3h.toFixed(1) : '--';
     document.getElementById('ov-running').textContent = pumps.filter(p=>p.running).length;
@@ -2114,7 +2167,15 @@ function ctrlUnlock() {
     ctrlLogPump('login', (ctrlSes.user ? ctrlSes.user.name : 'unknown') + ' logged in', {});
     if (ctrlPendingOnUnlock) {
         const { act, val } = ctrlPendingOnUnlock; ctrlPendingOnUnlock = null;
-        setTimeout(() => ctrlQueueOrConfirm(act, val), 200);
+        if (act === '__ovsetpoint__') {
+            // Return to overview and open the setpoint picker
+            setTimeout(() => {
+                showTab('overview', document.querySelector('.nav-btn'));
+                ovShowSetpointPicker();
+            }, 200);
+        } else {
+            setTimeout(() => ctrlQueueOrConfirm(act, val), 200);
+        }
     }
 }
 
@@ -2439,6 +2500,34 @@ async function ctrlLogPump(event, detail, extra) {
         if (arr.length > 500) arr = arr.slice(-500);
         await ctrlGhPut(PUMP_LOG_PATH, JSON.stringify(arr, null, 2), 'Pump log: ' + event, f.sha);
     } catch(e) { console.warn('pump log write failed', e); }
+}
+
+// ─── Overview setpoint quick-picker ──────────────────────────────────────────
+function ovEditSetpoint() {
+    if (!ctrlSes.unlocked) {
+        // Store intent, navigate to Control for PIN entry; picker opens after unlock
+        ctrlPendingOnUnlock = { act: '__ovsetpoint__', val: null };
+        showTab('control', document.getElementById('nav-btn-control'));
+        return;
+    }
+    ovShowSetpointPicker();
+}
+function ovShowSetpointPicker() {
+    const sp = latestData && latestData.system ? (latestData.system.pressure_setpoint_bar || 7.8) : 7.8;
+    const v = parseFloat(sp).toFixed(1);
+    document.getElementById('ov-sp-slider').value = v;
+    document.getElementById('ov-sp-input').value  = v;
+    document.getElementById('ov-sp-picker').style.display = 'block';
+    document.getElementById('ov-sp-picker').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function ovCloseSetpointPicker() {
+    document.getElementById('ov-sp-picker').style.display = 'none';
+}
+function ovApplySetpoint() {
+    const v = parseFloat(document.getElementById('ov-sp-input').value);
+    if (isNaN(v) || v < 4 || v > 14) { alert('Setpoint must be between 4 and 14 bar.'); return; }
+    ovCloseSetpointPicker();
+    ctrlQueueOrConfirm('set_setpoint', v);
 }
 
 // ─── Log tab ──────────────────────────────────────────────────────────────────
