@@ -236,14 +236,20 @@ def main():
                         "description": f"Warning code {warning_code}", "pump": "System", "timestamp": now_iso})
 
     # -- Build new reading -------------------------------------------------------
+    # rh/st are cumulative counters from the CU352 non-volatile memory.
+    # Daily summaries use delta(max-min) within each day for accurate hrs/starts.
     new_reading = {
         "ts": now_iso,
         "pa": actual_bar,
         "ps": setpoint_bar,
+        "pi": inlet_bar,           # inlet/suction pressure bar
         "fl": flow_m3h,
         "nr": sum(1 for p in pump_data if p["running"]),
-        "sp": [p["speed_pct"] for p in pump_data],
-        "pw": [p["power_kw"]  for p in pump_data],
+        "pk": total_kw,            # total system power kW
+        "sp": [p["speed_pct"]    for p in pump_data],
+        "pw": [p["power_kw"]     for p in pump_data],
+        "rh": [p["run_hours"]    for p in pump_data],  # cumulative h since install
+        "st": [p["starts_total"] for p in pump_data],  # cumulative starts since install
     }
 
     system = {
@@ -324,11 +330,29 @@ def update_daily(long_readings, short_readings):
         fl_vals = [r["fl"] for r in pts if r.get("fl") is not None]
 
         hrs = []
+        sts = []
         kwh = []
         for i in range(4):
-            sp_s = [r["sp"][i] for r in pts if r.get("sp") and i < len(r["sp"]) and r["sp"][i] is not None]
+            # Run hours: delta of cumulative counter (accurate regardless of poll interval)
+            rh_s = [r["rh"][i] for r in pts if r.get("rh") and i < len(r["rh"]) and r["rh"][i] is not None]
+            if len(rh_s) >= 2:
+                hrs.append(round(max(rh_s) - min(rh_s), 2))
+            elif rh_s:
+                hrs.append(0.0)
+            else:
+                # Fallback: count 5-min windows where speed > 1%
+                sp_s = [r["sp"][i] for r in pts if r.get("sp") and i < len(r["sp"]) and r["sp"][i] is not None]
+                hrs.append(round(sum(1 for x in sp_s if x > 1) * interval_h, 2))
+
+            # Starts: delta of cumulative counter
+            st_s = [r["st"][i] for r in pts if r.get("st") and i < len(r["st"]) and r["st"][i] is not None]
+            if len(st_s) >= 2:
+                sts.append(max(st_s) - min(st_s))
+            else:
+                sts.append(0)
+
+            # Energy: integrate power readings over 5-min intervals
             pw_s = [r["pw"][i] for r in pts if r.get("pw") and i < len(r["pw"]) and r["pw"][i] is not None]
-            hrs.append(round(sum(1 for x in sp_s if x > 1) * interval_h, 2))
             kwh.append(round(sum(pw_s) * interval_h, 2) if pw_s else 0)
 
         new_days[day_str] = {
@@ -339,7 +363,7 @@ def update_daily(long_readings, short_readings):
             "fl_max":   round(max(fl_vals), 1) if fl_vals else None,
             "fl_total": round(sum(fl_vals) * interval_h, 1) if fl_vals else None,
             "hrs":      hrs,
-            "sts":      [0, 0, 0, 0],
+            "sts":      sts,
             "kwh":      kwh,
         }
 
