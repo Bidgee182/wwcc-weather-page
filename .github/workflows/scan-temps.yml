@@ -1,0 +1,112 @@
+name: Grundfos Temperature Scan (one-shot)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install pymodbus==3.14.0
+
+      - name: Run temperature scan
+        env:
+          GRUNDFOS_HOST: ${{ secrets.GRUNDFOS_HOST }}
+        run: |
+          python - <<'PYEOF'
+          import os, json
+          from pymodbus.client import ModbusTcpClient
+
+          HOST = os.environ["GRUNDFOS_HOST"]
+          NA   = 65535
+
+          client = ModbusTcpClient(HOST, port=502, timeout=10)
+          if not client.connect():
+              raise SystemExit("FAILED to connect")
+
+          def rhr(addr, count):
+              r = client.read_holding_registers(addr, count=count, device_id=1)
+              return [None]*count if r.isError() else r.registers
+
+          def v(raw):
+              return None if raw is None or raw == NA else raw
+
+          def k_to_c(raw):
+              val = v(raw)
+              return None if val is None else round(val * 0.01 - 273.15, 1)
+
+          PUMP_BLOCKS = [
+              ("P1 - CRNE45",   400),
+              ("P2 - CRNE45",   410),
+              ("P3 - CRNE45",   420),
+              ("Jockey (Pilot)",460),
+          ]
+
+          results = {}
+
+          # 1. Pump block offset +7
+          pump_regs = rhr(400, 80)
+          results["pump_motor_temp"] = {}
+          for label, base in PUMP_BLOCKS:
+              ofs = base - 400
+              raw = pump_regs[ofs + 7]
+              results["pump_motor_temp"][label] = {"raw": raw, "temp_c": k_to_c(raw)}
+
+          # 2. System data block temp registers
+          d = rhr(315, 30)
+          TREG = [(319,"RemoteTemp1"),(336,"AmbientTemp"),(337,"InletTemp"),(338,"OutletTemp"),(339,"TempDiff"),(340,"OutletPressure")]
+          results["system_temps"] = {}
+          for addr, name in TREG:
+              raw = d[addr - 315]
+              results["system_temps"][name] = {"addr": addr, "raw": raw, "temp_c": k_to_c(raw)}
+
+          # 3. Analog inputs
+          unit_regs  = rhr(224, 7)
+          value_regs = rhr(375, 7)
+          UNIT_MAP = {0:"none",1:"bar(0.001)",2:"mbar(0.001)",3:"kPa(0.001)",7:"W(1)",
+                      10:"degC(0.01)",13:"K(0.01)",51:"bar(0.001)",83:"m(0.01)",
+                      84:"K(0.01)",95:"m3h(0.01)",107:"pct",110:"degC(0.01)"}
+          results["analog_inputs"] = {}
+          for i in range(7):
+              u   = unit_regs[i]
+              raw = value_regs[i]
+              results["analog_inputs"][f"AnalogIn{i+1}"] = {
+                  "unit_addr": 224+i, "val_addr": 375+i,
+                  "unit_raw": u, "unit_name": UNIT_MAP.get(u, f"unit_{u}"),
+                  "value_raw": raw,
+              }
+
+          # 4. Raw non-NA scan addr 300-400
+          block = rhr(300, 100)
+          nonzero = {}
+          for i, raw in enumerate(block):
+              if raw is not None and raw != 0 and raw != NA:
+                  nonzero[str(300+i)] = raw
+          results["nonzero_scan_300_400"] = nonzero
+
+          client.close()
+          out = "data/scan_temps_result.json"
+          with open(out, "w") as f:
+              json.dump(results, f, indent=2)
+          print(json.dumps(results, indent=2))
+          PYEOF
+
+      - name: Commit scan result
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/scan_temps_result.json
+          git diff --staged --quiet || git commit -m "Temp scan result $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && break
+            sleep 5
+          done
