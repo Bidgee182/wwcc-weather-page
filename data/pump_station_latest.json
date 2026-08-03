@@ -1,15 +1,15 @@
 {
   "connected": true,
-  "timestamp": "2026-08-03T12:08:20.744392+00:00",
-  "last_seen": "2026-08-03T12:08:20.744392+00:00",
+  "timestamp": "2026-08-03T22:10:46.946855+00:00",
+  "last_seen": "2026-08-03T22:10:46.946855+00:00",
   "system": {
-    "pressure_actual_bar": 8.378,
-    "pressure_suction_bar": -0.666,
-    "pressure_setpoint_bar": 7.8,
+    "pressure_actual_bar": 11.213,
+    "pressure_suction_bar": -0.668,
+    "pressure_setpoint_bar": 11.2,
     "flow_m3h": 0.0,
     "power_kw": 0.0,
-    "mode": "constant head",
-    "fault": false,
+    "mode": "constant differential pressure",
+    "fault": true,
     "system_on": true,
     "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
@@ -20,11 +20,11 @@
     "power_ons": 80,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 2,
-    "alarm_code": 0,
+    "do_bits": 1,
+    "alarm_code": 210,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -103,18 +103,26 @@
       "alarm_code": 0
     }
   ],
-  "alarms": [],
+  "alarms": [
+    {
+      "active": true,
+      "code": 210,
+      "description": "Pressure high",
+      "pump": "System",
+      "timestamp": "2026-08-03T22:10:46.946855+00:00"
+    }
+  ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 8406,
+      "raw": 9235,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 334,
+      "raw": 332,
       "temp_c": null
     },
     {
@@ -1545,9 +1553,67 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-03T22:10:46.946855+00:00",
+      "pa": 11.213,
+      "ps": 11.2,
+      "pi": -0.668,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5146.0,
+        1394.0
+      ],
+      "st": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-03T22:10:46.946855+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 210,
+      "description": "Pressure high",
+      "pump_label": "System",
+      "source_name": "System"
+    },
+    {
+      "timestamp_iso": "2026-08-03T22:10:46.946855+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-03T11:58:58.780308+00:00",
       "type_code": 3,
@@ -1922,26 +1988,6 @@
       "type_name": "Alarm appeared",
       "code": 210,
       "description": "Pressure high",
-      "pump_label": "System",
-      "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-22T20:01:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 214,
-      "description": "Water shortage",
-      "pump_label": "System",
-      "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-22T18:51:00+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
-      "code": 214,
-      "description": "Water shortage",
       "pump_label": "System",
       "source_name": "System",
       "imported": true
