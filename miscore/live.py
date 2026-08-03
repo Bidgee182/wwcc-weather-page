@@ -2066,6 +2066,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=12, help="concurrent scorecard fetches")
     ap.add_argument("--serve", type=int, default=0, metavar="PORT", help="also serve the JSON on this port (CORS open)")
     ap.add_argument("--out", type=Path, default=Path(__file__).parent.parent / "out" / "live-leaderboard.json")
+    ap.add_argument("--last-results", type=Path, default=Path(__file__).parent.parent / "out" / "last-results.json")
     ap.add_argument("--once", action="store_true", help="poll once and exit")
     args = ap.parse_args(argv)
 
@@ -2096,6 +2097,42 @@ def main(argv=None) -> int:
                     "started" if blob["started"] else "not started",
                     f'{lead["player"]} {lead["points"]}pts' if lead else "-",
                 )
+                # Snapshot confirmed official results to disk so they survive workflow restarts.
+                # The snapshot is written once (first time results are fully ready for a board).
+                if (blob.get("officialResultsReady")
+                        and blob.get("ballWinners") is not None
+                        and blob.get("pdfStandings")):
+                    try:
+                        existing = json.loads(args.last_results.read_text()) if args.last_results.exists() else {}
+                    except Exception:
+                        existing = {}
+                    if existing.get("leaderboardId") != blob.get("leaderboardId"):
+                        snapshot = {
+                            "competition":        blob["competition"],
+                            "date":               blob.get("date"),
+                            "leaderboardId":      blob["leaderboardId"],
+                            "isStableford":       blob.get("isStableford", True),
+                            "isAmbrose":          blob.get("isAmbrose", False),
+                            "holeCount":          blob.get("holeCount"),
+                            "officialResultsReady": True,
+                            "players":            blob.get("players", []),
+                            "ballWinners":        blob.get("ballWinners", []),
+                            "ntpLd":              blob.get("ntpLd", []),
+                            "pdfStandings":       blob.get("pdfStandings", {}),
+                            "snapshotAt":         datetime.now(timezone.utc).isoformat(),
+                        }
+                        args.last_results.write_text(json.dumps(snapshot, indent=1), encoding="utf-8")
+                        log.info("Saved official results snapshot for %s (%s)",
+                                 blob["competition"], blob.get("date"))
+                # Include last-results snapshot when today's board hasn't started yet
+                # so the TV kiosk can display the previous comp's results.
+                if not blob.get("started") and args.last_results.exists():
+                    try:
+                        last = json.loads(args.last_results.read_text())
+                        if last.get("date") and last.get("date") != blob.get("date"):
+                            blob["lastResults"] = last
+                    except Exception:
+                        pass
                 # Poll companion boards: women's (Medal days) + 4BBB (all Sat/Wed days)
                 is_medal_day = "medal" in board["name"].lower()
 
