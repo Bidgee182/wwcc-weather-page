@@ -1723,6 +1723,23 @@ def find_board(club: str, comp: str | None, days: int) -> dict | None:
     return pool[0] if pool else None
 
 
+def _ambrose_indiv_hcps(page: str) -> list[float]:
+    """Extract individual player handicaps from an ambrose team scorecard page.
+
+    MiClub ambrose scorecards have one section per player. Each section header
+    shows that player's name and individual handicap as [N.N]. Returns them in
+    order. Returns [] if the page has no content or only one bracket (board hcp).
+    """
+    # Find all [N] or [N.N] handicap brackets in the page
+    ms = re.findall(r'\[(\+?\d+(?:\.\d+)?)\]', page)
+    hcps = [float(v.replace('+', '')) for v in ms]
+    # If only 1 value found, that's just the captain's hcp from the page header --
+    # same as the board page shows. Only trust if we have >= 2 distinct values.
+    if len(hcps) <= 1:
+        return []
+    return hcps
+
+
 def _fetch_card(club: str, board_id: str, pno: str) -> str:
     """Raw scorecard HTML for one player (retried once). '' on failure."""
     for attempt in range(2):
@@ -1796,10 +1813,16 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             # boardTotal is the net score already computed by MiClub (lower = better).
             points: float = board_total if board_total is not None else 0.0
             birdies = 0
-            # Team handicap: MiClub only exposes 1 handicap per team (first player's),
-            # so full allowance = sum(all hcps) / (n x 2) can't be computed here.
-            # Leave hcp=None; the net score (boardTotal) already reflects the allowance.
-            pass
+            # Compute team combined handicap: each player's scorecard section shows their
+            # individual hcp as [N.N]. Extract all, then apply formula sum/(n*2).
+            n_players = base_["player"].count(" & ") + 1
+            indiv_hcps = _ambrose_indiv_hcps(page_c) if page_c else []
+            if len(indiv_hcps) >= n_players:
+                raw_allowance = sum(indiv_hcps[:n_players]) / (n_players * 2)
+                base_["ambroseTeamHcp"] = round(raw_allowance, 2)
+                log.debug("ambrose hcps %s -> allowance %.2f", indiv_hcps[:n_players], raw_allowance)
+            else:
+                log.debug("ambrose hcp fallback: found %d brackets, need %d", len(indiv_hcps), n_players)
         else:
             # Standard comp: use scorecard-derived data.
             # Board's Thru column override (fires when the board page has a numeric Thru column)

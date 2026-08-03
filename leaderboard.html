@@ -1170,9 +1170,16 @@ function renderLeaderboard(players, holeCount, started, competition) {
         let escapedName;
         if (_isAmbrose && isTeam) {
             const raw = p.player || '';
-            const m = raw.match(/\[(\+?\d+(?:\.\d+)?)\]/);
             const cleanName = esc(raw.replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
-            const hcpVal = m ? parseFloat(m[1]).toFixed(2) : null;
+            // Prefer server-computed allowance (sum of all indiv hcps / n*2).
+            // Fall back to the single bracket MiClub shows on the board (captain's hcp).
+            let hcpVal = null;
+            if (p.ambroseTeamHcp != null) {
+                hcpVal = parseFloat(p.ambroseTeamHcp).toFixed(2);
+            } else {
+                const m = raw.match(/\[(\+?\d+(?:\.\d+)?)\]/);
+                if (m) hcpVal = parseFloat(m[1]).toFixed(2);
+            }
             escapedName = cleanName + (hcpVal
                 ? '<span class="r-hcp-team">Combined Handicap [' + hcpVal + ']</span>'
                 : '');
