@@ -426,7 +426,7 @@ def main():
     setpoint_raw = valid(data_regs[7])   # 00308: ActualSetpoint (0.01%)
     power_hi     = valid(data_regs[11])  # 00312: PowerHI
     power_lo     = valid(data_regs[12])  # 00313: PowerLO
-    inlet_raw    = signed16(data_regs[14])  # 00315: InletPressure (0.001 bar, signed - can be negative under vacuum)
+    inlet_raw    = valid(data_regs[14])   # 00315: InletPressure (0.001 bar from transmitter min)
     outlet_raw   = valid(data_regs[40])  # 00341: OutletPressure (0.001 bar)
 
     op_time_hi      = valid(data_regs[26])  # 00327: OperationTimeHI (hours)
@@ -445,7 +445,9 @@ def main():
     _sp_raw      = pct_to_bar(setpoint_raw, sensor_max_mbar)
     setpoint_bar = round(_sp_raw, 1) if _sp_raw is not None else None
     flow_m3h     = round(flow_raw * 0.1, 2) if flow_raw is not None else None
-    inlet_bar    = round(inlet_raw * 0.001, 3) if inlet_raw is not None else None
+    # B2 transmitter range -1.0 to 6.0 bar: CU352 stores offset from transmitter min.
+    # raw=0 → -1.0 bar, raw=1000 → 0.0 bar, raw=680 → -0.32 bar (confirmed from CU352 photo).
+    inlet_bar    = round(inlet_raw * 0.001 - 1.0, 3) if inlet_raw is not None else None
     rel_perf_pct = round(rel_perf_raw * 0.01, 1) if rel_perf_raw is not None else None
 
     power_combined = hi_lo_32(power_hi, power_lo)
