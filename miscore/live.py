@@ -1723,21 +1723,15 @@ def find_board(club: str, comp: str | None, days: int) -> dict | None:
     return pool[0] if pool else None
 
 
-def _ambrose_indiv_hcps(page: str) -> list[float]:
-    """Extract individual player handicaps from an ambrose team scorecard page.
+def _ambrose_team_allowance(page: str) -> float | None:
+    """Extract team combined handicap allowance from an ambrose scorecard page.
 
-    MiClub ambrose scorecards have one section per player. Each section header
-    shows that player's name and individual handicap as [N.N]. Returns them in
-    order. Returns [] if the page has no content or only one bracket (board hcp).
+    MiClub shows the team allowance (already sum(hcps)/(n*2)) next to each
+    player's name in the format '[ 4.75 ]' (with spaces). The board page rounds
+    this to 1dp (e.g. 4.8). Returns the precise allowance, or None if not found.
     """
-    # Find all [N] or [N.N] handicap brackets in the page
-    ms = re.findall(r'\[(\+?\d+(?:\.\d+)?)\]', page)
-    hcps = [float(v.replace('+', '')) for v in ms]
-    # If only 1 value found, that's just the captain's hcp from the page header --
-    # same as the board page shows. Only trust if we have >= 2 distinct values.
-    if len(hcps) <= 1:
-        return []
-    return hcps
+    ms = re.findall(r'\[\s*(\+?\d+(?:\.\d+)?)\s*\]', page)
+    return float(ms[0].replace('+', '')) if ms else None
 
 
 def _fetch_card(club: str, board_id: str, pno: str) -> str:
@@ -1815,27 +1809,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             birdies = 0
             # Compute team combined handicap: each player's scorecard section shows their
             # individual hcp as [N.N]. Extract all, then apply formula sum/(n*2).
-            n_players = base_["player"].count(" & ") + 1
-            indiv_hcps = _ambrose_indiv_hcps(page_c) if page_c else []
-            if len(indiv_hcps) >= n_players:
-                raw_allowance = sum(indiv_hcps[:n_players]) / (n_players * 2)
-                base_["ambroseTeamHcp"] = round(raw_allowance, 2)
-                log.info("ambrose hcps %s -> allowance %.2f", indiv_hcps[:n_players], raw_allowance)
+            allowance = _ambrose_team_allowance(page_c) if page_c else None
+            if allowance is not None:
+                base_["ambroseTeamHcp"] = round(allowance, 2)
+                log.debug("ambrose allowance %.2f for %s", allowance, base_["player"][:30])
             else:
-                log.info("ambrose hcp fallback playerNo=%s found=%s need=%d page_len=%d",
-                         base_.get("playerNo"), indiv_hcps, n_players, len(page_c) if page_c else 0)
-                # Log a portion of the first team's scorecard to diagnose structure
-                if base_.get("playerNo") == "1" and page_c:
-                    import html as _html_mod
-                    # Extract all rows from the page to see what labels exist
-                    rows_info = []
-                    for rm in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page_c):
-                        cells = [_html_mod.unescape(re.sub(r"<[^>]+>", " ", c)).strip()
-                                 for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", rm.group(1))]
-                        cells = [c for c in cells if c]
-                        if cells:
-                            rows_info.append(cells[:4])
-                    log.info("AMBROSE SCORECARD ROWS (playerNo=1): %s", rows_info[:30])
+                log.info("ambrose allowance not found playerNo=%s page_len=%d",
+                         base_.get("playerNo"), len(page_c) if page_c else 0)
         else:
             # Standard comp: use scorecard-derived data.
             # Board's Thru column override (fires when the board page has a numeric Thru column)
