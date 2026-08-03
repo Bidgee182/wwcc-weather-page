@@ -16,13 +16,23 @@ Key register map (all are FC03 holding registers):
     219: FeedBackSensorUnit (1=mbar)
     221: FeedBackSensorMax (e.g. 16000 mbar)
 
-  Data block (addr 300-349 = doc regs 00301-00350):
+  Data block (addr 300-363 = doc regs 00301-00364):
     300: Head (0.001 bar)
     301: VolumeFlow (0.1 m3/h)
+    302: RelativePerformance (0.01%)
+    305: DigitalInput bits
+    306: DigitalOutput bits
     307: ActualSetpoint (0.01%)
     311: PowerHI, 312: PowerLO (combined Watts, 32-bit)
     314: InletPressure (0.001 bar)
+    326: OperationTimeHI, 327: OperationTimeLO (hours, 32-bit)
+    328: TotalPoweredTimeHI, 329: TotalPoweredTimeLO (hours, 32-bit)
+    331: EnergyHI, 332: EnergyLO (kWh, 32-bit)
     340: OutletPressure (0.001 bar)
+    344: NumberOfPowerOns
+    345: SpecificEnergy (0.1 Wh/m3)
+    346: SpecificEnergyAverage (0.1 Wh/m3)
+    362: VolumeHI, 363: VolumeLO (0.1 m3, 32-bit)
 
   Pump blocks (addr 400-479 = doc regs 00401-00480, 10 regs per pump):
     +0: Status bits (bit1=OnOff/running, bit2=Alarm)
@@ -31,9 +41,19 @@ Key register map (all are FC03 holding registers):
     +4: Speed (0.01%)
     +5: LineCurrent (0.1 A)
     +6: Power (10 W)
-    +7: MotorTemperature (0.01 K, convert to C: val*0.01 - 273.15)
-    +8: NumberOfStartsHI, +9: NumberOfStartsLO (32-bit)
+    +7: MotorTemperature (0.01 K) - booster profile returns 0; MGE profile at device_id 2-5 addr 211
+    +8: ControlSource (2=GENIbus normal, NOT starts counter)
   Pilot pump block starts at addr 460 (same 10-reg layout).
+
+  Per-pump energy (addr 480-487 = doc regs 00481-00488, 1 kWh):
+    480: Pump1, 481: Pump2, 482: Pump3, 486: Pilot, 487: Backup
+
+  Event log (addr 6000-6282 = doc regs 06001-06283):
+    6000: NoOfEventsInLog (max 40)
+    6001+: 7 regs per event: EventID, Code, Source, DeviceNo, TypeAndCondition, TimestampHI, TimestampLO
+
+  MGE single-pump profile (device_id 2-5 on same CIM500):
+    addr 211 (doc 00212): MotorTemperature (0.01 K)
 """
 import json
 import os
@@ -74,12 +94,55 @@ CONTROL_MODE_NAMES = {
     8: "constant level",
 }
 
+ALARM_DESCRIPTIONS = {
+    10:  "GENIbus comms fault",
+    15:  "Modbus watchdog timeout",
+    32:  "Overvoltage",
+    40:  "Undervoltage",
+    45:  "Voltage asymmetry",
+    48:  "Overload",
+    49:  "Overcurrent",
+    51:  "Blocked motor",
+    56:  "Underload",
+    57:  "Dry-running",
+    64:  "Overtemperature",
+    65:  "Motor temperature high",
+    148: "PT100 bearing temperature high (DE)",
+    149: "PT100 bearing temperature high (NDE)",
+}
+
+EVENT_TYPE_NAMES = {
+    1: "Alarm appeared",
+    2: "Alarm cleared",
+    3: "Warning appeared",
+    4: "Warning cleared",
+}
+
+EVENT_SOURCE_NAMES = {
+    0: "System",
+    6: "Pump",
+    9: "Analog input",
+    10: "Pilot pump",
+}
+
+PUMP_DEVICE_LABELS = {
+    1: "P1", 2: "P2", 3: "P3", 4: "P4",
+    5: "P5", 6: "P6", 7: "Pilot", 8: "Backup",
+}
+
 
 def rhr(client, addr, count):
-    r = client.read_holding_registers(addr, count=count, device_id=1)
-    if r.isError():
-        return [None] * count
-    return r.registers
+    result = []
+    while count > 0:
+        chunk = min(count, 125)
+        r = client.read_holding_registers(addr, count=chunk, device_id=1)
+        if r.isError():
+            result.extend([None] * chunk)
+        else:
+            result.extend(r.registers)
+        addr += chunk
+        count -= chunk
+    return result
 
 
 def valid(raw):
@@ -117,6 +180,98 @@ def parse_ts(ts):
     return datetime.fromisoformat(ts)
 
 
+def scan_mge_temperatures(client, pump_count=4):
+    """Try reading MotorTemperature from individual MGE device IDs.
+
+    In the single-pump CIM profile (doc 6012947), addr 211 (doc 00212) = MotorTemperature (0.01 K).
+    When a CIM500 is on a CU352 GENIECON, device_id 2-N may expose per-pump MGE profiles.
+    Returns list of temp_c values (or None) for each pump, ordered by device_id 2, 3, 4, ...
+    """
+    temps = []
+    for device_id in range(2, 2 + pump_count):
+        try:
+            r = client.read_holding_registers(211, count=1, device_id=device_id)
+            if r.isError():
+                temps.append(None)
+                continue
+            raw = r.registers[0]
+            # Valid motor temp range: 0°C to 120°C = 27315 to 39315 (in 0.01K)
+            if raw and raw != NA and 27315 <= raw <= 39315:
+                temps.append(round(raw * 0.01 - 273.15, 1))
+            else:
+                temps.append(None)
+        except Exception:
+            temps.append(None)
+    return temps
+
+
+def read_event_log(client):
+    """Read CU352 event log from addr 6000. Returns list of event dicts, newest first."""
+    try:
+        count_r = client.read_holding_registers(6000, count=1, device_id=1)
+        if count_r.isError():
+            return []
+        count = min(int(count_r.registers[0]), 40)
+        if count == 0:
+            return []
+
+        raw = []
+        remaining = count * 7
+        addr = 6001
+        while remaining > 0:
+            chunk = min(remaining, 125)
+            r = client.read_holding_registers(addr, count=chunk, device_id=1)
+            if r.isError():
+                break
+            raw.extend(r.registers)
+            addr += chunk
+            remaining -= chunk
+
+        events = []
+        for i in range(count):
+            base = i * 7
+            if base + 6 >= len(raw):
+                break
+            event_id = raw[base]
+            code     = raw[base + 1]
+            source   = raw[base + 2]
+            device_no = raw[base + 3]
+            type_code = raw[base + 4]
+            ts_hi    = raw[base + 5]
+            ts_lo    = raw[base + 6]
+            ts_unix  = ts_hi * 65536 + ts_lo
+
+            try:
+                ts_iso = datetime.fromtimestamp(ts_unix, tz=timezone.utc).isoformat()
+            except Exception:
+                ts_iso = None
+
+            pump_label = ""
+            if source == 6 and device_no > 0:
+                pump_label = PUMP_DEVICE_LABELS.get(device_no, f"Pump {device_no}")
+            elif source == 10:
+                pump_label = "Pilot"
+
+            events.append({
+                "event_id":      event_id,
+                "code":          code,
+                "source":        source,
+                "source_name":   EVENT_SOURCE_NAMES.get(source, f"Source {source}"),
+                "device_no":     device_no,
+                "pump_label":    pump_label,
+                "type_code":     type_code,
+                "type_name":     EVENT_TYPE_NAMES.get(type_code, f"Type {type_code}"),
+                "description":   ALARM_DESCRIPTIONS.get(code, f"Alarm code {code}"),
+                "timestamp_unix": ts_unix,
+                "timestamp_iso": ts_iso,
+            })
+
+        return events
+    except Exception as exc:
+        print(f"Event log read failed: {exc}")
+        return []
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -131,14 +286,19 @@ def main():
         prev["timestamp"]  = now_iso
         write_json(LATEST_FILE, prev)
         print(f"OFFLINE: could not connect to {HOST}:{PORT}")
-        sys.exit(0)  # exit 0 so the workflow doesn't spam failure emails during outages
+        sys.exit(0)
 
     try:
-        status_regs  = rhr(client, 200, 32)  # regs 00201-00232
-        data_regs    = rhr(client, 300, 50)  # regs 00301-00350
-        pump_regs    = rhr(client, 400, 80)  # regs 00401-00480 (8 pump blocks x 10)
-        ain_unit_regs = rhr(client, 224, 7)  # regs 00225-00231: AnalogIn1-7 unit codes
-        ain_val_regs  = rhr(client, 375, 7)  # regs 00376-00382: AnalogIn1-7 values
+        status_regs   = rhr(client, 200, 32)   # regs 00201-00232
+        data_regs     = rhr(client, 300, 64)   # regs 00301-00364 (extended from 50 to 64)
+        pump_regs     = rhr(client, 400, 80)   # regs 00401-00480 (8 pump blocks x 10)
+        energy_regs   = rhr(client, 480, 8)    # per-pump energy kWh (00481-00488)
+        ain_unit_regs = rhr(client, 224, 7)    # regs 00225-00231: AnalogIn1-7 unit codes
+        ain_val_regs  = rhr(client, 375, 7)    # regs 00376-00382: AnalogIn1-7 values
+
+        # Event log and MGE temp scan run after main registers
+        event_log = read_event_log(client)
+        mge_temps = scan_mge_temperatures(client, len(PUMP_DEFS))
     finally:
         client.close()
 
@@ -147,13 +307,13 @@ def main():
     sensor_max_raw  = valid(status_regs[21])   # 00222
 
     if sensor_max_raw is None:
-        sensor_max_mbar = 16000  # fallback: 16 bar
+        sensor_max_mbar = 16000
     elif sensor_unit == 0:
-        sensor_max_mbar = sensor_max_raw * 1000  # bar -> mbar
+        sensor_max_mbar = sensor_max_raw * 1000
     elif sensor_unit == 3:
-        sensor_max_mbar = sensor_max_raw * 10    # kPa -> mbar
+        sensor_max_mbar = sensor_max_raw * 10
     else:
-        sensor_max_mbar = sensor_max_raw          # already mbar
+        sensor_max_mbar = sensor_max_raw
 
     # -- Status block ------------------------------------------------------------
     status_bits   = valid(status_regs[0])    # 00201
@@ -170,25 +330,60 @@ def main():
     # -- Data block --------------------------------------------------------------
     head_raw     = valid(data_regs[0])   # 00301: Head (0.001 bar)
     flow_raw     = valid(data_regs[1])   # 00302: VolumeFlow (0.1 m3/h)
+    rel_perf_raw = valid(data_regs[2])   # 00303: RelativePerformance (0.01%)
+    di_raw       = valid(data_regs[5])   # 00306: DigitalInput bits
+    do_raw       = valid(data_regs[6])   # 00307: DigitalOutput bits
     setpoint_raw = valid(data_regs[7])   # 00308: ActualSetpoint (0.01%)
     power_hi     = valid(data_regs[11])  # 00312: PowerHI
     power_lo     = valid(data_regs[12])  # 00313: PowerLO
     inlet_raw    = valid(data_regs[14])  # 00315: InletPressure (0.001 bar)
     outlet_raw   = valid(data_regs[40])  # 00341: OutletPressure (0.001 bar)
 
+    op_time_hi      = valid(data_regs[26])  # 00327: OperationTimeHI (hours)
+    op_time_lo      = valid(data_regs[27])  # 00328: OperationTimeLO (hours)
+    powered_hi      = valid(data_regs[28])  # 00329: TotalPoweredTimeHI (hours)
+    powered_lo      = valid(data_regs[29])  # 00330: TotalPoweredTimeLO (hours)
+    sys_energy_hi   = valid(data_regs[31])  # 00332: EnergyHI (kWh)
+    sys_energy_lo   = valid(data_regs[32])  # 00333: EnergyLO (kWh)
+    power_ons_raw   = valid(data_regs[44])  # 00345: NumberOfPowerOns
+    spec_e_raw      = valid(data_regs[45])  # 00346: SpecificEnergy (0.1 Wh/m3)
+    spec_e_avg_raw  = valid(data_regs[46])  # 00347: SpecificEnergyAverage (0.1 Wh/m3)
+    volume_hi       = valid(data_regs[62])  # 00363: VolumeHI (0.1 m3)
+    volume_lo       = valid(data_regs[63])  # 00364: VolumeLO (0.1 m3)
+
     actual_bar   = round(head_raw * 0.001, 3) if head_raw is not None else pct_to_bar(process_fb, sensor_max_mbar)
     _sp_raw      = pct_to_bar(setpoint_raw, sensor_max_mbar)
-    setpoint_bar = round(_sp_raw, 1) if _sp_raw is not None else None  # round to 1dp: 7.811 -> 7.8 -> displays as 7.80
+    setpoint_bar = round(_sp_raw, 1) if _sp_raw is not None else None
     flow_m3h     = round(flow_raw * 0.1, 2) if flow_raw is not None else None
     inlet_bar    = round(inlet_raw * 0.001, 3) if inlet_raw is not None else None
+    rel_perf_pct = round(rel_perf_raw * 0.01, 1) if rel_perf_raw is not None else None
 
     power_combined = hi_lo_32(power_hi, power_lo)
     total_kw = round(power_combined / 1000, 2) if power_combined is not None else None
 
+    sys_run_hours     = hi_lo_32(op_time_hi, op_time_lo)
+    sys_powered_hours = hi_lo_32(powered_hi, powered_lo)
+    sys_energy_kwh    = hi_lo_32(sys_energy_hi, sys_energy_lo)
+    spec_energy       = round(spec_e_raw * 0.1, 1) if spec_e_raw is not None else None
+    spec_energy_avg   = round(spec_e_avg_raw * 0.1, 1) if spec_e_avg_raw is not None else None
+    volume_combined   = hi_lo_32(volume_hi, volume_lo)
+    volume_m3         = round(volume_combined * 0.1, 1) if volume_combined is not None else None
+
     mode_name = CONTROL_MODE_NAMES.get(control_mode, f"mode {control_mode}") if control_mode else "unknown"
 
+    # -- Per-pump energy ---------------------------------------------------------
+    pump_energy_kwh = []
+    energy_map = {0: 0, 1: 1, 2: 2, 3: 6}  # PUMP_DEFS index -> energy_regs index
+    for i in range(len(PUMP_DEFS)):
+        ereg_idx = energy_map.get(i)
+        if ereg_idx is not None and ereg_idx < len(energy_regs):
+            raw = valid(energy_regs[ereg_idx])
+            pump_energy_kwh.append(raw)
+        else:
+            pump_energy_kwh.append(None)
+
     # -- Per-pump data -----------------------------------------------------------
-    def parse_pump(defn):
+    def parse_pump(defn, idx):
         ofs = defn["block"] - 400
         if ofs < 0 or ofs + 9 >= len(pump_regs):
             return _offline_pump(defn)
@@ -208,11 +403,18 @@ def main():
         cur_raw = valid(pump_regs[ofs + 5])
         pwr_raw = valid(pump_regs[ofs + 6])
         tmp_raw = valid(pump_regs[ofs + 7])
-        sts_hi  = valid(pump_regs[ofs + 8])
-        sts_lo  = valid(pump_regs[ofs + 9])
+        alarm_c = valid(pump_regs[ofs + 1])
 
         op_combined = hi_lo_32(op_hi, op_lo)
-        sts_combined = hi_lo_32(sts_hi, sts_lo)
+
+        # Motor temperature: prefer MGE device_id scan, fall back to booster profile (+7)
+        mge_t = mge_temps[idx] if mge_temps and idx < len(mge_temps) else None
+        if mge_t is not None:
+            temp_c = mge_t
+        elif tmp_raw is not None and tmp_raw > 0:
+            temp_c = round(tmp_raw * 0.01 - 273.15, 1)
+        else:
+            temp_c = None
 
         return {
             **defn,
@@ -223,14 +425,14 @@ def main():
             "power_kw":     round(pwr_raw * 10 / 1000, 2) if pwr_raw is not None else None,
             "current_a":    round(cur_raw * 0.1, 2) if cur_raw is not None else None,
             "run_hours":    round(op_combined * 0.01, 1) if op_combined is not None else None,
-            "starts_total": sts_combined,
-            "temp_c":       round(tmp_raw * 0.01 - 273.15, 1) if tmp_raw is not None else None,
+            "starts_total": None,   # not available in booster Modbus profile
+            "temp_c":       temp_c,
+            "alarm_code":   alarm_c,
         }
 
-    pump_data = [parse_pump(pd) for pd in PUMP_DEFS]
+    pump_data = [parse_pump(pd, i) for i, pd in enumerate(PUMP_DEFS)]
 
     # -- Analog inputs (AnalogIn1-7) ---------------------------------------------
-    # Unit codes from PDF: 10=°C(0.01), 13=K(0.01)->°C, 84=K(0.01)->°C, 110=°C(0.01)
     TEMP_UNIT_CODES = {10, 13, 84, 110}
     analog_inputs = []
     for i in range(7):
@@ -254,38 +456,49 @@ def main():
     alarms = []
     if alarm_code:
         alarms.append({"active": True, "code": alarm_code,
-                        "description": f"Alarm code {alarm_code}", "pump": "System", "timestamp": now_iso})
+                        "description": ALARM_DESCRIPTIONS.get(alarm_code, f"Alarm code {alarm_code}"),
+                        "pump": "System", "timestamp": now_iso})
     if warning_code:
         alarms.append({"active": True, "code": f"W{warning_code}",
-                        "description": f"Warning code {warning_code}", "pump": "System", "timestamp": now_iso})
+                        "description": ALARM_DESCRIPTIONS.get(warning_code, f"Warning code {warning_code}"),
+                        "pump": "System", "timestamp": now_iso})
 
     # -- Build new reading -------------------------------------------------------
-    # rh/st are cumulative counters from the CU352 non-volatile memory.
-    # Daily summaries use delta(max-min) within each day for accurate hrs/starts.
     new_reading = {
         "ts": now_iso,
         "pa": actual_bar,
         "ps": setpoint_bar,
-        "pi": inlet_bar,           # inlet/suction pressure bar
+        "pi": inlet_bar,
         "fl": flow_m3h,
         "nr": sum(1 for p in pump_data if p["running"]),
-        "pk": total_kw,            # total system power kW
+        "pk": total_kw,
         "sp": [p["speed_pct"]    for p in pump_data],
         "pw": [p["power_kw"]     for p in pump_data],
-        "rh": [p["run_hours"]    for p in pump_data],  # cumulative h since install
-        "st": [p["starts_total"] for p in pump_data],  # cumulative starts since install
-        "tm": [p["temp_c"]       for p in pump_data],  # motor temp deg C (PT100)
+        "rh": [p["run_hours"]    for p in pump_data],
+        "st": [p["starts_total"] for p in pump_data],
+        "tm": [p["temp_c"]       for p in pump_data],
+        "se": spec_energy,
     }
 
     system = {
-        "pressure_actual_bar":   actual_bar,
-        "pressure_suction_bar":  inlet_bar,
-        "pressure_setpoint_bar": setpoint_bar,
-        "flow_m3h":              flow_m3h,
-        "power_kw":              total_kw,
-        "mode":                  mode_name,
-        "fault":                 alarm_act,
-        "system_on":             system_on,
+        "pressure_actual_bar":       actual_bar,
+        "pressure_suction_bar":      inlet_bar,
+        "pressure_setpoint_bar":     setpoint_bar,
+        "flow_m3h":                  flow_m3h,
+        "power_kw":                  total_kw,
+        "mode":                      mode_name,
+        "fault":                     alarm_act,
+        "system_on":                 system_on,
+        "relative_performance_pct":  rel_perf_pct,
+        "specific_energy_wh_m3":     spec_energy,
+        "specific_energy_avg_wh_m3": spec_energy_avg,
+        "energy_kwh":                sys_energy_kwh,
+        "run_hours":                 sys_run_hours,
+        "powered_hours":             sys_powered_hours,
+        "power_ons":                 power_ons_raw,
+        "volume_m3":                 volume_m3,
+        "di_bits":                   di_raw,
+        "do_bits":                   do_raw,
     }
 
     # -- Update 24h history in latest.json --------------------------------------
@@ -296,14 +509,17 @@ def main():
     history_24h = [r for r in history_24h if parse_ts(r["ts"]) >= cutoff_24h][-MAX_24H:]
 
     write_json(LATEST_FILE, {
-        "connected":     True,
-        "timestamp":     now_iso,
-        "last_seen":     now_iso,
-        "system":        system,
-        "pumps":         pump_data,
-        "alarms":        alarms,
-        "analog_inputs": analog_inputs,
-        "history":       history_24h,
+        "connected":       True,
+        "timestamp":       now_iso,
+        "last_seen":       now_iso,
+        "system":          system,
+        "pumps":           pump_data,
+        "alarms":          alarms,
+        "analog_inputs":   analog_inputs,
+        "history":         history_24h,
+        "event_log":       event_log,
+        "pump_energy_kwh": pump_energy_kwh,
+        "mge_temps":       mge_temps,
     })
 
     # -- Update 90-day history (15-min cadence) ----------------------------------
@@ -326,16 +542,17 @@ def main():
     update_daily(long_readings, history_24h)
 
     n_run = sum(1 for p in pump_data if p["running"])
-    ain_temps = [(a["index"], a["temp_c"]) for a in analog_inputs if a["temp_c"] is not None]
-    ain_str = ", ".join(f"AIn{i}={t}C" for i, t in ain_temps) if ain_temps else "none"
+    mge_str = ", ".join(f"P{i+1}={t}C" for i, t in enumerate(mge_temps) if t is not None) or "none"
     print(f"OK: discharge={actual_bar} bar, setpoint={setpoint_bar} bar, "
-          f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}, analog_temps=[{ain_str}]")
+          f"flow={flow_m3h} m3/h, running={n_run}/{len(pump_data)}, "
+          f"spec_energy={spec_energy} Wh/m3, mge_temps=[{mge_str}], "
+          f"events={len(event_log)}")
 
 
 def _offline_pump(defn):
     return {**defn, "running": False, "fault": False, "standby": False,
             "speed_pct": None, "power_kw": None, "current_a": None,
-            "run_hours": None, "starts_total": None, "temp_c": None}
+            "run_hours": None, "starts_total": None, "temp_c": None, "alarm_code": None}
 
 
 def update_daily(long_readings, short_readings):
@@ -356,30 +573,23 @@ def update_daily(long_readings, short_readings):
         pts = by_day[day_str]
         pa_vals = [r["pa"] for r in pts if r.get("pa") is not None]
         fl_vals = [r["fl"] for r in pts if r.get("fl") is not None]
+        se_vals = [r["se"] for r in pts if r.get("se") is not None]
 
         hrs = []
         sts = []
         kwh = []
         for i in range(4):
-            # Run hours: delta of cumulative counter (accurate regardless of poll interval)
             rh_s = [r["rh"][i] for r in pts if r.get("rh") and i < len(r["rh"]) and r["rh"][i] is not None]
             if len(rh_s) >= 2:
                 hrs.append(round(max(rh_s) - min(rh_s), 2))
             elif rh_s:
                 hrs.append(0.0)
             else:
-                # Fallback: count 5-min windows where speed > 1%
                 sp_s = [r["sp"][i] for r in pts if r.get("sp") and i < len(r["sp"]) and r["sp"][i] is not None]
                 hrs.append(round(sum(1 for x in sp_s if x > 1) * interval_h, 2))
 
-            # Starts: delta of cumulative counter
-            st_s = [r["st"][i] for r in pts if r.get("st") and i < len(r["st"]) and r["st"][i] is not None]
-            if len(st_s) >= 2:
-                sts.append(max(st_s) - min(st_s))
-            else:
-                sts.append(0)
+            sts.append(0)  # starts counter not available in booster Modbus profile
 
-            # Energy: integrate power readings over 5-min intervals
             pw_s = [r["pw"][i] for r in pts if r.get("pw") and i < len(r["pw"]) and r["pw"][i] is not None]
             kwh.append(round(sum(pw_s) * interval_h, 2) if pw_s else 0)
 
@@ -390,6 +600,7 @@ def update_daily(long_readings, short_readings):
             "p_avg":    round(sum(pa_vals) / len(pa_vals), 3) if pa_vals else None,
             "fl_max":   round(max(fl_vals), 1) if fl_vals else None,
             "fl_total": round(sum(fl_vals) * interval_h, 1) if fl_vals else None,
+            "se_avg":   round(sum(se_vals) / len(se_vals), 1) if se_vals else None,
             "hrs":      hrs,
             "sts":      sts,
             "kwh":      kwh,

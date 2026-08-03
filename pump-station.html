@@ -58,8 +58,8 @@
         @keyframes pRed    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
 
         /* System metrics */
-        .sys-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-        @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(2,1fr); } }
+        .sys-metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(85px,1fr)); gap:10px; margin-bottom:14px; }
+        @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(3,1fr); } }
         .sys-metric { background:#1a252f; border-radius:8px; padding:14px 10px; text-align:center; border:1px solid #3d5166; }
         .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
         .sm-unit { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
@@ -358,6 +358,11 @@
             <div class="sm-val" id="ov-alarms" style="color:#f39c12;">0</div>
             <div class="sm-unit">active</div>
             <div class="sm-lbl">Alarms</div>
+        </div>
+        <div class="sys-metric">
+            <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
+            <div class="sm-unit">Wh/m&sup3;</div>
+            <div class="sm-lbl">Efficiency</div>
         </div>
     </div>
 
@@ -1024,6 +1029,8 @@ function renderOverview() {
     document.getElementById('ov-running').textContent = pumps.filter(p=>p.running).length;
     document.getElementById('ov-faults').textContent  = pumps.filter(p=>p.fault).length;
     document.getElementById('ov-alarms').textContent  = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
+    const ov_se = document.getElementById('ov-spec-e');
+    if (ov_se) ov_se.textContent = sys.specific_energy_wh_m3 != null ? Math.round(sys.specific_energy_wh_m3) : '--';
 
     const el = document.getElementById('ov-pump-summary');
     const connected = d && d.connected;
@@ -1496,9 +1503,19 @@ async function renderTrendCharts() {
 function renderAlarms() {
     const alarms  = latestData && latestData.alarms ? latestData.alarms : [];
     const active  = alarms.filter(a=>a.active);
-    const history = alarms.filter(a=>!a.active);
-    document.getElementById('active-alarms').innerHTML  = active.length  ? active.map(alarmRow).join('')  : '<div class="alarm-none">No active alarms</div>';
-    document.getElementById('alarm-history').innerHTML  = history.length ? history.map(alarmRow).join('') : '<div class="alarm-none">No alarm history available</div>';
+    document.getElementById('active-alarms').innerHTML = active.length ? active.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
+
+    // CU352 event log (up to 40 entries with UNIX timestamps, newest first)
+    const events = latestData && latestData.event_log ? latestData.event_log : [];
+    if (events.length) {
+        document.getElementById('alarm-history').innerHTML =
+            '<div style="font-size:.68em;color:#566573;margin-bottom:8px;">CU352 event log - '+events.length+' entries (newest first)</div>' +
+            events.map(eventLogRow).join('');
+    } else {
+        const connected = latestData && latestData.connected;
+        document.getElementById('alarm-history').innerHTML =
+            '<div class="alarm-none">' + (connected ? 'No events in CU352 log' : 'No alarm history available') + '</div>';
+    }
 }
 
 function alarmRow(a) {
@@ -1510,6 +1527,25 @@ function alarmRow(a) {
             '<div class="alarm-pump">'+(a.pump||'System')+'</div>'+
         '</div>'+
         '<div class="alarm-ts">'+(a.timestamp?fmtDate(a.timestamp):'')+'</div>'+
+    '</div>';
+}
+
+function eventLogRow(e) {
+    // type_code: 1=alarm appeared, 2=alarm cleared, 3=warning appeared, 4=warning cleared
+    const isActive  = e.type_code === 1 || e.type_code === 3;
+    const isWarning = e.type_code === 3 || e.type_code === 4;
+    const dotCls = isActive ? (isWarning ? '' : 'active') : 'cleared';
+    const dotStyle = isWarning && isActive ? 'background:#f39c12;' : '';
+    const pumpTxt = e.pump_label ? e.pump_label : (e.source_name||'System');
+    const typeTxt = e.type_name || '';
+    return '<div class="alarm-row">'+
+        '<div class="alarm-dot '+dotCls+'" style="'+dotStyle+'"></div>'+
+        '<div style="flex:1;min-width:0;">'+
+            '<div class="alarm-code">'+e.code+'</div>'+
+            '<div class="alarm-desc">'+(e.description||'Code '+e.code)+'</div>'+
+            '<div class="alarm-pump">'+pumpTxt+(typeTxt?' - '+typeTxt:'')+'</div>'+
+        '</div>'+
+        '<div class="alarm-ts">'+(e.timestamp_iso?fmtDate(e.timestamp_iso):'')+'</div>'+
     '</div>';
 }
 
