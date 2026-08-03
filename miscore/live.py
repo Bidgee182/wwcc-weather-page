@@ -674,19 +674,24 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
 
 
 def _board_players(page: str) -> list[dict]:
-    """Field for a board: [{playerNo, player, hcp, homeClub, rank, boardThru}] in board order."""
-    # Pre-pass: find the "Thru" column index from the <th> header row so we can extract
-    # the board's own Thru count per player (used to catch blank-NR scorecard gaps).
+    """Field for a board: [{playerNo, player, hcp, homeClub, rank, boardThru, boardThruRaw, boardTotal}]."""
+    # Pre-pass: find Thru and Total column indices from the <th> header row.
+    # Some boards (e.g. ambrose) have more header columns than data columns — track header_count
+    # so the offset can be corrected per player row.
     thru_col: int | None = None
+    total_col: int | None = None
+    header_count: int = 0
     for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
         ths = re.findall(r"(?s)<th[^>]*>(.*?)</th>", m.group(1))
         if not ths:
             continue
         labels = [html.unescape(re.sub(r"<[^>]+>", " ", t)).strip().lower() for t in ths]
+        header_count = len(labels)
         for i, lbl in enumerate(labels):
-            if "thru" in lbl:
+            if "thru" in lbl and thru_col is None:
                 thru_col = i
-                break
+            elif "total" in lbl and total_col is None:
+                total_col = i
         if thru_col is not None:
             break
 
@@ -728,12 +733,31 @@ def _board_players(page: str) -> list[dict]:
             if first_name in c and i + 1 < len(cells):
                 home = cells[i + 1]
                 break
-        # Extract board's Thru value from the detected column
+        # Column offset: header rows may have extra columns (e.g. a duplicate Rank th) vs data rows.
+        col_offset = max(0, header_count - len(tds_raw)) if header_count else 0
+        # boardThruRaw: raw string from the Thru column ('F', '7', '', None)
+        board_thru_raw: str | None = None
+        if thru_col is not None:
+            adj = thru_col - col_offset
+            if 0 <= adj < len(tds_raw):
+                cell_txt = html.unescape(re.sub(r"<[^>]+>", " ", tds_raw[adj])).strip()
+                if cell_txt:
+                    board_thru_raw = cell_txt
+        # boardThru: int for numeric Thru values (non-ambrose boards with a Thru count)
         board_thru: int | None = None
-        if thru_col is not None and thru_col < len(tds_raw):
-            cell_txt = html.unescape(re.sub(r"<[^>]+>", " ", tds_raw[thru_col])).strip()
-            if re.fullmatch(r"\d+", cell_txt):
-                board_thru = int(cell_txt)
+        if board_thru_raw and re.fullmatch(r"\d+", board_thru_raw):
+            board_thru = int(board_thru_raw)
+        # boardTotal: net score from the Total column (used for ambrose team net scores)
+        board_total: float | None = None
+        if total_col is not None:
+            adj = total_col - col_offset
+            if 0 <= adj < len(tds_raw):
+                cell_txt = html.unescape(re.sub(r"<[^>]+>", " ", tds_raw[adj])).strip()
+                if re.fullmatch(r"[\d.]+", cell_txt):
+                    try:
+                        board_total = float(cell_txt)
+                    except ValueError:
+                        pass
         out.append(
             {
                 "playerNo": player_no,
@@ -742,6 +766,8 @@ def _board_players(page: str) -> list[dict]:
                 "homeClub": home,
                 "rank": rank,
                 "boardThru": board_thru,
+                "boardThruRaw": board_thru_raw,
+                "boardTotal": board_total,
             }
         )
     return out
@@ -1723,6 +1749,10 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         type_m = re.search(r"-?\s*(Stableford|Stroke|Par|Gross|Nett)\b", page, re.IGNORECASE)
         comp_type = (type_m.group(1) if type_m else "").strip()
     is_stableford = comp_type.lower() not in ("stroke", "gross", "nett")
+    # Ambrose comps are team best-shot events; the board Total is the authoritative net score.
+    # MiClub individual scorecards for ambrose show only subtotals (no per-hole data), so
+    # scorecard-derived thru/points are ignored in favour of the board page columns.
+    is_ambrose = "ambrose" in board["name"].lower()
     field_ = _board_players(page)
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -1745,20 +1775,42 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     events: list[dict] = []
     for base_, page_c in zip(field_, pages):
         board_thru = base_.pop("boardThru", None)
+        board_thru_raw = base_.pop("boardThruRaw", None)
+        board_total = base_.pop("boardTotal", None)
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
         played = _played(holes, is_stableford)
         thru = _thru(holes, hole_count, is_stableford)
-        # Board's Thru column override (fires when the board page has a Thru column)
-        if board_thru is not None and board_thru > thru:
-            thru = board_thru
-        if is_stableford:
-            points = sum(h.get("points") or 0 for h in played)
-            birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+
+        if is_ambrose:
+            # Ambrose: derive thru and net score from the board page, not the scorecard.
+            # The scorecard only shows individual player subtotals with no per-hole breakdown.
+            # 'F' = finished all holes; numeric = holes completed so far.
+            if board_thru_raw == "F":
+                thru = hole_count or 9
+            elif board_thru is not None:
+                thru = board_thru
+            else:
+                thru = 0
+            # boardTotal is the net score already computed by MiClub (lower = better).
+            points: float = board_total if board_total is not None else 0.0
+            birdies = 0
+            # Team handicap: MiClub only exposes 1 handicap per team (first player's),
+            # so full allowance = sum(all hcps) / (n x 2) can't be computed here.
+            # Leave hcp=None; the net score (boardTotal) already reflects the allowance.
+            pass
         else:
-            points = sum(0 if h.get("points") is None else h["points"] for h in played)
-            birdies = sum(1 for h in played if h.get("points") is not None and h["points"] <= -1)
+            # Standard comp: use scorecard-derived data.
+            # Board's Thru column override (fires when the board page has a numeric Thru column)
+            if board_thru is not None and board_thru > thru:
+                thru = board_thru
+            if is_stableford:
+                points = sum(h.get("points") or 0 for h in played)
+                birdies = sum(1 for h in played if h.get("par") and isinstance(h.get("strokes"), int) and h["strokes"] < h["par"])
+            else:
+                points = sum(0 if h.get("points") is None else h["points"] for h in played)
+                birdies = sum(1 for h in played if h.get("points") is not None and h["points"] <= -1)
         last = played[-3:]
         p = {
             **base_,
@@ -1947,6 +1999,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
         "isStableford": is_stableford,
+        "isAmbrose": is_ambrose,
         "officialResultsReady": _official_cache.get("published", False),
         "wwccCredSet": bool(_WWCC_USERNAME and _WWCC_PASSWORD),
         "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],

@@ -117,6 +117,7 @@ html, body {
 .r-rank.silver { color: #bdc3c7; }
 .r-rank.bronze { color: #cd7f32; }
 .r-name  { font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r-name.team { font-size: 1.05em; white-space: normal; overflow: visible; line-height: 1.25; }
 .r-hcp-inline { font-size: 0.72em; color: #4a6a84; font-weight: normal; margin-left: 4px; }
 .ball-win     { font-size: 0.7em; margin-left: 4px; vertical-align: middle; opacity: 0.9; }
 .r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
@@ -487,6 +488,7 @@ let _refreshStopped  = false;  // true once round is complete - no more fetches 
 let _stoppedForDate  = null;   // competition date when _refreshStopped was set
 let _stoppedTick     = 0;      // counts 1-s ticks while stopped (for periodic date checks)
 let _isStableford    = true;   // false for stroke/gross comps (lower score = better)
+let _isAmbrose       = false;  // true for ambrose team events (board Total = absolute net strokes)
 let _coursePar       = 72;    // course par from JSON; used to compute net total for display
 
 // Last-render snapshots: used to keep panels scrolling after refresh stops
@@ -623,9 +625,10 @@ function _applyPending() {
             if (c.par)  meta.push('Par ' + c.par);
             if ((c.players || []).length) meta.push(c.players.length + ' players');
             _isStableford = c.isStableford !== false;
+            _isAmbrose    = c.isAmbrose   === true;
             if (c.par) _coursePar = c.par;
             const ptsHdr = document.getElementById('col-hdr-pts');
-            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
+            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
             renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
             setHeader('⛳ ' + (c.competition || 'Leaderboard') + ' - Leaderboard', meta.join(' - '));
             // Show companion stories immediately; hide blue ball (men's-only feature)
@@ -643,9 +646,10 @@ function _applyPending() {
     if (!d) return;
     if (_pendingData) { _lastRenderData = d; _pendingData = null; }
     _isStableford = d.isStableford !== false;
+    _isAmbrose    = d.isAmbrose   === true;
     if (d.par) _coursePar = d.par;
     const ptsHdr2 = document.getElementById('col-hdr-pts');
-    if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : 'Score';
+    if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     // Restore primary header immediately on switch-back (don't wait for next poll)
     const hcP = d.holeCount || 18;
@@ -810,9 +814,10 @@ function updateHeader(d) {
         _countdown      = REFRESH_SEC;
     }
     _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
+    _isAmbrose    = d.isAmbrose   === true;
     if (d.par) _coursePar = d.par;
     const ptsHdr = document.getElementById('col-hdr-pts');
-    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : 'Score';
+    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
     if (!started || !players.length) {
         setBadge('waiting', 'Not started');
     } else {
@@ -933,6 +938,10 @@ function fmtHcp(hcp) {
 
 function fmtScore(pts) {
     if (!_isStableford) {
+        if (_isAmbrose) {
+            // Ambrose: absolute net strokes (e.g. 28.25) - show with 2 decimal max
+            return pts % 1 === 0 ? pts.toString() : pts.toFixed(2).replace(/\.?0+$/, '');
+        }
         if (pts === 0) return 'E';
         return (pts > 0 ? '+' : '') + pts;
     }
@@ -1120,11 +1129,13 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
-        const grossTag = (!_isStableford && p.thru >= holeCount && _coursePar)
+        // Ambrose scores are absolute net strokes - no vs-par gross tag needed
+        const grossTag = (!_isStableford && !_isAmbrose && p.thru >= holeCount && _coursePar)
             ? '<span class="r-gross">(' + (_coursePar + p.points) + ')</span> ' : '';
         const ptsTxt  = (p.thru > 0 && started) ? grossTag + fmtScore(p.points) : '-';
         const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
+        const isTeam  = p.player && p.player.indexOf(' & ') !== -1;
         // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
         const escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
             '<span class="r-hcp-token">[$1]</span>');
@@ -1135,9 +1146,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
             ? _ballWinners.has(p.player)
             : (roundComplete && _officialResultsReady && !!_gradeTopN[p.player]);
         const ballTag = isBallWinner ? ' <span class="ball-win">&#x26AA;</span>' : '';
+        const nameCls = 'r-name' + (isTeam ? ' team' : '');
         return '<div class="' + rowCls + '">' +
             '<span class="' + rankCls + '">' + rankHtml + '</span>' +
-            '<span class="r-name">' + escapedName + hcpTag + ballTag + '</span>' +
+            '<span class="' + nameCls + '">' + escapedName + hcpTag + ballTag + '</span>' +
             '<span class="' + ptsCls + '">' + ptsTxt + '</span>' +
             '<span class="' + thruCls + '">' + thruTxt + '</span>' +
             '</div>';
