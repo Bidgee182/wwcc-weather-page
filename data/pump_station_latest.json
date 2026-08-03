@@ -1,22 +1,107 @@
 {
-  "timestamp": null,
-  "connected": false,
-  "last_seen": null,
+  "connected": true,
+  "timestamp": "2026-08-03T05:05:26.406987+00:00",
+  "last_seen": "2026-08-03T05:05:26.406987+00:00",
   "system": {
-    "mode": null,
-    "fault": false,
-    "genibus_connected": null,
-    "pressure_actual_bar": null,
+    "pressure_actual_bar": 8.378,
     "pressure_suction_bar": null,
-    "pressure_setpoint_bar": null,
-    "flow_m3h": null
+    "pressure_setpoint_bar": 7.811,
+    "flow_m3h": 0.0,
+    "power_kw": 0.0,
+    "mode": "constant head",
+    "fault": false,
+    "system_on": true
   },
   "pumps": [
-    {"id":1,"label":"P1 - CRNE45","model":"CRNE45-3","rated_kw":18.5,"running":false,"fault":false,"standby":false,"speed_pct":null,"power_kw":null,"current_a":null,"temp_c":null,"run_hours":null,"starts_total":null},
-    {"id":2,"label":"P2 - CRNE45","model":"CRNE45-3","rated_kw":18.5,"running":false,"fault":false,"standby":false,"speed_pct":null,"power_kw":null,"current_a":null,"temp_c":null,"run_hours":null,"starts_total":null},
-    {"id":3,"label":"P3 - CRNE45","model":"CRNE45-3","rated_kw":18.5,"running":false,"fault":false,"standby":false,"speed_pct":null,"power_kw":null,"current_a":null,"temp_c":null,"run_hours":null,"starts_total":null},
-    {"id":4,"label":"Jockey",     "model":"CRNE10-9","rated_kw":5.5, "running":false,"fault":false,"standby":false,"speed_pct":null,"power_kw":null,"current_a":null,"temp_c":null,"run_hours":null,"starts_total":null}
+    {
+      "id": 1,
+      "label": "P1 - CRNE45",
+      "model": "CRNE45-3",
+      "rated_kw": 18.5,
+      "block": 400,
+      "bit": 0,
+      "running": false,
+      "fault": false,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 51.5,
+      "starts_total": null,
+      "temp_c": null
+    },
+    {
+      "id": 2,
+      "label": "P2 - CRNE45",
+      "model": "CRNE45-3",
+      "rated_kw": 18.5,
+      "block": 410,
+      "bit": 1,
+      "running": false,
+      "fault": false,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 51.5,
+      "starts_total": null,
+      "temp_c": null
+    },
+    {
+      "id": 3,
+      "label": "P3 - CRNE45",
+      "model": "CRNE45-3",
+      "rated_kw": 18.5,
+      "block": 420,
+      "bit": 2,
+      "running": false,
+      "fault": false,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 51.5,
+      "starts_total": null,
+      "temp_c": null
+    },
+    {
+      "id": 4,
+      "label": "Jockey",
+      "model": "CRNE10-9",
+      "rated_kw": 5.5,
+      "block": 460,
+      "bit": 6,
+      "running": false,
+      "fault": false,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 13.9,
+      "starts_total": null,
+      "temp_c": null
+    }
   ],
   "alarms": [],
-  "history": []
+  "history": [
+    {
+      "ts": "2026-08-03T05:05:26.406987+00:00",
+      "pa": 8.378,
+      "ps": 7.811,
+      "fl": 0.0,
+      "nr": 0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ]
 }
