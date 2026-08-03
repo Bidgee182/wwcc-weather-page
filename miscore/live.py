@@ -1820,9 +1820,22 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             if len(indiv_hcps) >= n_players:
                 raw_allowance = sum(indiv_hcps[:n_players]) / (n_players * 2)
                 base_["ambroseTeamHcp"] = round(raw_allowance, 2)
-                log.debug("ambrose hcps %s -> allowance %.2f", indiv_hcps[:n_players], raw_allowance)
+                log.info("ambrose hcps %s -> allowance %.2f", indiv_hcps[:n_players], raw_allowance)
             else:
-                log.debug("ambrose hcp fallback: found %d brackets, need %d", len(indiv_hcps), n_players)
+                log.info("ambrose hcp fallback playerNo=%s found=%s need=%d page_len=%d",
+                         base_.get("playerNo"), indiv_hcps, n_players, len(page_c) if page_c else 0)
+                # Log a portion of the first team's scorecard to diagnose structure
+                if base_.get("playerNo") == "1" and page_c:
+                    import html as _html_mod
+                    # Extract all rows from the page to see what labels exist
+                    rows_info = []
+                    for rm in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page_c):
+                        cells = [_html_mod.unescape(re.sub(r"<[^>]+>", " ", c)).strip()
+                                 for c in re.findall(r"(?s)<t[dh][^>]*>(.*?)</t[dh]>", rm.group(1))]
+                        cells = [c for c in cells if c]
+                        if cells:
+                            rows_info.append(cells[:4])
+                    log.info("AMBROSE SCORECARD ROWS (playerNo=1): %s", rows_info[:30])
         else:
             # Standard comp: use scorecard-derived data.
             # Board's Thru column override (fires when the board page has a numeric Thru column)
