@@ -671,6 +671,11 @@
             <div class="ctrl-confirm-card" id="ctrl-confirm-card">
                 <div style="font-size:.72em;color:#e67e22;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;">Confirm Action</div>
                 <div style="font-size:1em;font-weight:bold;color:#ecf0f1;margin-bottom:4px;" id="ctrl-confirm-desc"></div>
+                <div id="ctrl-confirm-detail" style="background:#0d1b2a;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:.82em;display:none;">
+                    <div id="ctrl-confirm-current" style="color:#7f8c8d;margin-bottom:3px;"></div>
+                    <div id="ctrl-confirm-change"  style="color:#ecf0f1;font-weight:bold;"></div>
+                    <div id="ctrl-confirm-registers" style="color:#3d5166;margin-top:3px;font-size:.88em;"></div>
+                </div>
                 <div style="font-size:.78em;color:#f39c12;margin-bottom:8px;" id="ctrl-confirm-warn"></div>
                 <div class="ctrl-countdown" id="ctrl-countdown" style="display:none;"></div>
                 <div style="display:flex;gap:8px;margin-top:10px;">
@@ -684,9 +689,9 @@
         <div class="card">
             <h2>System Control</h2>
             <div class="ctrl-sys-btns">
-                <button class="ctrl-sys-btn sstop"  onclick="ctrlQueue('system_stop',null,true)">STOP ALL PUMPS</button>
-                <button class="ctrl-sys-btn sstart"  onclick="ctrlQueue('system_start',null,false)">START SYSTEM</button>
-                <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;" onclick="ctrlQueue('alarm_reset',null,false)">RESET ALARMS</button>
+                <button class="ctrl-sys-btn sstop"  onclick="ctrlQueue('system_stop',null)">STOP ALL PUMPS</button>
+                <button class="ctrl-sys-btn sstart"  onclick="ctrlQueue('system_start',null)">START SYSTEM</button>
+                <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;" onclick="ctrlQueue('alarm_reset',null)">RESET ALARMS</button>
             </div>
             <div class="ctrl-mode-row">
                 <label>Mode:</label>
@@ -696,14 +701,14 @@
                     <option value="max">MAX - Maximum speed</option>
                     <option value="stop">STOP - All off</option>
                 </select>
-                <button class="ctrl-apply" onclick="ctrlQueue('set_mode',document.getElementById('ctrl-mode-sel').value,false)">SET</button>
+                <button class="ctrl-apply" onclick="ctrlQueue('set_mode',document.getElementById('ctrl-mode-sel').value)">SET</button>
             </div>
             <div class="ctrl-sp-row">
                 <label style="font-size:.8em;color:#7f8c8d;white-space:nowrap;">Setpoint:</label>
                 <input type="range" min="4.0" max="8.0" step="0.1" value="6.5" id="ctrl-sp-slider"
                     oninput="document.getElementById('ctrl-sp-val').textContent=parseFloat(this.value).toFixed(1)+' bar'">
                 <span class="ctrl-sp-val" id="ctrl-sp-val">6.5 bar</span>
-                <button class="ctrl-apply" onclick="ctrlQueue('set_setpoint',parseFloat(document.getElementById('ctrl-sp-slider').value),false)">APPLY</button>
+                <button class="ctrl-apply" onclick="ctrlQueue('set_setpoint',parseFloat(document.getElementById('ctrl-sp-slider').value))">APPLY</button>
             </div>
             <div style="font-size:.68em;color:#566573;margin-top:6px;">Range: 4.0 - 8.0 bar. Commands execute within 5 min (next poll).</div>
         </div>
@@ -756,7 +761,7 @@
     <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <h2 style="margin:0;">Active Alarms</h2>
-            <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;padding:6px 14px;font-size:.8em;" onclick="ctrlQueue('alarm_reset',null,false)">RESET ALARMS</button>
+            <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;padding:6px 14px;font-size:.8em;" onclick="ctrlQueue('alarm_reset',null)">RESET ALARMS</button>
         </div>
         <div id="active-alarms"><div class="alarm-none">No active alarms</div></div>
     </div>
@@ -912,7 +917,7 @@ function showTab(name, btn) {
 
 function openControlAction(act, val) {
     showTab('control', document.getElementById('tab-btn-control'));
-    if (ctrlSes.unlocked) ctrlQueueOrConfirm(act, val, act==='system_stop'||act==='stop_pump'||act==='stop_all');
+    if (ctrlSes.unlocked) ctrlQueueOrConfirm(act, val);
     else ctrlPendingOnUnlock = { act, val };
 }
 
@@ -2066,7 +2071,7 @@ function ctrlUnlock() {
     ctrlLogPump('login', (ctrlSes.user ? ctrlSes.user.name : 'unknown') + ' logged in', {});
     if (ctrlPendingOnUnlock) {
         const { act, val } = ctrlPendingOnUnlock; ctrlPendingOnUnlock = null;
-        setTimeout(() => ctrlQueueOrConfirm(act, val, act==='system_stop'||act==='stop_pump'), 200);
+        setTimeout(() => ctrlQueueOrConfirm(act, val), 200);
     }
 }
 
@@ -2139,8 +2144,8 @@ function ctrlRenderPumpGrid() {
             <div class="ctrl-pcc-lbl">${isJ?'Jockey M4':'M'+p.id}</div>
             <div class="ctrl-pcc-name">${p.label}</div>
             <div><span class="pump-badge ${BCLS[state]}">${BLBL[state]}</span></div>
-            ${canStop  ? `<button class="ctrl-pcc-btn pstop"  onclick="ctrlQueue('stop_pump',${p.id},true)">STOP</button>` : ''}
-            ${canStart ? `<button class="ctrl-pcc-btn pstart" onclick="ctrlQueue('start_pump',${p.id},false)">START</button>` : ''}
+            ${canStop  ? `<button class="ctrl-pcc-btn pstop"  onclick="ctrlQueue('stop_pump',${p.id})">STOP</button>` : ''}
+            ${canStart ? `<button class="ctrl-pcc-btn pstart" onclick="ctrlQueue('start_pump',${p.id})">START</button>` : ''}
             ${!canStop&&!canStart ? `<button class="ctrl-pcc-btn pstart" disabled style="opacity:.35;cursor:not-allowed">--</button>` : ''}
         </div>`;
     }).join('');
@@ -2190,30 +2195,86 @@ function ctrlActionLabel(act, val) {
     return typeof fn==='function' ? fn(val) : (fn||act);
 }
 
-function ctrlQueue(act, val, needsConfirm) {
+function ctrlQueue(act, val) {
     if (!ctrlSes.unlocked) { ctrlPendingOnUnlock={act,val}; return; }
-    ctrlQueueOrConfirm(act, val, needsConfirm);
+    ctrlQueueOrConfirm(act, val);
 }
-function ctrlQueueOrConfirm(act, val, needsConfirm) {
-    if (needsConfirm) {
-        ctrlPendingAction = {act, val};
-        const isStop = act==='system_stop'||act==='stop_pump';
-        const card = document.getElementById('ctrl-confirm-card');
-        card.className = 'ctrl-confirm-card' + (isStop?' is-stop':'');
-        document.getElementById('ctrl-confirm-desc').textContent = ctrlActionLabel(act, val);
-        document.getElementById('ctrl-confirm-warn').textContent = isStop
-            ? 'This stops the pump(s). CU 352 safety circuits stay active.'
-            : 'Confirm site is clear before starting pumps remotely.';
-        const btn = document.getElementById('ctrl-exec-btn');
-        btn.className = 'ctrl-sys-btn ' + (isStop?'sstop':'sstart');
-        btn.textContent = 'EXECUTE';
-        btn.disabled = false;
-        document.getElementById('ctrl-countdown').style.display = 'none';
-        document.getElementById('ctrl-confirm').style.display = 'block';
-        document.getElementById('ctrl-confirm').scrollIntoView({behavior:'smooth',block:'nearest'});
+function ctrlQueueOrConfirm(act, val) {
+    // Every command requires confirmation - no bypass path.
+    ctrlPendingAction = {act, val};
+    const isStop = act==='system_stop'||act==='stop_pump';
+    const isStart = act==='system_start'||act==='start_pump';
+    const isReset = act==='alarm_reset';
+    const isSetting = act==='set_mode'||act==='set_setpoint';
+
+    const card = document.getElementById('ctrl-confirm-card');
+    card.className = 'ctrl-confirm-card' + (isStop?' is-stop':'');
+    document.getElementById('ctrl-confirm-desc').textContent = ctrlActionLabel(act, val);
+
+    // Build current-state detail from last poll data
+    const sys   = latestData && latestData.system ? latestData.system : {};
+    const pumps = latestData && latestData.pumps  ? latestData.pumps  : [];
+    const detail = document.getElementById('ctrl-confirm-detail');
+    const curEl  = document.getElementById('ctrl-confirm-current');
+    const chgEl  = document.getElementById('ctrl-confirm-change');
+    const regEl  = document.getElementById('ctrl-confirm-registers');
+
+    let warn = '';
+    let showDetail = true;
+
+    if (act === 'set_setpoint') {
+        const curBar = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar.toFixed(2)+' bar' : 'unknown';
+        curEl.textContent = 'Current setpoint: ' + curBar;
+        chgEl.textContent = 'New setpoint: ' + parseFloat(val).toFixed(2) + ' bar';
+        regEl.textContent = 'Writes: addr 103 (setpoint only)';
+        warn = '';
+    } else if (act === 'set_mode') {
+        const curMode = sys.mode ? sys.mode.toUpperCase() : 'unknown';
+        curEl.textContent = 'Current mode: ' + curMode;
+        chgEl.textContent = 'New mode: ' + String(val).toUpperCase();
+        regEl.textContent = 'Writes: addr 101 (mode only)';
+        warn = '';
+    } else if (act === 'alarm_reset') {
+        const curMode = sys.mode ? sys.mode.toUpperCase() : 'unknown';
+        const curSp   = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar.toFixed(2)+' bar' : 'unknown';
+        const activeAlarms = (latestData && latestData.event_log ? latestData.event_log.filter(e=>e.type_code===1||e.type_code===3) : []).length;
+        curEl.textContent  = 'Current: mode=' + curMode + ', setpoint=' + curSp + ', active alarms=' + activeAlarms;
+        chgEl.textContent  = 'Resets all alarms. Mode and setpoint will be restored.';
+        regEl.textContent  = 'Writes: addr 100 (alarm-reset bit), then restores addr 103 + addr 101';
+        warn = 'Alarm reset briefly enables Remote mode on CU352. Setpoint is immediately restored. Mode restore may not apply (CU352 limitation) - verify on next poll.';
+    } else if (act === 'system_stop') {
+        curEl.textContent = 'Status: ' + (sys.running ? 'RUNNING' : 'STANDBY/STOPPED');
+        chgEl.textContent = 'Stops all pumps.';
+        regEl.textContent = 'Writes: addr 100 bit1=0 (stop)';
+        warn = 'CU 352 safety circuits remain active.';
+    } else if (act === 'system_start') {
+        curEl.textContent = 'Status: ' + (sys.running ? 'RUNNING' : 'STANDBY/STOPPED');
+        chgEl.textContent = 'Starts system in AUTO mode.';
+        regEl.textContent = 'Writes: addr 100 bit1=1 (start)';
+        warn = 'Confirm site is clear before starting pumps remotely.';
+    } else if (act === 'start_pump' || act === 'stop_pump') {
+        const p = pumps.find(x => x.id === val);
+        const pState = p ? (p.running ? 'RUNNING' : p.standby ? 'STANDBY' : 'STOPPED') : 'unknown';
+        const pLbl = 'M'+val;
+        curEl.textContent = pLbl + ' current state: ' + pState;
+        chgEl.textContent = pLbl + ' forced to: ' + (act==='start_pump' ? 'START' : 'STOP');
+        regEl.textContent = 'Writes: addr ' + (val<=3?103+val:116) + ' (pump '+val+' control only)';
+        warn = act==='stop_pump' ? 'CU 352 safety circuits stay active.' : 'Confirm site is clear.';
     } else {
-        ctrlSendCommand(act, val);
+        showDetail = false;
+        warn = '';
     }
+
+    detail.style.display = showDetail ? 'block' : 'none';
+    document.getElementById('ctrl-confirm-warn').textContent = warn;
+
+    const btn = document.getElementById('ctrl-exec-btn');
+    btn.className = 'ctrl-sys-btn ' + (isStop?'sstop':isStart?'sstart':isReset?'':'');
+    btn.textContent = 'EXECUTE';
+    btn.disabled = false;
+    document.getElementById('ctrl-countdown').style.display = 'none';
+    document.getElementById('ctrl-confirm').style.display = 'block';
+    document.getElementById('ctrl-confirm').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function ctrlCancelAction() {
     if (ctrlCountdownTimer) { clearInterval(ctrlCountdownTimer); ctrlCountdownTimer=null; }
@@ -2294,10 +2355,14 @@ function ctrlRenderCmds(data) {
     el.innerHTML = log.map(c=>{
         const dotCls = (c.status==='done'||c.status==='executed')?'cdone':c.status==='failed'?'cfailed':'cpending';
         const who = c.requested_by_name || c.requested_by || '';
+        const chgLine = (c.from_value && c.to_value)
+            ? `<div style="color:#5dade2;font-size:.82em;margin-top:2px;">${c.from_value} &rarr; ${c.to_value}</div>`
+            : '';
         return `<div class="ctrl-cmd-row">
             <div class="ctrl-cmd-dot ${dotCls}"></div>
             <div style="flex:1;min-width:0;">
                 <div style="font-weight:bold;color:#ecf0f1;">${ctrlActionLabel(c.action,c.value)}</div>
+                ${chgLine}
                 <div style="color:#566573;">${c.status.toUpperCase()}${c.result?' - '+c.result:''}${who?' - by '+who:''}</div>
             </div>
             <div style="color:#566573;font-size:.85em;white-space:nowrap;flex-shrink:0;">${fmtDate(c.ts)}</div>

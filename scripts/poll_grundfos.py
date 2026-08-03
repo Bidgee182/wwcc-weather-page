@@ -435,19 +435,35 @@ def execute_pending_command(client):
             r = client.write_register(addr, value, device_id=1)
             return r
 
+        def rhr1(addr):
+            """Read one holding register; return int value or None on error."""
+            try:
+                r = client.read_holding_registers(addr, 1, device_id=1)
+                return None if r.isError() else r.registers[0]
+            except Exception:
+                return None
+
         if act == "set_setpoint":
             bar     = float(val)
             reg_val = max(0, min(10000, int(round(bar * 625))))
-            r1 = wr(100, 0x0003)   # remote mode ON + start
-            r2 = wr(103, reg_val)  # write setpoint
-            if not r1.isError() and not r2.isError():
+            # Read current setpoint for log (addr 307 = ActualSetpoint, 0.0016 bar/unit)
+            before_reg = rhr1(307)
+            before_bar = round(before_reg * 0.0016, 2) if before_reg is not None else None
+            # Write ONLY the setpoint register (addr 103). Do NOT write addr 100
+            # (control word) - writing it would risk activating Remote mode and
+            # loading wrong CU352 stored settings (this is what caused the mode change incident).
+            r2 = wr(103, reg_val)
+            if not r2.isError():
+                after_reg = rhr1(307)
+                after_bar = round(after_reg * 0.0016, 2) if after_reg is not None else None
                 success = True
-                result  = f"Setpoint set to {bar:.2f} bar (reg={reg_val})"
+                result  = f"Setpoint set to {bar:.2f} bar (reg={reg_val}); was {before_bar} bar, now {after_bar} bar"
             else:
-                result = f"Write failed: ControlBits={r1} Setpoint={r2}"
+                result = f"Write failed: Setpoint addr 103={r2}"
 
         elif act == "system_stop":
-            r = wr(100, 0x0001)    # remote ON + stop (bit0=remote, bit1=start)
+            # system_stop/start legitimately control addr 100 (on/off bits only)
+            r = wr(100, 0x0001)    # remote ON + stop
             success = not r.isError()
             result  = "Stop command sent" if success else f"Write failed: {r}"
 
@@ -464,10 +480,14 @@ def execute_pending_command(client):
             }
             code = MODE_MAP.get(str(val).lower().strip())
             if code:
-                r1 = wr(100, 0x0003)
+                before_code = rhr1(202)
+                # Write ONLY the mode register (addr 101). Do NOT write addr 100.
                 r2 = wr(101, code)
-                success = not r1.isError() and not r2.isError()
-                result  = f"Mode set to {val} (code {code})" if success else "Write failed"
+                after_code  = rhr1(202)
+                success = not r2.isError()
+                changed = after_code == code if after_code is not None else None
+                result  = (f"Mode write addr 101={code}; was {before_code}, now {after_code}"
+                           + (" (accepted)" if changed else " (WARNING: CU352 did not apply change)")) if success else "Write failed"
             else:
                 result = f"Unknown mode '{val}'"
 
@@ -477,32 +497,35 @@ def execute_pending_command(client):
             if 0 <= pump_idx < len(PUMP_CTRL_ADDRS):
                 ctrl_addr = PUMP_CTRL_ADDRS[pump_idx]
                 state_val = 1 if act == "start_pump" else 2
-                r1 = wr(100, 0x0003)
+                # Write ONLY the pump's individual control register (addr 104-116).
+                # Do NOT write addr 100 - that risks loading wrong CU352 remote settings.
                 r2 = wr(ctrl_addr, state_val)
-                success = not r1.isError() and not r2.isError()
+                success = not r2.isError()
                 action_lbl = "started" if act == "start_pump" else "stopped"
-                result = f"Pump {pump_id} {action_lbl}" if success else "Write failed"
+                result = (f"Pump {pump_id} {action_lbl} (addr {ctrl_addr}={state_val})"
+                          if success else f"Write failed addr {ctrl_addr}")
             else:
                 result = f"Invalid pump id {pump_id}"
 
         elif act == "alarm_reset":
-            # Read current control mode (reg 203 = status_regs[2]) before reset,
-            # so we can restore it after - alarm reset forces Remote mode which
-            # would otherwise load a stale/wrong CU352 remote mode setting.
-            mode_to_restore = 3  # default: constant head
-            try:
-                mr = client.read_holding_registers(202, 1, device_id=1)
-                if not mr.isError() and mr.registers:
-                    mode_to_restore = mr.registers[0] or 3
-            except Exception:
-                pass
-            # Write remote + start + alarm reset bit (bit2)
+            # alarm_reset MUST write addr 100 (alarm-reset bit 2 lives there).
+            # Read mode AND setpoint first so we can restore them immediately after
+            # - enabling Remote mode (bit 0) can cause CU352 to load wrong stored settings.
+            mode_before = rhr1(202) or 3   # default constant head
+            sp_before   = rhr1(307)        # ActualSetpoint raw register value
+            # Write alarm reset (Remote+Start+AlarmReset)
             r = wr(100, 0x0007)
             if not r.isError():
-                wr(100, 0x0003)           # clear alarm reset bit
-                wr(101, mode_to_restore)  # restore operating mode
+                wr(100, 0x0003)           # clear alarm-reset bit, keep Remote+Start
+                # Restore setpoint immediately (setpoint writes are reliable)
+                if sp_before is not None:
+                    wr(103, sp_before)
+                # Attempt mode restore (CU352 may ignore addr 101 writes)
+                wr(101, mode_before)
+                sp_bar = round(sp_before * 0.0016, 2) if sp_before is not None else 'unknown'
                 success = True
-                result  = f"Alarm reset sent; mode restored to {mode_to_restore}"
+                result  = (f"Alarm reset sent; restored setpoint={sp_bar} bar "
+                           f"and attempted mode={mode_before}")
             else:
                 result = f"Write failed: {r}"
 
