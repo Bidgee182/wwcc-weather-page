@@ -18,7 +18,7 @@ jobs:
 
       - run: pip install pymodbus==3.14.0
 
-      - name: Run temperature scan
+      - name: Run wide register scan
         env:
           GRUNDFOS_HOST: ${{ secrets.GRUNDFOS_HOST }}
         run: |
@@ -34,70 +34,82 @@ jobs:
               raise SystemExit("FAILED to connect")
 
           def rhr(addr, count):
-              r = client.read_holding_registers(addr, count=count, device_id=1)
-              return [None]*count if r.isError() else r.registers
-
-          def v(raw):
-              return None if raw is None or raw == NA else raw
+              # Read in 125-register chunks (Modbus limit)
+              result = []
+              while count > 0:
+                  chunk = min(count, 125)
+                  r = client.read_holding_registers(addr, count=chunk, device_id=1)
+                  if r.isError():
+                      result.extend([None] * chunk)
+                  else:
+                      result.extend(r.registers)
+                  addr += chunk
+                  count -= chunk
+              return result
 
           def k_to_c(raw):
-              val = v(raw)
-              return None if val is None else round(val * 0.01 - 273.15, 1)
-
-          PUMP_BLOCKS = [
-              ("P1 - CRNE45",   400),
-              ("P2 - CRNE45",   410),
-              ("P3 - CRNE45",   420),
-              ("Jockey (Pilot)",460),
-          ]
+              if raw is None or raw == NA:
+                  return None
+              return round(raw * 0.01 - 273.15, 1)
 
           results = {}
 
-          # 1. Pump block offset +7
-          pump_regs = rhr(400, 80)
-          results["pump_motor_temp"] = {}
-          for label, base in PUMP_BLOCKS:
-              ofs = base - 400
-              raw = pump_regs[ofs + 7]
-              results["pump_motor_temp"][label] = {"raw": raw, "temp_c": k_to_c(raw)}
-
-          # 2. System data block temp registers
-          d = rhr(315, 30)
-          TREG = [(319,"RemoteTemp1"),(336,"AmbientTemp"),(337,"InletTemp"),(338,"OutletTemp"),(339,"TempDiff"),(340,"OutletPressure")]
-          results["system_temps"] = {}
-          for addr, name in TREG:
-              raw = d[addr - 315]
-              results["system_temps"][name] = {"addr": addr, "raw": raw, "temp_c": k_to_c(raw)}
-
-          # 3. Analog inputs
-          unit_regs  = rhr(224, 7)
-          value_regs = rhr(375, 7)
-          UNIT_MAP = {0:"none",1:"bar(0.001)",2:"mbar(0.001)",3:"kPa(0.001)",7:"W(1)",
-                      10:"degC(0.01)",13:"K(0.01)",51:"bar(0.001)",83:"m(0.01)",
-                      84:"K(0.01)",95:"m3h(0.01)",107:"pct",110:"degC(0.01)"}
-          results["analog_inputs"] = {}
-          for i in range(7):
-              u   = unit_regs[i]
-              raw = value_regs[i]
-              results["analog_inputs"][f"AnalogIn{i+1}"] = {
-                  "unit_addr": 224+i, "val_addr": 375+i,
-                  "unit_raw": u, "unit_name": UNIT_MAP.get(u, f"unit_{u}"),
-                  "value_raw": raw,
-              }
-
-          # 4. Raw non-NA scan addr 300-400
-          block = rhr(300, 100)
-          nonzero = {}
-          for i, raw in enumerate(block):
+          # Full sweep addr 0-800, record every non-NA, non-zero value
+          print("Scanning addr 0-800...")
+          full = rhr(0, 800)
+          live = {}
+          for i, raw in enumerate(full):
               if raw is not None and raw != 0 and raw != NA:
-                  nonzero[str(300+i)] = raw
-          results["nonzero_scan_300_400"] = nonzero
+                  live[i] = raw  # key = addr offset from 0
+          results["live_registers"] = live
+          print(f"Found {len(live)} live registers")
+
+          # Decode pump blocks 0-9 AND extended 10-19 for each pump
+          # In case GENIECON uses 20-reg blocks instead of 10
+          PUMP_BASES = [
+              ("P1", 400), ("P2", 410), ("P3", 420),
+              ("P4", 430), ("P5", 440), ("P6", 450),
+              ("Pilot", 460), ("Backup", 470),
+          ]
+          pump_detail = {}
+          pump_ext = rhr(400, 160)  # 8 pumps x 20 regs
+          for label, base in PUMP_BASES:
+              ofs = base - 400
+              block = pump_ext[ofs:ofs+20] if ofs+20 <= len(pump_ext) else []
+              decoded = {}
+              for j, raw in enumerate(block):
+                  decoded[f"+{j}"] = raw
+                  # Try temperature decode on every register
+                  if raw is not None and raw != NA and raw != 0:
+                      tc = k_to_c(raw)
+                      if tc is not None and -50 < tc < 200:
+                          decoded[f"+{j}_as_degC"] = tc
+              pump_detail[label] = decoded
+          results["pump_blocks_extended"] = pump_detail
+
+          # Also scan addr 480-600 (beyond standard pump blocks)
+          extra = rhr(480, 120)
+          extra_live = {}
+          for i, raw in enumerate(extra):
+              if raw is not None and raw != 0 and raw != NA:
+                  extra_live[str(480+i)] = raw
+          results["live_480_600"] = extra_live
+
+          # Any register in 0-200 that has a value?
+          early = rhr(0, 200)
+          early_live = {}
+          for i, raw in enumerate(early):
+              if raw is not None and raw != 0 and raw != NA:
+                  early_live[str(i)] = raw
+          results["live_0_200"] = early_live
 
           client.close()
+
           out = "data/scan_temps_result.json"
           with open(out, "w") as f:
               json.dump(results, f, indent=2)
-          print(json.dumps(results, indent=2))
+          print("Saved to", out)
+          print("Live registers:", json.dumps({str(k): v for k,v in live.items()}, indent=2))
           PYEOF
 
       - name: Commit scan result
@@ -105,7 +117,7 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
           git add data/scan_temps_result.json
-          git diff --staged --quiet || git commit -m "Temp scan result $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git diff --staged --quiet || git commit -m "Wide register scan $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           for i in 1 2 3; do
             git pull --rebase -X theirs origin main && git push && break
             sleep 5
