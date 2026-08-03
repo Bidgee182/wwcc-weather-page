@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: repo-writes
+  group: grundfos-poll
   cancel-in-progress: false
 
 jobs:
