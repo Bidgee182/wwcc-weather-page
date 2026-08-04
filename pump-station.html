@@ -564,6 +564,7 @@
         <div class="range-row">
             <button class="range-btn"        onclick="setPerfRange(1,this)">1h</button>
             <button class="range-btn"        onclick="setPerfRange(6,this)">6h</button>
+            <button class="range-btn"        onclick="setPerfRange(12,this)">12h</button>
             <button class="range-btn active" onclick="setPerfRange(24,this)">24h</button>
             <button class="range-btn"        onclick="setPerfRange(168,this)">7d</button>
             <button class="range-btn"        onclick="setPerfRange(720,this)">30d</button>
@@ -1521,9 +1522,17 @@ async function renderPerfCharts() {
 
         // Filter farmbot readings to same time window as perf chart
         const cutoff = Date.now() - perfRangeH * 3600000;
-        const fbPts = (farmbotTankData || [])
-            .filter(r => r.date && new Date(r.date).getTime() >= cutoff)
+        const allFb  = (farmbotTankData || []).filter(r => r.date);
+        const fbInWindow = allFb
+            .filter(r => new Date(r.date).getTime() >= cutoff)
             .map(r => ({ x: new Date(r.date).getTime(), y: r.pct }));
+
+        // Anchor left edge: prepend the last known reading before the window
+        // so the line always has something to draw from (farmbot polls ~hourly)
+        const lastBefore = [...allFb].filter(r => new Date(r.date).getTime() < cutoff).pop();
+        const fbPts = lastBefore
+            ? [{ x: cutoff, y: lastBefore.pct }, ...fbInWindow]
+            : fbInWindow;
 
         // Auto-scale tank axis to actual data range so small variations are visible
         const tkVals = fbPts.map(p => p.y).filter(v => v != null);
