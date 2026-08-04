@@ -77,10 +77,15 @@
         /* System metrics */
         .sys-metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(85px,1fr)); gap:10px; margin-bottom:14px; }
         @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(3,1fr); } }
-        .sys-metric { background:#1a252f; border-radius:8px; padding:14px 10px; text-align:center; border:1px solid #3d5166; }
+        .sys-metric { background:#1a252f; border-radius:8px; padding:0 10px 12px; text-align:center; border:1px solid #3d5166; overflow:hidden; }
         .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
         .sm-unit { font-size:0.75em; color:#7f8c8d; margin-top:2px; }
-        .sm-lbl  { font-size:0.65em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:6px; }
+        .sm-lbl  { font-size:0.65em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin:0 -10px 10px -10px; padding:6px 10px; background:rgba(61,81,102,.5); }
+        .sm-lbl.lbl-blue   { background:rgba(52,152,219,.2);  color:#5dade2; }
+        .sm-lbl.lbl-green  { background:rgba(39,174,96,.2);   color:#52be80; }
+        .sm-lbl.lbl-red    { background:rgba(231,76,60,.2);   color:#ec7063; }
+        .sm-lbl.lbl-amber  { background:rgba(243,156,18,.2);  color:#f8c471; }
+        .sm-lbl.lbl-purple { background:rgba(155,89,182,.2);  color:#bb8fce; }
 
         /* Pressure display */
         .pressure-display { display:flex; align-items:center; gap:10px; margin-bottom:12px; background:#1a252f; border-radius:10px; padding:18px; }
@@ -97,18 +102,21 @@
         /* Pressure pills (overview card) */
         .pres-pills-row { display:flex; align-items:stretch; gap:0; }
         .pp-sep { display:flex; align-items:center; padding:0 12px; color:#3d5166; font-size:1em; flex-shrink:0; }
-        .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:15px 12px 12px; text-align:center; position:relative; transition:border-color .4s; }
-        .pp-lbl  { font-size:.6em; text-transform:uppercase; letter-spacing:1.5px; color:#7f8c8d; margin-bottom:7px; }
+        .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 12px 12px; text-align:center; position:relative; transition:border-color .4s; overflow:hidden; }
+        .pp-lbl  { font-size:.6em; text-transform:uppercase; letter-spacing:1.5px; color:#7f8c8d; margin:0 -12px 10px -12px; padding:8px 12px; background:rgba(61,81,102,.5); }
         .pp-val  { font-size:2.1em; font-weight:bold; line-height:1; }
         .pp-unit { font-size:.7em; color:#7f8c8d; margin-top:5px; }
-        .pp-edit { position:absolute; top:7px; right:7px; background:none; border:1px solid #3d5166; color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; }
-        .pp-edit:hover { background:#2c3e50; color:#ecf0f1; border-color:#5dade2; }
+        .pp-edit { position:absolute; top:5px; right:7px; background:none; border:1px solid rgba(93,130,160,.4); color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; z-index:1; }
+        .pp-edit:hover { background:rgba(44,62,80,.8); color:#ecf0f1; border-color:#5dade2; }
         @keyframes ppPulseGreen { 0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,0)}   60%{box-shadow:0 0 12px 4px rgba(46,204,113,.45)} }
         @keyframes ppPulseRed   { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0)}    60%{box-shadow:0 0 16px 5px rgba(231,76,60,.55)} }
         @keyframes ppPulseAmber { 0%,100%{box-shadow:0 0 0 0 rgba(243,156,18,0)}   60%{box-shadow:0 0 12px 3px rgba(243,156,18,.4)} }
         .pres-pill.pp-ok   { border-color:#27ae60; animation:ppPulseGreen 3s   ease-in-out infinite; }
+        .pres-pill.pp-ok   .pp-lbl { background:rgba(39,174,96,.2);  color:#52be80; }
         .pres-pill.pp-warn { border-color:#f39c12; animation:ppPulseAmber 2.5s ease-in-out infinite; }
+        .pres-pill.pp-warn .pp-lbl { background:rgba(243,156,18,.2); color:#f8c471; }
         .pres-pill.pp-bad  { border-color:#e74c3c; animation:ppPulseRed   1.6s ease-in-out infinite; }
+        .pres-pill.pp-bad  .pp-lbl { background:rgba(231,76,60,.2);  color:#ec7063; }
         @media (max-width:560px) { .pres-pills-row{flex-direction:column;gap:8px} .pp-sep{padding:0;text-align:center;font-size:.8em} .pp-val{font-size:1.7em} }
 
         /* Setpoint quick-picker */
@@ -125,18 +133,22 @@
 
         /* Pump summary pills */
         .pump-pills-row { display:flex; gap:8px; align-items:stretch; margin-bottom:14px; }
-        .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:14px 6px 12px; text-align:center; min-width:0; transition:border-color .4s; }
-        .pump-pill-name { font-size:1.35em; font-weight:bold; color:#ecf0f1; line-height:1; margin-bottom:3px; }
+        .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 6px 12px; text-align:center; min-width:0; transition:border-color .4s; overflow:hidden; }
+        .pump-pill-name { font-size:1.35em; font-weight:bold; color:#ecf0f1; line-height:1; margin:0 -6px 4px -6px; padding:9px 6px 7px; background:rgba(61,81,102,.5); }
         .pump-pill-model { font-size:.59em; color:#566573; letter-spacing:.02em; margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
         .pump-pill-status { font-size:.65em; font-weight:bold; letter-spacing:.04em; margin-bottom:7px; }
         .pump-pill-speed { font-size:1.3em; font-weight:bold; line-height:1; }
         .pump-pill-kw { font-size:.7em; color:#95a5a6; margin-top:3px; }
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
+        .pump-pill.pp-running .pump-pill-name   { background:rgba(39,174,96,.25);  color:#2ecc71; }
         .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
         .pump-pill.pp-standby { border-color:#f39c12; }
+        .pump-pill.pp-standby .pump-pill-name   { background:rgba(243,156,18,.2);  color:#f0b429; }
         .pump-pill.pp-standby .pump-pill-status { color:#f39c12; }
         .pump-pill.pp-fault { border-color:#e74c3c; animation:ppPulseRed 1.6s ease-in-out infinite; }
-        .pump-pill.pp-fault .pump-pill-status { color:#e74c3c; }
+        .pump-pill.pp-fault .pump-pill-name     { background:rgba(231,76,60,.25);  color:#e74c3c; }
+        .pump-pill.pp-fault .pump-pill-status   { color:#e74c3c; }
+        .pump-pill.pp-stopped .pump-pill-name   { background:rgba(40,55,70,.8);    color:#566573; }
         .pump-pill.pp-stopped .pump-pill-status { color:#566573; }
         @media (max-width:600px) { .pump-pill-name{font-size:1em} .pump-pill-speed{font-size:1.05em} }
 
@@ -464,29 +476,29 @@
 
     <div class="sys-metrics">
         <div class="sys-metric">
+            <div class="sm-lbl lbl-blue">Flow Rate</div>
             <div class="sm-val" id="ov-flow" style="color:#3498db;">--</div>
             <div class="sm-unit">m&sup3;/h</div>
-            <div class="sm-lbl">Flow Rate</div>
         </div>
         <div class="sys-metric">
+            <div class="sm-lbl lbl-green">Running</div>
             <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
             <div class="sm-unit">of 4</div>
-            <div class="sm-lbl">Running</div>
         </div>
         <div class="sys-metric">
+            <div class="sm-lbl lbl-red">Faults</div>
             <div class="sm-val" id="ov-faults" style="color:#e74c3c;">0</div>
             <div class="sm-unit">active</div>
-            <div class="sm-lbl">Faults</div>
         </div>
         <div class="sys-metric">
+            <div class="sm-lbl lbl-amber">Alarms</div>
             <div class="sm-val" id="ov-alarms" style="color:#f39c12;">0</div>
             <div class="sm-unit">active</div>
-            <div class="sm-lbl">Alarms</div>
         </div>
         <div class="sys-metric">
+            <div class="sm-lbl lbl-purple">Efficiency</div>
             <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
             <div class="sm-unit">Wh/m&sup3;</div>
-            <div class="sm-lbl">Efficiency</div>
         </div>
     </div>
 
