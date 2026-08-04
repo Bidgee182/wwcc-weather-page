@@ -1065,9 +1065,18 @@ async function ensureHistory() {
 async function ensureFarmbotTank() {
     if (farmbotTankData !== null) return;
     try {
-        const r = await fetch('data/farmbot_readings.json?_='+Date.now());
-        if (r.ok) farmbotTankData = await r.json();
-        else farmbotTankData = [];
+        // Load full readings history
+        const r1 = await fetch('data/farmbot_readings.json?_='+Date.now());
+        const history = r1.ok ? await r1.json() : [];
+        // Also load latest.json for any readings newer than what's in history
+        const r2 = await fetch('data/farmbot_latest.json?_='+Date.now());
+        const latest = r2.ok ? await r2.json() : {};
+        const extra = (latest.tank_graph || []);
+        // Merge: build date-keyed map so duplicates are overwritten by latest
+        const byDate = {};
+        for (const e of history) if (e.date) byDate[e.date] = e;
+        for (const e of extra)   if (e.date) byDate[e.date] = e;
+        farmbotTankData = Object.values(byDate).sort((a,b) => a.date < b.date ? -1 : 1);
     } catch(e) { farmbotTankData = []; }
 }
 
@@ -1516,14 +1525,19 @@ async function renderPerfCharts() {
             .filter(r => r.date && new Date(r.date).getTime() >= cutoff)
             .map(r => ({ x: new Date(r.date).getTime(), y: r.pct }));
 
+        // Auto-scale tank axis to actual data range so small variations are visible
+        const tkVals = fbPts.map(p => p.y).filter(v => v != null);
+        const tkMin = tkVals.length ? Math.max(0,  Math.floor(Math.min(...tkVals)) - 5) : 0;
+        const tkMax = tkVals.length ? Math.min(100, Math.ceil( Math.max(...tkVals)) + 5) : 100;
+
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.scales.y.min = 0;
         opts.scales.y.ticks.callback = v => v.toFixed(0)+' bar';
         opts.scales.y1 = {
             type:'linear', position:'right',
-            min:0, max:110,
+            min:tkMin, max:tkMax,
             grid:{ drawOnChartArea:false },
-            ticks:{ color:'#27ae60', font:{size:10}, callback: v => v <= 100 ? v+'%' : '' },
+            ticks:{ color:'#27ae60', font:{size:10}, callback: v => v+'%' },
             title:{ display:true, text:'Tank Level', color:'#27ae60', font:{size:10} }
         };
         opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
