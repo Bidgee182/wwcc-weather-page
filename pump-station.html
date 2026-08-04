@@ -2604,7 +2604,7 @@ async function loadLogTab() {
     let alarmEvents = [], cmdLog = [], auditLog = [];
     const bust = '?_=' + Date.now();
 
-    try { const r = await fetch('data/pump_alarm_history.json' + bust); if (r.ok) alarmEvents = await r.json(); } catch {}
+    try { const r = await fetch('data/pump_alarm_history.json' + bust); if (r.ok) { const d = await r.json(); alarmEvents = Array.isArray(d) ? d : (d.events || []); } } catch {}
     try { const r = await fetch('data/pump_commands.json' + bust); if (r.ok) { const d = await r.json(); cmdLog = d.log || []; } } catch {}
     try { const r = await fetch('data/pump_ctrl_log.json' + bust); if (r.ok) auditLog = await r.json(); } catch {}
 
