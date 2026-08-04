@@ -771,6 +771,7 @@ def main():
         "st": [p["starts_today"] for p in pump_data],
         "tm": [p["temp_c"]       for p in pump_data],
         "se": spec_energy,
+        "tk": (1 if di_raw & 0x02 else 0) if di_raw is not None else None,
     }
 
     system = {

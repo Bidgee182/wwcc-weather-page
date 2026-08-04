@@ -595,6 +595,14 @@
         </div>
     </div>
 
+    <!-- Tank Status & Pressure -->
+    <div class="card">
+        <h2>Supply Tank &amp; Discharge Pressure</h2>
+        <div style="font-size:.72em;color:#566573;margin-bottom:10px;">Green band = tank float OK (DI2 closed) &bull; Gap = tank low / water shortage active</div>
+        <div class="chart-loader" id="c-tank-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(39,174,96,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h200" id="c-tank-wrap"><canvas id="c-tank"></canvas></div>
+    </div>
+
     <!-- Flow -->
     <div class="card">
         <h2>Flow Rate</h2>
@@ -1465,6 +1473,52 @@ async function renderPerfCharts() {
             [valsS.length?Math.min(...valsS).toFixed(2):'--', valsS.length?Math.max(...valsS).toFixed(2):'--',
              valsS.length?(valsS.reduce((a,b)=>a+b)/valsS.length).toFixed(2):'--', pts.length]);
     } else { setStats(['cs-min','cs-max','cs-avg','cs-pts'],['--','--','--','0']); }
+
+    // Tank status & discharge pressure (dual-axis custom chart)
+    (function() {
+        const loader = document.getElementById('c-tank-loader');
+        const wrap   = document.getElementById('c-tank-wrap');
+        if (!loader || !wrap) return;
+        if (noData) {
+            loader.style.display='flex'; wrap.style.display='none';
+            if (charts['c-tank']) { charts['c-tank'].destroy(); delete charts['c-tank']; }
+            return;
+        }
+        loader.style.display='none'; wrap.style.display='block';
+        const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        opts.scales.y.min = 0;
+        opts.scales.y.ticks.callback = v => v.toFixed(0)+' bar';
+        opts.scales.y1 = {
+            type:'linear', position:'right',
+            min:-0.15, max:1.4,
+            grid:{ drawOnChartArea:false },
+            ticks:{ color:'#27ae60', font:{size:10}, callback: v => v===1?'TANK OK':(v===0?'LOW':''), stepSize:1 },
+        };
+        opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
+        opts.plugins.legend.display = true;
+        opts.plugins.legend.labels  = llLabels();
+        opts.plugins.tooltip.callbacks = {
+            title: a => a.length ? fmtChartTime(new Date(a[0].parsed.x).toISOString(), perfRangeH) : '',
+            label: ctx => {
+                if (ctx.datasetIndex===0) return ' Pressure: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(2)+' bar':'--');
+                return ' Tank: '+(ctx.parsed.y===1?'OK':(ctx.parsed.y===0?'LOW':'--'));
+            }
+        };
+        const ds = [
+            { label:'Discharge Pressure', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
+              borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.12)',
+              borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:5,
+              fill:true, spanGaps:true, stepped:false, yAxisID:'y' },
+            { label:'Tank Status',        data: pts.map(r=>({x:tsMs(r),y:r.tk!=null?r.tk:null})),
+              borderColor:'rgba(39,174,96,.9)', backgroundColor:'rgba(39,174,96,.18)',
+              borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:0,
+              fill:'origin', spanGaps:false, stepped:'before', yAxisID:'y1' },
+        ];
+        if (charts['c-tank']) { charts['c-tank'].destroy(); }
+        charts['c-tank'] = new Chart(document.getElementById('c-tank').getContext('2d'), {
+            type:'line', data:{ datasets:ds }, options:opts
+        });
+    })();
 
     // Flow
     renderLineChart('c-flow', noData, pts, [
