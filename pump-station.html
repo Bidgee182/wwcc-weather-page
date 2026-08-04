@@ -112,9 +112,20 @@
         .sp-picker-apply:hover { background:#1d5a38; }
         .sp-picker-cancel { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:7px; padding:9px 14px; cursor:pointer; font-family:inherit; font-size:.85em; }
 
-        /* Pump summary rows */
-        .pump-summary-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #3d5166; }
-        .pump-summary-row:last-child { border-bottom:none; }
+        /* Pump summary pills */
+        .pump-pills-row { display:flex; gap:8px; align-items:stretch; }
+        .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:12px 6px; text-align:center; min-width:0; transition:border-color .4s; }
+        .pump-pill-lbl { font-size:.68em; color:#95a5a6; letter-spacing:.05em; text-transform:uppercase; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .pump-pill-status { font-size:.68em; font-weight:bold; letter-spacing:.04em; margin-bottom:6px; }
+        .pump-pill-speed { font-size:1.45em; font-weight:bold; line-height:1; }
+        .pump-pill-kw { font-size:.73em; color:#95a5a6; margin-top:3px; }
+        .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
+        .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
+        .pump-pill.pp-standby { border-color:#f39c12; }
+        .pump-pill.pp-standby .pump-pill-status { color:#f39c12; }
+        .pump-pill.pp-fault { border-color:#e74c3c; animation:ppPulseRed 1.6s ease-in-out infinite; }
+        .pump-pill.pp-fault .pump-pill-status { color:#e74c3c; }
+        .pump-pill.pp-stopped .pump-pill-status { color:#566573; }
 
         /* Pump cards */
         .pump-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
@@ -1208,25 +1219,29 @@ function renderOverview() {
     if (!pumps.length) {
         el.innerHTML = '<div style="text-align:center;color:#566573;font-size:.88em;padding:14px;">Waiting for data...</div>';
     } else {
-        el.innerHTML = pumps.map(p => {
-            let bc, bl;
-            if (!connected)  { bc='badge-offline'; bl='OFFLINE'; }
-            else if (p.fault)    { bc='badge-fault';   bl='FAULT'; }
-            else if (p.running)  { bc='badge-running'; bl='RUNNING'; }
-            else if (p.standby)  { bc='badge-standby'; bl='STANDBY'; }
-            else                 { bc='badge-stopped'; bl='STOPPED'; }
-            const sp = p.speed_pct  != null ? p.speed_pct.toFixed(0)+'%' : '--';
-            const kw = p.power_kw   != null ? p.power_kw.toFixed(1)+' kW' : '--';
-            const stopLink  = '<a href="#" onclick="openControlAction(\'stop_pump\','+p.id+');return false;" class="ctrl-mini stop">STOP</a>';
-            const startLink = '<a href="#" onclick="openControlAction(\'start_pump\','+p.id+');return false;" class="ctrl-mini start">START</a>';
-            const ctrlLinks = connected ? (p.running||p.standby ? stopLink : p.fault ? '' : startLink) : '';
-            return '<div class="pump-summary-row">'+
-                '<span style="width:76px;font-size:.88em;font-weight:bold;flex-shrink:0;">'+p.label+'</span>'+
-                '<span class="pump-badge '+bc+'" style="margin-bottom:0;">'+bl+'</span>'+
-                '<span style="font-size:.78em;color:#7f8c8d;margin-left:8px;">'+sp+' &nbsp; '+kw+'</span>'+
-                '<span style="margin-left:auto;">'+ctrlLinks+'</span>'+
-                '</div>';
-        }).join('');
+        const isJockey = p => p.label.toLowerCase().startsWith('jockey');
+        const getNum = p => { const m = p.label.match(/P(\d+)/i); return m ? parseInt(m[1]) : 0; };
+        const ordered = [
+            ...pumps.filter(isJockey),
+            ...pumps.filter(p => !isJockey(p)).sort((a,b) => getNum(b) - getNum(a))
+        ];
+        el.innerHTML = '<div class="pump-pills-row">' + ordered.map(p => {
+            let state, statusText;
+            if (!connected)     { state='pp-stopped'; statusText='OFFLINE'; }
+            else if (p.fault)   { state='pp-fault';   statusText='FAULT';   }
+            else if (p.running) { state='pp-running'; statusText='RUNNING'; }
+            else if (p.standby) { state='pp-standby'; statusText='STANDBY'; }
+            else                { state='pp-stopped'; statusText='STOPPED'; }
+            const lbl = p.label.split(/[\s\-]+/)[0];
+            const sp = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
+            const kw = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
+            return '<div class="pump-pill '+state+'">'
+                + '<div class="pump-pill-lbl">'+lbl+'</div>'
+                + '<div class="pump-pill-status">'+statusText+'</div>'
+                + '<div class="pump-pill-speed">'+sp+'</div>'
+                + '<div class="pump-pill-kw">'+kw+'</div>'
+                + '</div>';
+        }).join('') + '</div>';
     }
 }
 
