@@ -1609,7 +1609,8 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         borderWidth: 2,
         borderDash: d.dashed ? [7,4] : [],
         tension: 0.3,
-        pointRadius: nPts > 120 ? 0 : 3,
+        pointRadius: 0,
+        pointHoverRadius: 5,
         fill: !!(d.bg && d.bg !== 'transparent'),
         spanGaps: false,
         stepped: d.stepped || false,
@@ -1709,9 +1710,9 @@ async function renderTrendCharts() {
         charts['c-dpres'] = new Chart(document.getElementById('c-dpres').getContext('2d'), {
             type:'line',
             data: { labels, datasets: [
-                {label:'Max',data:days.map(d=>d.p_max),borderColor:'#e74c3c',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,spanGaps:true},
-                {label:'Avg',data:days.map(d=>d.p_avg),borderColor:'#e67e22',borderWidth:2, pointRadius:3,tension:0.3,fill:false,spanGaps:true},
-                {label:'Min',data:days.map(d=>d.p_min),borderColor:'#3498db',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,spanGaps:true},
+                {label:'Max',data:days.map(d=>d.p_max),borderColor:'#e74c3c',borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
+                {label:'Avg',data:days.map(d=>d.p_avg),borderColor:'#e67e22',borderWidth:2, pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
+                {label:'Min',data:days.map(d=>d.p_min),borderColor:'#3498db',borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
             ]},
             options: opts
         });
