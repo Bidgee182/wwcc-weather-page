@@ -791,6 +791,10 @@ def main():
         "volume_m3":                 volume_m3,
         "di_bits":                   di_raw,
         "do_bits":                   do_raw,
+        # DI2 (terminals 12,13) = Water Shortage / tank float valve
+        # bit1=1: float closed (jumper or float OK) = tank OK
+        # bit1=0: float open (tank low) = water shortage / tank empty
+        "tank_ok":                   bool(di_raw & 0x02) if di_raw is not None else None,
         "alarm_code":                alarm_code or 0,
         "warning_code":              warning_code or 0,
         "pumps_comm_fault":          pumps_comm_fault or 0,

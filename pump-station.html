@@ -507,6 +507,16 @@
                 <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
                 <div class="sm-unit">Wh/m&sup3;</div>
             </div>
+            <div class="sys-metric" id="ov-tank-metric">
+                <div class="sm-lbl lbl-green" id="ov-tank-lbl">Supply Tank</div>
+                <div class="sm-val" id="ov-tank-val" style="color:#27ae60;font-size:1.2em;">--</div>
+                <div class="sm-unit" id="ov-tank-sub">DI2</div>
+            </div>
+            <div class="sys-metric" id="ov-cycling-metric">
+                <div class="sm-lbl" id="ov-cycling-lbl">Cycling</div>
+                <div class="sm-val" id="ov-cycling-val" style="color:#7f8c8d;font-size:1.2em;">--</div>
+                <div class="sm-unit" id="ov-cycling-sub">Too many restarts</div>
+            </div>
         </div>
     </div>
 
@@ -1263,6 +1273,57 @@ function renderOverview() {
     document.getElementById('ov-alarms').textContent  = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
     const ov_se = document.getElementById('ov-spec-e');
     if (ov_se) ov_se.textContent = sys.specific_energy_wh_m3 != null ? Math.round(sys.specific_energy_wh_m3) : '--';
+
+    // Tank float valve status — DI2 (terminals 12,13): true=OK, false=empty, null=unknown
+    const tankOk  = sys.tank_ok;
+    const tankLbl = document.getElementById('ov-tank-lbl');
+    const tankVal = document.getElementById('ov-tank-val');
+    const tankSub = document.getElementById('ov-tank-sub');
+    if (tankLbl && tankVal) {
+        if (tankOk === null || tankOk === undefined) {
+            tankLbl.className = 'sm-lbl';
+            tankVal.style.color = '#7f8c8d';
+            tankVal.textContent = '--';
+            if (tankSub) tankSub.textContent = 'DI2';
+        } else if (tankOk) {
+            tankLbl.className = 'sm-lbl lbl-green';
+            tankVal.style.color = '#27ae60';
+            tankVal.textContent = 'OK';
+            if (tankSub) tankSub.textContent = 'Supply Tank';
+        } else {
+            tankLbl.className = 'sm-lbl lbl-red';
+            tankVal.style.color = '#e74c3c';
+            tankVal.textContent = 'EMPTY';
+            if (tankSub) tankSub.textContent = 'Water Shortage!';
+        }
+    }
+
+    // Cycling warning — alarm code 4 "Too many restarts"
+    const cyclingLbl = document.getElementById('ov-cycling-lbl');
+    const cyclingVal = document.getElementById('ov-cycling-val');
+    const cyclingSub = document.getElementById('ov-cycling-sub');
+    if (cyclingLbl && cyclingVal) {
+        const activeCycle = pumps.some(p => p.alarm_code === 4)
+            || (d && d.alarms || []).some(a => a.active && a.code === 4);
+        const recentCycle = !activeCycle
+            && (d && d.event_log || []).slice(0, 40).some(e => e.code === 4 && e.type_code === 1);
+        if (activeCycle) {
+            cyclingLbl.className = 'sm-lbl lbl-red';
+            cyclingVal.style.color = '#e74c3c';
+            cyclingVal.textContent = 'ACTIVE';
+            if (cyclingSub) cyclingSub.textContent = 'Too many restarts!';
+        } else if (recentCycle) {
+            cyclingLbl.className = 'sm-lbl lbl-amber';
+            cyclingVal.style.color = '#f39c12';
+            cyclingVal.textContent = 'RECENT';
+            if (cyclingSub) cyclingSub.textContent = 'Check event log';
+        } else {
+            cyclingLbl.className = 'sm-lbl lbl-green';
+            cyclingVal.style.color = '#27ae60';
+            cyclingVal.textContent = 'OK';
+            if (cyclingSub) cyclingSub.textContent = 'No cycling';
+        }
+    }
 
     const el = document.getElementById('ov-pump-summary');
     const connected = d && d.connected;
