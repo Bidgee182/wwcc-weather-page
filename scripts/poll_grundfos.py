@@ -79,6 +79,7 @@ LATEST_FILE        = os.path.join(DATA_DIR, "pump_station_latest.json")
 HISTORY_FILE       = os.path.join(DATA_DIR, "pump_station_history.json")
 DAILY_FILE         = os.path.join(DATA_DIR, "pump_station_daily.json")
 ALARM_HISTORY_FILE = os.path.join(DATA_DIR, "pump_alarm_history.json")
+STARTS_FILE        = os.path.join(DATA_DIR, "pump_starts.json")
 RAW_ARCHIVE_DIR    = os.path.join(DATA_DIR, "raw")
 
 MAX_24H   = 288   # 5-min polls for 24 h
@@ -710,12 +711,18 @@ def main():
             "power_kw":     round(pwr_raw * 10 / 1000, 2) if pwr_raw is not None else None,
             "current_a":    round(cur_raw * 0.1, 2) if cur_raw is not None else None,
             "run_hours":    float(op_combined) if op_combined is not None else None,
-            "starts_total": None,   # not available in booster Modbus profile
+            "starts_today": 0,   # placeholder; updated by track_pump_starts() after parse
             "temp_c":       temp_c,
             "alarm_code":   alarm_c,
         }
 
     pump_data = [parse_pump(pd, i) for i, pd in enumerate(PUMP_DEFS)]
+
+    # -- Inferred pump starts (transition-based; no Modbus register exists) --------
+    now_aest_date = (datetime.now(timezone.utc) + timedelta(hours=10)).strftime("%Y-%m-%d")
+    today_starts = track_pump_starts(pump_data, now_aest_date)
+    for i, p in enumerate(pump_data):
+        p["starts_today"] = today_starts[i] if i < len(today_starts) else 0
 
     # -- Analog inputs (AnalogIn1-7) ---------------------------------------------
     TEMP_UNIT_CODES = {10, 13, 84, 110}
@@ -760,7 +767,7 @@ def main():
         "sp": [p["speed_pct"]    for p in pump_data],
         "pw": [p["power_kw"]     for p in pump_data],
         "rh": [p["run_hours"]    for p in pump_data],
-        "st": [p["starts_total"] for p in pump_data],
+        "st": [p["starts_today"] for p in pump_data],
         "tm": [p["temp_c"]       for p in pump_data],
         "se": spec_energy,
     }
@@ -860,7 +867,36 @@ def main():
 def _offline_pump(defn):
     return {**defn, "running": False, "fault": False, "standby": False,
             "speed_pct": None, "power_kw": None, "current_a": None,
-            "run_hours": None, "starts_total": None, "temp_c": None, "alarm_code": None}
+            "run_hours": None, "starts_today": 0, "temp_c": None, "alarm_code": None}
+
+
+def track_pump_starts(pump_data, now_aest_date):
+    """Infer pump starts from running-state transitions (no Modbus register available).
+    Counts reset daily at AEST midnight. Returns list of today's start counts per pump."""
+    saved = load_json(STARTS_FILE, {})
+
+    if saved.get("date") != now_aest_date:
+        # New day - reset counts; keep last running state to avoid a phantom start at rollover
+        counts   = [0] * len(pump_data)
+        prev_run = saved.get("running", [False] * len(pump_data))
+    else:
+        counts   = saved.get("counts",  [0]     * len(pump_data))
+        prev_run = saved.get("running", [False]  * len(pump_data))
+
+    # Pad in case pump count changed
+    while len(counts)   < len(pump_data): counts.append(0)
+    while len(prev_run) < len(pump_data): prev_run.append(False)
+
+    curr_run = []
+    for i, p in enumerate(pump_data):
+        is_running = bool(p.get("running", False))
+        was_running = bool(prev_run[i])
+        if is_running and not was_running:
+            counts[i] += 1
+        curr_run.append(is_running)
+
+    write_json(STARTS_FILE, {"date": now_aest_date, "counts": counts, "running": curr_run})
+    return counts
 
 
 def update_daily(long_readings, short_readings):
@@ -896,7 +932,7 @@ def update_daily(long_readings, short_readings):
                 sp_s = [r["sp"][i] for r in pts if r.get("sp") and i < len(r["sp"]) and r["sp"][i] is not None]
                 hrs.append(round(sum(1 for x in sp_s if x > 1) * interval_h, 2))
 
-            sts.append(0)  # starts counter not available in booster Modbus profile
+            sts.append(0)  # not in 90d history; daily starts tracked live in pump_starts.json
 
             pw_s = [r["pw"][i] for r in pts if r.get("pw") and i < len(r["pw"]) and r["pw"][i] is not None]
             kwh.append(round(sum(pw_s) * interval_h, 2) if pw_s else 0)

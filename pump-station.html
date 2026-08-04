@@ -76,7 +76,7 @@
         @keyframes pRed    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
 
         /* System metrics */
-        .sys-metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(85px,1fr)); gap:10px; margin-bottom:14px; }
+        .sys-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(85px,1fr)); gap:10px; margin-bottom:14px; }
         @media (max-width:600px) { .sys-metrics { grid-template-columns:repeat(3,1fr); } }
         .sys-metric { background:#1a252f; border-radius:8px; padding:0 10px 12px; text-align:center; border:1px solid #3d5166; overflow:hidden; }
         .sm-val  { font-size:2em; font-weight:bold; line-height:1; }
@@ -139,7 +139,8 @@
         .pump-pill-model { font-size:.68em; font-weight:bold; color:#7f8c8d; letter-spacing:.02em; margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
         .pump-pill-status { font-size:.65em; font-weight:bold; letter-spacing:.04em; margin-bottom:7px; }
         .pump-pill-speed { font-size:1.3em; font-weight:bold; line-height:1; }
-        .pump-pill-kw { font-size:.7em; color:#95a5a6; margin-top:3px; }
+        .pump-pill-kw     { font-size:.7em; color:#95a5a6; margin-top:3px; }
+        .pump-pill-starts { font-size:.6em; color:#7f8c8d; margin-top:2px; }
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
         .pump-pill.pp-running .pump-pill-name   { background:rgba(39,174,96,.25);  color:#2ecc71; }
         .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
@@ -1287,12 +1288,14 @@ function renderOverview() {
             const model = p.model || '';
             const sp = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
             const kw = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
+            const st = p.starts_today > 0 ? p.starts_today+' starts' : '';
             return '<div class="pump-pill '+state+'">'
                 + '<div class="pump-pill-name">'+shortName+'</div>'
                 + '<div class="pump-pill-model">'+(model||'&nbsp;')+'</div>'
                 + '<div class="pump-pill-status">'+statusText+'</div>'
                 + '<div class="pump-pill-speed">'+sp+'</div>'
                 + '<div class="pump-pill-kw">'+kw+'</div>'
+                + (st ? '<div class="pump-pill-starts">'+st+'</div>' : '')
                 + '</div>';
         }).join('');
     }
@@ -1430,7 +1433,7 @@ function pumpAnimCard(p, connected, isJockey) {
     const pw   = p.power_kw    != null ? p.power_kw.toFixed(1)+' kW' : '--';
     const ia   = p.current_a   != null ? p.current_a.toFixed(1)+' A' : '--';
     const hrs  = p.run_hours    != null ? p.run_hours.toFixed(0)+'h'  : '--';
-    const sts  = p.starts_total != null ? p.starts_total.toString()   : '--';
+    const sts  = p.starts_today != null ? p.starts_today.toString()   : '--';
     const tmpD = (connected && tempC != null) ? Number(tempC).toFixed(0)+'&deg;C' : '--';
     const tag  = isJockey ? 'Jockey (M4)' : 'M'+p.id;
 
@@ -1448,7 +1451,7 @@ function pumpAnimCard(p, connected, isJockey) {
             <div class="pump-stat"><div class="ps-v">${pw}</div><div class="ps-l">Power</div></div>
             <div class="pump-stat"><div class="ps-v">${ia}</div><div class="ps-l">Current</div></div>
             <div class="pump-stat"><div class="ps-v">${tmpD}</div><div class="ps-l">Temp (Pt100)</div></div>
-            <div class="pump-stat" style="grid-column:1/-1;"><div class="ps-v">${hrs} &bull; ${sts} starts</div><div class="ps-l">Run Hours / Total Starts</div></div>
+            <div class="pump-stat" style="grid-column:1/-1;"><div class="ps-v">${hrs} &bull; ${sts} starts today</div><div class="ps-l">Run Hours / Starts Today</div></div>
         </div>
     </div>`;
 }
@@ -1459,7 +1462,7 @@ function defaultPumps() {
         {id:2,label:'P2 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
         {id:3,label:'P3 - CRNE45',model:'CRNE45-3',rated_kw:18.5},
         {id:4,label:'Jockey',     model:'CRNE10-9',rated_kw:5.5},
-    ].map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_total:null,temp_c:null},p));
+    ].map(p => Object.assign({running:false,fault:false,standby:false,speed_pct:null,power_kw:null,current_a:null,run_hours:null,starts_today:0,temp_c:null},p));
 }
 
 // ─── Performance charts ───────────────────────────────────────────────────────
