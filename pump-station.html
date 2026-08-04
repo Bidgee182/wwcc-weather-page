@@ -26,21 +26,33 @@
         .header-gf-block { margin-left:auto; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
         .header-gf-block .conn-banner { max-width:260px; }
         .header-gf-block .conn-title  { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; display:block; }
-        /* Mobile: hide Grundfos block + subtitle, shrink logo + title */
+        /* Grundfos logo above title on mobile (hidden on desktop) */
+        .header-gf-mobile { display:none; height:18px; width:auto; opacity:0.9; margin-bottom:2px; }
+        /* Mobile: hide Grundfos block + subtitle, show mobile Grundfos logo, shrink logo + title */
         @media (max-width:700px) {
             .header-gf-block { display:none; }
             .header-text .subtitle { display:none; }
             .header-logo { height:48px; }
             .header-text h1 { font-size:1.4em; letter-spacing:4px; }
+            .header-gf-mobile { display:block; }
+            /* Pump cards: switch from horizontal-scroll flex to wrapping grid */
+            .pump-row { display:grid; grid-template-columns:repeat(2,1fr); overflow-x:unset; justify-content:unset; flex-wrap:unset; }
+            .pump-anim-card { min-width:unset; max-width:none; width:100%; }
+            .pump-anim-card svg[viewBox="0 0 100 222"] { width:72px !important; height:160px !important; }
+            .pump-anim-card svg[viewBox="0 0 80 178"]  { width:58px !important; height:129px !important; }
         }
         @media (max-width:480px) {
             .header { gap:10px; }
             .header-logo { height:40px; }
             .header-text h1 { font-size:1.15em; letter-spacing:2px; }
+            .header-gf-mobile { height:15px; }
+            .pump-anim-card svg[viewBox="0 0 100 222"] { width:60px !important; height:133px !important; }
+            .pump-anim-card svg[viewBox="0 0 80 178"]  { width:48px !important; height:107px !important; }
         }
         @media (max-width:360px) {
             .header-logo { height:34px; }
             .header-text h1 { font-size:1em; letter-spacing:1px; }
+            .header-gf-mobile { height:13px; }
         }
 
         /* Sidebar nav */
@@ -203,7 +215,6 @@
 
         /* Animated pump cards */
         .pump-row { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; overflow-x:auto; padding-bottom:4px; }
-        @media (max-width:580px) { .pump-row { flex-wrap:nowrap; justify-content:flex-start; } }
         .pump-row::-webkit-scrollbar { height:4px; }
         .pump-row::-webkit-scrollbar-track { background:#2c3e50; }
         .pump-row::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
@@ -396,6 +407,7 @@
         <img class="logo-top header-logo" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
     </div>
     <div class="header-text">
+        <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" class="header-gf-mobile">
         <h1><span style="font-weight:300;letter-spacing:8px;">PUMP</span> <span style="color:#e67e22;font-weight:800;">STATION</span></h1>
         <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Grundfos</span> Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
