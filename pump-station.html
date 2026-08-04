@@ -34,7 +34,7 @@
             .header-text .subtitle { display:none; }
             .header-logo { height:48px; }
             .header-text h1 { font-size:1.4em; letter-spacing:4px; }
-            .header-gf-mobile { display:block; }
+            .header-gf-mobile { display:inline-block; }
             /* Pump cards: switch from horizontal-scroll flex to wrapping grid */
             .pump-row { display:grid; grid-template-columns:repeat(2,1fr); overflow-x:unset; justify-content:unset; flex-wrap:unset; }
             .pump-anim-card { min-width:unset; max-width:none; width:100%; }
@@ -547,12 +547,8 @@
 <!-- ═══════════════════════════ PUMPS ═══════════════════════════ -->
 <div id="tab-pumps" class="tab-panel">
     <div class="card">
-        <h2>Main Pumps (P1 - P3) - CRNE45-3 18.5kW - Integrated VFD</h2>
-        <div class="pump-row" id="main-pump-grid"></div>
-    </div>
-    <div class="card">
-        <h2>Pilot / Jockey Pump - CRNE10-9 5.5kW - Integrated VFD</h2>
-        <div class="pump-row" id="jockey-wrap"></div>
+        <h2>All Pumps - Grundfos Hydro MPC CU 352</h2>
+        <div class="pump-row" id="all-pump-grid"></div>
     </div>
 </div>
 
@@ -1272,12 +1268,12 @@ function renderPumps() {
     const d = latestData;
     const connected = d && d.connected;
     const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
-    const main   = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
     const jockey = pumps.filter(p =>  p.label.toLowerCase().startsWith('jockey'));
-    document.getElementById('main-pump-grid').innerHTML = main.map(p => pumpAnimCard(p, connected, false)).join('');
-    document.getElementById('jockey-wrap').innerHTML   = jockey.length
-        ? jockey.map(p => pumpAnimCard(p, connected, true)).join('')
-        : '<div style="color:#566573;font-size:.85em;">No jockey pump data</div>';
+    const main   = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
+    const ordered = [...jockey, ...main];
+    document.getElementById('all-pump-grid').innerHTML = ordered.map(p =>
+        pumpAnimCard(p, connected, p.label.toLowerCase().startsWith('jockey'))
+    ).join('');
 }
 
 function getPumpColors(state) {
