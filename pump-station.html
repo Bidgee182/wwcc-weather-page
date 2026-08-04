@@ -49,9 +49,9 @@
         }
 
         /* Cards */
-        .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
-        .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#7f8c8d; border-bottom:1px solid #3d5166; padding-bottom:10px; margin-bottom:14px; }
-        @media (max-width:480px) { .card { padding:14px 12px; } }
+        .card { background:#2c3e50; border-radius:10px; padding:0 18px 18px; margin-bottom:16px; overflow:hidden; }
+        .card h2 { font-size:0.8em; text-transform:uppercase; letter-spacing:2px; color:#9db4c8; margin:0 -18px 14px -18px; padding:10px 18px; background:rgba(40,58,76,.7); border-bottom:1px solid #2c3e50; }
+        @media (max-width:480px) { .card { padding:0 12px 14px; } .card h2 { margin:0 -12px 12px -12px; padding:9px 12px; } }
 
         .tab-panel { display:none; }
         .tab-panel.active { display:block; }
@@ -135,7 +135,7 @@
         .pump-pills-row { display:flex; gap:8px; align-items:stretch; margin-bottom:14px; }
         .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 6px 12px; text-align:center; min-width:0; transition:border-color .4s; overflow:hidden; }
         .pump-pill-name { font-size:1.35em; font-weight:bold; color:#ecf0f1; line-height:1; margin:0 -6px 4px -6px; padding:9px 6px 7px; background:rgba(61,81,102,.5); }
-        .pump-pill-model { font-size:.59em; color:#566573; letter-spacing:.02em; margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
+        .pump-pill-model { font-size:.68em; font-weight:bold; color:#7f8c8d; letter-spacing:.02em; margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
         .pump-pill-status { font-size:.65em; font-weight:bold; letter-spacing:.04em; margin-bottom:7px; }
         .pump-pill-speed { font-size:1.3em; font-weight:bold; line-height:1; }
         .pump-pill-kw { font-size:.7em; color:#95a5a6; margin-top:3px; }
@@ -1263,14 +1263,13 @@ function renderOverview() {
         ];
         el.innerHTML = ordered.map(p => {
             let state, statusText;
-            if (!connected)     { state='pp-stopped'; statusText='OFFLINE'; }
-            else if (p.fault)   { state='pp-fault';   statusText='FAULT';   }
-            else if (p.running) { state='pp-running'; statusText='RUNNING'; }
-            else if (p.standby) { state='pp-standby'; statusText='STANDBY'; }
-            else                { state='pp-stopped'; statusText='STOPPED'; }
-            const parts = p.label.split(' - ');
-            const shortName = parts[0].trim();
-            const model = parts.length > 1 ? parts.slice(1).join(' - ').trim() : '';
+            if (!connected)     { state='pp-stopped'; statusText='OFFLINE';          }
+            else if (p.fault)   { state='pp-fault';   statusText='FAULT';            }
+            else if (p.running) { state='pp-running'; statusText='RUNNING';          }
+            else if (p.standby) { state='pp-standby'; statusText='IN STANDBY';       }
+            else                { state='pp-stopped'; statusText='STOPPED';          }
+            const shortName = p.label.split(' - ')[0].trim();
+            const model = p.model || '';
             const sp = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
             const kw = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
             return '<div class="pump-pill '+state+'">'
