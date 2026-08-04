@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-04T05:48:35.196220+00:00",
-  "last_seen": "2026-08-04T05:48:35.196220+00:00",
+  "timestamp": "2026-08-04T05:53:21.730607+00:00",
+  "last_seen": "2026-08-04T05:53:21.730607+00:00",
   "system": {
-    "pressure_actual_bar": 7.874,
+    "pressure_actual_bar": 8.504,
     "pressure_suction_bar": -0.663,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
-    "power_kw": 5.5,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 87.0,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198936,
@@ -25,7 +25,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -38,14 +38,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 88.2,
-      "power_kw": 5.5,
-      "current_a": 14.4,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5148.0,
-      "starts_today": 1,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -59,9 +59,9 @@
       "running": false,
       "fault": false,
       "standby": true,
-      "speed_pct": 41.7,
+      "speed_pct": 0.0,
       "power_kw": 0.0,
-      "current_a": 13.2,
+      "current_a": 0.0,
       "run_hours": 5146.0,
       "starts_today": 0,
       "temp_c": null,
@@ -109,7 +109,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7831,
+      "raw": 8522,
       "temp_c": null
     },
     {
@@ -150,45 +150,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-03T05:51:14.806519+00:00",
-      "pa": 8.251,
-      "ps": 7.8,
-      "pi": -0.32,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        51.5,
-        51.5,
-        51.5,
-        13.9
-      ],
-      "st": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ]
-    },
     {
       "ts": "2026-08-03T06:45:10.289299+00:00",
       "pa": 8.566,
@@ -5421,9 +5382,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-04T05:53:21.730607+00:00",
+      "pa": 8.504,
+      "ps": 7.8,
+      "pi": -0.663,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5146.0,
+        1394.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-04T05:53:21.730607+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-03T22:33:54.054244+00:00",
       "type_code": 2,
@@ -5805,16 +5815,6 @@
       "type_name": "Alarm appeared",
       "code": 214,
       "description": "Water shortage",
-      "pump_label": "System",
-      "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-22T22:27:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 210,
-      "description": "Pressure high",
       "pump_label": "System",
       "source_name": "System",
       "imported": true
