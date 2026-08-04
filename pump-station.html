@@ -57,19 +57,20 @@
         .tab-panel.active { display:block; }
 
         /* Connection banner */
-        .conn-banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border:2px solid; }
+        .conn-banner { border-radius:10px; padding:11px 18px; margin-bottom:18px; display:inline-flex; align-items:center; gap:12px; border:2px solid; max-width:100%; }
         .conn-banner.offline { background:#2c2518; border-color:#e67e22; }
         .conn-banner.online  { background:#1c3025; border-color:#27ae60; }
         .conn-banner.fault   { background:#2c1a1a; border-color:#e74c3c; }
-        .conn-left { display:flex; align-items:center; gap:14px; }
-        .conn-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+        .conn-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
         .conn-dot.offline { background:#e67e22; animation:pOrange 2s ease-in-out infinite; }
         .conn-dot.online  { background:#27ae60; animation:pGreen  3s ease-in-out infinite; }
         .conn-dot.fault   { background:#e74c3c; animation:pRed    1s ease-in-out infinite; }
-        .conn-title { font-size:1.05em; font-weight:bold; }
-        .conn-sub   { font-size:0.78em; color:#bdc3c7; margin-top:3px; }
-        .conn-right { text-align:right; }
+        .conn-title-row { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+        .conn-title { font-size:1em; font-weight:bold; }
         .conn-ts    { font-size:0.72em; color:#7f8c8d; }
+        .conn-sub   { font-size:0.72em; color:#7f8c8d; margin-top:2px; }
+        /* Mode pill text */
+        .pp-mode-val { font-size:.88em; font-weight:bold; line-height:1.3; padding:3px 4px 0; }
         @keyframes pOrange { 0%,100%{box-shadow:0 0 4px rgba(230,126,34,.4)} 50%{box-shadow:0 0 14px 5px rgba(230,126,34,.8)} }
         @keyframes pGreen  { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.4)}  50%{box-shadow:0 0 14px 5px rgba(39,174,96,.8)} }
         @keyframes pRed    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
@@ -395,16 +396,13 @@
 
 <!-- CONNECTION BANNER -->
 <div class="conn-banner offline" id="conn-banner">
-    <div class="conn-left">
-        <div class="conn-dot offline" id="conn-dot"></div>
-        <div>
-            <div class="conn-title" id="conn-title">WAITING FOR CONNECTION</div>
-            <div class="conn-sub"   id="conn-sub">CIM 500 Modbus TCP - Checking every 60s</div>
+    <div class="conn-dot offline" id="conn-dot"></div>
+    <div>
+        <div class="conn-title-row">
+            <span class="conn-title" id="conn-title">WAITING FOR CONNECTION</span>
+            <span class="conn-ts"    id="conn-ts"></span>
         </div>
-    </div>
-    <div class="conn-right">
-        <div class="conn-ts" id="conn-ts">Last data: Never</div>
-        <div class="conn-ts" id="conn-mode" style="margin-top:3px;"></div>
+        <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP</div>
     </div>
 </div>
 
@@ -451,6 +449,12 @@
                 <div class="pp-val" id="ov-setpoint">--</div>
                 <div class="pp-unit">bar</div>
                 <button class="pp-edit" onclick="ovEditSetpoint()" title="Change setpoint (PIN required)">&#9998;</button>
+            </div>
+            <div class="pp-sep">|</div>
+            <!-- Mode -->
+            <div class="pres-pill" id="pp-mode">
+                <div class="pp-lbl">Mode</div>
+                <div class="pp-mode-val" id="ov-mode">--</div>
             </div>
         </div>
         <!-- Inline setpoint quick-picker (shown after unlock) -->
@@ -1006,6 +1010,22 @@ const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6'];
 const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)'];
 const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','Jockey CRNE10'];
 
+function legendLineLabels(chart) {
+    return chart.data.datasets.map((ds, i) => ({
+        text: ds.label,
+        fillStyle:   ds.borderColor || ds.backgroundColor,
+        strokeStyle: ds.borderColor || ds.backgroundColor,
+        lineWidth: ds.borderWidth || 2,
+        hidden: !chart.isDatasetVisible(i),
+        datasetIndex: i,
+        pointStyle: 'line',
+        lineDash: ds.borderDash || [],
+    }));
+}
+function llLabels() {
+    return { color:'#bdc3c7', font:{size:10}, usePointStyle:true, pointStyleWidth:22, padding:10, generateLabels:legendLineLabels };
+}
+
 const CHART_OPT_BASE = {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode:'index', intersect:false },
@@ -1190,25 +1210,21 @@ function renderBanner() {
     const dot    = document.getElementById('conn-dot');
     const title  = document.getElementById('conn-title');
     const ts     = document.getElementById('conn-ts');
-    const mode   = document.getElementById('conn-mode');
     const connected = d && d.connected;
     const hasFault  = connected && d.system && d.system.fault;
     if (!connected) {
         banner.className = 'conn-banner offline'; dot.className = 'conn-dot offline';
         title.textContent = 'WAITING FOR CONNECTION';
-        ts.textContent = d && d.last_seen ? 'Last data: '+fmtAge(d.last_seen) : 'Last data: Never';
-        mode.textContent = '';
+        ts.textContent = d && d.last_seen ? '· Last data: '+fmtAge(d.last_seen) : '';
     } else if (hasFault) {
         banner.className = 'conn-banner fault'; dot.className = 'conn-dot fault';
-        title.textContent = 'SYSTEM FAULT - CHECK PUMP STATION';
-        ts.textContent = 'Updated: '+fmtAge(d.timestamp);
-        mode.textContent = 'Mode: '+(d.system.mode||'Unknown').toUpperCase();
+        title.textContent = 'SYSTEM FAULT';
+        ts.textContent = '· Updated: '+fmtAge(d.timestamp);
     } else {
         const running = (d.pumps||[]).filter(p=>p.running).length;
         banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
         title.textContent = 'ONLINE - '+(running>0 ? running+' PUMP'+(running>1?'S':'')+' RUNNING' : 'SYSTEM STANDBY');
-        ts.textContent = 'Updated: '+fmtAge(d.timestamp);
-        mode.textContent = 'Mode: '+(d.system.mode||'Unknown').toUpperCase();
+        ts.textContent = '· Updated: '+fmtAge(d.timestamp);
     }
 }
 
@@ -1224,6 +1240,8 @@ function renderOverview() {
     document.getElementById('ov-suction').textContent  = suction  != null ? suction.toFixed(2)  : '--';
     document.getElementById('ov-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
     document.getElementById('ov-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
+    const modeEl = document.getElementById('ov-mode');
+    if (modeEl) modeEl.textContent = sys.mode ? sys.mode.replace(/\b\w/g,c=>c.toUpperCase()) : '--';
 
     // Discharge pill — pulses green/amber/red vs setpoint
     const ppDischarge = document.getElementById('pp-discharge');
@@ -1557,7 +1575,7 @@ async function renderPerfCharts() {
         startsOpts.scales.y.ticks.stepSize = 1;
         startsOpts.scales.y.ticks.callback = v => Number.isInteger(v) ? v : null;
         startsOpts.plugins.legend.display = true;
-        startsOpts.plugins.legend.labels  = { color:'#bdc3c7', font:{size:10}, boxWidth:28, boxHeight:3 };
+        startsOpts.plugins.legend.labels  = llLabels();
         startsOpts.plugins.tooltip.callbacks = { label: ctx => ctx.parsed.y > 0 ? ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + ' start' + (ctx.parsed.y !== 1 ? 's' : '') : null };
         if (charts['c-starts']) charts['c-starts'].destroy();
         charts['c-starts'] = new Chart(document.getElementById('c-starts').getContext('2d'), {
@@ -1596,7 +1614,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     if (yOpts && yOpts.autoMin) delete opts.scales.y.min;
     if (yOpts && yOpts.stepSize) opts.scales.y.ticks.stepSize = yOpts.stepSize;
     opts.plugins.legend.display = datasets.length > 1;
-    opts.plugins.legend.labels = { color:'#bdc3c7', font:{size:10}, boxWidth:28, boxHeight:3 };
+    opts.plugins.legend.labels = llLabels();
 
     // Time axis: format tick labels and tooltip title from epoch-ms x value
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
@@ -1680,7 +1698,7 @@ async function renderTrendCharts() {
         }));
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.plugins.legend.display = true;
-        opts.plugins.legend.labels = {color:'#bdc3c7',font:{size:10},boxWidth:28,boxHeight:3};
+        opts.plugins.legend.labels = llLabels();
         opts.scales.x.stacked = false;
         opts.scales.y.ticks.callback = v => v+(unit?unit:'');
         if (charts['c-trends']) { charts['c-trends'].destroy(); }
@@ -1709,7 +1727,7 @@ async function renderTrendCharts() {
         dpLoader.style.display='none'; dpWrap.style.display='block';
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.plugins.legend.display = true;
-        opts.plugins.legend.labels = {color:'#bdc3c7',font:{size:10},boxWidth:28,boxHeight:3};
+        opts.plugins.legend.labels = llLabels();
         opts.scales.y.ticks.callback = v=>v.toFixed(1)+' bar';
         if (charts['c-dpres']) { charts['c-dpres'].destroy(); }
         charts['c-dpres'] = new Chart(document.getElementById('c-dpres').getContext('2d'), {
