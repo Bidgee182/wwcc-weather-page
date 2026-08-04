@@ -380,8 +380,8 @@
         <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="" style="height:64px;">
     </div>
     <div class="header-text">
-        <h1>PUMP STATION</h1>
-        <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
+        <h1><span style="font-weight:300;letter-spacing:8px;">PUMP</span> <span style="color:#e67e22;font-weight:800;">STATION</span></h1>
+        <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Grundfos</span> Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
     <div style="margin-left:auto;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" style="height:38px;width:auto;opacity:0.92;">
@@ -832,11 +832,9 @@
 <!-- ═══════════════════════════ ALARMS ═══════════════════════════ -->
 <div id="tab-alarms" class="tab-panel">
     <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <h2 style="margin:0;">Active Alarms</h2>
-            <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;padding:6px 14px;font-size:.8em;" onclick="ctrlQueue('alarm_reset',null)">RESET ALARMS</button>
-        </div>
+        <h2>Active Alarms</h2>
         <div id="active-alarms"><div class="alarm-none">No active alarms</div></div>
+        <button class="ctrl-sys-btn" style="background:#1a3a2a;border-color:#27ae60;color:#2ecc71;padding:6px 14px;font-size:.8em;margin-top:10px;" onclick="ctrlQueue('alarm_reset',null)">RESET ALARMS</button>
     </div>
     <div class="card">
         <h2>Alarm History</h2>
@@ -1643,9 +1641,25 @@ async function renderTrendCharts() {
 
 // ─── Alarms ──────────────────────────────────────────────────────────────────
 async function renderAlarms() {
-    const alarms  = latestData && latestData.alarms ? latestData.alarms : [];
-    const active  = alarms.filter(a=>a.active);
-    document.getElementById('active-alarms').innerHTML = active.length ? active.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
+    const d         = latestData;
+    const liveAlarms = d && d.alarms ? d.alarms.filter(a=>a.active) : [];
+    const eventLog   = d && d.event_log ? d.event_log : [];
+
+    // Find currently active events: for each code+source key the most recent event must be type 1 or 3
+    const lastByKey = {};
+    for (const e of [...eventLog].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso))) {
+        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
+        lastByKey[key] = e;
+    }
+    const logActive = Object.values(lastByKey).filter(e => e.type_code===1||e.type_code===3)
+        .map(e => ({ code:e.code, description:e.description, pump:e.pump_label||e.source_name, timestamp:e.timestamp_iso, active:true }));
+
+    // Merge: live Modbus alarms + event-log derived active events (dedup by code+pump)
+    const combined = [...liveAlarms];
+    for (const e of logActive) {
+        if (!combined.some(a => a.code===e.code && a.pump===e.pump)) combined.push(e);
+    }
+    document.getElementById('active-alarms').innerHTML = combined.length ? combined.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
 
     // Load full alarm history file (up to 200 events) and merge with any live event_log entries
     await ensureAlarmHistory();
