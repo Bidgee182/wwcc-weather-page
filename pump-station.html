@@ -478,31 +478,34 @@
         </div>
     </div>
 
-    <div class="sys-metrics">
-        <div class="sys-metric">
-            <div class="sm-lbl lbl-blue">Flow Rate</div>
-            <div class="sm-val" id="ov-flow" style="color:#3498db;">--</div>
-            <div class="sm-unit">m&sup3;/h</div>
-        </div>
-        <div class="sys-metric">
-            <div class="sm-lbl lbl-green">Running</div>
-            <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
-            <div class="sm-unit">of 4</div>
-        </div>
-        <div class="sys-metric">
-            <div class="sm-lbl lbl-red">Faults</div>
-            <div class="sm-val" id="ov-faults" style="color:#e74c3c;">0</div>
-            <div class="sm-unit">active</div>
-        </div>
-        <div class="sys-metric">
-            <div class="sm-lbl lbl-amber">Alarms</div>
-            <div class="sm-val" id="ov-alarms" style="color:#f39c12;">0</div>
-            <div class="sm-unit">active</div>
-        </div>
-        <div class="sys-metric">
-            <div class="sm-lbl lbl-purple">Efficiency</div>
-            <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
-            <div class="sm-unit">Wh/m&sup3;</div>
+    <div class="card">
+        <h2>System Status</h2>
+        <div class="sys-metrics" style="margin-bottom:0;">
+            <div class="sys-metric">
+                <div class="sm-lbl lbl-blue">Flow Rate</div>
+                <div class="sm-val" id="ov-flow" style="color:#3498db;">--</div>
+                <div class="sm-unit">m&sup3;/h</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-lbl lbl-green">Running</div>
+                <div class="sm-val" id="ov-running" style="color:#27ae60;">0</div>
+                <div class="sm-unit">of 4</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-lbl lbl-red">Faults</div>
+                <div class="sm-val" id="ov-faults" style="color:#e74c3c;">0</div>
+                <div class="sm-unit">active</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-lbl lbl-amber">Alarms</div>
+                <div class="sm-val" id="ov-alarms" style="color:#f39c12;">0</div>
+                <div class="sm-unit">active</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-lbl lbl-purple">Efficiency</div>
+                <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
+                <div class="sm-unit">Wh/m&sup3;</div>
+            </div>
         </div>
     </div>
 
@@ -518,18 +521,6 @@
         <div style="font-size:0.68em;color:#566573;line-height:1.5;">Midnight to 5am AEST - high jockey cycling with zero flow = possible system leak. See Charts tab for cycling detail.</div>
     </div>
 
-    <div class="card" style="border-left:3px solid #e74c3c;">
-        <h2>Remote Control (PIN Protected)</h2>
-        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-            <a href="#" onclick="openControlAction('system_stop',null);return false;" class="ctrl-link stop">STOP ALL PUMPS</a>
-            <a href="#" onclick="openControlAction('system_start',null);return false;" class="ctrl-link start">START SYSTEM</a>
-            <a href="#" onclick="showTab('control',document.getElementById('nav-btn-control'));return false;" class="ctrl-link settings">FULL CONTROL</a>
-        </div>
-        <div style="font-size:0.72em;color:#566573;line-height:1.5;">
-            PIN required - opens control page. Commands execute on next Modbus poll (up to 5 min).
-            Individual pump stop/start available on each pump row below.
-        </div>
-    </div>
 
 </div>
 
