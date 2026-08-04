@@ -1540,6 +1540,9 @@ async function renderPerfCharts() {
         const tkMax = tkVals.length ? Math.min(100, Math.ceil( Math.max(...tkVals)) + 5) : 100;
 
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        // Two datasets with very different x-densities: use 'x' mode so each
+        // dataset finds its own nearest point rather than matching by array index
+        opts.interaction = { mode:'x', intersect:false, axis:'x' };
         opts.scales.y.min = 0;
         opts.scales.y.ticks.callback = v => v.toFixed(0)+' bar';
         opts.scales.y1 = {
