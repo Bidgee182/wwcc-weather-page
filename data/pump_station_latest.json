@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-04T05:43:56.046736+00:00",
-  "last_seen": "2026-08-04T05:43:56.046736+00:00",
+  "timestamp": "2026-08-04T05:48:35.196220+00:00",
+  "last_seen": "2026-08-04T05:48:35.196220+00:00",
   "system": {
-    "pressure_actual_bar": 7.622,
+    "pressure_actual_bar": 7.874,
     "pressure_suction_bar": -0.663,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "power_kw": 5.5,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 87.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198936,
@@ -38,14 +38,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 88.2,
+      "power_kw": 5.5,
+      "current_a": 14.4,
       "run_hours": 5148.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -59,9 +59,9 @@
       "running": false,
       "fault": false,
       "standby": true,
-      "speed_pct": 0.0,
+      "speed_pct": 41.7,
       "power_kw": 0.0,
-      "current_a": 0.0,
+      "current_a": 13.2,
       "run_hours": 5146.0,
       "starts_today": 0,
       "temp_c": null,
@@ -109,7 +109,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7647,
+      "raw": 7831,
       "temp_c": null
     },
     {
@@ -5370,6 +5370,46 @@
       ],
       "st": [
         0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-04T05:48:35.196220+00:00",
+      "pa": 7.874,
+      "ps": 7.8,
+      "pi": -0.663,
+      "fl": 0.0,
+      "nr": 1,
+      "pk": 5.5,
+      "sp": [
+        88.2,
+        41.7,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        5.5,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5146.0,
+        1394.0
+      ],
+      "st": [
+        1,
         0,
         0,
         0
