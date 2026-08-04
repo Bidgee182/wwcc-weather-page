@@ -35,7 +35,18 @@
         .nav-icon { font-size:1em; width:15px; text-align:center; flex-shrink:0; opacity:0.8; }
         .nav-divider { height:1px; background:#2c3e50; margin:6px 4px; }
         .content-area { flex:1; min-width:0; }
-        @media (max-width:700px) { .main-layout{flex-direction:column} .sidebar{width:100%;position:static;display:flex;flex-wrap:wrap;gap:4px;padding:6px} .nav-btn{flex:1;min-width:80px;justify-content:center} }
+        /* Hamburger (mobile only) */
+        .hamburger-btn { display:none; background:none; border:1px solid #3d5166; color:#ecf0f1; border-radius:7px; padding:7px 13px; font-size:1.3em; cursor:pointer; line-height:1; flex-shrink:0; }
+        /* Sidebar slide-in overlay */
+        .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:199; }
+        .sidebar-overlay.open { display:block; }
+        @media (max-width:700px) {
+            .hamburger-btn { display:flex; align-items:center; }
+            .main-layout { flex-direction:column; }
+            .sidebar { display:none; position:fixed; left:0; top:0; bottom:0; z-index:200; width:185px; border-radius:0 10px 10px 0; overflow-y:auto; flex-direction:column; flex-wrap:nowrap; padding:16px 8px; }
+            .sidebar.open { display:flex; }
+            .nav-btn { justify-content:flex-start; }
+        }
 
         /* Cards */
         .card { background:#2c3e50; border-radius:10px; padding:18px; margin-bottom:16px; }
@@ -113,12 +124,13 @@
         .sp-picker-cancel { background:#2c3e50; border:1px solid #3d5166; color:#7f8c8d; border-radius:7px; padding:9px 14px; cursor:pointer; font-family:inherit; font-size:.85em; }
 
         /* Pump summary pills */
-        .pump-pills-row { display:flex; gap:8px; align-items:stretch; }
-        .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:12px 6px; text-align:center; min-width:0; transition:border-color .4s; }
-        .pump-pill-lbl { font-size:.68em; color:#95a5a6; letter-spacing:.05em; text-transform:uppercase; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .pump-pill-status { font-size:.68em; font-weight:bold; letter-spacing:.04em; margin-bottom:6px; }
-        .pump-pill-speed { font-size:1.45em; font-weight:bold; line-height:1; }
-        .pump-pill-kw { font-size:.73em; color:#95a5a6; margin-top:3px; }
+        .pump-pills-row { display:flex; gap:8px; align-items:stretch; margin-bottom:14px; }
+        .pump-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:14px 6px 12px; text-align:center; min-width:0; transition:border-color .4s; }
+        .pump-pill-name { font-size:1.35em; font-weight:bold; color:#ecf0f1; line-height:1; margin-bottom:3px; }
+        .pump-pill-model { font-size:.59em; color:#566573; letter-spacing:.02em; margin-bottom:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
+        .pump-pill-status { font-size:.65em; font-weight:bold; letter-spacing:.04em; margin-bottom:7px; }
+        .pump-pill-speed { font-size:1.3em; font-weight:bold; line-height:1; }
+        .pump-pill-kw { font-size:.7em; color:#95a5a6; margin-top:3px; }
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
         .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
         .pump-pill.pp-standby { border-color:#f39c12; }
@@ -126,6 +138,7 @@
         .pump-pill.pp-fault { border-color:#e74c3c; animation:ppPulseRed 1.6s ease-in-out infinite; }
         .pump-pill.pp-fault .pump-pill-status { color:#e74c3c; }
         .pump-pill.pp-stopped .pump-pill-status { color:#566573; }
+        @media (max-width:600px) { .pump-pill-name{font-size:1em} .pump-pill-speed{font-size:1.05em} }
 
         /* Pump cards */
         .pump-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
@@ -346,6 +359,7 @@
 
 <!-- HEADER -->
 <div class="header">
+    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Open menu">&#9776;</button>
     <div class="logo-wrap" style="height:64px;">
         <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC" style="height:64px;">
         <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="" style="height:64px;">
@@ -383,8 +397,9 @@
 </div>
 
 <!-- MAIN LAYOUT: sidebar + content -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="main-layout">
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar">
     <button class="nav-btn active"      onclick="showTab('overview',this)"><span class="nav-icon">⊙</span>Overview</button>
     <button class="nav-btn"             onclick="showTab('pumps',this)"><span class="nav-icon">⚙</span>Pumps</button>
     <button class="nav-btn"             onclick="showTab('performance',this)"><span class="nav-icon">≋</span>Charts</button>
@@ -443,6 +458,10 @@
         </div>
     </div>
 
+    <div id="ov-pump-summary" class="pump-pills-row">
+        <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;flex:1;">Waiting for data...</div>
+    </div>
+
     <div class="sys-metrics">
         <div class="sys-metric">
             <div class="sm-val" id="ov-flow" style="color:#3498db;">--</div>
@@ -468,13 +487,6 @@
             <div class="sm-val" id="ov-spec-e" style="color:#9b59b6;">--</div>
             <div class="sm-unit">Wh/m&sup3;</div>
             <div class="sm-lbl">Efficiency</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>Pump Summary</h2>
-        <div id="ov-pump-summary">
-            <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;">Waiting for data...</div>
         </div>
     </div>
 
@@ -1010,6 +1022,18 @@ function showTab(name, btn) {
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
     if (name === 'log')         loadLogTab();
+    closeSidebar();
+}
+
+function toggleSidebar() {
+    const s = document.getElementById('sidebar');
+    const o = document.getElementById('sidebar-overlay');
+    s.classList.toggle('open');
+    o.classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
 }
 
 function openControlAction(act, val) {
@@ -1217,7 +1241,7 @@ function renderOverview() {
     const el = document.getElementById('ov-pump-summary');
     const connected = d && d.connected;
     if (!pumps.length) {
-        el.innerHTML = '<div style="text-align:center;color:#566573;font-size:.88em;padding:14px;">Waiting for data...</div>';
+        el.innerHTML = '<div style="text-align:center;color:#566573;font-size:.88em;padding:14px;flex:1;">Waiting for data...</div>';
     } else {
         const isJockey = p => p.label.toLowerCase().startsWith('jockey');
         const getNum = p => { const m = p.label.match(/P(\d+)/i); return m ? parseInt(m[1]) : 0; };
@@ -1225,23 +1249,26 @@ function renderOverview() {
             ...pumps.filter(isJockey),
             ...pumps.filter(p => !isJockey(p)).sort((a,b) => getNum(b) - getNum(a))
         ];
-        el.innerHTML = '<div class="pump-pills-row">' + ordered.map(p => {
+        el.innerHTML = ordered.map(p => {
             let state, statusText;
             if (!connected)     { state='pp-stopped'; statusText='OFFLINE'; }
             else if (p.fault)   { state='pp-fault';   statusText='FAULT';   }
             else if (p.running) { state='pp-running'; statusText='RUNNING'; }
             else if (p.standby) { state='pp-standby'; statusText='STANDBY'; }
             else                { state='pp-stopped'; statusText='STOPPED'; }
-            const lbl = p.label.split(/[\s\-]+/)[0];
+            const parts = p.label.split(' - ');
+            const shortName = parts[0].trim();
+            const model = parts.length > 1 ? parts.slice(1).join(' - ').trim() : '';
             const sp = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
             const kw = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
             return '<div class="pump-pill '+state+'">'
-                + '<div class="pump-pill-lbl">'+lbl+'</div>'
+                + '<div class="pump-pill-name">'+shortName+'</div>'
+                + '<div class="pump-pill-model">'+(model||'&nbsp;')+'</div>'
                 + '<div class="pump-pill-status">'+statusText+'</div>'
                 + '<div class="pump-pill-speed">'+sp+'</div>'
                 + '<div class="pump-pill-kw">'+kw+'</div>'
                 + '</div>';
-        }).join('') + '</div>';
+        }).join('');
     }
 }
 
