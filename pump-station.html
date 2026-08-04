@@ -598,7 +598,7 @@
     <!-- Tank Status & Pressure -->
     <div class="card">
         <h2>Supply Tank &amp; Discharge Pressure</h2>
-        <div style="font-size:.72em;color:#566573;margin-bottom:10px;">Green band = tank float OK (DI2 closed) &bull; Gap = tank low / water shortage active</div>
+        <div style="font-size:.72em;color:#566573;margin-bottom:10px;">Supply tank fill % (FarmBot sensor) vs discharge pressure</div>
         <div class="chart-loader" id="c-tank-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(39,174,96,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
         <div class="chart-wrap h200" id="c-tank-wrap"><canvas id="c-tank"></canvas></div>
     </div>
@@ -997,9 +997,10 @@ const PRES_HIGH_LIMIT = 12.0; // bar - high pressure alarm limit
 const PRES_LOW_LIMIT  =  5.5; // bar - low pressure alarm limit
 
 // ─── State ───────────────────────────────────────────────────────────────────
-let latestData  = null;
-let historyData = null;
-let dailyData   = null;
+let latestData     = null;
+let historyData    = null;
+let dailyData      = null;
+let farmbotTankData = null;
 let perfRangeH  = 24;
 let trendsMetric = 'hrs';
 const charts = {};
@@ -1056,6 +1057,15 @@ async function ensureHistory() {
         else historyData = { readings:[] };
     } catch(e) { historyData = { readings:[] }; }
     document.getElementById('hist-loading').style.display = 'none';
+}
+
+async function ensureFarmbotTank() {
+    if (farmbotTankData !== null) return;
+    try {
+        const r = await fetch('data/farmbot_readings.json?_='+Date.now());
+        if (r.ok) farmbotTankData = await r.json();
+        else farmbotTankData = [];
+    } catch(e) { farmbotTankData = []; }
 }
 
 async function ensureDaily() {
@@ -1445,6 +1455,7 @@ async function setPerfRange(h, btn) {
 
 async function renderPerfCharts() {
     const pts = await getPerfReadings();
+    await ensureFarmbotTank();
     const noData = pts.length === 0;
     const tsMs = r => new Date(r.ts).getTime();
     const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
@@ -1474,7 +1485,7 @@ async function renderPerfCharts() {
              valsS.length?(valsS.reduce((a,b)=>a+b)/valsS.length).toFixed(2):'--', pts.length]);
     } else { setStats(['cs-min','cs-max','cs-avg','cs-pts'],['--','--','--','0']); }
 
-    // Tank status & discharge pressure (dual-axis custom chart)
+    // Supply Tank % & Discharge Pressure (dual-axis custom chart)
     (function() {
         const loader = document.getElementById('c-tank-loader');
         const wrap   = document.getElementById('c-tank-wrap');
@@ -1485,14 +1496,22 @@ async function renderPerfCharts() {
             return;
         }
         loader.style.display='none'; wrap.style.display='block';
+
+        // Filter farmbot readings to same time window as perf chart
+        const cutoff = Date.now() - perfRangeH * 3600000;
+        const fbPts = (farmbotTankData || [])
+            .filter(r => r.date && new Date(r.date).getTime() >= cutoff)
+            .map(r => ({ x: new Date(r.date).getTime(), y: r.pct }));
+
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.scales.y.min = 0;
         opts.scales.y.ticks.callback = v => v.toFixed(0)+' bar';
         opts.scales.y1 = {
             type:'linear', position:'right',
-            min:-0.15, max:1.4,
+            min:0, max:110,
             grid:{ drawOnChartArea:false },
-            ticks:{ color:'#27ae60', font:{size:10}, callback: v => v===1?'TANK OK':(v===0?'LOW':''), stepSize:1 },
+            ticks:{ color:'#27ae60', font:{size:10}, callback: v => v <= 100 ? v+'%' : '' },
+            title:{ display:true, text:'Tank Level', color:'#27ae60', font:{size:10} }
         };
         opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
         opts.plugins.legend.display = true;
@@ -1501,18 +1520,18 @@ async function renderPerfCharts() {
             title: a => a.length ? fmtChartTime(new Date(a[0].parsed.x).toISOString(), perfRangeH) : '',
             label: ctx => {
                 if (ctx.datasetIndex===0) return ' Pressure: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(2)+' bar':'--');
-                return ' Tank: '+(ctx.parsed.y===1?'OK':(ctx.parsed.y===0?'LOW':'--'));
+                return ' Tank: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'--');
             }
         };
         const ds = [
-            { label:'Discharge Pressure', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
+            { label:'Discharge Pressure (bar)', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
               borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.12)',
               borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:5,
-              fill:true, spanGaps:true, stepped:false, yAxisID:'y' },
-            { label:'Tank Status',        data: pts.map(r=>({x:tsMs(r),y:r.tk!=null?r.tk:null})),
-              borderColor:'rgba(39,174,96,.9)', backgroundColor:'rgba(39,174,96,.18)',
-              borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:0,
-              fill:'origin', spanGaps:false, stepped:'before', yAxisID:'y1' },
+              fill:true, spanGaps:true, yAxisID:'y' },
+            { label:'Supply Tank Level (%)', data: fbPts,
+              borderColor:'rgba(39,174,96,.9)', backgroundColor:'rgba(39,174,96,.15)',
+              borderWidth:2, tension:0.3, pointRadius:0, pointHoverRadius:5,
+              fill:true, spanGaps:true, yAxisID:'y1' },
         ];
         if (charts['c-tank']) { charts['c-tank'].destroy(); }
         charts['c-tank'] = new Chart(document.getElementById('c-tank').getContext('2d'), {
