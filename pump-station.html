@@ -20,10 +20,28 @@
 
         .header { display:flex; align-items:center; gap:16px; padding:14px 0 12px; }
         .header-logo { height:64px; width:auto; flex-shrink:0; }
-        .header-text { flex:1; text-align:center; }
+        .header-text { flex:1; min-width:0; text-align:center; }
         .header-text h1 { font-size:2em; font-weight:700; letter-spacing:6px; color:#ecf0f1; line-height:1.1; text-transform:uppercase; }
-        .header-text .subtitle { font-size:0.78em; color:#7f8c8d; letter-spacing:2px; text-transform:uppercase; margin-top:5px; }
-        @media (max-width:480px) { .header-logo{height:48px;} .header-text h1{font-size:1.2em; letter-spacing:3px;} .header-text .subtitle{font-size:0.68em; letter-spacing:1px;} }
+        .header-text .subtitle { font-size:0.78em; color:#7f8c8d; letter-spacing:2px; text-transform:uppercase; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .header-gf-block { margin-left:auto; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+        .header-gf-block .conn-banner { max-width:260px; }
+        .header-gf-block .conn-title  { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; display:block; }
+        /* Mobile: hide Grundfos block + subtitle, shrink logo + title */
+        @media (max-width:700px) {
+            .header-gf-block { display:none; }
+            .header-text .subtitle { display:none; }
+            .header-logo { height:48px; }
+            .header-text h1 { font-size:1.4em; letter-spacing:4px; }
+        }
+        @media (max-width:480px) {
+            .header { gap:10px; }
+            .header-logo { height:40px; }
+            .header-text h1 { font-size:1.15em; letter-spacing:2px; }
+        }
+        @media (max-width:360px) {
+            .header-logo { height:34px; }
+            .header-text h1 { font-size:1em; letter-spacing:1px; }
+        }
 
         /* Sidebar nav */
         .main-layout { display:flex; align-items:flex-start; gap:14px; }
@@ -362,8 +380,6 @@
 
         @media (max-width:390px) {
             body { padding:8px; }
-            .header-logo { height:42px; }
-            .header-text h1 { font-size:1em; }
             .nav-btn { padding:6px 8px; font-size:0.65em; }
             .pres-val { font-size:1.9em; }
             .sm-val { font-size:1.6em; }
@@ -375,15 +391,15 @@
 <!-- HEADER -->
 <div class="header">
     <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Open menu">&#9776;</button>
-    <div class="logo-wrap" style="height:64px;">
-        <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC" style="height:64px;">
-        <img class="logo-top" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="" style="height:64px;">
+    <div class="logo-wrap">
+        <img class="header-logo logo-base" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="WWCC">
+        <img class="logo-top header-logo" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
     </div>
     <div class="header-text">
         <h1><span style="font-weight:300;letter-spacing:8px;">PUMP</span> <span style="color:#e67e22;font-weight:800;">STATION</span></h1>
         <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Grundfos</span> Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
-    <div style="margin-left:auto;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+    <div class="header-gf-block">
         <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" style="height:38px;width:auto;opacity:0.92;">
         <div class="conn-banner offline" id="conn-banner" style="margin-bottom:0;padding:6px 10px;font-size:.82em;">
             <div class="conn-dot offline" id="conn-dot"></div>
