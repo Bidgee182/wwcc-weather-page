@@ -1190,7 +1190,17 @@ function renderOverview() {
     document.getElementById('ov-flow').textContent    = sys.flow_m3h != null ? sys.flow_m3h.toFixed(1) : '--';
     document.getElementById('ov-running').textContent = pumps.filter(p=>p.running).length;
     document.getElementById('ov-faults').textContent  = pumps.filter(p=>p.fault).length;
-    document.getElementById('ov-alarms').textContent  = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
+
+    // Count active alarms from event_log (same logic as renderAlarms)
+    const eventLog = d && d.event_log ? d.event_log : [];
+    const lastByKey = {};
+    for (const e of [...eventLog].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso))) {
+        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
+        lastByKey[key] = e;
+    }
+    const logActiveCount = Object.values(lastByKey).filter(e => e.type_code===1||e.type_code===3).length;
+    const liveAlarmCount = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
+    document.getElementById('ov-alarms').textContent  = Math.max(logActiveCount, liveAlarmCount);
     const ov_se = document.getElementById('ov-spec-e');
     if (ov_se) ov_se.textContent = sys.specific_energy_wh_m3 != null ? Math.round(sys.specific_energy_wh_m3) : '--';
 
