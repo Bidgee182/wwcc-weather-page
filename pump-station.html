@@ -1553,7 +1553,7 @@ async function renderPerfCharts() {
         opts.plugins.legend.display = true;
         opts.plugins.legend.labels  = llLabels();
         opts.plugins.tooltip.callbacks = {
-            title: a => a.length ? fmtChartTime(new Date(a[0].parsed.x).toISOString(), perfRangeH) : '',
+            title: a => a.length ? fmtTooltipTime(new Date(a[0].parsed.x).toISOString()) : '',
             label: ctx => {
                 if (ctx.datasetIndex===0) return ' Pressure: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(2)+' bar':'--');
                 return ' Tank: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'--');
@@ -1638,7 +1638,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     // Time axis: format tick labels and tooltip title from epoch-ms x value
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
     opts.plugins.tooltip.callbacks = {
-        title: ctxArr => ctxArr.length ? fmtChartTime(new Date(ctxArr[0].parsed.x).toISOString(), perfRangeH) : '',
+        title: ctxArr => ctxArr.length ? fmtTooltipTime(new Date(ctxArr[0].parsed.x).toISOString()) : '',
         label: ctx => { const v = tooltipFmt ? tooltipFmt(ctx.parsed.y) : null; return v ? ' '+ctx.dataset.label+': '+v : null; }
     };
 
@@ -2049,6 +2049,13 @@ function fmtChartTime(iso, rangeH) {
     if (rangeH <= 24) return hh+':'+mm;
     if (rangeH <= 48) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+hh+':'+mm;
     return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
+}
+
+function fmtTooltipTime(iso) {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return d.toLocaleDateString('en-AU',{weekday:'short',day:'2-digit',month:'short'})+' '+hh+':'+mm;
 }
 
 function fmtDayLabel(dateStr) {
