@@ -383,21 +383,18 @@
         <h1>PUMP STATION</h1>
         <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
-    <div style="margin-left:auto;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;">
+    <div style="margin-left:auto;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" style="height:38px;width:auto;opacity:0.92;">
-        <div id="header-sys-status" style="font-size:.58em;font-weight:700;letter-spacing:1.5px;color:#e67e22;white-space:nowrap;">&#9679; OFFLINE</div>
-    </div>
-</div>
-
-<!-- CONNECTION BANNER -->
-<div class="conn-banner offline" id="conn-banner">
-    <div class="conn-dot offline" id="conn-dot"></div>
-    <div>
-        <div class="conn-title-row">
-            <span class="conn-title" id="conn-title">WAITING FOR CONNECTION</span>
-            <span class="conn-ts"    id="conn-ts"></span>
+        <div class="conn-banner offline" id="conn-banner" style="margin-bottom:0;padding:6px 10px;font-size:.82em;">
+            <div class="conn-dot offline" id="conn-dot"></div>
+            <div>
+                <div class="conn-title-row">
+                    <span class="conn-title" id="conn-title">WAITING</span>
+                    <span class="conn-ts"    id="conn-ts"></span>
+                </div>
+                <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP</div>
+            </div>
         </div>
-        <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP</div>
     </div>
 </div>
 
@@ -1229,7 +1226,7 @@ function renderOverview() {
             const model = p.model || '';
             const sp  = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
             const kw  = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
-            const hrs = p.run_hours != null ? p.run_hours.toFixed(0)+' h' : '--';
+            const hrs = p.run_hours != null ? 'Total run hours - '+p.run_hours.toFixed(0) : '';
             const st  = p.starts_today > 0 ? p.starts_today+' starts' : '';
             return '<div class="pump-pill '+state+'">'
                 + '<div class="pump-pill-name">'+shortName+'</div>'
@@ -1771,8 +1768,6 @@ function renderSetupStatus() {
     const online = d && d.connected;
     const el = document.getElementById('su-status');
     if (el) { el.textContent = online ? 'ONLINE' : 'OFFLINE'; el.style.color = online ? '#27ae60' : '#e67e22'; }
-    const hel = document.getElementById('header-sys-status');
-    if (hel) { hel.textContent = online ? '● ONLINE' : '● OFFLINE'; hel.style.color = online ? '#27ae60' : '#e67e22'; }
     const ageEl = document.getElementById('su-age');
     if (ageEl) ageEl.textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
 
