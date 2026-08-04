@@ -140,6 +140,7 @@
         .pump-pill-status { font-size:.65em; font-weight:bold; letter-spacing:.04em; margin-bottom:7px; }
         .pump-pill-speed { font-size:1.3em; font-weight:bold; line-height:1; }
         .pump-pill-kw     { font-size:.7em; color:#95a5a6; margin-top:3px; }
+        .pump-pill-hours  { font-size:.62em; color:#7f8c8d; margin-top:3px; }
         .pump-pill-starts { font-size:.6em; color:#7f8c8d; margin-top:2px; }
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
         .pump-pill.pp-running .pump-pill-name   { background:rgba(39,174,96,.25);  color:#2ecc71; }
@@ -382,16 +383,9 @@
         <h1>PUMP STATION</h1>
         <div class="subtitle">Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
-    <div style="margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:6px;opacity:0.9;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44" aria-label="Grundfos G-mark">
-            <!-- Left crescent swoosh -->
-            <path fill="white" d="M24,8 C8,8 4,16 4,22 C4,28 8,36 24,36 L24,30 C10,30 10,14 24,14 Z"/>
-            <!-- Upper arrow arm (upper-right) -->
-            <path fill="white" d="M24,21 L24,14 L40,5 L37,14 L26,19 Z"/>
-            <!-- Lower arrow arm (lower-right) -->
-            <path fill="white" d="M24,23 L24,30 L40,39 L37,30 L26,25 Z"/>
-        </svg>
-        <span style="font-family:Arial,sans-serif;font-weight:700;font-size:1.1em;letter-spacing:2px;color:#ecf0f1;white-space:nowrap;">GRUNDFOS</span>
+    <div style="margin-left:auto;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" style="height:38px;width:auto;opacity:0.92;">
+        <div id="header-sys-status" style="font-size:.58em;font-weight:700;letter-spacing:1.5px;color:#e67e22;white-space:nowrap;">&#9679; OFFLINE</div>
     </div>
 </div>
 
@@ -411,7 +405,7 @@
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="main-layout">
 <nav class="sidebar" id="sidebar">
-    <button class="nav-btn active"      onclick="showTab('overview',this)"><span class="nav-icon">⊙</span>Overview</button>
+    <button class="nav-btn active"      onclick="showTab('overview',this)"><span class="nav-icon">⊙</span>Home</button>
     <button class="nav-btn"             onclick="showTab('pumps',this)"><span class="nav-icon">⚙</span>Pumps</button>
     <button class="nav-btn"             onclick="showTab('performance',this)"><span class="nav-icon">≋</span>Charts</button>
     <button class="nav-btn"             onclick="showTab('trends',this)"><span class="nav-icon">↗</span>Trends</button>
@@ -420,7 +414,7 @@
     <button class="nav-btn nav-control" onclick="showTab('control',this)" id="nav-btn-control"><span class="nav-icon">◈</span>Control</button>
     <div class="nav-divider"></div>
     <button class="nav-btn"             onclick="showTab('log',this)"><span class="nav-icon">≡</span>Log</button>
-    <button class="nav-btn"             onclick="showTab('setup',this)"><span class="nav-icon">◌</span>Setup</button>
+    <button class="nav-btn"             onclick="showTab('setup',this)"><span class="nav-icon">◌</span>Info</button>
 </nav>
 <div class="content-area">
 
@@ -455,6 +449,7 @@
             <!-- Mode -->
             <div class="pres-pill" id="pp-mode">
                 <div class="pp-lbl">Mode</div>
+                <div id="ov-op-mode" style="font-size:0.65em;font-weight:bold;letter-spacing:0.06em;color:#7f8c8d;margin-top:10px;text-transform:uppercase;">AUTO-CONTROL</div>
                 <div class="pp-mode-val" id="ov-mode">--</div>
             </div>
         </div>
@@ -520,17 +515,6 @@
         </div>
     </div>
 
-    <div class="card" id="leak-watch-card" style="border-left:3px solid #27ae60;">
-        <h2>Leak Watch</h2>
-        <div id="leak-watch-inner" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px;">
-            <div id="leak-watch-pill" class="pump-badge badge-stopped">NO DATA</div>
-            <div>
-                <div id="leak-watch-jockey" style="font-size:0.88em;color:#bdc3c7;">No overnight readings yet</div>
-                <div id="leak-watch-main"   style="font-size:0.82em;color:#7f8c8d;margin-top:2px;"></div>
-            </div>
-        </div>
-        <div style="font-size:0.68em;color:#566573;line-height:1.5;">Midnight to 5am AEST - high jockey cycling with zero flow = possible system leak. See Charts tab for cycling detail.</div>
-    </div>
 
 
 </div>
@@ -633,20 +617,6 @@
         <div class="chart-wrap h220" id="c-temp-wrap"><canvas id="c-temp"></canvas></div>
     </div>
 
-    <!-- Pump cycling / starts per poll -->
-    <div class="card">
-        <h2>Pump Cycling - Starts per 5-min Poll</h2>
-        <div class="pump-legend" id="starts-legend"></div>
-        <div class="chart-loader" id="c-starts-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(231,76,60,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">NO CYCLING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
-        <div class="chart-wrap h160" id="c-starts-wrap"><canvas id="c-starts"></canvas></div>
-        <div style="font-size:0.68em;color:#566573;margin-top:6px;">Each bar = starts recorded between consecutive polls. Jockey cycling overnight with zero flow = possible leak.</div>
-    </div>
-
-    <!-- Run hours (current) -->
-    <div class="card">
-        <h2>Cumulative Run Hours (Current Reading)</h2>
-        <div id="hours-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
-    </div>
 
 </div>
 
@@ -877,85 +847,42 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════ SETUP ═══════════════════════════ -->
+<!-- ═══════════════════════════ INFO ═══════════════════════════ -->
 <div id="tab-setup" class="tab-panel">
+
+    <!-- Device Identity -->
+    <div class="card">
+        <h2>Device Information</h2>
+        <div id="su-device-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px;"></div>
+    </div>
 
     <!-- CU352 Live Settings -->
     <div class="card">
-        <h2>CU352 Live Settings</h2>
-        <div id="su-settings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:10px;"></div>
+        <h2>Controller Settings</h2>
+        <div id="su-settings-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;"></div>
         <div style="font-size:.68em;color:#566573;line-height:1.5;border-top:1px solid #2c3e50;padding-top:8px;margin-top:4px;">
-            Read-only view. To change setpoint or mode: use the <strong>Control</strong> tab (PIN required).<br>
-            Kp/Ti (PID tuning) and sensor range are set on the CU352 panel only.
+            Read-only. To change setpoint or mode: use the <strong>Control</strong> tab (PIN required).
         </div>
     </div>
 
+    <!-- System totals -->
     <div class="card">
-        <h2>CIM 500 Configuration</h2>
-        <div class="info-box">
-            <strong>Step 1 - Set rotary switch to position 2 (Modbus TCP)</strong><br>
-            Inside the CU 352 panel, find the CIM 500 module. It has a small rotary dial
-            labelled 0 to F. Turn it from <strong>0</strong> (GRM cloud default) to
-            <strong>2</strong> (Modbus TCP/IP over Ethernet). Use a small flat-head screwdriver.<br><br>
-            Power cycle the panel after changing (isolator off 10s, then back on).
-        </div>
-        <div class="info-box" style="border-color:#3498db;">
-            <strong style="color:#3498db;">Step 2 - Ethernet from CIM 500 to USR G806 LAN port</strong><br>
-            Cat5e/Cat6 cable from the RJ45 port on the CIM 500 into any LAN port on the
-            USR G806. The CIM 500 will request an IP from the router via DHCP.<br><br>
-            Check the router's DHCP client list to find the CIM 500 IP
-            (look for device name "Grundfos" or "CIM500"). Then set a static/reserved IP
-            for it - e.g. <strong style="color:#3498db;">192.168.1.100</strong>
-        </div>
-        <div class="info-box" style="border-color:#27ae60;">
-            <strong style="color:#27ae60;">Step 3 - Port forward on USR G806</strong><br>
-            In the G806 admin panel: Port Forward &rarr; add rule:<br>
-            External port <strong style="color:#27ae60;">502</strong> &rarr; Internal
-            <strong style="color:#27ae60;">192.168.1.100:502</strong> (TCP)<br><br>
-            This lets the GitHub Actions poller script read Modbus TCP from the CIM 500
-            over the 4G connection.
-        </div>
-        <div class="info-box" style="border-color:#9b59b6;">
-            <strong style="color:#9b59b6;">Step 4 - Poller script (next step)</strong><br>
-            A Python script using <em>pymodbus</em> will run via GitHub Actions every 5 minutes.
-            It reads all CIM 500 Modbus registers and writes to three files:<br>
-            <strong style="color:#9b59b6;">data/pump_station_latest.json</strong> - current state + 24h history<br>
-            <strong style="color:#9b59b6;">data/pump_station_history.json</strong> - 90-day rolling history (15-min)<br>
-            <strong style="color:#9b59b6;">data/pump_station_daily.json</strong> - daily summaries<br><br>
-            This page refreshes automatically every 60 seconds.
-        </div>
+        <h2>System Totals</h2>
+        <div id="su-totals-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;"></div>
     </div>
 
+    <!-- Per-pump run hours -->
     <div class="card">
-        <h2>CIM 500 Rotary Switch Reference</h2>
-        <div style="display:grid;grid-template-columns:56px 1fr;gap:6px 14px;font-size:0.84em;align-items:center;">
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">0</div>
-            <div style="color:#7f8c8d;">GRM cloud (Grundfos Remote Management) - Factory default</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#7f8c8d;">1</div>
-            <div style="color:#7f8c8d;">Modbus RTU (RS-485 serial)</div>
-            <div style="background:#1e3a5f;border:2px solid #3498db;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#3498db;">2</div>
-            <div><strong style="color:#3498db;">Modbus TCP/IP (Ethernet) - SET THIS</strong></div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">3</div>
-            <div style="color:#566573;">PROFIBUS DP</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">4</div>
-            <div style="color:#566573;">BACnet MS/TP</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">5</div>
-            <div style="color:#566573;">LonWorks</div>
-            <div style="background:#1a252f;border-radius:6px;padding:6px;text-align:center;font-weight:bold;color:#566573;">6-F</div>
-            <div style="color:#566573;">Reserved</div>
-        </div>
+        <h2>Pump Run Hours</h2>
+        <div id="su-pump-hours-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
+        <div style="font-size:.68em;color:#566573;margin-top:8px;">Lifetime hours from CU352 GENIbus pump registers. Resets only if pump controller memory is cleared.</div>
     </div>
 
+    <!-- Input/Output status -->
     <div class="card">
-        <h2>Data File Schema Reference</h2>
-        <div style="font-size:0.78em;color:#bdc3c7;line-height:1.8;">
-            <strong style="color:#e67e22;">latest.json</strong> - Current state + 24h history (5-min readings)<br>
-            <strong style="color:#e67e22;">history.json</strong> - 90-day rolling log (15-min readings): ts, pa, ps, fl, nr, sp[5], pw[5]<br>
-            <strong style="color:#e67e22;">daily.json</strong> - Daily summaries: date, p_min, p_max, p_avg, fl_max, fl_total, hrs[5], sts[5], kwh[5]<br><br>
-            <strong style="color:#7f8c8d;">Compact history fields:</strong><br>
-            ts=timestamp &bull; pa=pressure actual &bull; ps=pressure setpoint<br>
-            fl=flow m&sup3;/h &bull; nr=pumps running &bull; sp=speeds[%] &bull; pw=power[kW]
-        </div>
+        <h2>Digital I/O</h2>
+        <div id="su-io-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;"></div>
+        <div style="font-size:.68em;color:#566573;margin-top:8px;">DI1 = External Start/Stop (10,11) &bull; DI2 = Water Shortage / Tank Float (12,13) &bull; DO1 = Common Alarm (70,71) &bull; DO2 = Common Alarm (73,74)</div>
     </div>
 
     <div class="card">
@@ -1139,7 +1066,6 @@ async function getPerfReadings() {
 function renderAll() {
     renderBanner();
     renderOverview();
-    renderLeakWatch();
     renderPumps();
     renderAlarms();
     renderSetupStatus();
@@ -1147,62 +1073,6 @@ function renderAll() {
     const trendsActive = document.getElementById('tab-trends').classList.contains('active');
     if (perfActive)   renderPerfCharts();
     if (trendsActive) renderTrendCharts();
-}
-
-// ─── Leak Watch ──────────────────────────────────────────────────────────────
-function renderLeakWatch() {
-    const history = latestData && latestData.history ? latestData.history : [];
-    const card = document.getElementById('leak-watch-card');
-    const pill = document.getElementById('leak-watch-pill');
-    const jEl  = document.getElementById('leak-watch-jockey');
-    const mEl  = document.getElementById('leak-watch-main');
-
-    // Overnight window: last midnight AEST to 5am AEST (UTC+10)
-    const aestMs = 10 * 3600 * 1000;
-    const nowUTC = Date.now();
-    const dayMs  = 86400000;
-    let midUTC   = Math.floor((nowUTC + aestMs) / dayMs) * dayMs - aestMs;
-    if (nowUTC < midUTC) midUTC -= dayMs;   // before tonight's midnight, use last night
-    const fiveAmUTC = midUTC + 5 * 3600000;
-
-    const overnight = history
-        .filter(r => { const t = new Date(r.ts).getTime(); return t >= midUTC && t <= fiveAmUTC; })
-        .sort((a, b) => new Date(a.ts) - new Date(b.ts));
-
-    if (overnight.length < 2) {
-        card.style.borderLeftColor = '#566573';
-        pill.className = 'pump-badge badge-offline';
-        pill.textContent = 'NO DATA';
-        jEl.textContent  = 'No overnight readings yet (midnight-5am AEST)';
-        mEl.textContent  = '';
-        return;
-    }
-
-    const starts = [0, 0, 0, 0];
-    for (let i = 1; i < overnight.length; i++) {
-        const p = overnight[i-1].st, c = overnight[i].st;
-        if (!p || !c) continue;
-        for (let j = 0; j < 4; j++) {
-            if (p[j] != null && c[j] != null && c[j] >= p[j]) starts[j] += c[j] - p[j];
-        }
-    }
-
-    const jSt   = starts[3];
-    const mainSt = starts[0] + starts[1] + starts[2];
-    let level = jSt >= 13 || mainSt >= 2 ? 'investigate' : jSt >= 4 || mainSt >= 1 ? 'monitor' : 'normal';
-
-    const cfg = {
-        normal:      { border:'#27ae60', cls:'badge-running',  label:'NORMAL' },
-        monitor:     { border:'#f39c12', cls:'badge-standby',  label:'MONITOR' },
-        investigate: { border:'#e74c3c', cls:'badge-fault',    label:'INVESTIGATE' },
-    }[level];
-
-    card.style.borderLeftColor = cfg.border;
-    pill.className = 'pump-badge ' + cfg.cls;
-    pill.textContent = cfg.label;
-    jEl.textContent  = 'Jockey: ' + jSt + ' start' + (jSt !== 1 ? 's' : '') + ' (midnight to 5am)';
-    mEl.textContent  = 'Main pumps P1/P2/P3: ' + mainSt + ' start' + (mainSt !== 1 ? 's' : '');
-    mEl.style.color  = mainSt > 0 ? '#f39c12' : '#7f8c8d';
 }
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
@@ -1242,8 +1112,18 @@ function renderOverview() {
     document.getElementById('ov-suction').textContent  = suction  != null ? suction.toFixed(2)  : '--';
     document.getElementById('ov-actual').textContent   = actual   != null ? actual.toFixed(2)   : '--';
     document.getElementById('ov-setpoint').textContent = setpoint != null ? setpoint.toFixed(2) : '--';
-    const modeEl = document.getElementById('ov-mode');
+    const modeEl   = document.getElementById('ov-mode');
+    const opModeEl = document.getElementById('ov-op-mode');
     if (modeEl) modeEl.textContent = sys.mode ? sys.mode.replace(/\b\w/g,c=>c.toUpperCase()) : '--';
+    if (opModeEl) {
+        const funcs = sys.sys_active_funcs || 0;
+        let opLabel = 'AUTO-CONTROL', opColor = '#7f8c8d';
+        if      (funcs & (1<<1)) { opLabel = 'EMERGENCY RUN'; opColor = '#e74c3c'; }
+        else if (funcs & (1<<3)) { opLabel = 'PUMP TEST RUN'; opColor = '#f39c12'; }
+        else if (funcs & (1<<4)) { opLabel = 'ALT SETPOINT';  opColor = '#f39c12'; }
+        opModeEl.textContent = opLabel;
+        opModeEl.style.color = opColor;
+    }
 
     // Discharge pill — pulses green/amber/red vs setpoint
     const ppDischarge = document.getElementById('pp-discharge');
@@ -1347,15 +1227,17 @@ function renderOverview() {
             const shortName = rawName.toLowerCase() === 'jockey' ? 'Jockey Pump'
                             : rawName.replace(/^P(\d+)$/i, 'Pump $1');
             const model = p.model || '';
-            const sp = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
-            const kw = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
-            const st = p.starts_today > 0 ? p.starts_today+' starts' : '';
+            const sp  = p.speed_pct != null ? p.speed_pct.toFixed(0)+'%' : '--';
+            const kw  = p.power_kw  != null ? p.power_kw.toFixed(1)+' kW' : '--';
+            const hrs = p.run_hours != null ? p.run_hours.toFixed(0)+' h' : '--';
+            const st  = p.starts_today > 0 ? p.starts_today+' starts' : '';
             return '<div class="pump-pill '+state+'">'
                 + '<div class="pump-pill-name">'+shortName+'</div>'
                 + '<div class="pump-pill-model">'+(model||'&nbsp;')+'</div>'
                 + '<div class="pump-pill-status">'+statusText+'</div>'
                 + '<div class="pump-pill-speed">'+sp+'</div>'
                 + '<div class="pump-pill-kw">'+kw+'</div>'
+                + '<div class="pump-pill-hours">'+hrs+'</div>'
                 + (st ? '<div class="pump-pill-starts">'+st+'</div>' : '')
                 + '</div>';
         }).join('');
@@ -1605,54 +1487,6 @@ async function renderPerfCharts() {
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(0)+'°C':null, {min:0});
 
-    // Pump cycling - starts delta per poll
-    buildPumpLegend('starts-legend');
-    const startDeltas = [];
-    for (let i = 1; i < pts.length; i++) {
-        const prev = pts[i-1], curr = pts[i];
-        const delta = [0, 0, 0, 0];
-        if (prev.st && curr.st) {
-            for (let j = 0; j < 4; j++) {
-                const p = prev.st[j], c = curr.st[j];
-                if (p != null && c != null) delta[j] = Math.max(0, c - p);
-            }
-        }
-        startDeltas.push({ ts: curr.ts, delta });
-    }
-    const hasStarts = startDeltas.some(r => r.delta.some(v => v > 0));
-    const startLabels = startDeltas.map(r => fmtChartTime(r.ts, perfRangeH));
-    const startsLoader = document.getElementById('c-starts-loader');
-    const startsWrap   = document.getElementById('c-starts-wrap');
-    if (!hasStarts || noData) {
-        startsLoader.style.display = 'flex'; startsWrap.style.display = 'none';
-        if (charts['c-starts']) { charts['c-starts'].destroy(); delete charts['c-starts']; }
-    } else {
-        startsLoader.style.display = 'none'; startsWrap.style.display = 'block';
-        const startsOpts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
-        startsOpts.scales.y.ticks.stepSize = 1;
-        startsOpts.scales.y.ticks.callback = v => Number.isInteger(v) ? v : null;
-        startsOpts.plugins.legend.display = true;
-        startsOpts.plugins.legend.labels  = llLabels();
-        startsOpts.plugins.tooltip.callbacks = { label: ctx => ctx.parsed.y > 0 ? ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + ' start' + (ctx.parsed.y !== 1 ? 's' : '') : null };
-        if (charts['c-starts']) charts['c-starts'].destroy();
-        charts['c-starts'] = new Chart(document.getElementById('c-starts').getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: startLabels,
-                datasets: PUMP_LABELS.map((lbl, i) => ({
-                    label: lbl,
-                    data:  startDeltas.map(r => r.delta[i] || 0),
-                    backgroundColor: PUMP_COLORS[i],
-                    borderRadius: 2,
-                    stack: 'starts',
-                }))
-            },
-            options: startsOpts
-        });
-    }
-
-    // Run hours current reading
-    renderHoursGrid();
 }
 
 function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
@@ -1702,14 +1536,6 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     });
 }
 
-function renderHoursGrid() {
-    const pumps = latestData && latestData.pumps ? latestData.pumps : defaultPumps();
-    document.getElementById('hours-grid').innerHTML = pumps.map((p,i) =>
-        '<div class="sys-metric">'+
-        '<div class="sm-val" style="color:'+PUMP_COLORS[i]+';">'+(p.run_hours!=null?p.run_hours.toFixed(0):'--')+'</div>'+
-        '<div class="sm-unit">h</div><div class="sm-lbl">'+p.label+'</div></div>'
-    ).join('');
-}
 
 function buildPumpLegend(id) {
     document.getElementById(id).innerHTML = PUMP_LABELS.map((l,i) =>
@@ -1928,41 +1754,133 @@ function renderAlarmPair(p) {
     '</div>';
 }
 
-// ─── Setup status ─────────────────────────────────────────────────────────────
-function renderSetupStatus() {
-    const d = latestData;
-    const el = document.getElementById('su-status');
-    if (d && d.connected) { el.textContent='ONLINE';  el.style.color='#27ae60'; }
-    else                  { el.textContent='OFFLINE'; el.style.color='#e67e22'; }
-    document.getElementById('su-age').textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
+// ─── Info / Setup status ──────────────────────────────────────────────────────
+function infoCell(label, value, color) {
+    return `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+        <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${label}</div>
+        <div style="font-weight:bold;color:${color||'#ecf0f1'};font-size:.9em;">${value}</div>
+    </div>`;
+}
 
-    // CU352 Live Settings grid
-    const sg = document.getElementById('su-settings-grid');
-    if (!sg) return;
-    const sys = d && d.system ? d.system : null;
-    const pumps = d && d.pumps ? d.pumps : [];
-    if (!sys) {
-        sg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM 500 data...</div>';
-        return;
+function renderSetupStatus() {
+    const d    = latestData;
+    const sys  = d && d.system ? d.system : null;
+    const pumps = d && d.pumps  ? d.pumps  : [];
+
+    // Connection status (Info tab pill + header pill)
+    const online = d && d.connected;
+    const el = document.getElementById('su-status');
+    if (el) { el.textContent = online ? 'ONLINE' : 'OFFLINE'; el.style.color = online ? '#27ae60' : '#e67e22'; }
+    const hel = document.getElementById('header-sys-status');
+    if (hel) { hel.textContent = online ? '● ONLINE' : '● OFFLINE'; hel.style.color = online ? '#27ae60' : '#e67e22'; }
+    const ageEl = document.getElementById('su-age');
+    if (ageEl) ageEl.textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
+
+    // ── Device Information ────────────────────────────────────────────────────
+    const dg = document.getElementById('su-device-grid');
+    if (dg) {
+        if (!sys) {
+            dg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM data...</div>';
+        } else {
+            const family  = sys.cim_unit_family  != null ? sys.cim_unit_family  : '--';
+            const type    = sys.cim_unit_type     != null ? sys.cim_unit_type    : '--';
+            const ver     = sys.cim_unit_version  != null ? sys.cim_unit_version : '--';
+            const fw1     = sys.cim_fw_ver1  != null ? sys.cim_fw_ver1  : null;
+            const fw2     = sys.cim_fw_ver2  != null ? sys.cim_fw_ver2  : null;
+            const fw3     = sys.cim_fw_ver3  != null ? sys.cim_fw_ver3  : null;
+            const fw4     = sys.cim_fw_ver4  != null ? sys.cim_fw_ver4  : null;
+            const fwStr   = [fw1,fw2,fw3,fw4].filter(x=>x!=null).join('.');
+            const familyName = family === 21 ? 'Hydro MPC' : (family !== '--' ? 'Family '+family : '--');
+            const typeName   = type   === 4  ? 'GENIECON'  : (type   !== '--' ? 'Type '+type     : '--');
+            dg.innerHTML = [
+                infoCell('Unit Family',  familyName,             '#3498db'),
+                infoCell('Unit Type',    typeName,               '#3498db'),
+                infoCell('Unit Version', ver !== '--' ? ver.toString() : '--', '#7f8c8d'),
+                infoCell('CIM Firmware', fwStr || '--',          '#9b59b6'),
+                infoCell('Controller',   'CU 352',               '#7f8c8d'),
+                infoCell('Protocol',     'GENIECON Modbus TCP',  '#7f8c8d'),
+                infoCell('Module',       'CIM 500',              '#7f8c8d'),
+                infoCell('Device ID',    '1 / Port 502',         '#7f8c8d'),
+            ].join('');
+        }
     }
-    const sp_bar = sys.pressure_setpoint_bar;
-    const settings = [
-        {l:'Setpoint',      v: sp_bar!=null?sp_bar.toFixed(2)+' bar':'--',            c:'#e67e22'},
-        {l:'Mode',          v: sys.mode?sys.mode.toUpperCase():'--',                   c:'#3498db'},
-        {l:'Discharge (B1)',v: sys.pressure_actual_bar!=null?sys.pressure_actual_bar.toFixed(2)+' bar':'--', c:'#ecf0f1'},
-        {l:'Suction (B2)',  v: sys.pressure_suction_bar!=null?sys.pressure_suction_bar.toFixed(2)+' bar':'--', c:'#ecf0f1'},
-        {l:'PI Kp',         v: sys.pid_kp!=null?sys.pid_kp.toString():'--',           c:'#9b59b6'},
-        {l:'PI Ti',         v: sys.pid_ti!=null?sys.pid_ti+'s':'--',                  c:'#9b59b6'},
-        {l:'Sensor max',    v: sys.sensor_max_bar!=null?sys.sensor_max_bar+' bar':'--', c:'#7f8c8d'},
-        {l:'Energy total',  v: sys.energy_kwh!=null?sys.energy_kwh.toLocaleString()+' kWh':'--', c:'#f39c12'},
-        {l:'Run hours',     v: sys.run_hours!=null?sys.run_hours.toLocaleString()+'h':'--', c:'#7f8c8d'},
-        {l:'Power cycles',  v: sys.power_ons!=null?sys.power_ons.toString():'--',     c:'#7f8c8d'},
-        ...pumps.map(p=>({l:p.label+' kWh', v: d.pump_energy_kwh&&d.pump_energy_kwh[pumps.indexOf(p)]!=null?d.pump_energy_kwh[pumps.indexOf(p)].toLocaleString()+' kWh':'--', c:'#566573'})),
-    ];
-    sg.innerHTML = settings.map(s=>`<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
-        <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${s.l}</div>
-        <div style="font-weight:bold;color:${s.c};font-size:.9em;">${s.v}</div>
-    </div>`).join('');
+
+    // ── Controller Settings ───────────────────────────────────────────────────
+    const sg = document.getElementById('su-settings-grid');
+    if (sg) {
+        if (!sys) {
+            sg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM 500 data...</div>';
+        } else {
+            const sp_bar = sys.pressure_setpoint_bar;
+            sg.innerHTML = [
+                infoCell('Setpoint',       sp_bar!=null ? sp_bar.toFixed(2)+' bar' : '--',                      '#e67e22'),
+                infoCell('Mode',           sys.mode ? sys.mode.toUpperCase() : '--',                             '#3498db'),
+                infoCell('Discharge (B1)', sys.pressure_actual_bar!=null  ? sys.pressure_actual_bar.toFixed(2)+' bar'  : '--', '#ecf0f1'),
+                infoCell('Suction (B2)',   sys.pressure_suction_bar!=null ? sys.pressure_suction_bar.toFixed(2)+' bar' : '--', '#ecf0f1'),
+                infoCell('PI Kp',          sys.pid_kp!=null ? sys.pid_kp.toString() : '--',                     '#9b59b6'),
+                infoCell('PI Ti',          sys.pid_ti!=null ? sys.pid_ti+'s' : '--',                            '#9b59b6'),
+                infoCell('Sensor max',     sys.sensor_max_bar!=null ? sys.sensor_max_bar+' bar' : '--',         '#7f8c8d'),
+            ].join('');
+        }
+    }
+
+    // ── System Totals ─────────────────────────────────────────────────────────
+    const tg = document.getElementById('su-totals-grid');
+    if (tg) {
+        if (!sys) {
+            tg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for data...</div>';
+        } else {
+            tg.innerHTML = [
+                infoCell('Total Energy',   sys.energy_kwh!=null ? sys.energy_kwh.toLocaleString()+' kWh' : '--', '#f39c12'),
+                infoCell('System Hours',   sys.run_hours!=null  ? sys.run_hours.toLocaleString()+' h'     : '--', '#7f8c8d'),
+                infoCell('Power Cycles',   sys.power_ons!=null  ? sys.power_ons.toString()                : '--', '#7f8c8d'),
+                infoCell('Pumps',          pumps.length ? pumps.length+' installed' : '--',                       '#566573'),
+            ].join('');
+        }
+    }
+
+    // ── Pump Run Hours ────────────────────────────────────────────────────────
+    const phg = document.getElementById('su-pump-hours-grid');
+    if (phg) {
+        if (!pumps.length) {
+            phg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">No pump data</div>';
+        } else {
+            phg.innerHTML = pumps.map(p => {
+                const hrs = p.run_hours != null ? p.run_hours.toLocaleString()+' h' : '--';
+                const kwh = p.energy_kwh != null ? p.energy_kwh.toLocaleString()+' kWh' : '--';
+                return `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">${p.label||'Pump'}</div>
+                    <div style="font-weight:bold;color:#ecf0f1;font-size:1.0em;">${hrs}</div>
+                    <div style="font-size:.7em;color:#f39c12;margin-top:3px;">${kwh}</div>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    // ── Digital I/O ───────────────────────────────────────────────────────────
+    const ig = document.getElementById('su-io-grid');
+    if (ig) {
+        const tankOk     = sys ? sys.tank_ok : null;
+        const alarmCount = sys ? (sys.alarm_count || 0) : null;
+        const di2Color   = tankOk === true ? '#27ae60' : (tankOk === false ? '#e74c3c' : '#7f8c8d');
+        const di2Label   = tankOk === true ? 'TANK OK' : (tankOk === false ? 'TANK EMPTY' : '--');
+        const do1Color   = alarmCount !== null ? (alarmCount > 0 ? '#e74c3c' : '#27ae60') : '#7f8c8d';
+        const do1Label   = alarmCount !== null ? (alarmCount > 0 ? alarmCount+' ACTIVE' : 'NO ALARMS') : '--';
+        ig.innerHTML = [
+            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DI1 - Ext Start/Stop (10,11)</div>
+                <div style="font-weight:bold;color:#566573;font-size:.9em;">Not monitored</div>
+            </div>`,
+            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DI2 - Tank Float (12,13)</div>
+                <div style="font-weight:bold;color:${di2Color};font-size:.9em;">${di2Label}</div>
+            </div>`,
+            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DO1/DO2 - Common Alarm</div>
+                <div style="font-weight:bold;color:${do1Color};font-size:.9em;">${do1Label}</div>
+            </div>`,
+        ].join('');
+    }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

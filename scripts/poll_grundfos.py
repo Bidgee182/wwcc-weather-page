@@ -574,6 +574,7 @@ def main():
         energy_regs   = rhr(client, 480, 8)    # per-pump energy kWh (00481-00488)
         ain_unit_regs = rhr(client, 224, 7)    # regs 00225-00231: AnalogIn1-7 unit codes
         ain_val_regs  = rhr(client, 375, 7)    # regs 00376-00382: AnalogIn1-7 values
+        cim_regs      = rhr(client, 29, 8)     # regs 00030-00037: UnitFamily/Type/Ver + FW version
         mge_temps     = scan_mge_temperatures(client, len(PUMP_DEFS))
         raw_regs      = raw_scan(client)
     finally:
@@ -795,6 +796,14 @@ def main():
         # bit1=1: float closed (jumper or float OK) = tank OK
         # bit1=0: float open (tank low) = water shortage / tank empty
         "tank_ok":                   bool(di_raw & 0x02) if di_raw is not None else None,
+        # CIM identity & firmware (addr 29-36 = doc 00030-00037)
+        "cim_unit_family":  valid(cim_regs[0]) if cim_regs else None,  # 21 = Hydro MPC/GENIECON
+        "cim_unit_type":    valid(cim_regs[1]) if cim_regs else None,  # 4 = GENIECON
+        "cim_unit_version": valid(cim_regs[2]) if cim_regs else None,
+        "cim_fw_ver1":      valid(cim_regs[4]) if cim_regs else None,  # firmware version regs
+        "cim_fw_ver2":      valid(cim_regs[5]) if cim_regs else None,
+        "cim_fw_ver3":      valid(cim_regs[6]) if cim_regs else None,
+        "cim_fw_ver4":      valid(cim_regs[7]) if cim_regs else None,
         "alarm_code":                alarm_code or 0,
         "warning_code":              warning_code or 0,
         "pumps_comm_fault":          pumps_comm_fault or 0,
