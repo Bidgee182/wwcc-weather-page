@@ -70,7 +70,7 @@
         .conn-ts    { font-size:0.72em; color:#7f8c8d; }
         .conn-sub   { font-size:0.72em; color:#7f8c8d; margin-top:2px; }
         /* Mode pill text */
-        .pp-mode-val { font-size:.88em; font-weight:bold; line-height:1.3; padding:3px 4px 0; }
+        .pp-mode-val { font-size:1.25em; font-weight:bold; line-height:1.3; padding:4px 4px 0; }
         @keyframes pOrange { 0%,100%{box-shadow:0 0 4px rgba(230,126,34,.4)} 50%{box-shadow:0 0 14px 5px rgba(230,126,34,.8)} }
         @keyframes pGreen  { 0%,100%{box-shadow:0 0 4px rgba(39,174,96,.4)}  50%{box-shadow:0 0 14px 5px rgba(39,174,96,.8)} }
         @keyframes pRed    { 0%,100%{box-shadow:0 0 4px rgba(231,76,60,.4)}  50%{box-shadow:0 0 18px 7px rgba(231,76,60,.9)} }
@@ -104,7 +104,7 @@
         .pres-pills-row { display:flex; align-items:stretch; gap:0; }
         .pp-sep { display:flex; align-items:center; padding:0 12px; color:#3d5166; font-size:1em; flex-shrink:0; }
         .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 12px 12px; text-align:center; position:relative; transition:border-color .4s; overflow:hidden; }
-        .pp-lbl  { font-size:.6em; text-transform:uppercase; letter-spacing:1.5px; color:#7f8c8d; margin:0 -12px 10px -12px; padding:8px 12px; background:rgba(61,81,102,.5); }
+        .pp-lbl  { font-size:.88em; font-weight:bold; color:#ecf0f1; letter-spacing:0; text-transform:none; margin:0 -12px 10px -12px; padding:8px 12px; background:rgba(61,81,102,.5); }
         .pp-val  { font-size:2.1em; font-weight:bold; line-height:1; }
         .pp-unit { font-size:.7em; color:#7f8c8d; margin-top:5px; }
         .pp-edit { position:absolute; top:5px; right:7px; background:none; border:1px solid rgba(93,130,160,.4); color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; z-index:1; }
@@ -427,7 +427,7 @@
 <div id="tab-overview" class="tab-panel active">
 
     <div class="card">
-        <h2>System Pressure</h2>
+        <h2>System Snapshot</h2>
         <div class="pres-pills-row">
             <!-- Suction -->
             <div class="pres-pill" id="pp-suction">
@@ -472,10 +472,10 @@
                 <button class="sp-picker-cancel" onclick="ovCloseSetpointPicker()">Cancel</button>
             </div>
         </div>
-    </div>
-
-    <div id="ov-pump-summary" class="pump-pills-row">
-        <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;flex:1;">Waiting for data...</div>
+        <div style="border-top:1px solid #3d5166; margin:12px -18px 10px;"></div>
+        <div id="ov-pump-summary" class="pump-pills-row" style="margin-bottom:0;">
+            <div style="text-align:center;color:#566573;font-size:0.88em;padding:14px;flex:1;">Waiting for data...</div>
+        </div>
     </div>
 
     <div class="sys-metrics">
