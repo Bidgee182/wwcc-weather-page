@@ -26,15 +26,15 @@
         .header-gf-block { margin-left:auto; flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
         .header-gf-block .conn-banner { max-width:260px; }
         .header-gf-block .conn-title  { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; display:block; }
-        /* Grundfos logo above title on mobile (hidden on desktop) */
-        .header-gf-mobile { display:none; height:18px; width:auto; opacity:0.9; margin-bottom:2px; }
-        /* Mobile: hide Grundfos block + subtitle, show mobile Grundfos logo, shrink logo + title */
+        /* Grundfos logo centred above PUMP STATION (always visible) */
+        .header-gf-logo { display:inline-block; height:28px; width:auto; opacity:0.92; margin-bottom:4px; }
+        /* Mobile: hide Grundfos block + subtitle, shrink logo + title */
         @media (max-width:700px) {
             .header-gf-block { display:none; }
             .header-text .subtitle { display:none; }
             .header-logo { height:48px; }
             .header-text h1 { font-size:1.4em; letter-spacing:4px; }
-            .header-gf-mobile { display:inline-block; }
+            .header-gf-logo { height:16px; }
             /* Pump cards: switch from horizontal-scroll flex to wrapping grid */
             .pump-row { display:grid; grid-template-columns:repeat(2,1fr); overflow-x:unset; justify-content:unset; flex-wrap:unset; }
             .pump-anim-card { min-width:unset; max-width:none; width:100%; }
@@ -45,14 +45,14 @@
             .header { gap:10px; }
             .header-logo { height:40px; }
             .header-text h1 { font-size:1.15em; letter-spacing:2px; }
-            .header-gf-mobile { height:15px; }
+            .header-gf-logo { height:14px; }
             .pump-anim-card svg[viewBox="0 0 100 222"] { width:60px !important; height:133px !important; }
             .pump-anim-card svg[viewBox="0 0 80 178"]  { width:48px !important; height:107px !important; }
         }
         @media (max-width:360px) {
             .header-logo { height:34px; }
             .header-text h1 { font-size:1em; letter-spacing:1px; }
-            .header-gf-mobile { height:13px; }
+            .header-gf-logo { height:12px; }
         }
 
         /* Sidebar nav */
@@ -407,12 +407,11 @@
         <img class="logo-top header-logo" src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png" alt="">
     </div>
     <div class="header-text">
-        <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" class="header-gf-mobile">
+        <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" class="header-gf-logo">
         <h1><span style="font-weight:300;letter-spacing:8px;">PUMP</span> <span style="color:#e67e22;font-weight:800;">STATION</span></h1>
         <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Grundfos</span> Hydro MPC - CU 352 - 3x CRNE45-3 MGE160 18.5kW + Jockey CRNE10-9 MGE132 5.5kW</div>
     </div>
     <div class="header-gf-block">
-        <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" style="height:38px;width:auto;opacity:0.92;">
         <div class="conn-banner offline" id="conn-banner" style="margin-bottom:0;padding:6px 10px;font-size:.82em;">
             <div class="conn-dot offline" id="conn-dot"></div>
             <div>
@@ -1004,7 +1003,8 @@ const PRES_LOW_LIMIT  =  5.5; // bar - low pressure alarm limit
 let latestData     = null;
 let historyData    = null;
 let dailyData      = null;
-let farmbotTankData = null;
+let farmbotTankData   = null;
+let farmbotLatestData = null;
 let perfRangeH  = 24;
 let trendsMetric = 'hrs';
 const charts = {};
@@ -1063,16 +1063,22 @@ async function ensureHistory() {
     document.getElementById('hist-loading').style.display = 'none';
 }
 
+async function ensureFarmbotLatest() {
+    if (farmbotLatestData !== null) return;
+    try {
+        const r = await fetch('data/farmbot_latest.json?_='+Date.now());
+        farmbotLatestData = r.ok ? await r.json() : {};
+    } catch(e) { farmbotLatestData = {}; }
+}
+
 async function ensureFarmbotTank() {
     if (farmbotTankData !== null) return;
+    await ensureFarmbotLatest();
     try {
         // Load full readings history
         const r1 = await fetch('data/farmbot_readings.json?_='+Date.now());
         const history = r1.ok ? await r1.json() : [];
-        // Also load latest.json for any readings newer than what's in history
-        const r2 = await fetch('data/farmbot_latest.json?_='+Date.now());
-        const latest = r2.ok ? await r2.json() : {};
-        const extra = (latest.tank_graph || []);
+        const extra = (farmbotLatestData.tank_graph || []);
         // Merge: build date-keyed map so duplicates are overwritten by latest
         const byDate = {};
         for (const e of history) if (e.date) byDate[e.date] = e;
@@ -1151,7 +1157,8 @@ function renderBanner() {
 }
 
 // ─── Overview ────────────────────────────────────────────────────────────────
-function renderOverview() {
+async function renderOverview() {
+    await ensureFarmbotLatest();
     const d = latestData;
     const sys   = d && d.system ? d.system : {};
     const pumps = d && d.pumps  ? d.pumps  : [];
@@ -1214,8 +1221,9 @@ function renderOverview() {
     const ov_se = document.getElementById('ov-spec-e');
     if (ov_se) ov_se.textContent = sys.specific_energy_wh_m3 != null ? Math.round(sys.specific_energy_wh_m3) : '--';
 
-    // Tank float valve status — DI2 (terminals 12,13): true=OK, false=empty, null=unknown
+    // Supply tank: DI2 float status + FarmBot percentage level
     const tankOk  = sys.tank_ok;
+    const fbPct   = farmbotLatestData && farmbotLatestData.tank_pct != null ? farmbotLatestData.tank_pct : null;
     const tankLbl = document.getElementById('ov-tank-lbl');
     const tankVal = document.getElementById('ov-tank-val');
     const tankSub = document.getElementById('ov-tank-sub');
@@ -1223,18 +1231,18 @@ function renderOverview() {
         if (tankOk === null || tankOk === undefined) {
             tankLbl.className = 'sm-lbl';
             tankVal.style.color = '#7f8c8d';
-            tankVal.textContent = '--';
-            if (tankSub) tankSub.textContent = 'DI2';
+            tankVal.textContent = fbPct != null ? fbPct.toFixed(0)+'%' : '--';
+            if (tankSub) tankSub.textContent = 'Supply Tank';
         } else if (tankOk) {
             tankLbl.className = 'sm-lbl lbl-green';
             tankVal.style.color = '#27ae60';
-            tankVal.textContent = 'OK';
-            if (tankSub) tankSub.textContent = 'Supply Tank';
+            tankVal.textContent = fbPct != null ? fbPct.toFixed(0)+'%' : 'Full';
+            if (tankSub) tankSub.textContent = 'Full - Supply Tank';
         } else {
             tankLbl.className = 'sm-lbl lbl-red';
             tankVal.style.color = '#e74c3c';
-            tankVal.textContent = 'EMPTY';
-            if (tankSub) tankSub.textContent = 'Water Shortage!';
+            tankVal.textContent = fbPct != null ? fbPct.toFixed(0)+'%' : 'Empty';
+            if (tankSub) tankSub.textContent = 'Empty - Water Shortage!';
         }
     }
 
