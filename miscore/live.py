@@ -456,14 +456,18 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             else:
                 continue
 
-        # Detect position number (1-20) in first two words
+        # Detect position number (1-99) in first three words.
+        # WWCC competition report PDFs use "Ran Name ..." format where "Ran" is rank;
+        # positions well above 20 are common in large fields or grade sections that
+        # list all placed players. NTP/LD rows (e.g. "2 Schultz, Sandra 110cm") are
+        # excluded because the in_ntp_section flag is set before we reach here.
         pos: int | None = None
         name_start_idx = 0
         for i, t in enumerate(texts[:3]):
             pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
             if pm:
                 v = int(pm.group(1))
-                if 1 <= v <= 20:
+                if 1 <= v <= 99:
                     pos = v
                     name_start_idx = i + 1
                     break
