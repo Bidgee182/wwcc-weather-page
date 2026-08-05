@@ -993,28 +993,48 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if (!roundComplete) { exitResults(); return; }
     if (!officialResultsReady) { exitResults(); return; }
 
-    // Skip grade strip for small fields (< 30 players) - single-grade comps like women's
-    if (activeSorted.length < 30) { exitResults(); return; }
-    if (!grades) { exitResults(); return; }
+    // Detect grade count from PDF (authoritative); fall back to 3 for large fields, 2 for small.
+    const pdfGrades = (_pdfStandings.grades || []).filter(g => 'ABCD'.includes(g));
+    const gradeCount = pdfGrades.length >= 2 ? pdfGrades.length : (activeSorted.length >= 30 ? 3 : 2);
+    const gradeKeys = gradeCount >= 3 ? ['A', 'B', 'C'] : ['A', 'B'];
 
-    // Grade assignment: PDF winners override dynamic thirds; everyone else uses dynamic thirds
+    // Need at least 3 players per grade; skip if too few
+    if (activeSorted.length < gradeKeys.length * 3) { exitResults(); return; }
+
+    // For 2-grade comps, compute a half-split boundary; for 3-grade use the thirds boundary.
+    let effectiveGrades = grades;  // { aMax, bMax } from computeGrades (thirds)
+    if (gradeCount < 3) {
+        const withHcp = activeSorted.filter(p => p.hcp != null).sort((a, b) => a.hcp - b.hcp);
+        const n = withHcp.length;
+        const half = Math.floor(n / 2);
+        effectiveGrades = { aMax: (half > 0 ? withHcp[half - 1].hcp : 999), bMax: 999 };
+    }
+    if (!effectiveGrades) { exitResults(); return; }
+
+    // Grade assignment: PDF winners override dynamic split; everyone else uses HCP boundary
     function getPlayerGrade(p) {
-        return lookupPdfGrade(p.player) || getGrade(p.hcp, grades);
+        const pdf = lookupPdfGrade(p.player);
+        if (pdf) return pdf;
+        if (p.hcp == null) return null;
+        if (p.hcp <= effectiveGrades.aMax) return 'A';
+        if (p.hcp <= effectiveGrades.bMax) return 'B';
+        return gradeCount >= 3 ? 'C' : 'B';
     }
 
-    const gradeAll = { A: [], B: [], C: [] };
+    const gradeAll = {};
+    gradeKeys.forEach(k => gradeAll[k] = []);
     for (const p of activeSorted) {
         const g = getPlayerGrade(p);
         if (g && gradeAll[g]) gradeAll[g].push(p);
     }
 
-    // Require at least 2 of 3 grades to have players, else field is effectively single-grade
+    // Require at least 2 grades to have players
     const gradesWithPlayers = Object.values(gradeAll).filter(arr => arr.length > 0).length;
     if (gradesWithPlayers < 2) { exitResults(); return; }
 
     // Sort each grade: best score first (higher for stableford, lower for stroke)
     const scoreDir = _isStableford ? 1 : -1;
-    ['A', 'B', 'C'].forEach(gk => {
+    gradeKeys.forEach(gk => {
         gradeAll[gk].sort((a, b) => {
             if (b.points !== a.points) return scoreDir * (b.points - a.points);
             const cb = countbackCompare(a, b, holeCount);
@@ -1031,11 +1051,17 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         return used ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
     }
 
+    // Show/hide C grade elements based on grade count
+    const cRow = document.getElementById('grade-c')?.closest('.grade-row');
+    if (cRow) cRow.style.display = gradeCount >= 3 ? '' : 'none';
+    const cCard = document.getElementById('grade-card-c-body')?.closest('.grade-card');
+    if (cCard) cCard.style.display = gradeCount >= 3 ? '' : 'none';
+
     // Compact grade strip (inside leaderboard - hidden in results mode by CSS, kept for live use)
-    ['a', 'b', 'c'].forEach(gk => {
-        const el = document.getElementById('grade-' + gk);
+    gradeKeys.forEach(gk => {
+        const el = document.getElementById('grade-' + gk.toLowerCase());
         if (!el) return;
-        const all = gradeAll[gk.toUpperCase()];
+        const all = gradeAll[gk];
         if (!all.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
         const top = all.slice(0, 3);
         el.innerHTML = top.map((p, i) =>
@@ -1048,10 +1074,10 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     });
 
     // Expanded grade cards (left results panel)
-    ['a', 'b', 'c'].forEach(gk => {
-        const body = document.getElementById('grade-card-' + gk + '-body');
+    gradeKeys.forEach(gk => {
+        const body = document.getElementById('grade-card-' + gk.toLowerCase() + '-body');
         if (!body) return;
-        const all = gradeAll[gk.toUpperCase()];
+        const all = gradeAll[gk];
         if (!all.length) { body.innerHTML = '<div style="color:#4a6a84;text-align:center">-</div>'; return; }
         const top = all.slice(0, 3);
         body.innerHTML = top.map((p, i) =>

@@ -1715,7 +1715,7 @@ def find_board(club: str, comp: str | None, days: int) -> dict | None:
         comps = [c for c in comps if comp.lower() in c["name"].lower()]
     today = datetime.now(_AEST).date().isoformat()  # AEST date - runner is UTC
     todays = [c for c in comps if c.get("date") == today]
-    pool = todays or comps
+    pool = todays  # never fall back to past boards; return None if no today's comp
     # Prefer non-4BBB comps; fall back to 4BBB only if nothing else is available
     if not comp:
         preferred = [c for c in pool if not _is_depriority(c["name"])]
@@ -1943,6 +1943,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         direct_report = f"{_WWCC_BASE}/upload/reportOutput/Golf_Competition_Report_{board_id}.pdf"
         api_links = _official_cache.get("reportLinks") or []
         all_links = list(dict.fromkeys([direct_report] + api_links))
+        successful_fetches = 0
         for link in all_links:
             try:
                 pdf_bytes = _wwcc_get_bytes(link)
@@ -1962,27 +1963,32 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                     if g not in pdf_grades_found:
                         pdf_grades_found.append(g)
                 pdf_players_all.extend(standings.get("players", []))
+                successful_fetches += 1
             except Exception as exc:
                 log.debug("PDF parse failed for %s: %s", link, exc)
-        # Pull ball winners from all parsed standings rows (overall + grade sections)
-        for p in pdf_players_all:
-            if not p.get("balls"):
-                continue
-            pname = p["name"]
-            if ',' in pname:  # "Lastname, Firstname" grade-section format
-                sp = pname.split(',', 1)
-                pname = f'{sp[1].strip()} {sp[0].strip()}'
-            if ' & ' not in pname and len(pname) >= 3:
-                all_ball_winners.add(pname)
-        _official_cache["ballWinners"] = sorted(all_ball_winners)
-        _official_cache["ntpLd"] = ntp_all + ld_all
-        _official_cache["pdfStandings"] = {
-            "grades": pdf_grades_found,
-            "players": pdf_players_all,
-        }
-        log.info("Ball winners: %d  NTP/LD: %d  PDF grades: %s  PDF players: %d",
-                 len(_official_cache["ballWinners"]), len(_official_cache["ntpLd"]),
-                 pdf_grades_found, len(pdf_players_all))
+        if successful_fetches == 0:
+            # All PDFs failed - keep ballWinners as None so we retry next poll.
+            log.warning("All PDF fetches failed for board %s - will retry next poll", board_id)
+        else:
+            # Pull ball winners from all parsed standings rows (overall + grade sections)
+            for p in pdf_players_all:
+                if not p.get("balls"):
+                    continue
+                pname = p["name"]
+                if ',' in pname:  # "Lastname, Firstname" grade-section format
+                    sp = pname.split(',', 1)
+                    pname = f'{sp[1].strip()} {sp[0].strip()}'
+                if ' & ' not in pname and len(pname) >= 3:
+                    all_ball_winners.add(pname)
+            _official_cache["ballWinners"] = sorted(all_ball_winners)
+            _official_cache["ntpLd"] = ntp_all + ld_all
+            _official_cache["pdfStandings"] = {
+                "grades": pdf_grades_found,
+                "players": pdf_players_all,
+            }
+            log.info("Ball winners: %d  NTP/LD: %d  PDF grades: %s  PDF players: %d",
+                     len(_official_cache["ballWinners"]), len(_official_cache["ntpLd"]),
+                     pdf_grades_found, len(pdf_players_all))
 
     now = datetime.now(timezone.utc)
 
@@ -2114,7 +2120,8 @@ def main(argv=None) -> int:
                     f'{lead["player"]} {lead["points"]}pts' if lead else "-",
                 )
                 # Snapshot confirmed official results to disk so they survive workflow restarts.
-                # The snapshot is written once (first time results are fully ready for a board).
+                # Written on first eligibility; updated if PDF data improves (e.g. first fetch
+                # failed so ballWinners was [], later fetch succeeded and found winners/NTP).
                 if (blob.get("officialResultsReady")
                         and blob.get("ballWinners") is not None
                         and blob.get("pdfStandings")):
@@ -2122,7 +2129,14 @@ def main(argv=None) -> int:
                         existing = json.loads(args.last_results.read_text()) if args.last_results.exists() else {}
                     except Exception:
                         existing = {}
-                    if existing.get("leaderboardId") != blob.get("leaderboardId"):
+                    same_board = existing.get("leaderboardId") == blob.get("leaderboardId")
+                    has_better_pdf = (
+                        (blob.get("ballWinners") and not existing.get("ballWinners"))
+                        or (blob.get("ntpLd") and not existing.get("ntpLd"))
+                        or (blob.get("pdfStandings", {}).get("players")
+                            and not existing.get("pdfStandings", {}).get("players"))
+                    )
+                    if not same_board or has_better_pdf:
                         snapshot = {
                             "competition":        blob["competition"],
                             "date":               blob.get("date"),
@@ -2138,8 +2152,9 @@ def main(argv=None) -> int:
                             "snapshotAt":         datetime.now(timezone.utc).isoformat(),
                         }
                         args.last_results.write_text(json.dumps(snapshot, indent=1), encoding="utf-8")
-                        log.info("Saved official results snapshot for %s (%s)",
-                                 blob["competition"], blob.get("date"))
+                        log.info("Saved official results snapshot for %s (%s)%s",
+                                 blob["competition"], blob.get("date"),
+                                 " (updated with better PDF data)" if same_board else "")
                 # Include last-results snapshot when today's board hasn't started yet
                 # so the TV kiosk can display the previous comp's results.
                 if not blob.get("started") and args.last_results.exists():
