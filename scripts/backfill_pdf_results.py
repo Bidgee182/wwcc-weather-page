@@ -43,16 +43,27 @@ def backfill_comp(lb_id: str, archive_path: pathlib.Path, dry_run: bool = False)
     ntp_ld_parsed = _parse_ntp_ld(pdf_bytes)
     standings     = _parse_pdf_standings(pdf_bytes)
 
+    # Detect 4BBB/ambrose from archive data - skip individual ball winner extraction
+    with open(archive_path) as _f:
+        _arc = json.load(_f)
+    _comp_name = _arc.get("competition", "").lower()
+    is_team_comp = any(k in _comp_name for k in ("ambrose", "4bbb", "4 person", "four ball", "4ball"))
+
     ball_winners: set = set()
-    for p in standings.get("players", []):
-        if not p.get("balls"):
-            continue
-        pname = p["name"]
-        if ',' in pname:
-            sp = pname.split(',', 1)
-            pname = f'{sp[1].strip()} {sp[0].strip()}'
-        if ' & ' not in pname and len(pname) >= 3:
-            ball_winners.add(pname)
+    if not is_team_comp:
+        for p in standings.get("players", []):
+            if not p.get("balls"):
+                continue
+            pname = p["name"]
+            if ',' in pname:
+                sp = pname.split(',', 1)
+                pname = f'{sp[1].strip()} {sp[0].strip()}'
+            else:
+                parts = pname.split()
+                if len(parts) >= 2:
+                    pname = f'{parts[-1]} {" ".join(parts[:-1])}'
+            if ' & ' not in pname and len(pname) >= 3:
+                ball_winners.add(pname)
 
     print(f"  Grades: {standings.get('grades')}")
     print(f"  Players in PDF: {len(standings.get('players', []))}")
