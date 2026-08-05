@@ -1970,16 +1970,28 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             # All PDFs failed - keep ballWinners as None so we retry next poll.
             log.warning("All PDF fetches failed for board %s - will retry next poll", board_id)
         else:
-            # Pull ball winners from all parsed standings rows (overall + grade sections)
-            for p in pdf_players_all:
-                if not p.get("balls"):
-                    continue
-                pname = p["name"]
-                if ',' in pname:  # "Lastname, Firstname" grade-section format
-                    sp = pname.split(',', 1)
-                    pname = f'{sp[1].strip()} {sp[0].strip()}'
-                if ' & ' not in pname and len(pname) >= 3:
-                    all_ball_winners.add(pname)
+            # Pull ball winners from all parsed standings rows (overall + grade sections).
+            # Ambrose PDFs list pairs of "Lastname1 Firstname1 Lastname2 Firstname2" which
+            # the parser cannot separate; skip ball winners for team comps entirely.
+            if not is_ambrose:
+                for p in pdf_players_all:
+                    if not p.get("balls"):
+                        continue
+                    pname = p["name"]
+                    if ',' in pname:  # "Lastname, Firstname" format - flip to "Firstname Lastname"
+                        sp = pname.split(',', 1)
+                        pname = f'{sp[1].strip()} {sp[0].strip()}'
+                    else:
+                        # Competition report PDFs use "Lastname Firstname" (no comma).
+                        # Flip to "Firstname Lastname" to match MiClub player names.
+                        parts = pname.split()
+                        if len(parts) == 2:
+                            pname = f'{parts[1]} {parts[0]}'
+                        elif len(parts) > 2:
+                            # Guess: last word is firstname, rest is surname
+                            pname = f'{parts[-1]} {" ".join(parts[:-1])}'
+                    if ' & ' not in pname and len(pname) >= 3:
+                        all_ball_winners.add(pname)
             _official_cache["ballWinners"] = sorted(all_ball_winners)
             _official_cache["ntpLd"] = ntp_all + ld_all
             _official_cache["pdfStandings"] = {

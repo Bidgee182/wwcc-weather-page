@@ -993,9 +993,11 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
     if (!roundComplete) { exitResults(); return; }
     if (!officialResultsReady) { exitResults(); return; }
 
-    // Detect grade count from PDF (authoritative); fall back to 3 for large fields, 2 for small.
+    // Detect grade count from PDF (authoritative); fall back by comp type if PDF has no grades.
+    // Women's/Ladies comps use 2 grades (A/B); Men's comps use 3 (A/B/C).
     const pdfGrades = (_pdfStandings.grades || []).filter(g => 'ABCD'.includes(g));
-    const gradeCount = pdfGrades.length >= 2 ? pdfGrades.length : (activeSorted.length >= 30 ? 3 : 2);
+    const isWomens = /women|ladies/i.test(competition || '');
+    const gradeCount = pdfGrades.length >= 2 ? pdfGrades.length : (isWomens ? 2 : 3);
     const gradeKeys = gradeCount >= 3 ? ['A', 'B', 'C'] : ['A', 'B'];
 
     // Need at least 3 players per grade; skip if too few
