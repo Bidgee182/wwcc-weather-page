@@ -1,15 +1,15 @@
 {
   "connected": true,
-  "timestamp": "2026-08-06T23:50:12.509278+00:00",
-  "last_seen": "2026-08-06T23:50:12.509278+00:00",
+  "timestamp": "2026-08-06T23:54:58.345306+00:00",
+  "last_seen": "2026-08-06T23:54:58.345306+00:00",
   "system": {
-    "pressure_actual_bar": 9.323,
+    "pressure_actual_bar": 9.07,
     "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
     "power_kw": 0.0,
     "mode": "constant head",
-    "fault": true,
+    "fault": false,
     "system_on": true,
     "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
@@ -20,7 +20,7 @@
     "power_ons": 81,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 1,
+    "do_bits": 2,
     "tank_ok": true,
     "cim_unit_family": 21,
     "cim_unit_type": 1,
@@ -29,7 +29,7 @@
     "cim_fw_ver2": 1797,
     "cim_fw_ver3": 4881,
     "cim_fw_ver4": 8224,
-    "alarm_code": 210,
+    "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
     "sys_active_funcs": 0,
@@ -111,20 +111,12 @@
       "alarm_code": 0
     }
   ],
-  "alarms": [
-    {
-      "active": true,
-      "code": 210,
-      "description": "Pressure high",
-      "pump": "System",
-      "timestamp": "2026-08-06T23:50:12.509278+00:00"
-    }
-  ],
+  "alarms": [],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 9350,
+      "raw": 9051,
       "temp_c": null
     },
     {
@@ -7964,9 +7956,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-06T23:54:58.345306+00:00",
+      "pa": 9.07,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-06T23:54:58.345306+00:00",
+      "type_code": 2,
+      "type_name": "Alarm cleared",
+      "code": 210,
+      "description": "Pressure high",
+      "pump_label": "System",
+      "source_name": "System"
+    },
     {
       "timestamp_iso": "2026-08-06T23:50:12.509278+00:00",
       "type_code": 1,
@@ -8332,16 +8373,6 @@
       "type_name": "Alarm appeared",
       "code": 4,
       "description": "Too many restarts",
-      "pump_label": "P1 - CRNE45",
-      "source_name": "Pump",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-28T01:13:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 190,
-      "description": "Limit 1 exceeded",
       "pump_label": "P1 - CRNE45",
       "source_name": "Pump",
       "imported": true
