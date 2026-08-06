@@ -40,7 +40,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Detect which pump data files changed vs checkout baseline
           git add data/pump_station_latest.json \
                   data/pump_station_history.json \
                   data/pump_station_daily.json \
@@ -54,43 +53,9 @@ jobs:
             exit 0
           fi
 
-          changed=$(git diff --staged --name-only)
-          commit_msg="Grundfos poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          pushed=0
-          failed=0
-
-          # Push each changed file directly via the GitHub Contents API.
-          # This is atomic and never conflicts with other workflow pushes because
-          # only this workflow writes pump data files.
-          while IFS= read -r f; do
-            [ -f "$f" ] || continue
-
-            # Fetch the file's current SHA on remote (required by the PUT endpoint)
-            sha=$(gh api "repos/$GITHUB_REPOSITORY/contents/$f" --jq '.sha' 2>/dev/null || echo "")
-            if [ -z "$sha" ]; then
-              echo "WARNING: no remote SHA for $f -- skipping"
-              failed=1
-              continue
-            fi
-
-            content=$(base64 -w 0 < "$f")
-
-            if gh api "repos/$GITHUB_REPOSITORY/contents/$f" \
-                --method PUT \
-                --field "message=$commit_msg" \
-                --field "content=$content" \
-                --field "sha=$sha" \
-                --silent; then
-              echo "Pushed: $f"
-              pushed=1
-            else
-              echo "WARNING: API push failed for $f"
-              failed=1
-            fi
-          done <<< "$changed"
-
-          [ "$pushed"  -eq 1 ] && echo "API push complete" || true
-          [ "$failed"  -eq 1 ] && echo "NOTE: some files failed -- will retry next poll" || true
+          export CHANGED_FILES
+          CHANGED_FILES="$(git diff --staged --name-only)"
+          python3 scripts/push_pump_data.py
 
       - name: Queue next poll (self-chain, ~5 min gap)
         if: always()
