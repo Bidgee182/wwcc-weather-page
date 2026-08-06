@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-06T02:32:44.832543+00:00",
-  "last_seen": "2026-08-06T02:32:44.832543+00:00",
+  "timestamp": "2026-08-06T02:37:29.769852+00:00",
+  "last_seen": "2026-08-06T02:37:29.769852+00:00",
   "system": {
-    "pressure_actual_bar": 8.062,
+    "pressure_actual_bar": 8.566,
     "pressure_suction_bar": -0.666,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
-    "power_kw": 5.2,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 86.2,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198938,
@@ -32,7 +32,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -45,14 +45,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 87.4,
-      "power_kw": 5.2,
-      "current_a": 14.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5148.0,
-      "starts_today": 1,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -116,7 +116,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 8015,
+      "raw": 8545,
       "temp_c": null
     },
     {
@@ -157,46 +157,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-05T02:37:09.715175+00:00",
-      "pa": 7.181,
-      "ps": 7.8,
-      "pi": -0.663,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5146.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-05T02:41:53.186305+00:00",
       "pa": 7.181,
@@ -11236,9 +11196,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-06T02:37:29.769852+00:00",
+      "pa": 8.566,
+      "ps": 7.8,
+      "pi": -0.666,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5146.0,
+        1394.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-06T02:37:29.769852+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-06T02:23:22.326649+00:00",
       "type_code": 4,
@@ -11611,16 +11620,6 @@
       "timestamp_iso": "2026-04-25T19:57:00+00:00",
       "type_code": 2,
       "type_name": "Alarm cleared",
-      "code": 214,
-      "description": "Water shortage",
-      "pump_label": "System",
-      "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-25T18:53:00+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
       "code": 214,
       "description": "Water shortage",
       "pump_label": "System",
