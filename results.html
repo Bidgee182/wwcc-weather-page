@@ -575,7 +575,11 @@ function renderDetail(data) {
 
     function getGrade(p) {
         if (isTeamComp) return null;
-        return lookupPdfGrade(p.player, pdfMap) || playerGradeDynamic(p.hcp, dynGrades);
+        // When PDF grade data is available, only use PDF grades — never mix in dynamic thirds.
+        // Dynamic thirds partition by handicap and don't match WWCC's actual grade boundaries.
+        const pdfGrade = lookupPdfGrade(p.player, pdfMap);
+        if (hasPdfGrades) return pdfGrade || null;
+        return playerGradeDynamic(p.hcp, dynGrades);
     }
 
     // ── Grade winners section ──
