@@ -36,30 +36,61 @@ jobs:
           GRUNDFOS_PORT: '502'
         run: python scripts/poll_grundfos.py
 
-      - name: Commit updated data to repository
+      - name: Push pump data via GitHub API (conflict-free)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name  "WWCC Weather Bot"
-          git config user.email "bot@wwcc.com.au"
+          # Detect which pump data files changed vs checkout baseline
           git add data/pump_station_latest.json \
                   data/pump_station_history.json \
                   data/pump_station_daily.json \
                   data/pump_alarm_history.json \
                   data/pump_commands.json \
-                  data/raw/
+                  data/pump_starts.json \
+                  data/raw/ 2>/dev/null || true
+
           if git diff --staged --quiet; then
-            echo "No data changes — skipping commit"
-          else
-            git commit -m "Grundfos poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            ok=""
-            for i in 1 2 3 4 5; do
-              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
-              echo "Push attempt $i failed, retrying in $((i*8))s..."
-              sleep $((i * 8))
-            done
-            if [ -z "$ok" ]; then
-              echo "WARNING: push failed after 5 attempts — data will be written next poll"
-            fi
+            echo "No data changes -- skipping"
+            exit 0
           fi
+
+          changed=$(git diff --staged --name-only)
+          commit_msg="Grundfos poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          pushed=0
+          failed=0
+
+          # Push each changed file directly via the GitHub Contents API.
+          # This is atomic and never conflicts with other workflow pushes because
+          # only this workflow writes pump data files.
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+
+            # Fetch the file's current SHA on remote (required by the PUT endpoint)
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/contents/$f" --jq '.sha' 2>/dev/null || echo "")
+            if [ -z "$sha" ]; then
+              echo "WARNING: no remote SHA for $f -- skipping"
+              failed=1
+              continue
+            fi
+
+            content=$(base64 -w 0 < "$f")
+
+            if gh api "repos/$GITHUB_REPOSITORY/contents/$f" \
+                --method PUT \
+                --field "message=$commit_msg" \
+                --field "content=$content" \
+                --field "sha=$sha" \
+                --silent; then
+              echo "Pushed: $f"
+              pushed=1
+            else
+              echo "WARNING: API push failed for $f"
+              failed=1
+            fi
+          done <<< "$changed"
+
+          [ "$pushed"  -eq 1 ] && echo "API push complete" || true
+          [ "$failed"  -eq 1 ] && echo "NOTE: some files failed -- will retry next poll" || true
 
       - name: Queue next poll (self-chain, ~5 min gap)
         if: always()
