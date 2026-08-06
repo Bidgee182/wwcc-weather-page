@@ -51,14 +51,18 @@ jobs:
           else
             git commit -m "Grundfos poll $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             ok=""
-            for i in 1 2 3; do
+            for i in 1 2 3 4 5; do
               if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
-              echo "Push attempt $i failed, retrying..."; sleep 5
+              echo "Push attempt $i failed, retrying in $((i*8))s..."
+              sleep $((i * 8))
             done
-            [ -n "$ok" ]
+            if [ -z "$ok" ]; then
+              echo "WARNING: push failed after 5 attempts — data will be written next poll"
+            fi
           fi
 
       - name: Queue next poll (self-chain, ~5 min gap)
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
