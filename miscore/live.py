@@ -404,12 +404,24 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
     grades_found: list[str] = []
     current_grade: str = ""
     in_ntp_section = False
+    # Prize PDFs ("Competition Presentation Report") use "Firstname Lastname" order;
+    # competition report PDFs ("Competition Report") use "Lastname, Firstname".
+    # We detect by scanning the header text on the first pass.
+    is_prize_format = False
 
     try:
         lines = _pdf_lines(pdf_bytes)
     except Exception as exc:
         log.debug("pdfplumber standings parse failed: %s", exc)
         return {"grades": [], "players": []}
+
+    # First pass: detect PDF type from header
+    for line_words in lines[:15]:
+        texts = [w['text'] for w in line_words]
+        full = ' '.join(texts)
+        if re.search(r'competition\s+presentation\s+report', full, re.IGNORECASE):
+            is_prize_format = True
+            break
 
     for line_words in lines:
         texts = [w['text'] for w in line_words]
@@ -506,6 +518,13 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                 continue
             if t.startswith('$') or re.search(r'\d', t):
                 continue  # prize money or mixed token - not a name, not a plain score
+            # "C/B" = countback marker; "-" = grade separator ("A - 1 Name ..."); skip both
+            if t in ('C/B', 'C/b', '-', '–'):
+                continue
+            # "&" separates pair members in 4BBB — preserve it so the "& " filter works
+            if t == '&':
+                name_parts.append('&')
+                continue
             if any(c.isupper() for c in t) and t.lower().rstrip(',') not in _skip_words:
                 clean = t.rstrip(',')
                 name_parts.append(clean)
@@ -552,7 +571,9 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             if ',' not in p['name']:
                 p['grade'] = ''
 
-    return {"grades": grades_found, "players": players}
+    # is_prize_format is set from the "Competition Presentation Report" header;
+    # it means names are in "Firstname Lastname" order (no flip needed).
+    return {"grades": grades_found, "players": players, "is_prize_pdf": is_prize_format}
 
 
 def _ev_tag(ev_text: str, tag: str) -> str:
@@ -636,17 +657,11 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
         ev_id        = best["id"]
         result_count = best["resultCount"]
 
-        # Single-grade event: published when FirstReportLink is set
-        if result_count == 1 and best["reportLink"]:
-            return {
-                "published": True,
-                "reportLinks": [_WWCC_BASE + best["reportLink"]],
-                "eventId": ev_id,
-            }
-
-        # Multi-grade event: use the public AJAX endpoint that the mobile portal calls.
-        # Returns XML with PDF links embedded - no auth required.
-        if result_count > 1:
+        # Always try getResultsPdf first — it returns all PDFs (prize presentation + competition
+        # report) regardless of result_count.  This gives us grade-section PDFs even for
+        # "single-grade" events where FirstReportLink is the prize PDF but getResultsPdf may
+        # return additional per-grade PDFs that contain the actual grade breakdowns.
+        if ev_id:
             try:
                 xml_pdf = _wwcc_get(
                     f"{_WWCC_BASE}/common/Ajax?doAction=getResultsPdf&eventId={ev_id}"
@@ -655,7 +670,7 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
                     re.findall(r"/upload/[^\"'<>\s]+\.pdf", xml_pdf)
                 ))
                 if pdf_links:
-                    log.info("WWCC multi-grade PDFs found: %s", pdf_links)
+                    log.info("WWCC PDFs found via getResultsPdf: %s", pdf_links)
                     return {
                         "published": True,
                         "reportLinks": [_WWCC_BASE + lk for lk in pdf_links],
@@ -664,6 +679,14 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
                 log.info("WWCC getResultsPdf returned no PDFs yet for eventId=%s", ev_id)
             except Exception as exc:
                 log.warning("WWCC getResultsPdf failed: %s", exc)
+
+        # Fallback: single-grade event with a direct FirstReportLink
+        if result_count == 1 and best["reportLink"]:
+            return {
+                "published": True,
+                "reportLinks": [_WWCC_BASE + best["reportLink"]],
+                "eventId": ev_id,
+            }
 
         return {"published": False, "reportLinks": [], "eventId": ev_id}
 
@@ -1948,6 +1971,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         api_links = _official_cache.get("reportLinks") or []
         all_links = list(dict.fromkeys([direct_report] + api_links))
         successful_fetches = 0
+        # Track ball-winner candidates per PDF with their name-format flag
+        bw_candidates: list[tuple[str, bool]] = []  # (raw_name, is_prize_pdf)
         for link in all_links:
             try:
                 pdf_bytes = _wwcc_get_bytes(link)
@@ -1966,7 +1991,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
                 for g in standings.get("grades", []):
                     if g not in pdf_grades_found:
                         pdf_grades_found.append(g)
+                is_prize = standings.get("is_prize_pdf", False)
+                for p in standings.get("players", []):
+                    p["_is_prize_pdf"] = is_prize
                 pdf_players_all.extend(standings.get("players", []))
+                for p in standings.get("players", []):
+                    if p.get("balls"):
+                        bw_candidates.append((p["name"], is_prize))
                 successful_fetches += 1
             except Exception as exc:
                 log.debug("PDF parse failed for %s: %s", link, exc)
@@ -1978,21 +2009,20 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
             # Ambrose PDFs list pairs of "Lastname1 Firstname1 Lastname2 Firstname2" which
             # the parser cannot separate; skip ball winners for team comps entirely.
             if not is_ambrose:
-                for p in pdf_players_all:
-                    if not p.get("balls"):
-                        continue
-                    pname = p["name"]
-                    if ',' in pname:  # "Lastname, Firstname" format - flip to "Firstname Lastname"
+                for pname, is_prize in bw_candidates:
+                    if is_prize:
+                        # Prize PDFs: names already in "Firstname Lastname" order — no flip needed
+                        pass
+                    elif ',' in pname:
+                        # Competition report: "Lastname, Firstname" — flip to "Firstname Lastname"
                         sp = pname.split(',', 1)
                         pname = f'{sp[1].strip()} {sp[0].strip()}'
                     else:
-                        # Competition report PDFs use "Lastname Firstname" (no comma).
-                        # Flip to "Firstname Lastname" to match MiClub player names.
+                        # Competition report no-comma: "Lastname Firstname" — flip
                         parts = pname.split()
                         if len(parts) == 2:
                             pname = f'{parts[1]} {parts[0]}'
                         elif len(parts) > 2:
-                            # Guess: last word is firstname, rest is surname
                             pname = f'{parts[-1]} {" ".join(parts[:-1])}'
                     if ' & ' not in pname and len(pname) >= 3:
                         all_ball_winners.add(pname)
