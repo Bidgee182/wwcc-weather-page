@@ -422,6 +422,15 @@
                 <div class="conn-sub" id="conn-sub">CIM 500 Modbus TCP</div>
             </div>
         </div>
+        <div class="conn-banner offline" id="status-banner" style="margin-bottom:0;padding:6px 10px;font-size:.82em;">
+            <div class="conn-dot offline" id="status-dot"></div>
+            <div>
+                <div class="conn-title-row">
+                    <span class="conn-title" id="status-title">WAITING</span>
+                </div>
+                <div class="conn-sub" id="status-sub"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1133,26 +1142,84 @@ function renderAll() {
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
 function renderBanner() {
-    const d = latestData;
+    const d         = latestData;
+    const connected = d && d.connected;
+    const sys       = connected && d.system ? d.system : {};
+
+    // ── Connection pill ──────────────────────────────────────────────────────
     const banner = document.getElementById('conn-banner');
     const dot    = document.getElementById('conn-dot');
     const title  = document.getElementById('conn-title');
     const ts     = document.getElementById('conn-ts');
-    const connected = d && d.connected;
-    const hasFault  = connected && d.system && d.system.fault;
     if (!connected) {
         banner.className = 'conn-banner offline'; dot.className = 'conn-dot offline';
-        title.textContent = 'WAITING FOR CONNECTION';
-        ts.textContent = d && d.last_seen ? '· Last data: '+fmtAge(d.last_seen) : '';
-    } else if (hasFault) {
-        banner.className = 'conn-banner fault'; dot.className = 'conn-dot fault';
-        title.textContent = 'SYSTEM FAULT';
-        ts.textContent = '· Updated: '+fmtAge(d.timestamp);
+        title.textContent = 'OFFLINE';
+        ts.textContent = d && d.last_seen ? '· Last: '+fmtAge(d.last_seen) : '';
     } else {
-        const running = (d.pumps||[]).filter(p=>p.running).length;
         banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
-        title.textContent = 'ONLINE - '+(running>0 ? running+' PUMP'+(running>1?'S':'')+' RUNNING' : 'SYSTEM STANDBY');
-        ts.textContent = '· Updated: '+fmtAge(d.timestamp);
+        title.textContent = 'ONLINE';
+        ts.textContent = d.timestamp ? '· '+fmtAge(d.timestamp) : '';
+    }
+
+    // ── System status pill ───────────────────────────────────────────────────
+    const sBanner = document.getElementById('status-banner');
+    const sDot    = document.getElementById('status-dot');
+    const sTitle  = document.getElementById('status-title');
+    const sSub    = document.getElementById('status-sub');
+
+    if (!connected) {
+        sBanner.className = 'conn-banner offline'; sDot.className = 'conn-dot offline';
+        sTitle.textContent = 'STATUS UNKNOWN';
+        sSub.textContent   = '';
+        return;
+    }
+
+    // Collect active alarms: merge live Modbus alarms + event-log active events
+    const liveAlarms = (d.alarms || []).filter(a => a.active);
+    const eventLog   = d.event_log || [];
+    const lastByKey  = {};
+    for (const e of [...eventLog].sort((a,b) => new Date(a.timestamp_iso) - new Date(b.timestamp_iso))) {
+        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
+        lastByKey[key] = e;
+    }
+    const logActive = Object.values(lastByKey)
+        .filter(e => e.type_code===1 || e.type_code===3)
+        .map(e => ({ code:e.code, description:e.description, type_name:e.type_name, type_code:e.type_code, pump:e.pump_label||e.source_name, active:true }));
+    const combined = [...liveAlarms];
+    for (const e of logActive) {
+        if (!combined.some(a => a.code===e.code && a.pump===e.pump)) combined.push(e);
+    }
+
+    // Pick display text: prefer short type_name, fall back to description before " - "
+    function alarmLabel(a) {
+        if (a.type_name) return a.type_name.replace(/\s+(activated|active|raised)$/i,'').toUpperCase();
+        return (a.description||'ALARM').split(' - ')[0].split('(')[0].trim().toUpperCase();
+    }
+
+    const running    = (d.pumps||[]).filter(p => p.running).length;
+    const hasFault   = sys.fault;
+    const hardAlarms = combined.filter(a => !a.type_code || a.type_code===1);
+    const warnings   = combined.filter(a => a.type_code===3);
+
+    if (hasFault || hardAlarms.length) {
+        sBanner.className = 'conn-banner fault'; sDot.className = 'conn-dot fault';
+        const first = hardAlarms[0] || combined[0];
+        sTitle.textContent = first ? alarmLabel(first) : 'SYSTEM FAULT';
+        const extra = combined.length - 1;
+        sSub.textContent = extra > 0 ? '+'+extra+' more alarm'+(extra>1?'s':'') : (first && first.pump ? first.pump : '');
+    } else if (warnings.length) {
+        sBanner.className = 'conn-banner offline'; sDot.className = 'conn-dot offline';
+        sTitle.textContent = alarmLabel(warnings[0]);
+        const extra = warnings.length - 1;
+        sSub.textContent = extra > 0 ? '+'+extra+' more warning'+(extra>1?'s':'') : (warnings[0].pump || '');
+    } else if (running > 0) {
+        sBanner.className = 'conn-banner online'; sDot.className = 'conn-dot online';
+        sTitle.textContent = running+' PUMP'+(running>1?'S':'')+' RUNNING';
+        sSub.textContent   = sys.flow_m3h != null ? sys.flow_m3h.toFixed(1)+' m³/h' : '';
+    } else {
+        sBanner.className = 'conn-banner online'; sDot.className = 'conn-dot online';
+        sTitle.textContent = 'SYSTEM OK';
+        sSub.textContent   = sys.mode ? sys.mode.replace(/\b\w/g,c=>c.toUpperCase()) : 'Standby';
     }
 }
 
