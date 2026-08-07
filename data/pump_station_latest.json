@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T00:28:08.600782+00:00",
-  "last_seen": "2026-08-07T00:28:08.600782+00:00",
+  "timestamp": "2026-08-07T00:32:54.633872+00:00",
+  "last_seen": "2026-08-07T00:32:54.633872+00:00",
   "system": {
-    "pressure_actual_bar": 7.685,
+    "pressure_actual_bar": 7.749,
     "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 26.5,
+    "power_kw": 6.0,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 90.5,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198962,
@@ -45,14 +45,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 90.9,
+      "power_kw": 6.0,
+      "current_a": 14.4,
       "run_hours": 5148.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -116,7 +116,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7716,
+      "raw": 7739,
       "temp_c": null
     },
     {
@@ -8265,6 +8265,46 @@
       ],
       "st": [
         0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-07T00:32:54.633872+00:00",
+      "pa": 7.749,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 26.5,
+      "nr": 1,
+      "pk": 6.0,
+      "sp": [
+        90.9,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        6.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
         0,
         0,
         0
