@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T04:19:23.606889+00:00",
-  "last_seen": "2026-08-07T04:19:23.606889+00:00",
+  "timestamp": "2026-08-07T04:24:10.247576+00:00",
+  "last_seen": "2026-08-07T04:24:10.247576+00:00",
   "system": {
-    "pressure_actual_bar": 7.874,
-    "pressure_suction_bar": -0.812,
+    "pressure_actual_bar": 8.504,
+    "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
-    "power_kw": 11.5,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 89.4,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198964,
@@ -32,7 +32,7 @@
     "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -63,12 +63,12 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 87.8,
-      "power_kw": 5.1,
-      "current_a": 5.4,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5146.0,
       "starts_today": 2,
       "temp_c": null,
@@ -81,12 +81,12 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 82.7,
-      "power_kw": 5.8,
-      "current_a": 4.4,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5148.0,
       "starts_today": 1,
       "temp_c": null,
@@ -117,14 +117,14 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T04:19:23.606889+00:00"
+      "timestamp": "2026-08-07T04:24:10.247576+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7900,
+      "raw": 8522,
       "temp_c": null
     },
     {
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T04:20:07.109603+00:00",
-      "pa": 8.062,
-      "ps": 7.8,
-      "pi": -0.663,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T04:24:50.452438+00:00",
       "pa": 7.749,
@@ -9044,9 +9004,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-07T04:24:10.247576+00:00",
+      "pa": 8.504,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        2,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-07T04:24:10.247576+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-07T03:27:53.674474+00:00",
       "type_code": 1,
@@ -9401,16 +9410,6 @@
       "timestamp_iso": "2026-07-08T00:53:00+00:00",
       "type_code": 2,
       "type_name": "Alarm cleared",
-      "code": 190,
-      "description": "Limit 1 exceeded",
-      "pump_label": "P3 - CRNE45",
-      "source_name": "Pump",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-07-07T23:33:00+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
       "code": 190,
       "description": "Limit 1 exceeded",
       "pump_label": "P3 - CRNE45",
