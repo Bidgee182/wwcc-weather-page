@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T07:27:56.518001+00:00",
-  "last_seen": "2026-08-07T07:27:56.518001+00:00",
+  "timestamp": "2026-08-07T07:32:39.556251+00:00",
+  "last_seen": "2026-08-07T07:32:39.556251+00:00",
   "system": {
-    "pressure_actual_bar": 7.811,
-    "pressure_suction_bar": -0.821,
+    "pressure_actual_bar": 8.63,
+    "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 38.7,
-    "power_kw": 5.8,
+    "flow_m3h": 0.0,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 94.1,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198966,
@@ -32,7 +32,7 @@
     "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -63,12 +63,12 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 94.5,
-      "power_kw": 5.9,
-      "current_a": 14.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.2,
       "run_hours": 5146.0,
       "starts_today": 3,
       "temp_c": null,
@@ -117,14 +117,14 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T07:27:56.518001+00:00"
+      "timestamp": "2026-08-07T07:32:39.556251+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7808,
+      "raw": 8637,
       "temp_c": null
     },
     {
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T07:29:16.275575+00:00",
-      "pa": 7.811,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T07:33:59.451617+00:00",
       "pa": 7.811,
@@ -9044,9 +9004,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-07T07:32:39.556251+00:00",
+      "pa": 8.63,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        3,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-07T07:32:39.556251+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-07T06:45:37.716551+00:00",
       "type_code": 1,
@@ -9397,16 +9406,6 @@
       "timestamp_iso": "2026-07-21T06:23:00+00:00",
       "type_code": 2,
       "type_name": "Alarm cleared",
-      "code": 40,
-      "description": "Undervoltage",
-      "pump_label": "CU352",
-      "source_name": "CU352",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-07-21T06:23:00+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
       "code": 40,
       "description": "Undervoltage",
       "pump_label": "CU352",
