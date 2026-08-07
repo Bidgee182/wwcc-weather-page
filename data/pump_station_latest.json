@@ -1,9 +1,9 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T03:23:10.493831+00:00",
-  "last_seen": "2026-08-07T03:23:10.493831+00:00",
+  "timestamp": "2026-08-07T03:27:53.674474+00:00",
+  "last_seen": "2026-08-07T03:27:53.674474+00:00",
   "system": {
-    "pressure_actual_bar": 9.386,
+    "pressure_actual_bar": 9.134,
     "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -20,7 +20,7 @@
     "power_ons": 81,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 1,
+    "do_bits": 2,
     "tank_ok": true,
     "cim_unit_family": 21,
     "cim_unit_type": 1,
@@ -29,7 +29,7 @@
     "cim_fw_ver2": 1797,
     "cim_fw_ver3": 4881,
     "cim_fw_ver4": 8224,
-    "alarm_code": 210,
+    "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
     "sys_active_funcs": 0,
@@ -114,23 +114,23 @@
   "alarms": [
     {
       "active": true,
-      "code": 210,
-      "description": "Pressure high",
+      "code": 4,
+      "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T03:23:10.493831+00:00"
+      "timestamp": "2026-08-07T03:27:53.674474+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 9396,
+      "raw": 9120,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 182,
+      "raw": 179,
       "temp_c": null
     },
     {
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T03:24:28.285558+00:00",
-      "pa": 8.504,
-      "ps": 7.8,
-      "pi": -0.663,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T03:29:12.806991+00:00",
       "pa": 8.442,
@@ -9044,9 +9004,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-07T03:27:53.674474+00:00",
+      "pa": 9.134,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        1,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-07T03:27:53.674474+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 4,
+      "description": "Too many restarts",
+      "pump_label": "System",
+      "source_name": "System"
+    },
     {
       "timestamp_iso": "2026-08-07T03:23:10.493831+00:00",
       "type_code": 1,
@@ -9405,16 +9414,6 @@
       "code": 190,
       "description": "Limit 1 exceeded",
       "pump_label": "P3 - CRNE45",
-      "source_name": "Pump",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-06-05T20:18:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 4,
-      "description": "Too many restarts",
-      "pump_label": "P2 - CRNE45",
       "source_name": "Pump",
       "imported": true
     }
