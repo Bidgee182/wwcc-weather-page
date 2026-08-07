@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T12:30:40.566125+00:00",
-  "last_seen": "2026-08-07T12:30:40.566125+00:00",
+  "timestamp": "2026-08-07T12:35:28.734417+00:00",
+  "last_seen": "2026-08-07T12:35:28.734417+00:00",
   "system": {
-    "pressure_actual_bar": 7.811,
-    "pressure_suction_bar": -0.821,
+    "pressure_actual_bar": 8.566,
+    "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 40.4,
-    "power_kw": 5.8,
+    "flow_m3h": 0.0,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 94.5,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198966,
@@ -32,7 +32,7 @@
     "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -63,12 +63,12 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 94.9,
-      "power_kw": 5.8,
-      "current_a": 14.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5146.0,
       "starts_today": 4,
       "temp_c": null,
@@ -117,20 +117,20 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T12:30:40.566125+00:00"
+      "timestamp": "2026-08-07T12:35:28.734417+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7762,
+      "raw": 8545,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 179,
+      "raw": 182,
       "temp_c": null
     },
     {
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T12:34:28.684474+00:00",
-      "pa": 7.181,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T12:39:07.721769+00:00",
       "pa": 7.181,
@@ -8964,9 +8924,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-07T12:35:28.734417+00:00",
+      "pa": 8.566,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        4,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-07T12:35:28.734417+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-07T11:43:29.284675+00:00",
       "type_code": 1,
@@ -9317,15 +9326,6 @@
       "description": "Pressure high",
       "pump_label": "System",
       "source_name": "System"
-    },
-    {
-      "timestamp_iso": "2026-08-03T22:10:46.946855+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ],
   "pump_energy_kwh": [
