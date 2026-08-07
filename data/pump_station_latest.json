@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T21:28:45.616796+00:00",
-  "last_seen": "2026-08-07T21:28:45.616796+00:00",
+  "timestamp": "2026-08-07T21:33:26.911077+00:00",
+  "last_seen": "2026-08-07T21:33:26.911077+00:00",
   "system": {
     "pressure_actual_bar": 7.811,
     "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 22.4,
-    "power_kw": 5.9,
+    "flow_m3h": 26.5,
+    "power_kw": 6.0,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 89.8,
+    "relative_performance_pct": 90.2,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198966,
@@ -84,8 +84,8 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 90.2,
-      "power_kw": 5.9,
+      "speed_pct": 90.9,
+      "power_kw": 6.0,
       "current_a": 14.6,
       "run_hours": 5148.0,
       "starts_today": 4,
@@ -117,7 +117,7 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T21:28:45.616796+00:00"
+      "timestamp": "2026-08-07T21:33:26.911077+00:00"
     }
   ],
   "analog_inputs": [
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T22:43:01.545138+00:00",
-      "pa": 7.685,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T22:47:56.388231+00:00",
       "pa": 7.622,
@@ -11663,6 +11623,46 @@
         0.0,
         0.0,
         5.9,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        0,
+        4,
+        2
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-07T21:33:26.911077+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 26.5,
+      "nr": 1,
+      "pk": 6.0,
+      "sp": [
+        0.0,
+        0.0,
+        90.9,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        6.0,
         0.0
       ],
       "rh": [
