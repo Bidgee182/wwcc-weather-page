@@ -1,17 +1,17 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T12:21:18.414715+00:00",
-  "last_seen": "2026-08-07T12:21:18.414715+00:00",
+  "timestamp": "2026-08-07T12:30:40.566125+00:00",
+  "last_seen": "2026-08-07T12:30:40.566125+00:00",
   "system": {
-    "pressure_actual_bar": 7.685,
-    "pressure_suction_bar": -0.818,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 40.4,
+    "power_kw": 5.8,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 94.5,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198966,
@@ -63,14 +63,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 94.9,
+      "power_kw": 5.8,
+      "current_a": 14.0,
       "run_hours": 5146.0,
-      "starts_today": 3,
+      "starts_today": 4,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,20 +117,20 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-08-07T12:21:18.414715+00:00"
+      "timestamp": "2026-08-07T12:30:40.566125+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7693,
+      "raw": 7762,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 182,
+      "raw": 179,
       "temp_c": null
     },
     {
@@ -165,86 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T12:25:01.995111+00:00",
-      "pa": 7.245,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-08-06T12:29:38.693347+00:00",
-      "pa": 7.245,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T12:34:28.684474+00:00",
       "pa": 7.181,
@@ -8994,6 +8914,46 @@
       "st": [
         1,
         3,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-07T12:30:40.566125+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 40.4,
+      "nr": 1,
+      "pk": 5.8,
+      "sp": [
+        0.0,
+        94.9,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        5.8,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        4,
         1,
         0
       ],
