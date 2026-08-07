@@ -1,9 +1,9 @@
 {
   "connected": true,
-  "timestamp": "2026-08-07T11:34:00.087387+00:00",
-  "last_seen": "2026-08-07T11:34:00.087387+00:00",
+  "timestamp": "2026-08-07T11:38:42.643571+00:00",
+  "last_seen": "2026-08-07T11:38:42.643571+00:00",
   "system": {
-    "pressure_actual_bar": 7.118,
+    "pressure_actual_bar": 9.512,
     "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -20,7 +20,7 @@
     "power_ons": 81,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 2,
+    "do_bits": 1,
     "tank_ok": true,
     "cim_unit_family": 21,
     "cim_unit_type": 1,
@@ -29,10 +29,10 @@
     "cim_fw_ver2": 1797,
     "cim_fw_ver3": 4881,
     "cim_fw_ver4": 8224,
-    "alarm_code": 4,
+    "alarm_code": 210,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -114,17 +114,17 @@
   "alarms": [
     {
       "active": true,
-      "code": 4,
-      "description": "Too many restarts",
+      "code": 210,
+      "description": "Pressure high",
       "pump": "System",
-      "timestamp": "2026-08-07T11:34:00.087387+00:00"
+      "timestamp": "2026-08-07T11:38:42.643571+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7118,
+      "raw": 9511,
       "temp_c": null
     },
     {
@@ -165,46 +165,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-06T11:38:05.767989+00:00",
-      "pa": 7.434,
-      "ps": 7.8,
-      "pi": -0.821,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5148.0,
-        5146.0,
-        5148.0,
-        1394.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-06T11:42:49.078528+00:00",
       "pa": 7.434,
@@ -9004,9 +8964,67 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-07T11:38:42.643571+00:00",
+      "pa": 9.512,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5148.0,
+        5146.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        3,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-07T11:38:42.643571+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 210,
+      "description": "Pressure high",
+      "pump_label": "System",
+      "source_name": "System"
+    },
+    {
+      "timestamp_iso": "2026-08-07T11:38:42.643571+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-07T09:35:38.780678+00:00",
       "type_code": 3,
@@ -9348,25 +9366,6 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-08-03T11:44:56.086473+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-08-03T03:24:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 40,
-      "description": "Undervoltage",
-      "pump_label": "CU352",
-      "source_name": "CU352",
-      "imported": true
     }
   ],
   "pump_energy_kwh": [
