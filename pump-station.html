@@ -1151,14 +1151,18 @@ function renderBanner() {
     const dot    = document.getElementById('conn-dot');
     const title  = document.getElementById('conn-title');
     const ts     = document.getElementById('conn-ts');
+    const sub    = document.getElementById('conn-sub');
     if (!connected) {
         banner.className = 'conn-banner offline'; dot.className = 'conn-dot offline';
         title.textContent = 'OFFLINE';
-        ts.textContent = d && d.last_seen ? '· Last: '+fmtAge(d.last_seen) : '';
+        ts.textContent    = d && d.timestamp ? '· Tried: '+fmtAge(d.timestamp) : '';
+        const lastOk = d && (d.last_connected || d.last_seen);
+        sub.textContent   = lastOk ? 'Last data: '+fmtDate(lastOk) : 'No data yet';
     } else {
         banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
         title.textContent = 'ONLINE';
-        ts.textContent = d.timestamp ? '· '+fmtAge(d.timestamp) : '';
+        ts.textContent    = d.timestamp ? '· '+fmtAge(d.timestamp) : '';
+        sub.textContent   = 'CIM 500 Modbus TCP';
     }
 
     // ── System status pill ───────────────────────────────────────────────────

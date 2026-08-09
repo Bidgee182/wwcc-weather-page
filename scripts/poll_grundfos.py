@@ -838,6 +838,7 @@ def main():
         "connected":       True,
         "timestamp":       now_iso,
         "last_seen":       now_iso,
+        "last_connected":  now_iso,
         "system":          system,
         "pumps":           pump_data,
         "alarms":          alarms,
