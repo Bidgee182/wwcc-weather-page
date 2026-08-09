@@ -314,7 +314,8 @@
         .ae-name { font-size:1em; font-weight:bold; color:#ecf0f1; line-height:1.3; }
         .ae-meta { font-size:0.78em; color:#7f8c8d; margin-top:3px; }
         .ae-meta .ae-sep { color:#3d5166; margin:0 5px; }
-        .cu352-badge { font-size:.65em; background:#1a3a5f; color:#5dade2; border-radius:3px; padding:1px 4px; vertical-align:middle; }
+        .cu352-badge   { font-size:.65em; background:#1a3a5f; color:#5dade2; border-radius:3px; padding:1px 4px; vertical-align:middle; }
+        .emailed-badge { font-size:.65em; background:#1a3a1a; color:#2ecc71; border:1px solid #1e8449; border-radius:3px; padding:1px 5px; vertical-align:middle; margin-left:5px; }
 
         /* Metric selector (trends tab) */
         .metric-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:7px 16px; font-size:0.82em; cursor:pointer; transition:all 0.2s; }
@@ -1860,6 +1861,17 @@ async function renderAlarms() {
     const liveAlarms = d && d.alarms ? d.alarms.filter(a=>a.active) : [];
     const eventLog   = d && d.event_log ? d.event_log : [];
 
+    // Fetch email state to know which alarm codes have had an alert email sent
+    let emailedCodes = new Set();
+    try {
+        const er = await fetch('data/pump_email_state.json?_='+Date.now());
+        if (er.ok) {
+            const es = await er.json();
+            const aa = es.active_alarms || {};
+            emailedCodes = new Set(Object.keys(aa));
+        }
+    } catch(e) {}
+
     // Find currently active events: for each code+source key the most recent event must be type 1 or 3
     const lastByKey = {};
     for (const e of [...eventLog].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso))) {
@@ -1874,7 +1886,7 @@ async function renderAlarms() {
     for (const e of logActive) {
         if (!combined.some(a => a.code===e.code && a.pump===e.pump)) combined.push(e);
     }
-    document.getElementById('active-alarms').innerHTML = combined.length ? combined.map(alarmRow).join('') : '<div class="alarm-none">No active alarms</div>';
+    document.getElementById('active-alarms').innerHTML = combined.length ? combined.map(a=>alarmRow(a,emailedCodes)).join('') : '<div class="alarm-none">No active alarms</div>';
 
     // Load full alarm history file (up to 200 events) and merge with any live event_log entries
     await ensureAlarmHistory();
@@ -1897,7 +1909,7 @@ async function renderAlarms() {
         const pairs     = pairAlarmEvents(merged);
         document.getElementById('alarm-history').innerHTML =
             '<div style="font-size:.72em;color:#566573;margin-bottom:8px;">'+pairs.length+' alarms - '+srcNote+'</div>' +
-            pairs.map(renderAlarmPair).join('');
+            pairs.map(p=>renderAlarmPair(p,emailedCodes)).join('');
     } else {
         const connected = latestData && latestData.connected;
         document.getElementById('alarm-history').innerHTML =
@@ -1905,12 +1917,14 @@ async function renderAlarms() {
     }
 }
 
-function alarmRow(a) {
+function alarmRow(a, emailedCodes) {
+    const emailBadge = (emailedCodes && emailedCodes.has(String(a.code)))
+        ? '<span class="emailed-badge">&#9993; Emailed</span>' : '';
     return '<div class="alarm-row">'+
         '<div class="alarm-dot '+(a.active?'active':'cleared')+'"></div>'+
         '<div style="flex:1;min-width:0;">'+
             '<div class="alarm-code">'+(a.code||'ALM')+'</div>'+
-            '<div class="alarm-desc">'+(a.description||'Unknown Alarm')+'</div>'+
+            '<div class="alarm-desc">'+(a.description||'Unknown Alarm')+' '+emailBadge+'</div>'+
             '<div class="alarm-pump">'+(a.pump||'System')+'</div>'+
         '</div>'+
         '<div class="alarm-ts">'+(a.timestamp?fmtDate(a.timestamp):'')+'</div>'+
@@ -1950,7 +1964,7 @@ function fmtTimeOnly(d) {
     return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 
-function renderAlarmPair(p) {
+function renderAlarmPair(p, emailedCodes) {
     const e = p.appeared||p.cleared;
     if (!e) return '';
     const isActive  = !p.cleared;
@@ -1959,6 +1973,8 @@ function renderAlarmPair(p) {
     const name  = e.description||('Code '+e.code);
     const src   = e.pump_label||e.source_name||'System';
     const badge = e.imported?'  <span class="cu352-badge">CU352</span>':'';
+    const emailBadge = (isActive && emailedCodes && emailedCodes.has(String(e.code)))
+        ? '  <span class="emailed-badge">&#9993; Emailed</span>' : '';
     let timePart='';
     if (p.appeared&&p.cleared) {
         const t1=new Date(p.appeared.timestamp_iso), t2=new Date(p.cleared.timestamp_iso);
@@ -1974,7 +1990,7 @@ function renderAlarmPair(p) {
     return '<div class="alarm-evt '+evCls+'">'+
         '<div class="ae-dot '+evCls+'"></div>'+
         '<div class="ae-body">'+
-            '<div class="ae-name">'+name+badge+'</div>'+
+            '<div class="ae-name">'+name+badge+emailBadge+'</div>'+
             '<div class="ae-meta">'+src+'<span class="ae-sep">|</span>'+timePart+'</div>'+
         '</div>'+
     '</div>';
