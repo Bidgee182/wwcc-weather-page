@@ -58,6 +58,7 @@ jobs:
                   data/pump_commands.json \
                   data/pump_starts.json \
                   data/pump_email_state.json \
+                  data/email_log.csv \
                   data/raw/ 2>/dev/null || true
 
           if git diff --staged --quiet; then

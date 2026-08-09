@@ -21,6 +21,9 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).parent))
+from lake_utils import log_email
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
@@ -28,11 +31,12 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-SYDNEY_TZ = ZoneInfo('Australia/Sydney')
-DATA_DIR  = Path(__file__).parent.parent / 'data'
+SYDNEY_TZ  = ZoneInfo('Australia/Sydney')
+DATA_DIR   = Path(__file__).parent.parent / 'data'
 
-LATEST_FILE = DATA_DIR / 'pump_station_latest.json'
-ALARM_FILE  = DATA_DIR / 'pump_alarm_history.json'
+LATEST_FILE  = DATA_DIR / 'pump_station_latest.json'
+ALARM_FILE   = DATA_DIR / 'pump_alarm_history.json'
+EMCFG_FILE   = DATA_DIR / 'email_config.json'
 STATE_FILE  = DATA_DIR / 'pump_email_state.json'
 
 PUMP_PAGE_URL = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
@@ -226,10 +230,19 @@ def fault_html(alarm, latest):
 # SendGrid
 # ---------------------------------------------------------------------------
 
-def send_email(subject, html):
+def alerts_enabled():
+    try:
+        cfg = json.loads(EMCFG_FILE.read_text())
+        return cfg.get('email_enabled', {}).get('pump_alerts', True)
+    except Exception:
+        return True
+
+
+def send_email(subject, html, email_type='pump_alert'):
     to_list  = _addr(_TO_RAW)
     cc_list  = _addr(_CC_RAW)
     bcc_list = _addr(_BCC_RAW)
+    everyone = to_list + cc_list + bcc_list
     if not SENDGRID_API_KEY:
         log.warning('No SENDGRID_API_KEY - skipping.')
         return False
@@ -255,9 +268,11 @@ def send_email(subject, html):
             mail.bcc = [Bcc(r) for r in bcc_list]
         resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
         log.info(f'Sent "{subject}" - HTTP {resp.status_code} - to {to_list} cc {cc_list} bcc {bcc_list}')
+        log_email(email_type, subject, everyone, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'Send error: {e}')
+        log_email(email_type, subject, everyone, f'failed: {e}')
         return False
 
 
@@ -274,6 +289,10 @@ def fault_key(alarm):
 # ---------------------------------------------------------------------------
 
 def main():
+    if not alerts_enabled():
+        log.info('pump_alerts disabled in email_config.json - skipping.')
+        return
+
     latest = load_json(LATEST_FILE, {})
     if not latest:
         log.info('No latest data - skipping.')

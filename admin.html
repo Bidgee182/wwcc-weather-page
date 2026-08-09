@@ -238,6 +238,21 @@
                     </div>
                 </div>
 
+                <!-- Pump Station -->
+                <div style="min-width:200px;margin-bottom:18px;">
+                    <div style="font-size:.72em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7f8c8d;margin-bottom:10px;">Pump Station</div>
+                    <div style="display:flex;flex-direction:column;gap:9px;">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-pump-alerts" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Offline and fault alerts (instant)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
+                            <input type="checkbox" id="emcfg-pump-daily" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
+                            Daily summary (7am)
+                        </label>
+                    </div>
+                </div>
+
             </div>
             <button onclick="emcfgSave()" style="margin-top:6px;">Save Toggles</button>
             <div class="status" id="emcfg-status"></div>
@@ -263,12 +278,17 @@
             <button onclick="wfTrigger('lake-report.yml', { report: $('wf-lake-type').value, dry_run: 'true' }, 'lake ' + $('wf-lake-type').value + ' dry run')">Dry Run (preview only)</button>
             <button onclick="wfTrigger('lake-report.yml', { report: $('wf-lake-type').value, test: 'true' }, 'lake ' + $('wf-lake-type').value + ' test email')">Send Test (to Andrew)</button>
         </div>
-        <div class="flexrow">
+        <div class="flexrow" style="margin-bottom:12px;">
             <label>Board report<br><select id="wf-board-type">
                 <option value="weekly">Weekly</option><option value="monthly">Monthly</option>
             </select></label>
             <button onclick="wfTrigger('board-email.yml', { report: $('wf-board-type').value, dry_run: 'true' }, 'board ' + $('wf-board-type').value + ' dry run')">Dry Run (preview only)</button>
             <button onclick="wfTrigger('board-email.yml', { report: $('wf-board-type').value, test: 'true' }, 'board ' + $('wf-board-type').value + ' test email')">Send Test (to Andrew)</button>
+        </div>
+        <div class="flexrow">
+            <span style="font-size:.88em;color:#ecf0f1;align-self:center;">Pump station daily summary</span>
+            <button onclick="wfTrigger('pump-daily-email.yml', { test: 'true' }, 'pump daily test email')">Send Test (to Andrew)</button>
+            <button onclick="wfTrigger('pump-daily-email.yml', { force: 'true' }, 'pump daily resend (full list)', 'This re-sends the daily summary to the FULL pump station recipients list. Continue?')">Resend (full list)</button>
         </div>
         <div class="status" id="wf-trigger-status"></div>
         <p class="note">Dry runs build the email HTML without sending anything - the preview appears
@@ -1303,7 +1323,7 @@ function ensureWfRuns() {
     return _wfPromise;
 }
 
-const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts' };
+const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts', pump_report:'Pump daily summary', pump_alert:'Pump alerts' };
 
 async function loadHealth() {
     _lastHealth = Date.now();
@@ -2195,7 +2215,7 @@ function loadEmailStats() {
         if (!byMonth[m]) byMonth[m] = {};
         byMonth[m][t] = (byMonth[m][t] || 0) + 1;
     }
-    const SHORT = { gk_report: 'GK', lake_report: 'Lake', board_report: 'Board', lake_alert: 'Lake alerts', tank_alert: 'Tank alerts' };
+    const SHORT = { gk_report: 'GK', lake_report: 'Lake', board_report: 'Board', lake_alert: 'Lake alerts', tank_alert: 'Tank alerts', pump_report: 'Pump daily', pump_alert: 'Pump alerts' };
     const types = Object.keys(EMAIL_NAMES);
     const months = Object.keys(byMonth).sort().reverse().slice(0, 6);
     el.innerHTML = '<table><thead><tr><th>Month</th>' + types.map(t => `<th>${SHORT[t]}</th>`).join('')
@@ -2369,6 +2389,8 @@ async function emcfgLoad() {
         set('emcfg-lake-yearly',     'lake_yearly');
         set('emcfg-board-weekly',    'board_weekly');
         set('emcfg-board-monthly',   'board_monthly');
+        set('emcfg-pump-alerts',     'pump_alerts');
+        set('emcfg-pump-daily',      'pump_daily');
         if (ld) ld.style.display = 'none';
         if (fm) fm.style.display = 'block';
     } catch(e) { if (ld) ld.textContent = 'Failed to load: ' + e.message; }
@@ -2391,6 +2413,8 @@ async function emcfgSave() {
                 lake_yearly:     $('emcfg-lake-yearly').checked,
                 board_weekly:    $('emcfg-board-weekly').checked,
                 board_monthly:   $('emcfg-board-monthly').checked,
+                pump_alerts:     $('emcfg-pump-alerts').checked,
+                pump_daily:      $('emcfg-pump-daily').checked,
             },
             updated_at: new Date().toISOString(),
             updated_by: SES.email,

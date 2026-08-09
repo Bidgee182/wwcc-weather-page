@@ -4,7 +4,20 @@ on:
   schedule:
     - cron: '0 21 * * *'   # 7:00am AEST (UTC+10) - runs at 21:00 UTC previous evening
 
-  workflow_dispatch:        # manual trigger from admin.html or GitHub UI
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Send test email to Andrew only (real data, single recipient)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+      force:
+        description: 'Send regardless of email_config.json toggle'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
 
 jobs:
   send:
@@ -32,4 +45,6 @@ jobs:
           PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
           PUMP_EMAIL_CC: ${{ secrets.PUMP_EMAIL_CC }}
           PUMP_EMAIL_BCC: ${{ secrets.PUMP_EMAIL_BCC }}
+          TEST_SEND: ${{ github.event.inputs.test || 'false' }}
+          FORCE_SEND: ${{ github.event.inputs.force || 'false' }}
         run: python3 scripts/pump_daily_email.py

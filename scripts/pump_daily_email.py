@@ -17,6 +17,9 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).parent))
+from lake_utils import log_email
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
@@ -30,16 +33,20 @@ DATA_DIR  = Path(__file__).parent.parent / 'data'
 LATEST_FILE = DATA_DIR / 'pump_station_latest.json'
 DAILY_FILE  = DATA_DIR / 'pump_station_daily.json'
 ALARM_FILE  = DATA_DIR / 'pump_alarm_history.json'
+EMCFG_FILE  = DATA_DIR / 'email_config.json'
 
-PUMP_PAGE_URL = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
-LOGO_URL      = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
-PUMP_LABELS   = ['P1', 'P2', 'P3', 'Jockey']
+PUMP_PAGE_URL  = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
+LOGO_URL       = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
+PUMP_LABELS    = ['P1', 'P2', 'P3', 'Jockey']
+TEST_RECIPIENT = 'andrew@bidgeepumps.com.au'
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 _TO_RAW          = os.environ.get('PUMP_EMAIL_RECIPIENTS', '')
 _CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
 _BCC_RAW         = os.environ.get('PUMP_EMAIL_BCC', '')
+TEST_SEND        = os.environ.get('TEST_SEND', 'false').lower() == 'true'
+FORCE_SEND       = os.environ.get('FORCE_SEND', 'false').lower() == 'true'
 
 
 # ---------------------------------------------------------------------------
@@ -277,10 +284,24 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
 # Send
 # ---------------------------------------------------------------------------
 
+def daily_enabled():
+    try:
+        cfg = json.loads(EMCFG_FILE.read_text())
+        return cfg.get('email_enabled', {}).get('pump_daily', True)
+    except Exception:
+        return True
+
+
 def send_email(subject, html):
-    to_list  = _addr(_TO_RAW)
-    cc_list  = _addr(_CC_RAW)
-    bcc_list = _addr(_BCC_RAW)
+    if TEST_SEND:
+        to_list, cc_list, bcc_list = [TEST_RECIPIENT], [], []
+        subject = '[TEST] ' + subject
+    else:
+        to_list  = _addr(_TO_RAW)
+        cc_list  = _addr(_CC_RAW)
+        bcc_list = _addr(_BCC_RAW)
+
+    everyone = to_list + cc_list + bcc_list
     if not SENDGRID_API_KEY or not to_list or not EMAIL_FROM:
         log.warning('Missing credentials or recipients - skipping.')
         return False
@@ -300,9 +321,12 @@ def send_email(subject, html):
             mail.bcc = [Bcc(r) for r in bcc_list]
         resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
         log.info(f'Sent "{subject}" - HTTP {resp.status_code} - to {to_list} cc {cc_list} bcc {bcc_list}')
+        log_email('pump_report', subject, everyone, f'sent ({resp.status_code})')
         return True
     except Exception as e:
         log.error(f'Send error: {e}')
+        log_email('pump_report', subject, everyone, f'failed: {e}')
+        return False
         return False
 
 
@@ -311,6 +335,10 @@ def send_email(subject, html):
 # ---------------------------------------------------------------------------
 
 def main():
+    if not FORCE_SEND and not TEST_SEND and not daily_enabled():
+        log.info('pump_daily disabled in email_config.json - skipping.')
+        return
+
     now_syd   = datetime.now(tz=SYDNEY_TZ)
     yesterday = (now_syd - timedelta(days=1)).date()
     yesterday_str = yesterday.isoformat()
