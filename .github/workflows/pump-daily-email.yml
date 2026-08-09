@@ -1,0 +1,33 @@
+name: Pump Station Daily Summary Email
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 7:00am AEST (UTC+10) - runs at 21:00 UTC previous evening
+
+  workflow_dispatch:        # manual trigger from admin.html or GitHub UI
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install sendgrid
+
+      - name: Send daily summary email
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
+        run: python3 scripts/pump_daily_email.py

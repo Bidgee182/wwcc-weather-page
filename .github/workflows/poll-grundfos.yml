@@ -36,6 +36,15 @@ jobs:
           GRUNDFOS_PORT: '502'
         run: python scripts/poll_grundfos.py
 
+      - name: Send alerts (offline / fault)
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
+        run: |
+          pip install sendgrid --quiet
+          python3 scripts/pump_alert_email.py
+
       - name: Push pump data via GitHub API (conflict-free)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,6 +55,7 @@ jobs:
                   data/pump_alarm_history.json \
                   data/pump_commands.json \
                   data/pump_starts.json \
+                  data/pump_email_state.json \
                   data/raw/ 2>/dev/null || true
 
           if git diff --staged --quiet; then
