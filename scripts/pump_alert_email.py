@@ -202,28 +202,64 @@ def recovery_html(latest, offline_since_dt, offline_dur):
                  _body_section(tbl))
 
 
-def fault_html(alarm, latest):
-    sys  = latest.get('system', {})
-    p    = sys.get('pressure_actual_bar')
+def _alarm_rows(alarm_or_entry, latest, extra_rows=None):
+    sys   = latest.get('system', {})
+    p     = sys.get('pressure_actual_bar')
     p_str = f'{p:.2f} bar' if p is not None else 'unknown'
-    ts   = parse_iso(alarm.get('timestamp_iso'))
-    name = alarm.get('type_name', 'Fault Alarm')
-    desc = alarm.get('description', '-')
-    src  = alarm.get('pump_label', 'System')
+    desc  = (alarm_or_entry.get('description') or alarm_or_entry.get('alarm_desc') or '-')
+    src   = (alarm_or_entry.get('pump_label')  or alarm_or_entry.get('alarm_label') or 'System')
+    ts    = parse_iso(alarm_or_entry.get('timestamp_iso') or alarm_or_entry.get('appeared_at'))
+    rows  = [
+        ('Time detected',   fmt_aest(ts), True),
+        ('Description',     desc, False),
+        ('Source',          src, True),
+        ('System pressure', p_str, False),
+    ]
+    if extra_rows:
+        rows.extend(extra_rows)
+    return rows
 
-    intro = (f'<table width="100%" cellpadding="0" cellspacing="0" style="padding:20px 32px 0;">'
-             f'<tr><td style="font-family:Arial,sans-serif;font-size:15px;color:#333;">'
-             f'A fault alarm has been detected on the Grundfos pump station.</td></tr></table>')
-    tbl = _table([
-        ('Alarm',           f'<span style="color:#e67e22;font-weight:bold;">{name}</span>', True),
-        ('Source',           src, False),
-        ('Time detected',    fmt_aest(ts), True),
-        ('Description',      desc, False),
-        ('System pressure',  p_str, True),
-    ])
-    note = 'Review the pump station dashboard for current system status.'
-    return _wrap(_header('#e67e22', f'PUMP STATION - FAULT ALARM'),
-                 intro + _body_section(tbl, note))
+
+def fault_html(alarm, latest):
+    name = alarm.get('type_name', 'Fault Alarm')
+    tbl  = _table(_alarm_rows(alarm, latest))
+    note = 'A fault alarm has been detected on the Grundfos pump station. Review the dashboard for current system status.'
+    return _wrap(_header('#c0392b', f'PUMP STATION - {name.upper()}'),
+                 _body_section(tbl, note))
+
+
+def reminder_html(alarm_or_entry, latest, first_alerted_at):
+    name = (alarm_or_entry.get('type_name') or alarm_or_entry.get('alarm_name') or 'Fault Alarm')
+    desc_clean = (alarm_or_entry.get('description') or alarm_or_entry.get('alarm_desc') or '')
+    first_dt   = parse_iso(first_alerted_at)
+    now        = datetime.now(timezone.utc)
+    active_dur = duration_str((now - first_dt).total_seconds()) if first_dt else '?'
+    extra = [('Active for', active_dur, True)]
+    tbl   = _table(_alarm_rows(alarm_or_entry, latest, extra))
+    note  = f'This fault is still active and has not been cleared. Next reminder in 6 hours.'
+    return _wrap(_header('#e67e22', f'REMINDER - {name.upper()} STILL ACTIVE'),
+                 _body_section(tbl, note))
+
+
+def cleared_html(entry, cleared_event, latest):
+    name      = entry.get('alarm_name') or entry.get('type_name') or 'Fault Alarm'
+    first_dt  = parse_iso(entry.get('first_alerted_at') or entry.get('appeared_at'))
+    clear_dt  = parse_iso((cleared_event or {}).get('timestamp_iso'))
+    now       = datetime.now(timezone.utc)
+    total_dur = duration_str((now - first_dt).total_seconds()) if first_dt else '?'
+    sys       = latest.get('system', {})
+    p         = sys.get('pressure_actual_bar')
+    p_str     = f'{p:.2f} bar' if p is not None else 'unknown'
+    rows = [
+        ('Alarm',           name, True),
+        ('Source',          entry.get('alarm_label', 'System'), False),
+        ('Cleared at',      fmt_aest(clear_dt) if clear_dt else 'Unknown', True),
+        ('Total duration',  total_dur, False),
+        ('System pressure', p_str, True),
+    ]
+    note = 'The fault alarm has been cleared. No further action required.'
+    return _wrap(_header('#27ae60', f'PUMP STATION - {name.upper()} CLEARED'),
+                 _body_section(_table(rows), note))
 
 
 # ---------------------------------------------------------------------------
@@ -280,8 +316,25 @@ def send_email(subject, html, email_type='pump_alert'):
 # Fault dedup key
 # ---------------------------------------------------------------------------
 
-def fault_key(alarm):
-    return f"{alarm.get('timestamp_iso','?')}|{alarm.get('code','?')}"
+REMINDER_HOURS = 6
+
+
+def active_alarms_from_history(events):
+    """Return {str(code): last_appeared_event} for codes whose most recent
+    event is type_code==1 (appeared). Processes history oldest-first."""
+    last_by_code = {}
+    for e in reversed(events):   # reversed = oldest first (history is newest first)
+        last_by_code[str(e.get('code', '?'))] = e
+    return {code: e for code, e in last_by_code.items()
+            if e.get('type_code') == 1}
+
+
+def last_cleared_event(events, code):
+    """Most recent type_code==2 event for this alarm code, or None."""
+    for e in events:   # newest first
+        if str(e.get('code')) == str(code) and e.get('type_code') == 2:
+            return e
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +357,7 @@ def main():
         'was_connected':      None,
         'offline_since':      None,
         'offline_alert_sent': False,
-        'alerted_fault_keys': [],
+        'active_alarms':      {},
     })
 
     now       = datetime.now(timezone.utc)
@@ -349,22 +402,58 @@ def main():
             state['was_connected'] = True
             changed = True
 
-    # -- New fault alarms (type_code == 1 only) ------------------------------
-    alerted = set(state.get('alerted_fault_keys', []))
-    new_faults = [e for e in events
-                  if e.get('type_code') == 1 and fault_key(e) not in alerted]
+        # -- Fault alarm tracking (only when connected - data is current) ----
+        current_active = active_alarms_from_history(events)
+        state_active   = state.get('active_alarms', {})
 
-    for alarm in new_faults[:3]:   # cap at 3 per poll to prevent spam
-        name = alarm.get('type_name', 'Alarm')
-        log.info(f'New fault alarm: {name} - sending alert')
-        html    = fault_html(alarm, latest)
-        subject = f'PUMP STATION FAULT - {name}'
-        if send_email(subject, html):
-            alerted.add(fault_key(alarm))
-            changed = True
+        # 1. Newly appeared alarms (in current but not tracked in state)
+        for code, alarm in current_active.items():
+            if code not in state_active:
+                name = alarm.get('type_name', 'Alarm appeared')
+                desc = alarm.get('description', '')
+                src  = alarm.get('pump_label', 'System')
+                log.info(f'New fault code {code} ({desc}) - sending alert')
+                html    = fault_html(alarm, latest)
+                subject = f'PUMP STATION FAULT - {desc or name}'
+                if send_email(subject, html):
+                    state_active[code] = {
+                        'appeared_at':     alarm.get('timestamp_iso'),
+                        'alarm_name':      name,
+                        'alarm_desc':      desc,
+                        'alarm_label':     src,
+                        'first_alerted_at': now.isoformat(),
+                        'last_alerted_at':  now.isoformat(),
+                    }
+                    changed = True
 
-    # Keep last 50 alerted keys
-    state['alerted_fault_keys'] = list(alerted)[-50:]
+        # 2. Still-active alarms - check for 6h reminder
+        for code, entry in list(state_active.items()):
+            if code in current_active:
+                last_dt = parse_iso(entry.get('last_alerted_at'))
+                if last_dt and (now - last_dt).total_seconds() >= REMINDER_HOURS * 3600:
+                    alarm = current_active[code]
+                    desc  = entry.get('alarm_desc') or entry.get('alarm_name', 'Fault')
+                    log.info(f'Fault code {code} still active - sending 6h reminder')
+                    html    = reminder_html(entry, latest, entry.get('first_alerted_at'))
+                    subject = f'PUMP STATION REMINDER - {desc} still active'
+                    if send_email(subject, html):
+                        state_active[code]['last_alerted_at'] = now.isoformat()
+                        changed = True
+
+        # 3. Cleared alarms (were tracked, now gone from current active)
+        for code in list(state_active.keys()):
+            if code not in current_active:
+                entry        = state_active[code]
+                cleared_evt  = last_cleared_event(events, code)
+                desc         = entry.get('alarm_desc') or entry.get('alarm_name', 'Fault')
+                log.info(f'Fault code {code} cleared - sending cleared email')
+                html    = cleared_html(entry, cleared_evt, latest)
+                subject = f'PUMP STATION CLEARED - {desc}'
+                send_email(subject, html)
+                del state_active[code]
+                changed = True
+
+        state['active_alarms'] = state_active
 
     if changed:
         save_json(STATE_FILE, state)

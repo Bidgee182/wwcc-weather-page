@@ -34,28 +34,31 @@ failed = 0
 for f in files:
     url = f"{api_base}/{f}"
 
+    sha = ""
     try:
         req = urllib.request.Request(url, headers=hdr_get)
         with urllib.request.urlopen(req, timeout=30) as resp:
             sha = json.load(resp).get("sha", "")
     except urllib.error.HTTPError as e:
-        print(f"SKIP {f}: GET failed (HTTP {e.code})")
-        failed += 1
-        continue
+        if e.code == 404:
+            sha = ""   # new file - PUT without sha creates it
+            print(f"New file: {f}")
+        else:
+            print(f"SKIP {f}: GET failed (HTTP {e.code})")
+            failed += 1
+            continue
     except Exception as e:
         print(f"SKIP {f}: {e}")
-        failed += 1
-        continue
-
-    if not sha:
-        print(f"SKIP {f}: no SHA returned")
         failed += 1
         continue
 
     with open(f, "rb") as fh:
         content = base64.b64encode(fh.read()).decode("ascii")
 
-    payload = json.dumps({"message": commit_msg, "content": content, "sha": sha}).encode("utf-8")
+    body_dict = {"message": commit_msg, "content": content}
+    if sha:                    # existing file - must include sha; new file - omit it
+        body_dict["sha"] = sha
+    payload = json.dumps(body_dict).encode("utf-8")
     try:
         req = urllib.request.Request(url, data=payload, method="PUT", headers=hdr_put)
         with urllib.request.urlopen(req, timeout=60) as resp:
