@@ -37,15 +37,17 @@ PUMP_LABELS   = ['P1', 'P2', 'P3', 'Jockey']
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
-RECIPIENTS_RAW   = os.environ.get('PUMP_EMAIL_RECIPIENTS', '')
+_TO_RAW          = os.environ.get('PUMP_EMAIL_RECIPIENTS', '')
+_CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
+_BCC_RAW         = os.environ.get('PUMP_EMAIL_BCC', '')
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def recipients():
-    return [r.strip() for r in RECIPIENTS_RAW.split(',') if r.strip()]
+def _addr(raw):
+    return [r.strip() for r in raw.split(',') if r.strip()]
 
 
 def load_json(path, default):
@@ -276,22 +278,28 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
 # ---------------------------------------------------------------------------
 
 def send_email(subject, html):
-    recips = recipients()
-    if not SENDGRID_API_KEY or not recips or not EMAIL_FROM:
+    to_list  = _addr(_TO_RAW)
+    cc_list  = _addr(_CC_RAW)
+    bcc_list = _addr(_BCC_RAW)
+    if not SENDGRID_API_KEY or not to_list or not EMAIL_FROM:
         log.warning('Missing credentials or recipients - skipping.')
         return False
     try:
         from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Email
+        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
         mail = Mail(
             from_email=Email(EMAIL_FROM),
             subject=subject,
             plain_text_content=html_to_text(html),
             html_content=html,
         )
-        mail.to = [To(r) for r in recips]
+        mail.to = [To(r) for r in to_list]
+        if cc_list:
+            mail.cc = [Cc(r) for r in cc_list]
+        if bcc_list:
+            mail.bcc = [Bcc(r) for r in bcc_list]
         resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
-        log.info(f'Sent "{subject}" - HTTP {resp.status_code} - to {recips}')
+        log.info(f'Sent "{subject}" - HTTP {resp.status_code} - to {to_list} cc {cc_list} bcc {bcc_list}')
         return True
     except Exception as e:
         log.error(f'Send error: {e}')

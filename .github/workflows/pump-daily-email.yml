@@ -30,4 +30,6 @@ jobs:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
+          PUMP_EMAIL_CC: ${{ secrets.PUMP_EMAIL_CC }}
+          PUMP_EMAIL_BCC: ${{ secrets.PUMP_EMAIL_BCC }}
         run: python3 scripts/pump_daily_email.py
