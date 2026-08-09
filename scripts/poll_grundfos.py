@@ -561,7 +561,17 @@ def main():
         prev["last_seen"]  = prev.get("timestamp")
         prev["timestamp"]  = now_iso
         write_json(LATEST_FILE, prev)
-        print(f"OFFLINE: could not connect to {HOST}:{PORT}")
+        # Diagnose: resolve hostname to show if DuckDNS is pointing to wrong IP
+        try:
+            import socket as _sock
+            resolved = list({r[4][0] for r in _sock.getaddrinfo(HOST, PORT, _sock.AF_INET)})
+            ip = resolved[0] if resolved else "?"
+            cgnat_ranges = [("10.",), ("192.168.",), ("172.",), ("100.",)]
+            is_private = any(ip.startswith(r[0]) for r in cgnat_ranges)
+            flag = " <-- PRIVATE/CGNAT - DuckDNS pointing to wrong IP" if is_private else ""
+            print(f"OFFLINE: {HOST} resolved to {ip}{flag}")
+        except Exception as _e:
+            print(f"OFFLINE: DNS lookup failed for {HOST}: {_e}")
         sys.exit(0)
 
     try:
