@@ -1,10 +1,10 @@
 {
-  "connected": false,
-  "timestamp": "2026-08-10T08:59:51.841352+00:00",
-  "last_seen": "2026-08-10T08:55:02.431049+00:00",
-  "last_connected": "2026-08-10T06:40:42.207853+00:00",
+  "connected": true,
+  "timestamp": "2026-08-10T09:04:29.344904+00:00",
+  "last_seen": "2026-08-10T09:04:29.344904+00:00",
+  "last_connected": "2026-08-10T09:04:29.344904+00:00",
   "system": {
-    "pressure_actual_bar": 6.299,
+    "pressure_actual_bar": 6.803,
     "pressure_suction_bar": -0.824,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -18,7 +18,7 @@
     "energy_kwh": 198974,
     "run_hours": 40698,
     "powered_hours": null,
-    "power_ons": 81,
+    "power_ons": 82,
     "volume_m3": null,
     "di_bits": 3,
     "do_bits": 0,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 6312,
+      "raw": 6818,
       "temp_c": null
     },
     {
@@ -4117,9 +4117,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-10T09:04:29.344904+00:00",
+      "pa": 6.803,
+      "ps": 7.8,
+      "pi": -0.824,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        1,
+        0,
+        0,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-10T09:04:29.344904+00:00",
+      "type_code": 3,
+      "type_name": "Power cycle",
+      "code": 0,
+      "description": "System power-on count changed 81 -> 82 (controller was restarted or powered off)",
+      "pump_label": "System",
+      "source_name": "System"
+    },
     {
       "timestamp_iso": "2026-08-10T02:33:15.948571+00:00",
       "type_code": 4,
@@ -4469,15 +4518,6 @@
       "code": 4,
       "description": "Too many restarts",
       "pump_label": "P1 - CRNE45",
-      "source_name": "System"
-    },
-    {
-      "timestamp_iso": "2026-08-07T18:06:32.052314+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
-      "code": 210,
-      "description": "Pressure high",
-      "pump_label": "System",
       "source_name": "System"
     }
   ],
