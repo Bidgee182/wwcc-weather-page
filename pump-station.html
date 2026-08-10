@@ -316,6 +316,13 @@
         .ae-meta .ae-sep { color:#3d5166; margin:0 5px; }
         .cu352-badge   { font-size:.65em; background:#1a3a5f; color:#5dade2; border-radius:3px; padding:1px 4px; vertical-align:middle; }
         .emailed-badge { font-size:.65em; background:#1a3a1a; color:#2ecc71; border:1px solid #1e8449; border-radius:3px; padding:1px 5px; vertical-align:middle; margin-left:5px; }
+        /* Alarm pair two-line timeline */
+        .ae-timeline   { margin-top:4px; display:flex; flex-direction:column; gap:3px; }
+        .ae-tl-row     { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .ae-tl-lbl     { font-size:0.70em; color:#7f8c8d; min-width:58px; }
+        .ae-tl-time    { font-size:0.70em; color:#bdc3c7; }
+        /* Min/Max timestamp under stat */
+        .sm-ts         { font-size:0.55em; color:#566573; margin-top:2px; line-height:1.3; min-height:1.2em; }
 
         /* Metric selector (trends tab) */
         .metric-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:7px 16px; font-size:0.82em; cursor:pointer; transition:all 0.2s; }
@@ -588,8 +595,8 @@
         <div class="chart-loader" id="c-pressure-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
         <div class="chart-wrap h200" id="c-pressure-wrap"><canvas id="c-pressure"></canvas></div>
         <div class="stat-grid-4">
-            <div class="sys-metric"><div class="sm-val" id="cp-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min</div></div>
-            <div class="sys-metric"><div class="sm-val" id="cp-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cp-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-ts" id="cp-min-ts"></div><div class="sm-lbl">Min</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cp-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-ts" id="cp-max-ts"></div><div class="sm-lbl">Max</div></div>
             <div class="sys-metric"><div class="sm-val" id="cp-avg" style="color:#e67e22;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg</div></div>
             <div class="sys-metric"><div class="sm-val" id="cp-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Points</div></div>
         </div>
@@ -601,8 +608,8 @@
         <div class="chart-loader" id="c-suction-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(52,152,219,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
         <div class="chart-wrap h200" id="c-suction-wrap"><canvas id="c-suction"></canvas></div>
         <div class="stat-grid-4">
-            <div class="sys-metric"><div class="sm-val" id="cs-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Min</div></div>
-            <div class="sys-metric"><div class="sm-val" id="cs-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Max</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cs-min" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-ts" id="cs-min-ts"></div><div class="sm-lbl">Min</div></div>
+            <div class="sys-metric"><div class="sm-val" id="cs-max" style="color:#e74c3c;">--</div><div class="sm-unit">bar</div><div class="sm-ts" id="cs-max-ts"></div><div class="sm-lbl">Max</div></div>
             <div class="sys-metric"><div class="sm-val" id="cs-avg" style="color:#3498db;">--</div><div class="sm-unit">bar</div><div class="sm-lbl">Avg</div></div>
             <div class="sys-metric"><div class="sm-val" id="cs-pts" style="color:#7f8c8d;">0</div><div class="sm-unit">pts</div><div class="sm-lbl">Points</div></div>
         </div>
@@ -1572,10 +1579,18 @@ async function renderPerfCharts() {
     ], v=>v!=null?v.toFixed(2)+' bar':null);
     if (!noData) {
         const vals = pts.map(r=>r.pa).filter(v=>v!=null);
+        const ptsV = pts.filter(r=>r.pa!=null);
+        const minR = ptsV.reduce((a,b)=>a.pa<b.pa?a:b, ptsV[0]||{});
+        const maxR = ptsV.reduce((a,b)=>a.pa>b.pa?a:b, ptsV[0]||{});
         setStats(['cp-min','cp-max','cp-avg','cp-pts'],
             [vals.length?Math.min(...vals).toFixed(2):'--', vals.length?Math.max(...vals).toFixed(2):'--',
              vals.length?(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):'--', pts.length]);
-    } else { setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']); }
+        const setTs = (id, r) => { const el=document.getElementById(id); if(el) el.textContent=r&&r.ts?fmtDate(r.ts):''; };
+        setTs('cp-min-ts', minR); setTs('cp-max-ts', maxR);
+    } else {
+        setStats(['cp-min','cp-max','cp-avg','cp-pts'],['--','--','--','0']);
+        ['cp-min-ts','cp-max-ts'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='';});
+    }
 
     // Suction pressure (can go negative under vacuum - autoMin lets chart scale freely)
     renderLineChart('c-suction', noData, pts, [
@@ -1583,10 +1598,18 @@ async function renderPerfCharts() {
     ], v=>v!=null?v.toFixed(2)+' bar':null, {autoMin:true});
     if (!noData) {
         const valsS = pts.map(r=>r.pi).filter(v=>v!=null);
+        const ptsS  = pts.filter(r=>r.pi!=null);
+        const minSR = ptsS.reduce((a,b)=>a.pi<b.pi?a:b, ptsS[0]||{});
+        const maxSR = ptsS.reduce((a,b)=>a.pi>b.pi?a:b, ptsS[0]||{});
         setStats(['cs-min','cs-max','cs-avg','cs-pts'],
             [valsS.length?Math.min(...valsS).toFixed(2):'--', valsS.length?Math.max(...valsS).toFixed(2):'--',
              valsS.length?(valsS.reduce((a,b)=>a+b)/valsS.length).toFixed(2):'--', pts.length]);
-    } else { setStats(['cs-min','cs-max','cs-avg','cs-pts'],['--','--','--','0']); }
+        const setTs = (id, r) => { const el=document.getElementById(id); if(el) el.textContent=r&&r.ts?fmtDate(r.ts):''; };
+        setTs('cs-min-ts', minSR); setTs('cs-max-ts', maxSR);
+    } else {
+        setStats(['cs-min','cs-max','cs-avg','cs-pts'],['--','--','--','0']);
+        ['cs-min-ts','cs-max-ts'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='';});
+    }
 
     // Supply Tank % & Discharge Pressure (dual-axis custom chart)
     (function() {
@@ -1861,14 +1884,17 @@ async function renderAlarms() {
     const liveAlarms = d && d.alarms ? d.alarms.filter(a=>a.active) : [];
     const eventLog   = d && d.event_log ? d.event_log : [];
 
-    // Fetch email state to know which alarm codes have had an alert email sent
+    // Fetch email state: active alarm codes + full email history for badge display
     let emailedCodes = new Set();
+    let emailHistory = new Map(); // key: "code|appeared_at" -> history entry
     try {
         const er = await fetch('data/pump_email_state.json?_='+Date.now());
         if (er.ok) {
             const es = await er.json();
-            const aa = es.active_alarms || {};
-            emailedCodes = new Set(Object.keys(aa));
+            emailedCodes = new Set(Object.keys(es.active_alarms || {}));
+            for (const h of (es.alarm_email_history || [])) {
+                emailHistory.set(String(h.code)+'|'+(h.appeared_at||''), h);
+            }
         }
     } catch(e) {}
 
@@ -1909,7 +1935,7 @@ async function renderAlarms() {
         const pairs     = pairAlarmEvents(merged);
         document.getElementById('alarm-history').innerHTML =
             '<div style="font-size:.72em;color:#566573;margin-bottom:8px;">'+pairs.length+' alarms - '+srcNote+'</div>' +
-            pairs.map(p=>renderAlarmPair(p,emailedCodes)).join('');
+            pairs.map(p=>renderAlarmPair(p,emailedCodes,emailHistory)).join('');
     } else {
         const connected = latestData && latestData.connected;
         document.getElementById('alarm-history').innerHTML =
@@ -1964,7 +1990,7 @@ function fmtTimeOnly(d) {
     return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 
-function renderAlarmPair(p, emailedCodes) {
+function renderAlarmPair(p, emailedCodes, emailHistory) {
     const e = p.appeared||p.cleared;
     if (!e) return '';
     const isActive  = !p.cleared;
@@ -1972,28 +1998,58 @@ function renderAlarmPair(p, emailedCodes) {
     const evCls = isActive ? (isWarning?'ae-warning':'ae-active') : (isWarning?'ae-warning':'ae-cleared');
     const name  = e.description||('Code '+e.code);
     const src   = e.pump_label||e.source_name||'System';
-    const badge = e.imported?'  <span class="cu352-badge">CU352</span>':'';
-    const emailBadge = (isActive && emailedCodes && emailedCodes.has(String(e.code)))
-        ? '  <span class="emailed-badge">&#9993; Emailed</span>' : '';
-    let timePart='';
-    if (p.appeared&&p.cleared) {
-        const t1=new Date(p.appeared.timestamp_iso), t2=new Date(p.cleared.timestamp_iso);
-        const ms=t2-t1;
-        const d1=fmtDate(p.appeared.timestamp_iso);
-        const d2=sameDay(t1,t2)?fmtTimeOnly(t2):fmtDate(p.cleared.timestamp_iso);
-        timePart = ms<120000 ? d1+' <span style="color:#27ae60;">cleared (transient)</span>' : d1+' &rarr; <span style="color:#27ae60;">cleared</span> '+d2;
-    } else if (p.appeared) {
-        timePart = fmtDate(p.appeared.timestamp_iso)+' <span style="color:#e74c3c;">active</span>';
-    } else {
-        timePart = fmtDate(p.cleared.timestamp_iso);
+    const cu352 = e.imported?'<span class="cu352-badge">CU352</span>':'';
+
+    // Email history lookup: key is "code|appeared_at"
+    const histKey  = String(e.code)+'|'+(p.appeared ? p.appeared.timestamp_iso : '');
+    const histEntry = emailHistory ? emailHistory.get(histKey) : null;
+    const appearEmailed = !!(histEntry && histEntry.appear_emailed_at)
+        || (isActive && emailedCodes && emailedCodes.has(String(e.code)));
+    const clearEmailed  = !!(histEntry && histEntry.clear_emailed_at);
+
+    const eBadge = '<span class="emailed-badge">&#9993; Emailed</span>';
+
+    // Appeared row
+    let appearRow = '';
+    if (p.appeared) {
+        appearRow = '<div class="ae-tl-row">'
+            +'<span class="ae-tl-lbl">Appeared:</span>'
+            +'<span class="ae-tl-time">'+fmtDate(p.appeared.timestamp_iso)+'</span>'
+            +(appearEmailed ? ' '+eBadge : '')
+            +'</div>';
     }
-    return '<div class="alarm-evt '+evCls+'">'+
-        '<div class="ae-dot '+evCls+'"></div>'+
-        '<div class="ae-body">'+
-            '<div class="ae-name">'+name+badge+emailBadge+'</div>'+
-            '<div class="ae-meta">'+src+'<span class="ae-sep">|</span>'+timePart+'</div>'+
-        '</div>'+
-    '</div>';
+
+    // Cleared row
+    let clearRow = '';
+    if (p.cleared) {
+        const t1 = p.appeared ? new Date(p.appeared.timestamp_iso) : null;
+        const t2 = new Date(p.cleared.timestamp_iso);
+        const dur = t1 ? ' ('+_durStr(t2-t1)+')' : '';
+        clearRow = '<div class="ae-tl-row">'
+            +'<span class="ae-tl-lbl" style="color:#27ae60;">Cleared:</span>'
+            +'<span class="ae-tl-time">'+fmtDate(p.cleared.timestamp_iso)+dur+'</span>'
+            +(clearEmailed ? ' '+eBadge : '')
+            +'</div>';
+    } else if (isActive) {
+        clearRow = '<div class="ae-tl-row"><span class="ae-tl-lbl" style="color:#e74c3c;">Still active</span></div>';
+    }
+
+    return '<div class="alarm-evt '+evCls+'">'
+        +'<div class="ae-dot '+evCls+'"></div>'
+        +'<div class="ae-body">'
+            +'<div class="ae-name">'+name+' '+cu352+'</div>'
+            +'<div class="ae-meta">'+src+'</div>'
+            +'<div class="ae-timeline">'+appearRow+clearRow+'</div>'
+        +'</div>'
+    +'</div>';
+}
+
+function _durStr(ms) {
+    const s = Math.floor(ms/1000);
+    if (s < 60)    return s+'s';
+    if (s < 3600)  return Math.floor(s/60)+'m';
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+    return h+'h'+(m?(' '+m+'m'):'');
 }
 
 // ─── Info / Setup status ──────────────────────────────────────────────────────

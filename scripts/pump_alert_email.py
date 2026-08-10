@@ -52,13 +52,16 @@ OFFLINE_GRACE_MIN = 15  # alert after this many minutes offline
 REMINDER_HOURS    = 6
 
 # Guidance hints per alarm code - shown inside fault and reminder emails
+_IOM = 'https://www.gogrundfos.com/hubfs/GRUNDFOS%20I%20AND%20O%20MANUALS/I%26O-Hydro-MPC.pdf'
+
 ALARM_HINTS = {
     '4': {
         'what': (
             'The controller detected too many restart attempts in a short period. '
             'This is usually caused by a motor temperature or water temperature trip '
             '(via the PT100 sensor fitted at the top of each pump), but can also be '
-            'caused by a mechanical or electrical fault.'
+            'caused by a mechanical or electrical fault. '
+            'This is a fault alarm - it must be reset manually from the panel or dashboard.'
         ),
         'check': [
             'Let the pump rest 10-15 minutes so the motor or water temperature can stabilise.',
@@ -66,6 +69,8 @@ ALARM_HINTS = {
             'is a motor temperature trip or a water temperature (PT100 sensor) trip.',
             'Check suction - is the tank level low, or is the inlet valve fully open?',
             'Check the discharge valve is not closed or partially closed.',
+            'Once resolved, press Reset Alarms on the pump station dashboard or on the '
+            'CU352 panel to clear this alarm.',
         ],
         'recurring': [
             'Motor temperature: ensure the pump room has adequate ventilation. '
@@ -75,13 +80,17 @@ ALARM_HINTS = {
             'Mechanical: a worn impeller, failing bearing, or blocked pump casing '
             'can cause repeated overloads.',
         ],
+        'manual_url':     _IOM,
+        'manual_section': 'Hydro MPC I&O Manual - Section 9.6 (Alarms and warnings)',
     },
     '12': {
         'what': (
-            'Very low or no flow was detected. This is most commonly caused by a leak '
-            'in the system maintaining just enough demand to prevent a clean stop, '
-            'causing repeated cycling. The controller drops the cut-in pressure slightly '
-            'to reduce stop-starts - fix the leak to resolve this.'
+            'Flow dropped below the minimum threshold (Qmin). The CU352 has switched '
+            'the last running pump from constant-pressure mode to on/off cycling. '
+            'In cycling mode the pump deliberately boosts pressure above the setpoint '
+            'to pre-charge the system, then stops and waits for pressure to decay '
+            'back to the restart point - it repeats this until flow rises above Qmin. '
+            'A small leak maintaining continuous low demand is the most common cause.'
         ),
         'check': [
             'Walk the irrigation network and look for water appearing in unexpected places '
@@ -91,19 +100,24 @@ ALARM_HINTS = {
             'If pressure still drops, the leak is on the suction or tank inlet side.',
         ],
         'recurring': [
-            'Fix the leak - the low-flow stop is a symptom, not the cause.',
+            'Fix the leak - the on/off cycling is a symptom, not the cause.',
             'Check all solenoid valves are closing fully when zones finish.',
             'Check non-return valves are not allowing backflow when pumps are off.',
         ],
+        'manual_url':     'https://www.grundfos.com/us/learn/research-and-insights/stop-function',
+        'manual_section': 'Grundfos Stop Function explained',
     },
     '40': {
         'what': (
             'The supply voltage to the pump room dropped below the minimum acceptable '
-            'level for the controller.'
+            'level for the controller. '
+            'This is a fault alarm - it must be reset manually from the panel or dashboard.'
         ),
         'check': [
             'Check the main switchboard and supply isolator to the pump room.',
             'Has any other equipment on the same circuit tripped or just started up?',
+            'Once resolved, press Reset Alarms on the pump station dashboard or on the '
+            'CU352 panel to clear this alarm.',
         ],
         'recurring': [
             'Have an electrician log the supply voltage quality - the pump room circuit '
@@ -111,13 +125,17 @@ ALARM_HINTS = {
             'Large motors starting on the same circuit can cause brief voltage drops '
             'that the pump controller detects as undervoltage.',
         ],
+        'manual_url':     _IOM,
+        'manual_section': 'Hydro MPC I&O Manual - Section 9.6 (Alarms and warnings)',
     },
     '190': {
         'what': (
             'An analog input has exceeded the "Limit 1" threshold set in the CU352. '
-            'On this system, this is most likely a water temperature trip from the PT100 '
-            'sensors fitted at the top of each pump - though it can also relate to '
-            'discharge pressure depending on how Limit 1 is configured.'
+            'On this system, Limit 1 is most likely configured for water temperature '
+            'via the PT100 sensors fitted at the top of each pump, though it can also '
+            'relate to discharge pressure depending on how the controller is configured. '
+            'This is a fault alarm - it will not clear on its own; it must be '
+            'reset manually from the panel or dashboard after the fault is fixed.'
         ),
         'check': [
             'Check the CU352 display - it will show which analog input triggered the '
@@ -126,19 +144,24 @@ ALARM_HINTS = {
             'Extended running at low or no flow can heat water in the pump casing.',
             'If discharge pressure: check for any downstream isolation valves that are '
             'partially or fully closed.',
-            'Press Reset Alarms on the dashboard once the cause is identified and fixed.',
+            'Once the cause is identified and fixed, press Reset Alarms on the pump '
+            'station dashboard or on the CU352 panel - the alarm will not clear '
+            'automatically.',
         ],
         'recurring': [
             'If water temperature is repeatedly high: check the pump is getting adequate '
             'flow and not running dry or at very low flow for extended periods.',
             'Check PT100 sensor wiring and connections at the pump head - a faulty '
             'sensor can give false high readings and trigger this alarm incorrectly.',
-            'This alarm has been active since 7 Aug - it should be investigated as a priority.',
         ],
+        'manual_url':     _IOM,
+        'manual_section': 'Hydro MPC I&O Manual - Section 9.7.41 (Monitoring - Limit 1 exceeded)',
     },
     '210': {
         'what': (
-            'System pressure exceeded the high-pressure alarm setpoint on the CU352.'
+            'System pressure exceeded the high-pressure alarm setpoint on the CU352. '
+            'This is a fault alarm - it must be reset manually from the panel or '
+            'dashboard once pressure has returned to normal.'
         ),
         'check': [
             'Did a zone solenoid valve close unexpectedly while a pump was running? '
@@ -146,6 +169,8 @@ ALARM_HINTS = {
             'Is any manual isolation valve on the main line partially or fully closed?',
             'Check for blocked filters or strainers between the pumps and the network. '
             'Pressure will normally drop once flow can resume.',
+            'Once pressure is normal, press Reset Alarms on the pump station dashboard '
+            'or on the CU352 panel to clear this alarm.',
         ],
         'recurring': [
             'The high-pressure setpoint in the CU352 may be set too close to normal '
@@ -153,12 +178,16 @@ ALARM_HINTS = {
             'Check the pressure relief valve is not stuck closed.',
             'A zone solenoid valve that sticks shut intermittently will cause this repeatedly.',
         ],
+        'manual_url':     _IOM,
+        'manual_section': 'Hydro MPC I&O Manual - Section 9.7.41 (Monitoring - Max pressure)',
     },
     '214': {
         'what': (
             'The electrical float valve in the supply tank has signalled a low-level '
             'condition. This is monitored via DI2 (Water Shortage / Tank Float input '
-            'on the CU352).'
+            'on the CU352). '
+            'This is a fault alarm - it must be reset manually from the panel or '
+            'dashboard once the tank level is restored.'
         ),
         'check': [
             'Check the tank level on the Pump Station dashboard.',
@@ -166,6 +195,8 @@ ALARM_HINTS = {
             'intact - a stuck or waterlogged float can give a false low-level alarm.',
             'If the tank is genuinely low, check the town water supply to the tank '
             'is flowing and the inlet is open.',
+            'Once the tank is refilled, press Reset Alarms on the pump station dashboard '
+            'or on the CU352 panel to clear this alarm.',
         ],
         'recurring': [
             'Irrigation demand may be outpacing the tank refill rate - review scheduling '
@@ -174,6 +205,8 @@ ALARM_HINTS = {
             'the inlet valve open and waste town water.',
             'Check town water supply pressure and flow rate into the tank.',
         ],
+        'manual_url':     _IOM,
+        'manual_section': 'Hydro MPC I&O Manual - Section 9.6 (Water shortage alarm)',
     },
 }
 
@@ -301,6 +334,15 @@ def _hint_html(code):
     LBL = ('font-family:Arial,sans-serif;font-size:11px;font-weight:bold;'
            'color:#7a4500;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;')
     TXT = 'font-family:Arial,sans-serif;font-size:13px;color:#444;'
+    manual_link = ''
+    if hint.get('manual_url'):
+        manual_link = (
+            f'<div style="border-top:1px solid #f0d878;margin-top:14px;padding-top:10px;">'
+            f'<span style="font-family:Arial,sans-serif;font-size:12px;color:#7a4500;">More information: </span>'
+            f'<a href="{hint["manual_url"]}" style="font-family:Arial,sans-serif;font-size:12px;'
+            f'color:#1a73e8;">{hint.get("manual_section","Grundfos manual")}</a>'
+            f'</div>'
+        )
     return f'''<table width="100%" cellpadding="0" cellspacing="0"
         style="padding:4px 32px 20px;">
 <tr><td><div style="background:#fffbf0;border:1px solid #f0d878;border-radius:4px;
@@ -311,6 +353,7 @@ def _hint_html(code):
 <ul style="{TXT}margin:0 0 14px;padding-left:18px;">{_li(hint['check'])}</ul>
 <div style="{LBL}">If it keeps happening</div>
 <ul style="{TXT}margin:0;padding-left:18px;">{_li(hint['recurring'])}</ul>
+{manual_link}
 </div></td></tr></table>'''
 
 
@@ -509,6 +552,7 @@ def main():
         'offline_since':      None,
         'offline_alert_sent': False,
         'active_alarms':      {},
+        'alarm_email_history': [],
     })
 
     now       = datetime.now(timezone.utc)
@@ -567,14 +611,26 @@ def main():
                 html    = fault_html(alarm, latest)
                 subject = f'PUMP STATION FAULT - {desc or name}'
                 if send_email(subject, html):
+                    appeared_ts = alarm.get('timestamp_iso')
                     state_active[code] = {
-                        'appeared_at':     alarm.get('timestamp_iso'),
-                        'alarm_name':      name,
-                        'alarm_desc':      desc,
-                        'alarm_label':     src,
+                        'appeared_at':      appeared_ts,
+                        'alarm_name':       name,
+                        'alarm_desc':       desc,
+                        'alarm_label':      src,
                         'first_alerted_at': now.isoformat(),
                         'last_alerted_at':  now.isoformat(),
                     }
+                    history = state.setdefault('alarm_email_history', [])
+                    history.append({
+                        'code':             code,
+                        'desc':             desc,
+                        'label':            src,
+                        'appeared_at':      appeared_ts,
+                        'appear_emailed_at': now.isoformat(),
+                        'cleared_at':       None,
+                        'clear_emailed_at': None,
+                    })
+                    state['alarm_email_history'] = history[-50:]
                     changed = True
 
         # 2. Still-active alarms - check for 6h reminder
@@ -601,6 +657,13 @@ def main():
                 html    = cleared_html(entry, cleared_evt, latest)
                 subject = f'PUMP STATION CLEARED - {desc}'
                 send_email(subject, html)
+                # Stamp the email history entry with cleared timestamps
+                clear_ts = (cleared_evt or {}).get('timestamp_iso')
+                for h in reversed(state.get('alarm_email_history', [])):
+                    if h.get('code') == code and h.get('cleared_at') is None:
+                        h['cleared_at']       = clear_ts
+                        h['clear_emailed_at'] = now.isoformat()
+                        break
                 del state_active[code]
                 changed = True
 
