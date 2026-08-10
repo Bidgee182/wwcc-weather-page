@@ -49,6 +49,133 @@ _CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
 _BCC_RAW         = os.environ.get('PUMP_EMAIL_BCC', '')
 
 OFFLINE_GRACE_MIN = 15  # alert after this many minutes offline
+REMINDER_HOURS    = 6
+
+# Guidance hints per alarm code - shown inside fault and reminder emails
+ALARM_HINTS = {
+    '4': {
+        'what': (
+            'The controller detected too many restart attempts in a short period. '
+            'This is usually caused by a motor temperature or water temperature trip '
+            '(via the PT100 sensor fitted at the top of each pump), but can also be '
+            'caused by a mechanical or electrical fault.'
+        ),
+        'check': [
+            'Let the pump rest 10-15 minutes so the motor or water temperature can stabilise.',
+            'Check the CU352 display for a secondary code - it will show whether this '
+            'is a motor temperature trip or a water temperature (PT100 sensor) trip.',
+            'Check suction - is the tank level low, or is the inlet valve fully open?',
+            'Check the discharge valve is not closed or partially closed.',
+        ],
+        'recurring': [
+            'Motor temperature: ensure the pump room has adequate ventilation. '
+            'Is the motor hot to touch? It may need time to cool before restarting.',
+            'Water temperature (PT100): check the PT100 reading on the CU352. '
+            'If the water being pumped is warm, allow it to cool before restarting.',
+            'Mechanical: a worn impeller, failing bearing, or blocked pump casing '
+            'can cause repeated overloads.',
+        ],
+    },
+    '12': {
+        'what': (
+            'Very low or no flow was detected. This is most commonly caused by a leak '
+            'in the system maintaining just enough demand to prevent a clean stop, '
+            'causing repeated cycling. The controller drops the cut-in pressure slightly '
+            'to reduce stop-starts - fix the leak to resolve this.'
+        ),
+        'check': [
+            'Walk the irrigation network and look for water appearing in unexpected places '
+            '- broken heads, weeping joins, or a stuck-open solenoid zone.',
+            'To find which side the leak is on: isolate the discharge valve and watch if '
+            'pressure holds. If it holds, the leak is on the discharge/irrigation side. '
+            'If pressure still drops, the leak is on the suction or tank inlet side.',
+        ],
+        'recurring': [
+            'Fix the leak - the low-flow stop is a symptom, not the cause.',
+            'Check all solenoid valves are closing fully when zones finish.',
+            'Check non-return valves are not allowing backflow when pumps are off.',
+        ],
+    },
+    '40': {
+        'what': (
+            'The supply voltage to the pump room dropped below the minimum acceptable '
+            'level for the controller.'
+        ),
+        'check': [
+            'Check the main switchboard and supply isolator to the pump room.',
+            'Has any other equipment on the same circuit tripped or just started up?',
+        ],
+        'recurring': [
+            'Have an electrician log the supply voltage quality - the pump room circuit '
+            'may be undersized, or shared with other large loads causing sags.',
+            'Large motors starting on the same circuit can cause brief voltage drops '
+            'that the pump controller detects as undervoltage.',
+        ],
+    },
+    '190': {
+        'what': (
+            'An analog input has exceeded the "Limit 1" threshold set in the CU352. '
+            'On this system, this is most likely a water temperature trip from the PT100 '
+            'sensors fitted at the top of each pump - though it can also relate to '
+            'discharge pressure depending on how Limit 1 is configured.'
+        ),
+        'check': [
+            'Check the CU352 display - it will show which analog input triggered the '
+            'limit (water temperature via PT100, or discharge pressure).',
+            'If water temperature (PT100): is the water being pumped unusually warm? '
+            'Extended running at low or no flow can heat water in the pump casing.',
+            'If discharge pressure: check for any downstream isolation valves that are '
+            'partially or fully closed.',
+            'Press Reset Alarms on the dashboard once the cause is identified and fixed.',
+        ],
+        'recurring': [
+            'If water temperature is repeatedly high: check the pump is getting adequate '
+            'flow and not running dry or at very low flow for extended periods.',
+            'Check PT100 sensor wiring and connections at the pump head - a faulty '
+            'sensor can give false high readings and trigger this alarm incorrectly.',
+            'This alarm has been active since 7 Aug - it should be investigated as a priority.',
+        ],
+    },
+    '210': {
+        'what': (
+            'System pressure exceeded the high-pressure alarm setpoint on the CU352.'
+        ),
+        'check': [
+            'Did a zone solenoid valve close unexpectedly while a pump was running? '
+            'Check all active irrigation zones are open.',
+            'Is any manual isolation valve on the main line partially or fully closed?',
+            'Check for blocked filters or strainers between the pumps and the network. '
+            'Pressure will normally drop once flow can resume.',
+        ],
+        'recurring': [
+            'The high-pressure setpoint in the CU352 may be set too close to normal '
+            'operating pressure - small pressure variations keep triggering it.',
+            'Check the pressure relief valve is not stuck closed.',
+            'A zone solenoid valve that sticks shut intermittently will cause this repeatedly.',
+        ],
+    },
+    '214': {
+        'what': (
+            'The electrical float valve in the supply tank has signalled a low-level '
+            'condition. This is monitored via DI2 (Water Shortage / Tank Float input '
+            'on the CU352).'
+        ),
+        'check': [
+            'Check the tank level on the Pump Station dashboard.',
+            'Check the float valve is moving freely and its electrical connection is '
+            'intact - a stuck or waterlogged float can give a false low-level alarm.',
+            'If the tank is genuinely low, check the town water supply to the tank '
+            'is flowing and the inlet is open.',
+        ],
+        'recurring': [
+            'Irrigation demand may be outpacing the tank refill rate - review scheduling '
+            'to spread the load across the day.',
+            'Check the float valve ball is not waterlogged (sunken), which can hold '
+            'the inlet valve open and waste town water.',
+            'Check town water supply pressure and flow rate into the tank.',
+        ],
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +238,7 @@ def _logo_html():
             f' alt="Wagga Wagga Country Club" style="display:block;border:0;">')
 
 
-def _wrap(header_html, body_html):
+def _wrap(header_html, body_html, hint_html=''):
     return f'''<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0">
@@ -121,6 +248,7 @@ def _wrap(header_html, body_html):
 <tr><td>
 {header_html}
 {body_html}
+{hint_html}
 <table width="100%" cellpadding="0" cellspacing="0"
        style="padding:20px 32px 28px;background:#f4f4f4;">
 <tr><td style="font-family:Arial,sans-serif;font-size:12px;color:#888;text-align:center;">
@@ -160,6 +288,30 @@ def _body_section(table_html, note=''):
 <tr><td>{table_html}</td></tr>
 {note_html}
 </table>'''
+
+
+def _hint_html(code):
+    hint = ALARM_HINTS.get(str(code))
+    if not hint:
+        return ''
+    def _li(items):
+        return ''.join(
+            f'<li style="margin-bottom:5px;">{i}</li>' for i in items
+        )
+    LBL = ('font-family:Arial,sans-serif;font-size:11px;font-weight:bold;'
+           'color:#7a4500;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;')
+    TXT = 'font-family:Arial,sans-serif;font-size:13px;color:#444;'
+    return f'''<table width="100%" cellpadding="0" cellspacing="0"
+        style="padding:4px 32px 20px;">
+<tr><td><div style="background:#fffbf0;border:1px solid #f0d878;border-radius:4px;
+               padding:16px 20px;">
+<div style="{LBL}">What this alarm means</div>
+<p style="{TXT}margin:0 0 14px;">{hint['what']}</p>
+<div style="{LBL}">What to check first</div>
+<ul style="{TXT}margin:0 0 14px;padding-left:18px;">{_li(hint['check'])}</ul>
+<div style="{LBL}">If it keeps happening</div>
+<ul style="{TXT}margin:0;padding-left:18px;">{_li(hint['recurring'])}</ul>
+</div></td></tr></table>'''
 
 
 # ---------------------------------------------------------------------------
@@ -221,24 +373,26 @@ def _alarm_rows(alarm_or_entry, latest, extra_rows=None):
 
 
 def fault_html(alarm, latest):
+    code = str(alarm.get('code', ''))
     name = alarm.get('type_name', 'Fault Alarm')
     tbl  = _table(_alarm_rows(alarm, latest))
     note = 'A fault alarm has been detected on the Grundfos pump station. Review the dashboard for current system status.'
     return _wrap(_header('#c0392b', f'PUMP STATION - {name.upper()}'),
-                 _body_section(tbl, note))
+                 _body_section(tbl, note),
+                 _hint_html(code))
 
 
-def reminder_html(alarm_or_entry, latest, first_alerted_at):
+def reminder_html(alarm_or_entry, latest, first_alerted_at, code=''):
     name = (alarm_or_entry.get('type_name') or alarm_or_entry.get('alarm_name') or 'Fault Alarm')
-    desc_clean = (alarm_or_entry.get('description') or alarm_or_entry.get('alarm_desc') or '')
     first_dt   = parse_iso(first_alerted_at)
     now        = datetime.now(timezone.utc)
     active_dur = duration_str((now - first_dt).total_seconds()) if first_dt else '?'
     extra = [('Active for', active_dur, True)]
     tbl   = _table(_alarm_rows(alarm_or_entry, latest, extra))
-    note  = f'This fault is still active and has not been cleared. Next reminder in 6 hours.'
+    note  = 'This fault is still active and has not been cleared. Next reminder in 6 hours.'
     return _wrap(_header('#e67e22', f'REMINDER - {name.upper()} STILL ACTIVE'),
-                 _body_section(tbl, note))
+                 _body_section(tbl, note),
+                 _hint_html(code))
 
 
 def cleared_html(entry, cleared_event, latest):
@@ -313,11 +467,8 @@ def send_email(subject, html, email_type='pump_alert'):
 
 
 # ---------------------------------------------------------------------------
-# Fault dedup key
+# Alarm history helpers
 # ---------------------------------------------------------------------------
-
-REMINDER_HOURS = 6
-
 
 def active_alarms_from_history(events):
     """Return {str(code): last_appeared_event} for codes whose most recent
@@ -434,7 +585,7 @@ def main():
                     alarm = current_active[code]
                     desc  = entry.get('alarm_desc') or entry.get('alarm_name', 'Fault')
                     log.info(f'Fault code {code} still active - sending 6h reminder')
-                    html    = reminder_html(entry, latest, entry.get('first_alerted_at'))
+                    html    = reminder_html(entry, latest, entry.get('first_alerted_at'), code)
                     subject = f'PUMP STATION REMINDER - {desc} still active'
                     if send_email(subject, html):
                         state_active[code]['last_alerted_at'] = now.isoformat()
