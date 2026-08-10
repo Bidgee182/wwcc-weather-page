@@ -294,9 +294,15 @@ def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_s
     curr_alarm = alarm_code or 0
     if curr_alarm != prev_alarm:
         if curr_alarm:
+            # Cross-reference per-pump alarm registers to identify specific pump
+            sys_pump_label = "System"
+            for pump in pump_data:
+                if (pump.get("alarm_code") or 0) == curr_alarm:
+                    sys_pump_label = pump["label"]
+                    break
             new_events.append(evt(1, "Alarm appeared", curr_alarm,
                                   ALARM_DESCRIPTIONS.get(curr_alarm, f"Alarm code {curr_alarm}"),
-                                  "System", "System"))
+                                  sys_pump_label, "System"))
         elif prev_alarm:
             new_events.append(evt(2, "Alarm cleared", prev_alarm,
                                   ALARM_DESCRIPTIONS.get(prev_alarm, f"Alarm code {prev_alarm}"),
