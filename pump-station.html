@@ -1022,6 +1022,7 @@ let historyData    = null;
 let dailyData      = null;
 let farmbotTankData   = null;
 let farmbotLatestData = null;
+let hwConfigData   = null;
 let perfRangeH  = 24;
 let trendsMetric = 'hrs';
 const charts = {};
@@ -1066,6 +1067,12 @@ async function loadData() {
         const r = await fetch('data/pump_station_latest.json?_='+Date.now());
         if (r.ok) latestData = await r.json();
     } catch(e) { latestData = null; }
+    if (hwConfigData === null) {
+        try {
+            const r = await fetch('data/pump_hardware_config.json?_='+Date.now());
+            if (r.ok) hwConfigData = await r.json();
+        } catch(e) { hwConfigData = {}; }
+    }
     renderAll();
 }
 
@@ -2078,25 +2085,52 @@ function renderSetupStatus() {
         if (!sys) {
             dg.innerHTML = '<div style="grid-column:1/-1;color:#566573;font-size:.82em;">Waiting for CIM data...</div>';
         } else {
-            const family  = sys.cim_unit_family  != null ? sys.cim_unit_family  : '--';
-            const type    = sys.cim_unit_type     != null ? sys.cim_unit_type    : '--';
-            const ver     = sys.cim_unit_version  != null ? sys.cim_unit_version : '--';
-            const fw1     = sys.cim_fw_ver1  != null ? sys.cim_fw_ver1  : null;
-            const fw2     = sys.cim_fw_ver2  != null ? sys.cim_fw_ver2  : null;
-            const fw3     = sys.cim_fw_ver3  != null ? sys.cim_fw_ver3  : null;
-            const fw4     = sys.cim_fw_ver4  != null ? sys.cim_fw_ver4  : null;
-            const fwStr   = [fw1,fw2,fw3,fw4].filter(x=>x!=null).join('.');
-            const familyName = family === 21 ? 'Hydro MPC' : (family !== '--' ? 'Family '+family : '--');
-            const typeName   = type   === 4  ? 'GENIECON'  : (type   !== '--' ? 'Type '+type     : '--');
+            const family = sys.cim_unit_family  != null ? sys.cim_unit_family  : null;
+            const type   = sys.cim_unit_type     != null ? sys.cim_unit_type    : null;
+            const ver    = sys.cim_unit_version  != null ? sys.cim_unit_version : null;
+            const fw1    = sys.cim_fw_ver1 != null ? sys.cim_fw_ver1 : null;  // ProductSoftwareVersionHI
+            const fw2    = sys.cim_fw_ver2 != null ? sys.cim_fw_ver2 : null;  // ProductSoftwareVersionLO
+            const fw3    = sys.cim_fw_ver3 != null ? sys.cim_fw_ver3 : null;  // ProductSoftwareDayMonth (BCD ddmm)
+            const fw4    = sys.cim_fw_ver4 != null ? sys.cim_fw_ver4 : null;  // ProductSoftwareYear (BCD yyyy)
+
+            // UnitFamily=21, UnitType lookup: 1=CU351/352, 2=CU323, 3=CU354, 4=GENIECON
+            const familyName = family === 21 ? 'Hydro MPC' : (family != null ? 'Family '+family : '--');
+            const MPC_TYPES = {1:'CU 351/352', 2:'CU 323', 3:'CU 354', 4:'GENIECON'};
+            const typeName   = (family === 21 && type != null) ? (MPC_TYPES[type] || 'Type '+type) : (type != null ? 'Type '+type : '--');
+
+            // Decode CIM firmware: addr33=major, addr34=hi-byte minor/lo-byte patch, addr35=BCD ddmm, addr36=BCD yyyy
+            let cimFwStr = '--';
+            if (fw1 != null && fw2 != null) {
+                const major = fw1;
+                const minor = (fw2 >> 8) & 0xFF;
+                const patch = fw2 & 0xFF;
+                cimFwStr = `v${major}.${String(minor).padStart(2,'0')}.${String(patch).padStart(2,'0')}`;
+                if (fw3 != null && fw4 != null) {
+                    const bcdNib = (v, s) => (v >> s) & 0xF;
+                    const day   = bcdNib(fw3,12)*10 + bcdNib(fw3,8);
+                    const month = bcdNib(fw3,4)*10  + bcdNib(fw3,0);
+                    const year  = bcdNib(fw4,12)*1000 + bcdNib(fw4,8)*100 + bcdNib(fw4,4)*10 + bcdNib(fw4,0);
+                    const MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                    if (day && month && year > 2000)
+                        cimFwStr += ` (${day} ${MONTHS[month]||month} ${year})`;
+                }
+            }
+
+            // CU352 firmware from hardware config (not readable via Modbus - manually set)
+            const hwCfg = hwConfigData || {};
+            const cu352fw = hwCfg.cu352_fw_version || null;
+            const cu352fwStr = cu352fw || 'See CU352 panel';
+
             dg.innerHTML = [
-                infoCell('Unit Family',  familyName,             '#3498db'),
-                infoCell('Unit Type',    typeName,               '#3498db'),
-                infoCell('Unit Version', ver !== '--' ? ver.toString() : '--', '#7f8c8d'),
-                infoCell('CIM Firmware', fwStr || '--',          '#9b59b6'),
-                infoCell('Controller',   'CU 352',               '#7f8c8d'),
-                infoCell('Protocol',     'GENIECON Modbus TCP',  '#7f8c8d'),
-                infoCell('Module',       'CIM 500',              '#7f8c8d'),
-                infoCell('Device ID',    '1 / Port 502',         '#7f8c8d'),
+                infoCell('Unit Family',    familyName,            '#3498db'),
+                infoCell('Unit Type',      typeName,              '#3498db'),
+                infoCell('Unit Version',   ver != null ? ver.toString() : '--', '#7f8c8d'),
+                infoCell('CIM Firmware',   cimFwStr,              '#9b59b6'),
+                infoCell('CU352 Firmware', cu352fwStr,            cu352fw ? '#9b59b6' : '#566573'),
+                infoCell('Controller',     'CU 352',              '#7f8c8d'),
+                infoCell('Protocol',       'GENIECON Modbus TCP', '#7f8c8d'),
+                infoCell('Module',         'CIM 500',             '#7f8c8d'),
+                infoCell('Device ID',      '1 / Port 502',        '#7f8c8d'),
             ].join('');
         }
     }
