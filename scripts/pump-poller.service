@@ -1,0 +1,17 @@
+[Unit]
+Description=Grundfos 1-second Modbus poller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=andrew
+WorkingDirectory=/home/andrew/pump_poller
+ExecStart=/usr/bin/python3 /home/andrew/pump_poller/pi_pump_poller.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
