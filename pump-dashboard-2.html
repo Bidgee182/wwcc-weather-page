@@ -417,7 +417,7 @@
     <div class="header-text">
         <img src="Grundfos_Logo_White_Trimmed.png" alt="Grundfos" class="header-gf-logo">
         <h1><span style="font-weight:300;letter-spacing:8px;">PUMP</span> <span style="color:#e67e22;font-weight:800;">DASHBOARD 2</span></h1>
-        <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Raspberry Pi</span> - 1 second poller - Supabase cloud data - 1 min resolution</div>
+        <div class="subtitle"><span style="color:#e67e22;font-weight:600;">Raspberry Pi</span> - 1 second poller - Supabase cloud data - 1 min resolution - Poller <span id="poller-version" style="color:#2ecc71;font-weight:600;"></span></div>
     </div>
     <div class="header-gf-block">
         <div class="conn-banner offline" id="conn-banner" style="margin-bottom:0;padding:6px 10px;font-size:.82em;">
@@ -1289,6 +1289,9 @@ async function loadData() {
         // Fetch last 200 events newest-first (keep newest-first for event log display)
         eventsHiresRows = await supaFetch('pump_events_hires', 'order=ts.desc&limit=200');
         latestData = buildLatestData(minuteStatsRows, eventsHiresRows);
+        const onlineEvent = eventsHiresRows.find(e => e.event_type === 'online' && e.details?.version);
+        const vEl = document.getElementById('poller-version');
+        if (vEl) vEl.textContent = onlineEvent ? `v${onlineEvent.details.version}` : '';
     } catch(e) {
         console.error('Supabase fetch error:', e);
         latestData = null;

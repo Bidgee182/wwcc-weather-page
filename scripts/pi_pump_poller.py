@@ -39,6 +39,8 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
+POLLER_VERSION = "1.1"
+
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
 POLL_INTERVAL_S = 1.0
@@ -681,7 +683,7 @@ def main():
 
         if not was_online:
             print(f"ONLINE at {ts_iso}")
-            queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST})
+            queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST, "version": POLLER_VERSION})
             was_online = True
             prev_state = None
             # Snapshot any alarms already active at startup - the poller only
