@@ -44,7 +44,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "1.2"
+POLLER_VERSION = "1.3"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -94,6 +94,11 @@ CONTROL_MODE_NAMES = {
 }
 
 TEMP_UNIT_CODES = {10, 13, 84, 110}  # analog input unit codes that indicate temperature
+
+# Pressure spike thresholds — events written to pump_events_hires with exact timestamps
+PRESSURE_HIGH_BAR = 8.5   # outlet overpressure (setpoint is ~7.8 bar)
+PRESSURE_LOW_BAR  = 4.5   # outlet underpressure when system is running
+SUCTION_LOW_BAR   = -0.90 # suction near B2 transmitter floor (-1.0 bar min)
 
 
 # ── SQLite setup ───────────────────────────────────────────────────────────────
@@ -566,6 +571,58 @@ def slow_poll_once(client):
     }
 
 
+# ── Pressure spike detection (threshold events) ────────────────────────────────
+
+def detect_pressure_spikes(spike_state, state, ts_iso, con):
+    """Compare outlet and suction against thresholds every poll.
+    Writes to pump_events_hires only on crossing (not every second while above).
+    spike_state persists between calls: {'pressure_high': bool, 'pressure_low': bool, 'suction_low': bool}.
+    Returns updated spike_state."""
+    discharge  = state.get("outlet") if state.get("outlet") is not None else state.get("pressure")
+    suction    = state.get("inlet")
+    system_on  = state.get("system_on", False)
+
+    # High outlet pressure (always watched, regardless of system_on)
+    in_high = spike_state.get("pressure_high", False)
+    if discharge is not None:
+        if not in_high and discharge >= PRESSURE_HIGH_BAR:
+            queue_event(con, ts_iso, "pressure_high", "System",
+                        details={"bar": discharge, "threshold": PRESSURE_HIGH_BAR})
+            spike_state["pressure_high"] = True
+        elif in_high and discharge < (PRESSURE_HIGH_BAR - 0.3):   # 0.3 bar hysteresis
+            queue_event(con, ts_iso, "pressure_high_clear", "System",
+                        details={"bar": discharge, "threshold": PRESSURE_HIGH_BAR})
+            spike_state["pressure_high"] = False
+
+    # Low outlet pressure (only when system running - irrelevant at standby)
+    in_low = spike_state.get("pressure_low", False)
+    if discharge is not None and system_on:
+        if not in_low and discharge <= PRESSURE_LOW_BAR:
+            queue_event(con, ts_iso, "pressure_low", "System",
+                        details={"bar": discharge, "threshold": PRESSURE_LOW_BAR})
+            spike_state["pressure_low"] = True
+        elif in_low and discharge > (PRESSURE_LOW_BAR + 0.5):     # 0.5 bar hysteresis
+            queue_event(con, ts_iso, "pressure_low_clear", "System",
+                        details={"bar": discharge, "threshold": PRESSURE_LOW_BAR})
+            spike_state["pressure_low"] = False
+    elif not system_on:
+        spike_state["pressure_low"] = False   # clear on system stop
+
+    # Low suction (suction near the B2 sensor floor, supply issue)
+    in_suc = spike_state.get("suction_low", False)
+    if suction is not None:
+        if not in_suc and suction <= SUCTION_LOW_BAR:
+            queue_event(con, ts_iso, "suction_low", "System",
+                        details={"bar": suction, "threshold": SUCTION_LOW_BAR})
+            spike_state["suction_low"] = True
+        elif in_suc and suction > (SUCTION_LOW_BAR + 0.05):       # tight hysteresis
+            queue_event(con, ts_iso, "suction_low_clear", "System",
+                        details={"bar": suction, "threshold": SUCTION_LOW_BAR})
+            spike_state["suction_low"] = False
+
+    return spike_state
+
+
 # ── Transition detection ───────────────────────────────────────────────────────
 
 PUMP_BIT_LABELS = {0: "P1", 1: "P2", 2: "P3", 3: "P4", 4: "P5", 5: "P6", 6: "Pilot", 7: "Backup"}
@@ -812,7 +869,8 @@ def main():
     poll_count         = 0
     slow_poll_counter  = 0
     config_snap_counter = 0
-    slow_state = {}  # cached slow-poll results (CIM, analog inputs, MGE temps)
+    slow_state  = {}  # cached slow-poll results (CIM, analog inputs, MGE temps)
+    spike_state = {}  # pressure threshold crossing state
 
     while True:
         loop_start = time.monotonic()
@@ -887,6 +945,7 @@ def main():
 
         # ── Detect transitions ─────────────────────────────────────────────────
         detect_transitions(prev_state, state, ts_iso, con)
+        spike_state = detect_pressure_spikes(spike_state, state, ts_iso, con)
         prev_state = state
 
         # ── Store to SQLite ────────────────────────────────────────────────────

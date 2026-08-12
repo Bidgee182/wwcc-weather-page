@@ -980,6 +980,191 @@
 </div>
 
 <script>
+// ─── Supabase config ──────────────────────────────────────────────────────────
+const SUPA_URL = 'https://sduzxijjvpbfgvlwcwpp.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
+
+async function supaFetch(table, query = '') {
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}?${query}`, {
+        headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` }
+    });
+    if (!r.ok) return [];
+    return r.json();
+}
+
+// Convert a pump_minute_stats row to the chart reading shape used by all charts
+function statsRowToReading(r) {
+    const nr = [r.p1_run_secs, r.p2_run_secs, r.p3_run_secs, r.jockey_run_secs]
+                   .filter(s => (s || 0) >= 55).length;
+    return {
+        ts: r.ts,
+        pa: r.pressure_avg,
+        ps: r.setpoint_bar   ?? null,
+        pi: r.pressure_inlet ?? null,
+        fl: r.flow_avg       ?? null,
+        nr,
+        pk: r.power_avg_kw   ?? null,
+        sp: [r.p1_speed_pct,  r.p2_speed_pct,  r.p3_speed_pct,  r.jockey_speed_pct],
+        pw: [r.p1_power_kw,   r.p2_power_kw,   r.p3_power_kw,   r.jockey_power_kw],
+        rh: [r.p1_run_hours,  r.p2_run_hours,  r.p3_run_hours,  r.jockey_run_hours],
+        st: [r.p1_starts,     r.p2_starts,     r.p3_starts,     r.jockey_starts],
+        se: r.spec_energy_avg ?? null,
+        tm: [r.p1_temp_c,     r.p2_temp_c,     r.p3_temp_c,     r.jockey_temp_c],
+    };
+}
+
+// Convert a pump_events_hires row to the legacy event shape the render functions expect
+function eventRowToLegacy(e) {
+    const t = e.event_type || '';
+    const tc = (t.endsWith('_on')  || t === 'pump_start' || t === 'offline') ? 1
+             : (t.endsWith('_off') || t === 'pump_stop'  || t === 'online')  ? 2
+             : t.includes('warning') ? 3 : 4;
+    return {
+        timestamp_iso: e.ts,
+        type_code:     tc,
+        type_name:     t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        code:          e.alarm_code || 0,
+        description:   e.alarm_desc || t,
+        pump_label:    e.pump_label || 'System',
+        source_name:   'Pi',
+    };
+}
+
+// Build the latestData object from Supabase rows (statsRows oldest-first, eventsRows newest-first)
+function buildLatestData(statsRows, eventsRows) {
+    if (!statsRows.length) return null;
+    const row = statsRows[statsRows.length - 1];
+
+    const age = (Date.now() - new Date(row.ts).getTime()) / 60000;
+    const connected = age < 10;
+
+    // Active alarm detection: walk newest-first events, first time we see a key wins
+    const recentEvents = eventsRows.slice(0, 50);
+    let activeAlarmCode = 0, activeAlarmLabel = 'System', activeAlarmDesc = '';
+    const alarmSeen = {};
+    for (const e of recentEvents) {
+        const k = (e.alarm_code || 0) + '|' + (e.pump_label || '');
+        if (e.event_type === 'alarm_on'  && !alarmSeen[k]) alarmSeen[k] = 'on';
+        if (e.event_type === 'alarm_off' && !alarmSeen[k]) alarmSeen[k] = 'off';
+    }
+    const activeAlarmEvent = recentEvents.find(e =>
+        e.event_type === 'alarm_on' &&
+        alarmSeen[(e.alarm_code || 0) + '|' + (e.pump_label || '')] === 'on');
+    if (activeAlarmEvent) {
+        activeAlarmCode  = activeAlarmEvent.alarm_code || 0;
+        activeAlarmLabel = activeAlarmEvent.pump_label || 'System';
+        activeAlarmDesc  = activeAlarmEvent.alarm_desc || '';
+    }
+
+    // Starts today per pump (AEST = UTC+10)
+    const todayAEST = new Date(Date.now() + 10 * 3600000).toISOString().slice(0, 10);
+    const todayRows = statsRows.filter(r =>
+        new Date(new Date(r.ts).getTime() + 10 * 3600000).toISOString().slice(0, 10) === todayAEST);
+    const todayStarts = [
+        todayRows.reduce((s, r) => s + (r.p1_starts     || 0), 0),
+        todayRows.reduce((s, r) => s + (r.p2_starts     || 0), 0),
+        todayRows.reduce((s, r) => s + (r.p3_starts     || 0), 0),
+        todayRows.reduce((s, r) => s + (r.jockey_starts || 0), 0),
+    ];
+
+    const PUMP_DEFS_LOCAL = [
+        { id:1, label:'P1 - CRNE45', model:'CRNE45-3', rated_kw:18.5, prefix:'p1'     },
+        { id:2, label:'P2 - CRNE45', model:'CRNE45-3', rated_kw:18.5, prefix:'p2'     },
+        { id:3, label:'P3 - CRNE45', model:'CRNE45-3', rated_kw:18.5, prefix:'p3'     },
+        { id:4, label:'Jockey',      model:'CRNE10-9', rated_kw:5.5,  prefix:'jockey' },
+    ];
+    const pumps = PUMP_DEFS_LOCAL.map((d, i) => {
+        const px  = d.prefix;
+        const running = (row[`${px}_run_secs`] || 0) >= 55;
+        const fault   = activeAlarmCode > 0 && activeAlarmLabel === d.label;
+        return {
+            id: d.id, label: d.label, model: d.model, rated_kw: d.rated_kw, block: 0, bit: i,
+            running,
+            fault,
+            standby:      !running && !fault && (row.system_on || false),
+            speed_pct:    row[`${px}_speed_pct`]  ?? null,
+            power_kw:     row[`${px}_power_kw`]   ?? null,
+            current_a:    row[`${px}_current_a`]  ?? null,
+            run_hours:    row[`${px}_run_hours`]  ?? null,
+            starts_today: todayStarts[i] || 0,
+            temp_c:       row[`${px}_temp_c`]     ?? null,
+            alarm_code:   fault ? activeAlarmCode : null,
+        };
+    });
+
+    return {
+        connected,
+        timestamp:      row.ts,
+        last_seen:      row.ts,
+        last_connected: row.ts,
+        system: {
+            pressure_actual_bar:      row.pressure_avg      ?? null,
+            pressure_setpoint_bar:    row.setpoint_bar      ?? null,
+            pressure_suction_bar:     row.pressure_inlet    ?? null,
+            flow_m3h:                 row.flow_avg          ?? null,
+            power_kw:                 row.power_avg_kw      ?? null,
+            system_on:                row.system_on         || false,
+            fault:                    activeAlarmCode > 0,
+            alarm_code:               activeAlarmCode,
+            warning_code:             0,
+            mode:                     row.mode              ?? null,
+            energy_kwh:               row.sys_energy_kwh    ?? null,
+            volume_m3:                row.volume_m3         ?? null,
+            tank_ok:                  row.tank_ok           ?? null,
+            sys_active_funcs:         0,
+            specific_energy_wh_m3:    row.spec_energy_avg   ?? null,
+        },
+        pumps,
+        alarms:    activeAlarmCode ? [{
+            active: true, code: activeAlarmCode,
+            description: activeAlarmDesc || `Alarm code ${activeAlarmCode}`,
+            pump: activeAlarmLabel, timestamp: row.ts,
+        }] : [],
+        event_log: eventsRows.map(eventRowToLegacy),
+        history:   statsRows.map(statsRowToReading),
+    };
+}
+
+// Aggregate minute stats rows into per-AEST-day summaries for the Trends tab
+function buildDailyStats(rows) {
+    const byDate = {};
+    for (const r of rows) {
+        const d = new Date(new Date(r.ts).getTime() + 10 * 3600000).toISOString().slice(0, 10);
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(r);
+    }
+    return Object.keys(byDate).sort().map(date => {
+        const rs = byDate[date];
+        const pressures = rs.map(r => r.pressure_avg).filter(v => v != null);
+        const flows     = rs.map(r => r.flow_avg).filter(v => v != null);
+        // kWh: last reading minus first reading of the day (accumulator delta)
+        function kwhDelta(col) {
+            const vs = rs.filter(r => r[col] != null);
+            return vs.length >= 2 ? Math.max(0, vs[vs.length - 1][col] - vs[0][col]) : null;
+        }
+        return {
+            date,
+            hrs: [
+                rs.reduce((s, r) => s + (r.p1_run_secs     || 0), 0) / 3600,
+                rs.reduce((s, r) => s + (r.p2_run_secs     || 0), 0) / 3600,
+                rs.reduce((s, r) => s + (r.p3_run_secs     || 0), 0) / 3600,
+                rs.reduce((s, r) => s + (r.jockey_run_secs || 0), 0) / 3600,
+            ],
+            kwh: [kwhDelta('p1_kwh'), kwhDelta('p2_kwh'), kwhDelta('p3_kwh'), kwhDelta('jockey_kwh')],
+            sts: [
+                rs.reduce((s, r) => s + (r.p1_starts     || 0), 0),
+                rs.reduce((s, r) => s + (r.p2_starts     || 0), 0),
+                rs.reduce((s, r) => s + (r.p3_starts     || 0), 0),
+                rs.reduce((s, r) => s + (r.jockey_starts || 0), 0),
+            ],
+            p_avg:  pressures.length ? pressures.reduce((a, b) => a + b, 0) / pressures.length : null,
+            p_min:  pressures.length ? Math.min(...pressures) : null,
+            p_max:  pressures.length ? Math.max(...pressures) : null,
+            fl_max: flows.length     ? Math.max(...flows)     : null,
+        };
+    });
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const TABS = ['overview','pumps','performance','trends','alarms','control','log','setup'];
 const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6'];
@@ -1060,12 +1245,16 @@ function openControlAction(act, val) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 async function loadData() {
-    alarmHistoryData = null;  // reset so it refetches on next renderAlarms()
-    dailyData        = null;  // reset so trends always get latest on each 60s cycle
-    historyData      = null;  // reset so performance chart always gets latest
+    alarmHistoryData = null;
+    dailyData        = null;
+    historyData      = null;
     try {
-        const r = await fetch('data/pump_station_latest.json?_='+Date.now());
-        if (r.ok) latestData = await r.json();
+        const [statsRows, eventsRows] = await Promise.all([
+            supaFetch('pump_minute_stats', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
+            supaFetch('pump_events_hires', 'order=ts.desc&limit=200'),
+        ]);
+        statsRows.reverse();  // oldest-first for chart rendering
+        latestData = buildLatestData(statsRows, eventsRows);
     } catch(e) { latestData = null; }
     if (hwConfigData === null) {
         try {
@@ -1080,9 +1269,8 @@ async function ensureHistory() {
     if (historyData !== null) return;
     document.getElementById('hist-loading').style.display = 'block';
     try {
-        const r = await fetch('data/pump_station_history.json?_='+Date.now());
-        if (r.ok) historyData = await r.json();
-        else historyData = { readings:[] };
+        const rows = await supaFetch('pump_minute_stats', 'order=ts.asc&limit=10080');  // 7 days
+        historyData = { readings: rows.map(statsRowToReading) };
     } catch(e) { historyData = { readings:[] }; }
     document.getElementById('hist-loading').style.display = 'none';
 }
@@ -1114,9 +1302,13 @@ async function ensureFarmbotTank() {
 async function ensureDaily() {
     if (dailyData !== null) return;
     try {
-        const r = await fetch('data/pump_station_daily.json?_='+Date.now());
-        if (r.ok) dailyData = await r.json();
-        else dailyData = { days:[] };
+        // Fetch last 35 days (lean column set only — no per-second data needed)
+        const rows = await supaFetch('pump_minute_stats',
+            'select=ts,p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,' +
+            'p1_kwh,p2_kwh,p3_kwh,jockey_kwh,p1_starts,p2_starts,p3_starts,jockey_starts,' +
+            'pressure_avg,pressure_min,pressure_max,flow_avg' +
+            '&order=ts.asc&limit=50400');
+        dailyData = { days: buildDailyStats(rows) };
     } catch(e) { dailyData = { days:[] }; }
 }
 
@@ -1124,9 +1316,8 @@ let alarmHistoryData = null;
 async function ensureAlarmHistory() {
     if (alarmHistoryData !== null) return;
     try {
-        const r = await fetch('data/pump_alarm_history.json?_='+Date.now());
-        if (r.ok) alarmHistoryData = await r.json();
-        else alarmHistoryData = { events:[] };
+        const rows = await supaFetch('pump_events_hires', 'order=ts.desc&limit=1000');
+        alarmHistoryData = { events: rows.map(eventRowToLegacy) };
     } catch(e) { alarmHistoryData = { events:[] }; }
 }
 
