@@ -436,9 +436,9 @@ def poll_once(client):
     power_combined = hi_lo_32(power_hi, power_lo)
     power_kw = round(power_combined / 1000, 2) if power_combined is not None else None
 
-    setpt_pct = setpt_raw * 0.01 if setpt_raw is not None else None
-    setpoint  = round(setpt_pct * 0.0001 * sensor_max_mbar / 1000, 2) \
-                if setpt_pct is not None and sensor_max_mbar else None
+    # raw is in 0.01% of sensor range; divide by 10000 to get fraction, then * sensor_max_bar
+    setpoint  = round(setpt_raw * 0.0001 * sensor_max_mbar / 1000, 2) \
+                if setpt_raw is not None and sensor_max_mbar else None
 
     sys_run_hours     = hi_lo_32(op_time_hi, op_time_lo)
     sys_powered_hours = hi_lo_32(powered_hi, powered_lo)
