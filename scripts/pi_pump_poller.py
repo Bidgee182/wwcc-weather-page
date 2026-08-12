@@ -3,7 +3,12 @@
 Grundfos 1-second Modbus poller for Raspberry Pi.
 
 Collects the same register set as the GitHub Actions 5-min poller, plus
-per-pump speed, current and power which are in the pump blocks.
+per-pump speed, current, power, motor temperature (MGE scan), CIM identity,
+analog inputs, and slow-changing config written hourly to pump_config_snapshots.
+
+Fast poll (every second):  status, data block, pump blocks, energy kWh
+Slow poll (every 60s):     CIM firmware, analog inputs, MGE motor temperatures
+Config snapshot (hourly):  all slow data + tuning params -> pump_config_snapshots
 
 Setup:
     mkdir ~/pump_poller && cd ~/pump_poller
@@ -39,12 +44,14 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "1.1"
+POLLER_VERSION = "1.2"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
-POLL_INTERVAL_S = 1.0
-RECONNECT_WAIT  = 5
+POLL_INTERVAL_S   = 1.0
+RECONNECT_WAIT    = 5
+SLOW_POLL_EVERY   = 60    # polls: CIM + analog inputs + MGE motor temps
+CONFIG_SNAP_EVERY = 3600  # polls: hourly config snapshot to Supabase
 NA = 65535
 
 PUMP_DEFS = [
@@ -74,6 +81,19 @@ ALARM_DESCRIPTIONS = {
     210: "Pressure high",
     214: "Water shortage",
 }
+
+CONTROL_MODE_NAMES = {
+    1: "Constant differential pressure",
+    2: "Constant pressure setpoint",
+    3: "Constant head",
+    4: "Constant pressure",
+    5: "Constant flow",
+    6: "Constant temperature",
+    7: "Duty-standby",
+    8: "Constant level",
+}
+
+TEMP_UNIT_CODES = {10, 13, 84, 110}  # analog input unit codes that indicate temperature
 
 
 # ── SQLite setup ───────────────────────────────────────────────────────────────
@@ -228,6 +248,42 @@ def queue_minute_stat(con, stat):
     con.commit()
 
 
+def queue_config_snapshot(con, ts_iso, state, slow_state):
+    """Queue an hourly config snapshot to pump_config_snapshots."""
+    mge = slow_state.get("mge_temps") or []
+    payload = {
+        "ts":               ts_iso,
+        "mode":             state.get("mode"),
+        "setpoint_bar":     state.get("setpoint"),
+        "pid_kp":           state.get("pid_kp"),
+        "pid_ti":           state.get("pid_ti"),
+        "sensor_max_bar":   state.get("sensor_max_bar"),
+        "sys_run_hours":    state.get("sys_run_hours"),
+        "sys_powered_hrs":  state.get("sys_powered_hours"),
+        "power_ons":        state.get("power_ons"),
+        "spec_energy_avg_lt": state.get("spec_energy_avg"),
+        "di_bits":          state.get("di_bits"),
+        "do_bits":          state.get("do_bits"),
+        "cim_unit_family":  slow_state.get("cim_unit_family"),
+        "cim_unit_type":    slow_state.get("cim_unit_type"),
+        "cim_unit_version": slow_state.get("cim_unit_version"),
+        "cim_fw":           slow_state.get("cim_fw"),
+        "analog_inputs":    slow_state.get("analog_inputs"),
+        "mge_temps": {
+            "p1":     mge[0] if len(mge) > 0 else None,
+            "p2":     mge[1] if len(mge) > 1 else None,
+            "p3":     mge[2] if len(mge) > 2 else None,
+            "jockey": mge[3] if len(mge) > 3 else None,
+        },
+    }
+    con.execute(
+        "INSERT INTO supabase_queue (table_name, payload, prefer, created) VALUES (?,?,?,?)",
+        ("pump_config_snapshots", json.dumps(payload),
+         "return=minimal", datetime.now(timezone.utc).isoformat())
+    )
+    con.commit()
+
+
 def flush_supabase_queue(con, session):
     if not HAVE_REQUESTS:
         return
@@ -270,9 +326,9 @@ def hi_lo_32(hi, lo):
     return hi * 65536 + lo
 
 
-def rhr(client, addr, count):
+def rhr(client, addr, count, device_id=1):
     try:
-        r = client.read_holding_registers(addr, count=count, device_id=1)
+        r = client.read_holding_registers(addr, count=count, device_id=device_id)
         if r.isError():
             return [None] * count
         return list(r.registers)
@@ -280,23 +336,38 @@ def rhr(client, addr, count):
         return [None] * count
 
 
+def scan_mge_temperatures(client, pump_count=4):
+    """Read MotorTemperature from MGE single-pump profiles at device_id 2..pump_count+1.
+    Register addr 211 (doc 00212) = MotorTemperature (0.01 K).
+    Valid motor range: 0-120C = 27315-39315 in 0.01K. Returns list of temp_c or None per pump."""
+    temps = []
+    for device_id in range(2, 2 + pump_count):
+        try:
+            r = client.read_holding_registers(211, count=1, device_id=device_id)
+            if r.isError():
+                temps.append(None)
+                continue
+            raw = r.registers[0]
+            if raw and raw != NA and 27315 <= raw <= 39315:
+                temps.append(round(raw * 0.01 - 273.15, 1))
+            else:
+                temps.append(None)
+        except Exception:
+            temps.append(None)
+    return temps
+
+
+# ── Fast poll (every second) ───────────────────────────────────────────────────
+
 def poll_once(client):
-    """Read all registers matching the GitHub Actions poller. Returns state dict or None."""
+    """Read all fast registers. Returns state dict or None on error."""
     try:
-        # Status block: addr 200-231 (32 regs - matches existing poller)
-        status = rhr(client, 200, 32)
+        status     = rhr(client, 200, 32)  # addr 200-231: status block + PI params
         if status[0] is None:
             return None
-
-        # Data block: addr 300-363 (64 regs - covers volume, energy, run hours)
-        data = rhr(client, 300, 64)
-
-        # Pump blocks: addr 400-479 (80 regs - P1/P2/P3 + Jockey at 460)
-        pumps_raw = rhr(client, 400, 80)
-
-        # Per-pump energy: addr 480-487 (8 regs - lifetime kWh per pump)
-        energy_raw = rhr(client, 480, 8)
-
+        data       = rhr(client, 300, 64)  # addr 300-363: full data block
+        pumps_raw  = rhr(client, 400, 80)  # addr 400-479: pump blocks (P1/P2/P3 + Jockey)
+        energy_raw = rhr(client, 480, 8)   # addr 480-487: per-pump lifetime energy kWh
     except Exception as e:
         print(f"  Modbus read error: {e}")
         return None
@@ -304,13 +375,16 @@ def poll_once(client):
     # ── Status block (addr 200-231) ────────────────────────────────────────────
     status_bits      = valid(status[0])   # addr 200: status bitfield
     process_fb       = valid(status[1])   # addr 201: ProcessFeedback (0.01% of sensor max)
+    control_mode_raw = valid(status[2])   # addr 202: control mode code
     alarm_code       = valid(status[4])   # addr 204
     warning_code     = valid(status[5])   # addr 205
     pumps_present    = valid(status[7])   # addr 207
-    pumps_comm_fault = valid(status[10])  # addr 210: per-pump GENIbus comm fault bits
+    pumps_comm_fault = valid(status[10])  # addr 210: per-pump GENIbus comm fault bitmask
     sys_active_funcs = valid(status[11])  # addr 211: emergency run, low-flow stop, etc.
     sensor_unit      = valid(status[19])  # addr 219: 0=bar, 1=mbar, 3=kPa
     sensor_max_raw   = valid(status[21])  # addr 221
+    kp_raw           = valid(status[30])  # addr 230: PI controller Kp (scale 0.1)
+    ti_raw           = valid(status[31])  # addr 231: PI controller Ti seconds (scale 0.1)
 
     system_on = bool(status_bits & (1 << 9)) if status_bits is not None else False
 
@@ -324,34 +398,40 @@ def poll_once(client):
         sensor_max_mbar = sensor_max_raw
 
     # ── Data block (addr 300-363) ──────────────────────────────────────────────
-    head_raw     = valid(data[0])   # addr 300: Head (0.001 bar)
-    flow_raw     = valid(data[1])   # addr 301: VolumeFlow (0.1 m3/h)
-    di_raw       = valid(data[5])   # addr 305: DigitalInput bits
-    setpt_raw    = valid(data[7])   # addr 307: ActualSetpoint (0.01%)
-    power_hi     = valid(data[11])  # addr 311: PowerHI
-    power_lo     = valid(data[12])  # addr 312: PowerLO
-    inlet_raw    = valid(data[14])  # addr 314: InletPressure (0.001 bar, offset -1.0)
-    op_time_hi   = valid(data[26])  # addr 326: System OperationTimeHI (hours)
-    op_time_lo   = valid(data[27])  # addr 327: System OperationTimeLO
-    energy_hi    = valid(data[31])  # addr 331: System EnergyHI (kWh)
-    energy_lo    = valid(data[32])  # addr 332: System EnergyLO
-    outlet_raw    = valid(data[40])  # addr 340: OutletPressure (0.001 bar)
-    power_ons_raw = valid(data[44])  # addr 344: NumberOfPowerOns (power cycle detection)
-    spec_e_raw    = valid(data[45])  # addr 345: SpecificEnergy (0.1 Wh/m3)
-    volume_hi     = valid(data[62])  # addr 362: VolumeHI (0.1 m3)
-    volume_lo     = valid(data[63])  # addr 363: VolumeLO
+    head_raw       = valid(data[0])    # addr 300: Head (0.001 bar)
+    flow_raw       = valid(data[1])    # addr 301: VolumeFlow (0.1 m3/h)
+    rel_perf_raw   = valid(data[2])    # addr 302: RelativePerformance (0.01%)
+    di_raw         = valid(data[5])    # addr 305: DigitalInput bits
+    do_raw         = valid(data[6])    # addr 306: DigitalOutput bits
+    setpt_raw      = valid(data[7])    # addr 307: ActualSetpoint (0.01%)
+    power_hi       = valid(data[11])   # addr 311: PowerHI
+    power_lo       = valid(data[12])   # addr 312: PowerLO
+    inlet_raw      = valid(data[14])   # addr 314: InletPressure (0.001 bar, offset -1.0)
+    op_time_hi     = valid(data[26])   # addr 326: System OperationTimeHI (hours)
+    op_time_lo     = valid(data[27])   # addr 327: System OperationTimeLO
+    powered_hi     = valid(data[28])   # addr 328: TotalPoweredTimeHI (hours)
+    powered_lo     = valid(data[29])   # addr 329: TotalPoweredTimeLO
+    energy_hi      = valid(data[31])   # addr 331: System EnergyHI (kWh)
+    energy_lo      = valid(data[32])   # addr 332: System EnergyLO
+    outlet_raw     = valid(data[40])   # addr 340: OutletPressure (0.001 bar)
+    power_ons_raw  = valid(data[44])   # addr 344: NumberOfPowerOns
+    spec_e_raw     = valid(data[45])   # addr 345: SpecificEnergy instantaneous (0.1 Wh/m3)
+    spec_e_avg_raw = valid(data[46])   # addr 346: SpecificEnergyAverage long-term (0.1 Wh/m3)
+    volume_hi      = valid(data[62])   # addr 362: VolumeHI (0.1 m3)
+    volume_lo      = valid(data[63])   # addr 363: VolumeLO
 
-    # Head register preferred; fall back to process feedback if head returns NA
+    # Head preferred; fall back to ProcessFeedback if head returns NA (system idle)
     if head_raw is not None:
         pressure = round(head_raw * 0.001, 3)
     elif process_fb is not None and sensor_max_mbar:
         pressure = round(process_fb * 0.0001 * sensor_max_mbar / 1000, 3)
     else:
         pressure = None
-    flow_m3h = round(flow_raw * 0.1, 2)  if flow_raw is not None else None
-    # Inlet transmitter range -1.0 to 6.0 bar: raw=0 -> -1.0 bar
-    inlet    = round(inlet_raw * 0.001 - 1.0, 3) if inlet_raw is not None else None
-    outlet   = round(outlet_raw * 0.001, 3)       if outlet_raw is not None else None
+
+    flow_m3h  = round(flow_raw * 0.1, 2)            if flow_raw  is not None else None
+    # B2 transmitter range -1.0 to 6.0 bar: raw=0 -> -1.0 bar
+    inlet     = round(inlet_raw * 0.001 - 1.0, 3)   if inlet_raw is not None else None
+    outlet    = round(outlet_raw * 0.001, 3)         if outlet_raw is not None else None
 
     power_combined = hi_lo_32(power_hi, power_lo)
     power_kw = round(power_combined / 1000, 2) if power_combined is not None else None
@@ -360,19 +440,28 @@ def poll_once(client):
     setpoint  = round(setpt_pct * 0.0001 * sensor_max_mbar / 1000, 2) \
                 if setpt_pct is not None and sensor_max_mbar else None
 
-    sys_run_hours  = hi_lo_32(op_time_hi, op_time_lo)
-    sys_energy_kwh = hi_lo_32(energy_hi, energy_lo)
-    volume_combined = hi_lo_32(volume_hi, volume_lo)
-    volume_m3 = round(volume_combined * 0.1, 1) if volume_combined is not None else None
-    spec_energy = round(spec_e_raw * 0.1, 1) if spec_e_raw is not None else None
+    sys_run_hours     = hi_lo_32(op_time_hi, op_time_lo)
+    sys_powered_hours = hi_lo_32(powered_hi, powered_lo)
+    sys_energy_kwh    = hi_lo_32(energy_hi, energy_lo)
+    volume_combined   = hi_lo_32(volume_hi, volume_lo)
 
-    # DI2 (bit 1) = tank float: 1=tank OK, 0=tank low/water shortage
+    volume_m3         = round(volume_combined * 0.1, 1)  if volume_combined   is not None else None
+    spec_energy       = round(spec_e_raw * 0.1, 1)       if spec_e_raw        is not None else None
+    spec_energy_avg   = round(spec_e_avg_raw * 0.1, 1)   if spec_e_avg_raw    is not None else None
+    rel_perf_pct      = round(rel_perf_raw * 0.01, 1)    if rel_perf_raw      is not None else None
+    pid_kp            = round(kp_raw * 0.1, 1)           if kp_raw            is not None else None
+    pid_ti            = round(ti_raw * 0.1, 1)           if ti_raw            is not None else None
+    sensor_max_bar    = round(sensor_max_mbar / 1000, 1) if sensor_max_mbar               else None
+    mode              = CONTROL_MODE_NAMES.get(control_mode_raw,
+                            f"mode {control_mode_raw}") if control_mode_raw else "unknown"
+
+    # DI bit 1 = tank float valve: 1=tank OK, 0=tank low / water shortage
     tank_ok = bool(di_raw & 0x02) if di_raw is not None else None
 
     # ── Per-pump blocks (addr 400-479) ─────────────────────────────────────────
     pumps = []
     for defn in PUMP_DEFS:
-        ofs = defn["block"] - 400   # jockey: 460-400=60
+        ofs = defn["block"] - 400
 
         bits_raw = pumps_raw[ofs]            if ofs     < len(pumps_raw) else None
         alarm_c  = valid(pumps_raw[ofs + 1]) if ofs + 1 < len(pumps_raw) else None
@@ -386,8 +475,7 @@ def poll_once(client):
         is_present = bool((pumps_present or 0) & (1 << defn["bit"]))
         op_hours   = hi_lo_32(op_hi, op_lo)
 
-        # Per-pump energy kWh from energy block (addr 480-487)
-        eidx = defn["energy_idx"]
+        eidx     = defn["energy_idx"]
         pump_kwh = valid(energy_raw[eidx]) if eidx < len(energy_raw) else None
 
         pumps.append({
@@ -397,31 +485,84 @@ def poll_once(client):
             "present":   is_present,
             "alarm_code": alarm_c,
             "run_hours": float(op_hours) if op_hours is not None else None,
-            "speed_pct": round(spd_raw * 0.01, 1) if spd_raw is not None else None,
-            "current_a": round(cur_raw * 0.1, 2)  if cur_raw is not None else None,
+            "speed_pct": round(spd_raw * 0.01, 1)      if spd_raw is not None else None,
+            "current_a": round(cur_raw * 0.1, 2)        if cur_raw is not None else None,
             "power_kw":  round(pwr_raw * 10 / 1000, 2) if pwr_raw is not None else None,
             "kwh":       pump_kwh,
+            "temp_c":    None,  # filled from slow poll MGE scan
         })
 
     return {
-        "system_on":       system_on,
-        "alarm_code":      alarm_code or 0,
-        "warning_code":    warning_code or 0,
-        "pumps_comm_fault": pumps_comm_fault or 0,
-        "sys_active_funcs": sys_active_funcs or 0,
-        "power_ons":       power_ons_raw,
-        "pressure":        pressure,
-        "setpoint":        setpoint,
-        "inlet":           inlet,
-        "outlet":          outlet,
-        "flow":            flow_m3h,
-        "power_kw":        power_kw,
-        "spec_energy":     spec_energy,
-        "sys_run_hours":   float(sys_run_hours) if sys_run_hours is not None else None,
-        "sys_energy_kwh":  sys_energy_kwh,
-        "volume_m3":       volume_m3,
-        "tank_ok":         tank_ok,
-        "pumps":           pumps,
+        "system_on":          system_on,
+        "alarm_code":         alarm_code or 0,
+        "warning_code":       warning_code or 0,
+        "pumps_comm_fault":   pumps_comm_fault or 0,
+        "sys_active_funcs":   sys_active_funcs or 0,
+        "power_ons":          power_ons_raw,
+        "pressure":           pressure,
+        "setpoint":           setpoint,
+        "inlet":              inlet,
+        "outlet":             outlet,
+        "flow":               flow_m3h,
+        "power_kw":           power_kw,
+        "spec_energy":        spec_energy,
+        "spec_energy_avg":    spec_energy_avg,
+        "sys_run_hours":      float(sys_run_hours)     if sys_run_hours     is not None else None,
+        "sys_powered_hours":  float(sys_powered_hours) if sys_powered_hours is not None else None,
+        "sys_energy_kwh":     sys_energy_kwh,
+        "volume_m3":          volume_m3,
+        "tank_ok":            tank_ok,
+        "di_bits":            di_raw,
+        "do_bits":            do_raw,
+        "mode_code":          control_mode_raw,
+        "mode":               mode,
+        "rel_perf_pct":       rel_perf_pct,
+        "pid_kp":             pid_kp,
+        "pid_ti":             pid_ti,
+        "sensor_max_bar":     sensor_max_bar,
+        "pumps":              pumps,
+    }
+
+
+# ── Slow poll (every 60 seconds) ──────────────────────────────────────────────
+
+def slow_poll_once(client):
+    """Read CIM identity, analog inputs 1-7, and MGE motor temperatures.
+    These change slowly so polling every 60s is sufficient."""
+    try:
+        cim_regs  = rhr(client, 29, 8)    # addr 29-36: CIM unit family/type/ver + FW
+        ain_units = rhr(client, 224, 7)   # addr 224-230: AnalogIn1-7 unit codes
+        ain_vals  = rhr(client, 375, 7)   # addr 375-381: AnalogIn1-7 values
+        mge_temps = scan_mge_temperatures(client, len(PUMP_DEFS))
+    except Exception as e:
+        print(f"  slow_poll error: {e}")
+        return None
+
+    cim_unit_family  = valid(cim_regs[0]) if cim_regs else None  # 21=Hydro MPC/GENIECON
+    cim_unit_type    = valid(cim_regs[1]) if cim_regs else None  # 4=GENIECON
+    cim_unit_version = valid(cim_regs[2]) if cim_regs else None
+    cim_fw_parts     = [valid(cim_regs[i]) for i in range(4, 8)] if cim_regs else []
+    cim_fw           = ".".join(str(x) for x in cim_fw_parts if x is not None) or None
+
+    analog_inputs = []
+    for i in range(7):
+        u_val   = valid(ain_units[i] if ain_units else None)
+        v_val   = valid(ain_vals[i]  if ain_vals  else None)
+        is_temp = u_val in TEMP_UNIT_CODES
+        if is_temp and v_val is not None:
+            temp_c = round(v_val * 0.01 - 273.15, 1) if u_val in (13, 84) \
+                     else round(v_val * 0.01, 1)
+        else:
+            temp_c = None
+        analog_inputs.append({"index": i + 1, "unit": u_val, "raw": v_val, "temp_c": temp_c})
+
+    return {
+        "cim_unit_family":  cim_unit_family,
+        "cim_unit_type":    cim_unit_type,
+        "cim_unit_version": cim_unit_version,
+        "cim_fw":           cim_fw,
+        "analog_inputs":    analog_inputs,
+        "mge_temps":        mge_temps,
     }
 
 
@@ -469,8 +610,8 @@ def detect_transitions(prev, curr, ts_iso, con):
                         ALARM_DESCRIPTIONS.get(prev_warn, f"Warning code {prev_warn}"))
 
     # Per-pump GENIbus comm fault transitions
-    prev_cf = prev.get("pumps_comm_fault") or 0
-    curr_cf  = curr.get("pumps_comm_fault") or 0
+    prev_cf    = prev.get("pumps_comm_fault") or 0
+    curr_cf    = curr.get("pumps_comm_fault") or 0
     changed_cf = prev_cf ^ curr_cf
     if changed_cf:
         for bit, label in PUMP_BIT_LABELS.items():
@@ -483,8 +624,8 @@ def detect_transitions(prev, curr, ts_iso, con):
                             else f"{label} GENIbus comms restored")
 
     # SystemActiveFunctions bit transitions (emergency run, low-flow stop, etc.)
-    prev_saf = prev.get("sys_active_funcs") or 0
-    curr_saf  = curr.get("sys_active_funcs") or 0
+    prev_saf    = prev.get("sys_active_funcs") or 0
+    curr_saf    = curr.get("sys_active_funcs") or 0
     changed_saf = prev_saf ^ curr_saf
     if changed_saf:
         for bit, (name, desc) in SYS_FUNC_EVENTS.items():
@@ -495,14 +636,14 @@ def detect_transitions(prev, curr, ts_iso, con):
                             "System", bit,
                             desc if activated else f"{name} no longer active")
 
-    # Power cycle detection
+    # Power cycle detection (NumberOfPowerOns change)
     prev_po = prev.get("power_ons")
     curr_po  = curr.get("power_ons")
     if prev_po is not None and curr_po is not None and curr_po != prev_po:
         queue_event(con, ts_iso, "power_cycle", "System",
                     details={"power_ons_before": prev_po, "power_ons_after": curr_po})
 
-    # Suction pressure under-range (below -1.0 bar = transmitter floor = sensor fault or extreme vacuum)
+    # Suction pressure under-range (below -1.0 bar = transmitter floor)
     prev_inlet = prev.get("inlet")
     curr_inlet  = curr.get("inlet")
     if curr.get("system_on"):
@@ -544,23 +685,32 @@ class MinuteBuffer:
         self.reset()
 
     def reset(self):
-        self.minute_ts   = None
-        self.pressures   = []
-        self.inlets      = []
-        self.flows       = []
-        self.powers      = []
-        self.spec_energies = []
-        self.run_secs    = [0, 0, 0, 0]
-        self.starts      = [0, 0, 0, 0]
-        self.last_run    = [False, False, False, False]
-        self.last_hours  = [None, None, None, None]
-        self.last_kwh    = [None, None, None, None]
-        self.pump_powers = [[], [], [], []]
-        self.pump_speeds = [[], [], [], []]
-        self.pump_currents = [[], [], [], []]
-        self.last_sys_energy = None
-        self.last_volume     = None
-        self.samples     = 0
+        self.minute_ts          = None
+        self.pressures          = []
+        self.outlets            = []
+        self.inlets             = []
+        self.flows              = []
+        self.powers             = []
+        self.spec_energies      = []
+        self.rel_perfs          = []
+        self.run_secs           = [0, 0, 0, 0]
+        self.starts             = [0, 0, 0, 0]
+        self.last_run           = [False, False, False, False]
+        self.last_hours         = [None, None, None, None]
+        self.last_kwh           = [None, None, None, None]
+        self.pump_powers        = [[], [], [], []]
+        self.pump_speeds        = [[], [], [], []]
+        self.pump_currents      = [[], [], [], []]
+        self.last_sys_energy    = None
+        self.last_volume        = None
+        self.last_setpoint      = None
+        self.last_system_on     = None
+        self.last_alarm_code    = None
+        self.last_mode          = None
+        self.last_sys_run_hours = None
+        self.last_spec_e_avg    = None
+        self.last_tank_ok       = None
+        self.samples            = 0
 
     def add(self, state, ts_iso):
         ts = datetime.fromisoformat(ts_iso)
@@ -570,20 +720,24 @@ class MinuteBuffer:
         elif minute_bucket != self.minute_ts:
             return True  # new minute - caller flushes first
 
-        if state.get("pressure") is not None:
-            self.pressures.append(state["pressure"])
-        if state.get("inlet") is not None:
-            self.inlets.append(state["inlet"])
-        if state.get("flow") is not None:
-            self.flows.append(state["flow"])
-        if state.get("power_kw") is not None:
-            self.powers.append(state["power_kw"])
-        if state.get("spec_energy") is not None:
-            self.spec_energies.append(state["spec_energy"])
-        if state.get("sys_energy_kwh") is not None:
-            self.last_sys_energy = state["sys_energy_kwh"]
-        if state.get("volume_m3") is not None:
-            self.last_volume = state["volume_m3"]
+        if state.get("pressure")      is not None: self.pressures.append(state["pressure"])
+        if state.get("outlet")        is not None: self.outlets.append(state["outlet"])
+        if state.get("inlet")         is not None: self.inlets.append(state["inlet"])
+        if state.get("flow")          is not None: self.flows.append(state["flow"])
+        if state.get("power_kw")      is not None: self.powers.append(state["power_kw"])
+        if state.get("spec_energy")   is not None: self.spec_energies.append(state["spec_energy"])
+        if state.get("rel_perf_pct")  is not None: self.rel_perfs.append(state["rel_perf_pct"])
+        if state.get("sys_energy_kwh")  is not None: self.last_sys_energy    = state["sys_energy_kwh"]
+        if state.get("volume_m3")       is not None: self.last_volume         = state["volume_m3"]
+        if state.get("setpoint")        is not None: self.last_setpoint       = state["setpoint"]
+        if state.get("sys_run_hours")   is not None: self.last_sys_run_hours  = state["sys_run_hours"]
+        if state.get("spec_energy_avg") is not None: self.last_spec_e_avg     = state["spec_energy_avg"]
+        if state.get("tank_ok")         is not None: self.last_tank_ok        = state["tank_ok"]
+
+        self.last_system_on  = state.get("system_on")
+        self.last_alarm_code = state.get("alarm_code")
+        if state.get("mode") is not None:
+            self.last_mode = state["mode"]
 
         for i, p in enumerate(state.get("pumps", [])[:4]):
             running = p.get("running", False)
@@ -592,35 +746,44 @@ class MinuteBuffer:
             if running and not self.last_run[i]:
                 self.starts[i] += 1
             self.last_run[i] = running
-            if p.get("run_hours") is not None:
-                self.last_hours[i] = p["run_hours"]
-            if p.get("kwh") is not None:
-                self.last_kwh[i] = p["kwh"]
-            if p.get("power_kw") is not None:
-                self.pump_powers[i].append(p["power_kw"])
-            if p.get("speed_pct") is not None:
-                self.pump_speeds[i].append(p["speed_pct"])
-            if p.get("current_a") is not None:
-                self.pump_currents[i].append(p["current_a"])
+            if p.get("run_hours") is not None: self.last_hours[i] = p["run_hours"]
+            if p.get("kwh")       is not None: self.last_kwh[i]   = p["kwh"]
+            if p.get("power_kw")  is not None: self.pump_powers[i].append(p["power_kw"])
+            if p.get("speed_pct") is not None: self.pump_speeds[i].append(p["speed_pct"])
+            if p.get("current_a") is not None: self.pump_currents[i].append(p["current_a"])
 
         self.samples += 1
         return False
 
-    def to_stat(self):
+    def to_stat(self, mge_temps=None):
         def avg(lst): return round(sum(lst) / len(lst), 3) if lst else None
         labels = ["p1", "p2", "p3", "jockey"]
+        mge    = mge_temps or []
         stat = {
-            "ts":               self.minute_ts.isoformat(),
-            "pressure_avg":     avg(self.pressures),
-            "pressure_min":     round(min(self.pressures), 3) if self.pressures else None,
-            "pressure_max":     round(max(self.pressures), 3) if self.pressures else None,
-            "pressure_inlet":   avg(self.inlets),
-            "flow_avg":         avg(self.flows),
-            "power_avg_kw":     avg(self.powers),
-            "spec_energy_avg":  avg(self.spec_energies),
-            "sys_energy_kwh":   self.last_sys_energy,
-            "volume_m3":        self.last_volume,
-            "samples":          self.samples,
+            "ts":                 self.minute_ts.isoformat(),
+            "pressure_avg":       avg(self.pressures),
+            "pressure_min":       round(min(self.pressures), 3) if self.pressures else None,
+            "pressure_max":       round(max(self.pressures), 3) if self.pressures else None,
+            "pressure_inlet":     avg(self.inlets),
+            "pressure_outlet":    avg(self.outlets),
+            "flow_avg":           avg(self.flows),
+            "power_avg_kw":       avg(self.powers),
+            "spec_energy_avg":    avg(self.spec_energies),
+            "spec_energy_avg_lt": self.last_spec_e_avg,
+            "sys_energy_kwh":     self.last_sys_energy,
+            "volume_m3":          self.last_volume,
+            "setpoint_bar":       self.last_setpoint,
+            "system_on":          self.last_system_on,
+            "alarm_code":         self.last_alarm_code,
+            "mode":               self.last_mode,
+            "rel_perf_pct":       avg(self.rel_perfs),
+            "sys_run_hours":      self.last_sys_run_hours,
+            "tank_ok":            self.last_tank_ok,
+            "p1_temp_c":          mge[0] if len(mge) > 0 else None,
+            "p2_temp_c":          mge[1] if len(mge) > 1 else None,
+            "p3_temp_c":          mge[2] if len(mge) > 2 else None,
+            "jockey_temp_c":      mge[3] if len(mge) > 3 else None,
+            "samples":            self.samples,
         }
         for i, lbl in enumerate(labels):
             stat[f"{lbl}_run_secs"]  = self.run_secs[i]
@@ -636,7 +799,7 @@ class MinuteBuffer:
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
 def main():
-    print(f"Starting Grundfos poller -> {GRUNDFOS_HOST}:{GRUNDFOS_PORT}")
+    print(f"Starting Grundfos poller v{POLLER_VERSION} -> {GRUNDFOS_HOST}:{GRUNDFOS_PORT}")
     print(f"Local DB: {DB_PATH}")
     print(f"Supabase: {SUPABASE_URL}")
 
@@ -646,7 +809,10 @@ def main():
     client     = None
     prev_state = None
     was_online = False
-    poll_count = 0
+    poll_count         = 0
+    slow_poll_counter  = 0
+    config_snap_counter = 0
+    slow_state = {}  # cached slow-poll results (CIM, analog inputs, MGE temps)
 
     while True:
         loop_start = time.monotonic()
@@ -686,8 +852,8 @@ def main():
             queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST, "version": POLLER_VERSION})
             was_online = True
             prev_state = None
-            # Snapshot any alarms already active at startup - the poller only
-            # records transitions, so without this an in-progress alarm is invisible.
+            slow_poll_counter = SLOW_POLL_EVERY  # trigger slow poll immediately on first connect
+            # Snapshot any alarms already active at startup
             sys_alarm = state.get("alarm_code") or 0
             if sys_alarm:
                 label = "System"
@@ -707,6 +873,18 @@ def main():
                                 details={"initial_state": True})
                     print(f"  Initial pump alarm: code {pac} on {p['label']}")
 
+        # ── Slow poll: CIM, analog inputs, MGE motor temps ─────────────────────
+        slow_poll_counter += 1
+        if slow_poll_counter >= SLOW_POLL_EVERY:
+            slow_poll_counter = 0
+            sd = slow_poll_once(client)
+            if sd:
+                slow_state.update(sd)
+                mge_str = ", ".join(
+                    f"P{i+1}={t}C" for i, t in enumerate(sd["mge_temps"]) if t is not None
+                ) or "none"
+                print(f"  Slow poll OK: cim_fw={sd.get('cim_fw')} mge=[{mge_str}]")
+
         # ── Detect transitions ─────────────────────────────────────────────────
         detect_transitions(prev_state, state, ts_iso, con)
         prev_state = state
@@ -718,14 +896,24 @@ def main():
         # ── Aggregate into minute buffer ───────────────────────────────────────
         new_minute = buf.add(state, ts_iso)
         if new_minute and buf.samples > 0:
-            stat = buf.to_stat()
+            stat = buf.to_stat(mge_temps=slow_state.get("mge_temps"))
             queue_minute_stat(con, stat)
-            print(f"  Minute stat queued: p={stat['pressure_avg']} bar "
+            print(f"  Minute stat: p={stat['pressure_avg']} bar "
+                  f"sp={stat['setpoint_bar']} bar mode={stat['mode']} "
                   f"flow={stat['flow_avg']} m3/h "
                   f"p1={stat['p1_run_secs']}s p2={stat['p2_run_secs']}s "
                   f"p3={stat['p3_run_secs']}s samples={stat['samples']}")
             buf.reset()
             buf.add(state, ts_iso)
+
+        # ── Hourly config snapshot ─────────────────────────────────────────────
+        config_snap_counter += 1
+        if config_snap_counter >= CONFIG_SNAP_EVERY:
+            config_snap_counter = 0
+            queue_config_snapshot(con, ts_iso, state, slow_state)
+            print(f"  Config snapshot: mode={state.get('mode')} "
+                  f"kp={state.get('pid_kp')} ti={state.get('pid_ti')} "
+                  f"cim_fw={slow_state.get('cim_fw')}")
 
         # ── Flush Supabase queue every 10 polls ────────────────────────────────
         if HAVE_REQUESTS and poll_count % 10 == 0:
@@ -742,16 +930,12 @@ def main():
         if poll_count % 60 == 0:
             n_run = sum(1 for p in state.get("pumps", []) if p.get("running"))
             alm   = state.get("alarm_code") or 0
-            pumps = state.get("pumps", [])
-            pkw   = [p.get("power_kw") for p in pumps]
+            pkw   = [p.get("power_kw") for p in state.get("pumps", [])]
             print(f"[{ts_iso[:19]}Z] p={state.get('pressure')} bar "
-                  f"sp={state.get('setpoint')} bar "
-                  f"flow={state.get('flow')} m3/h "
-                  f"sys_kw={state.get('power_kw')} "
-                  f"pump_kw={pkw[:3]} "
-                  f"running={n_run} alarm={alm} "
-                  f"vol={state.get('volume_m3')} m3 "
-                  f"polls={poll_count}")
+                  f"sp={state.get('setpoint')} bar mode={state.get('mode')} "
+                  f"flow={state.get('flow')} m3/h kw={state.get('power_kw')} "
+                  f"pump_kw={pkw[:3]} running={n_run} alarm={alm} "
+                  f"vol={state.get('volume_m3')} m3 polls={poll_count}")
 
         # ── Pace to 1-second interval ──────────────────────────────────────────
         elapsed = time.monotonic() - loop_start
