@@ -1921,15 +1921,15 @@ async function renderPerfCharts() {
     const tsMs = r => new Date(r.ts).getTime();
     const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
 
-    // Pin x-axis bounds so Chart.js never auto-scales beyond the selected range.
-    // For preset ranges the right edge is now; for custom range use the data span.
+    // Pin only the RIGHT edge: for preset ranges pin to now, for custom range
+    // pin to the last data point. Leave the left edge to Chart.js auto-scale
+    // so the chart doesn't show empty space before the first data point.
     {
         const now = Date.now();
+        chartXMin = null;
         if (customRangeReadings !== null && pts.length) {
-            chartXMin = tsMs(pts[0]);
             chartXMax = tsMs(pts[pts.length - 1]);
         } else {
-            chartXMin = now - perfRangeH * 3600000;
             chartXMax = now;
         }
     }
@@ -2019,7 +2019,6 @@ async function renderPerfCharts() {
             ticks:{ color:'#27ae60', font:{size:10}, callback: v => v+'%' },
             title:{ display:true, text:'Tank Level', color:'#27ae60', font:{size:10} }
         };
-        if (chartXMin != null) opts.scales.x.min = chartXMin;
         if (chartXMax != null) opts.scales.x.max = chartXMax;
         opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
         opts.plugins.legend.display = true;
@@ -2107,8 +2106,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     opts.plugins.legend.display = datasets.length > 1;
     opts.plugins.legend.labels = llLabels();
 
-    // Time axis: pin bounds to the selected range; format tick labels
-    if (chartXMin != null) opts.scales.x.min = chartXMin;
+    // Time axis: pin right edge only (left auto-scales from data)
     if (chartXMax != null) opts.scales.x.max = chartXMax;
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
     opts.plugins.tooltip.callbacks = {
