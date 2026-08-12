@@ -1079,10 +1079,9 @@ function buildLatestData(statsRows, eventsRows) {
         activeAlarmDesc  = activeAlarmEvent.alarm_desc || '';
     }
 
-    // Starts today per pump (AEST = UTC+10)
-    const todayAEST = new Date(Date.now() + 10 * 3600000).toISOString().slice(0, 10);
-    const todayRows = statsRows.filter(r =>
-        new Date(new Date(r.ts).getTime() + 10 * 3600000).toISOString().slice(0, 10) === todayAEST);
+    // Starts today per pump (Sydney local time, DST-aware)
+    const todayAEST = aestDateStr(Date.now());
+    const todayRows = statsRows.filter(r => aestDateStr(new Date(r.ts).getTime()) === todayAEST);
     const todayStarts = [
         todayRows.reduce((s, r) => s + (r.p1_starts     || 0), 0),
         todayRows.reduce((s, r) => s + (r.p2_starts     || 0), 0),
@@ -1172,7 +1171,7 @@ function buildLatestData(statsRows, eventsRows) {
 function buildDailyStats(rows) {
     const byDate = {};
     for (const r of rows) {
-        const d = new Date(new Date(r.ts).getTime() + 10 * 3600000).toISOString().slice(0, 10);
+        const d = aestDateStr(new Date(r.ts).getTime());
         if (!byDate[d]) byDate[d] = [];
         byDate[d].push(r);
     }
@@ -1253,6 +1252,8 @@ let farmbotLatestData = null;
 let hwConfigData   = null;
 let perfRangeH  = 24;
 let customRangeReadings = null;
+let customRangeFrom = null;
+let customRangeTo   = null;
 let trendsMetric = 'hrs';
 let chartXMin = null;
 let chartXMax = null;
@@ -1892,6 +1893,8 @@ async function applyCustomRange() {
     if (isNaN(fromMs) || isNaN(toMs) || toMs <= fromMs) return;
 
     perfRangeH = (toMs - fromMs) / 3600000;
+    customRangeFrom = fromMs;
+    customRangeTo   = toMs;
     const fromIso = new Date(fromMs).toISOString().slice(0, 19) + 'Z';
     const toIso   = new Date(toMs).toISOString().slice(0, 19) + 'Z';
 
@@ -1910,6 +1913,8 @@ function closeCustomRange() {
     const row = document.getElementById('custom-range-row');
     if (row) row.style.display = 'none';
     customRangeReadings = null;
+    customRangeFrom = null;
+    customRangeTo   = null;
     const btn24 = document.querySelector('.range-btn[onclick*="setPerfRange(24"]');
     setPerfRange(24, btn24);
 }
@@ -1921,15 +1926,15 @@ async function renderPerfCharts() {
     const tsMs = r => new Date(r.ts).getTime();
     const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
 
-    // Pin only the RIGHT edge: for preset ranges pin to now, for custom range
-    // pin to the last data point. Leave the left edge to Chart.js auto-scale
-    // so the chart doesn't show empty space before the first data point.
+    // Pin both edges so the x-axis spans exactly the selected range.
+    // Custom range: use the picker's from/to. Preset: [now - rangeH, now].
     {
         const now = Date.now();
-        chartXMin = null;
-        if (customRangeReadings !== null && pts.length) {
-            chartXMax = tsMs(pts[pts.length - 1]);
+        if (customRangeReadings !== null && customRangeFrom != null) {
+            chartXMin = customRangeFrom;
+            chartXMax = customRangeTo;
         } else {
+            chartXMin = now - perfRangeH * 3600000;
             chartXMax = now;
         }
     }
@@ -2019,6 +2024,7 @@ async function renderPerfCharts() {
             ticks:{ color:'#27ae60', font:{size:10}, callback: v => v+'%' },
             title:{ display:true, text:'Tank Level', color:'#27ae60', font:{size:10} }
         };
+        if (chartXMin != null) opts.scales.x.min = chartXMin;
         if (chartXMax != null) opts.scales.x.max = chartXMax;
         opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
         opts.plugins.legend.display = true;
@@ -2106,7 +2112,8 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     opts.plugins.legend.display = datasets.length > 1;
     opts.plugins.legend.labels = llLabels();
 
-    // Time axis: pin right edge only (left auto-scales from data)
+    // Time axis: pin both edges to exactly the selected range
+    if (chartXMin != null) opts.scales.x.min = chartXMin;
     if (chartXMax != null) opts.scales.x.max = chartXMax;
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
     opts.plugins.tooltip.callbacks = {
@@ -2354,7 +2361,7 @@ function sameDay(a,b) {
 }
 
 function fmtTimeOnly(d) {
-    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    return d.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
 }
 
 function renderAlarmPair(p, emailedCodes, emailHistory) {
@@ -2556,6 +2563,15 @@ function renderSetupStatus() {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function setStats(ids, vals) { ids.forEach((id,i) => { const el=document.getElementById(id); if(el) el.textContent=vals[i]; }); }
 
+// Return YYYY-MM-DD in Sydney local time (DST-aware — AEST UTC+10 / AEDT UTC+11)
+function aestDateStr(ts) {
+    const s = new Date(ts).toLocaleDateString('en-AU', {
+        timeZone: 'Australia/Sydney', year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+    const [dd, mm, yyyy] = s.split('/');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
 function fmtAge(iso) {
     if (!iso) return 'Never';
     const s = Math.floor((Date.now()-new Date(iso).getTime())/1000);
@@ -2567,23 +2583,28 @@ function fmtAge(iso) {
 }
 
 function fmtDate(iso) {
-    return new Date(iso).toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    return new Date(iso).toLocaleString('en-AU', {
+        timeZone: 'Australia/Sydney', hourCycle: 'h23',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
 }
 
 function fmtChartTime(iso, rangeH) {
-    const d = new Date(iso);
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    if (rangeH <= 24) return hh+':'+mm;
-    if (rangeH <= 72) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+hh+':'+mm;
-    return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
+    const d  = new Date(iso);
+    const tz = 'Australia/Sydney';
+    const t  = d.toLocaleTimeString('en-AU', { timeZone: tz, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
+    if (rangeH <= 24) return t;
+    if (rangeH <= 72) return d.toLocaleDateString('en-AU', { timeZone: tz, weekday: 'short' }) + ' ' + t;
+    return d.toLocaleDateString('en-AU', { timeZone: tz, day: '2-digit', month: 'short' });
 }
 
 function fmtTooltipTime(iso) {
-    const d = new Date(iso);
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    return d.toLocaleDateString('en-AU',{weekday:'short',day:'2-digit',month:'short'})+' '+hh+':'+mm;
+    const d  = new Date(iso);
+    const tz = 'Australia/Sydney';
+    const dt = d.toLocaleDateString('en-AU',  { timeZone: tz, weekday: 'short', day: '2-digit', month: 'short' });
+    const t  = d.toLocaleTimeString('en-AU',  { timeZone: tz, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' });
+    return dt + ' ' + t;
 }
 
 function fmtDayLabel(dateStr) {
