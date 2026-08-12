@@ -1,0 +1,17 @@
+[Unit]
+Description=Grundfos poller auto-update watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=andrew
+WorkingDirectory=/home/andrew/pump_poller
+ExecStart=/home/andrew/pump_poller/venv/bin/python3 /home/andrew/pump_poller/pi_auto_update.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
