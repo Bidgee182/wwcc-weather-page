@@ -1254,6 +1254,8 @@ let hwConfigData   = null;
 let perfRangeH  = 24;
 let customRangeReadings = null;
 let trendsMetric = 'hrs';
+let chartXMin = null;
+let chartXMax = null;
 
 const RANGE_LABELS = {1:'1h',6:'6h',12:'12h',24:'24h',48:'48h',72:'72h',168:'7d',336:'14d',720:'30d',1440:'60d',2160:'90d'};
 const RANGE_HOURS  = Object.fromEntries(Object.entries(RANGE_LABELS).map(([h,l])=>[l,+h]));
@@ -1919,6 +1921,19 @@ async function renderPerfCharts() {
     const tsMs = r => new Date(r.ts).getTime();
     const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
 
+    // Pin x-axis bounds so Chart.js never auto-scales beyond the selected range.
+    // For preset ranges the right edge is now; for custom range use the data span.
+    {
+        const now = Date.now();
+        if (customRangeReadings !== null && pts.length) {
+            chartXMin = tsMs(pts[0]);
+            chartXMax = tsMs(pts[pts.length - 1]);
+        } else {
+            chartXMin = now - perfRangeH * 3600000;
+            chartXMax = now;
+        }
+    }
+
     // Pressure
     renderLineChart('c-pressure', noData, pts, [
         { label:'Actual (bar)',    data: xy(pts, r=>r.pa),                  borderColor:'#e67e22',          bg:'rgba(230,126,34,.12)', dashed:false },
@@ -2004,6 +2019,8 @@ async function renderPerfCharts() {
             ticks:{ color:'#27ae60', font:{size:10}, callback: v => v+'%' },
             title:{ display:true, text:'Tank Level', color:'#27ae60', font:{size:10} }
         };
+        if (chartXMin != null) opts.scales.x.min = chartXMin;
+        if (chartXMax != null) opts.scales.x.max = chartXMax;
         opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
         opts.plugins.legend.display = true;
         opts.plugins.legend.labels  = llLabels();
@@ -2090,7 +2107,9 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     opts.plugins.legend.display = datasets.length > 1;
     opts.plugins.legend.labels = llLabels();
 
-    // Time axis: format tick labels and tooltip title from epoch-ms x value
+    // Time axis: pin bounds to the selected range; format tick labels
+    if (chartXMin != null) opts.scales.x.min = chartXMin;
+    if (chartXMax != null) opts.scales.x.max = chartXMax;
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
     opts.plugins.tooltip.callbacks = {
         title: ctxArr => ctxArr.length ? fmtTooltipTime(new Date(ctxArr[0].parsed.x).toISOString()) : '',
