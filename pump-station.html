@@ -3249,11 +3249,11 @@ function renderLogEntries() {
             <div class="log-bar" style="background:${e.barColor}"></div>
             <span class="log-type-badge ${e.badgeClass}">${e.badgeText}</span>
             <div style="flex:1;min-width:0">
+                <div style="font-size:.7em;color:#7f8c8d;margin-bottom:2px;">${fmtDate(e.ts)}</div>
                 <div style="font-weight:600;color:#ecf0f1;font-size:.88em">${e.title}</div>
                 ${e.sub ? `<div style="color:#5dade2;font-size:.78em;margin-top:1px">${e.sub}</div>` : ''}
                 ${e.detail ? `<div style="color:#566573;font-size:.75em;margin-top:1px">${e.detail}</div>` : ''}
             </div>
-            <div style="color:#566573;font-size:.75em;white-space:nowrap;flex-shrink:0;padding-top:2px">${fmtDate(e.ts)}</div>
         </div>`).join('');
 }
 
