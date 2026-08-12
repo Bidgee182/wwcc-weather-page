@@ -1150,7 +1150,7 @@ function buildLatestData(statsRows, eventsRows) {
         last_connected: row.ts,
         system: {
             pressure_actual_bar:       row.pressure_avg,
-            pressure_setpoint_bar:     null,
+            pressure_setpoint_bar:     row.setpoint_bar ?? null,
             pressure_suction_bar:      row.pressure_inlet,
             flow_m3h:                  row.flow_avg,
             power_kw:                  row.power_avg_kw,
@@ -1158,7 +1158,7 @@ function buildLatestData(statsRows, eventsRows) {
             fault:                     activeAlarmCode > 0,
             alarm_code:                activeAlarmCode,
             warning_code:              0,
-            mode:                      'Pi Data (1-min avg)',
+            mode:                      row.mode ?? null,
             energy_kwh:                row.sys_energy_kwh,
             volume_m3:                 row.volume_m3,
             specific_energy_wh_m3:     row.spec_energy_avg,
