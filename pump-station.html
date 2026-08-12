@@ -172,6 +172,7 @@
         .pump-pill-kw     { font-size:.7em; color:#95a5a6; margin-top:3px; }
         .pump-pill-hours  { font-size:.62em; color:#7f8c8d; margin-top:3px; }
         .pump-pill-starts { font-size:.6em; color:#7f8c8d; margin-top:2px; }
+        .pump-pill-fault-desc { font-size:.58em; color:#e74c3c; margin-top:3px; line-height:1.2; padding:0 4px; font-weight:bold; }
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
         .pump-pill.pp-running .pump-pill-name   { background:rgba(39,174,96,.25);  color:#2ecc71; }
         .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
@@ -582,6 +583,8 @@
             <button class="range-btn"        onclick="setPerfRange(6,this)">6h</button>
             <button class="range-btn"        onclick="setPerfRange(12,this)">12h</button>
             <button class="range-btn active" onclick="setPerfRange(24,this)">24h</button>
+            <button class="range-btn"        onclick="setPerfRange(48,this)">48h</button>
+            <button class="range-btn"        onclick="setPerfRange(72,this)">72h</button>
             <button class="range-btn"        onclick="setPerfRange(168,this)">7d</button>
             <button class="range-btn"        onclick="setPerfRange(720,this)">30d</button>
             <button class="range-btn"        onclick="setPerfRange(2160,this)">90d</button>
@@ -1047,7 +1050,7 @@ function buildLatestData(statsRows, eventsRows) {
     for (const e of recentEvents) {
         const k = (e.alarm_code || 0) + '|' + (e.pump_label || '');
         if (e.event_type === 'alarm_on'  && !alarmSeen[k]) alarmSeen[k] = 'on';
-        if (e.event_type === 'alarm_off' && !alarmSeen[k]) alarmSeen[k] = 'off';
+        if ((e.event_type === 'alarm_off' || e.event_type === 'pump_alarm_off') && !alarmSeen[k]) alarmSeen[k] = 'off';
     }
     const activeAlarmEvent = recentEvents.find(e =>
         e.event_type === 'alarm_on' &&
@@ -1075,6 +1078,11 @@ function buildLatestData(statsRows, eventsRows) {
         { id:3, label:'P3 - CRNE45', model:'CRNE45-3', rated_kw:18.5, prefix:'p3'     },
         { id:4, label:'Jockey',      model:'CRNE10-9', rated_kw:5.5,  prefix:'jockey' },
     ];
+    // Extract poller version from the most recent online event
+    const latestOnline = eventsRows.find(e => e.event_type === 'online');
+    const pollerVersion = latestOnline && latestOnline.details && latestOnline.details.version
+                        ? latestOnline.details.version : null;
+
     const pumps = PUMP_DEFS_LOCAL.map((d, i) => {
         const px  = d.prefix;
         const running = (row[`${px}_run_secs`] || 0) >= 55;
@@ -1091,11 +1099,13 @@ function buildLatestData(statsRows, eventsRows) {
             starts_today: todayStarts[i] || 0,
             temp_c:       row[`${px}_temp_c`]     ?? null,
             alarm_code:   fault ? activeAlarmCode : null,
+            alarm_desc:   fault ? activeAlarmDesc : null,
         };
     });
 
     return {
         connected,
+        pollerVersion,
         timestamp:      row.ts,
         last_seen:      row.ts,
         last_connected: row.ts,
@@ -1370,7 +1380,7 @@ function renderBanner() {
         banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
         title.textContent = 'ONLINE';
         ts.textContent    = d.timestamp ? '· '+fmtAge(d.timestamp) : '';
-        sub.textContent   = 'CIM 500 Modbus TCP';
+        sub.textContent   = 'CIM 500 Modbus TCP' + (d.pollerVersion ? ' - Poller v' + d.pollerVersion : '');
     }
 
     // ── System status pill ───────────────────────────────────────────────────
@@ -1582,6 +1592,7 @@ async function renderOverview() {
                 + '<div class="pump-pill-name">'+shortName+'</div>'
                 + '<div class="pump-pill-model">'+(model||'&nbsp;')+'</div>'
                 + '<div class="pump-pill-status">'+statusText+'</div>'
+                + (p.fault && p.alarm_desc ? '<div class="pump-pill-fault-desc">'+p.alarm_desc+'</div>' : '')
                 + '<div class="pump-pill-speed">'+sp+'</div>'
                 + '<div class="pump-pill-kw">'+kw+'</div>'
                 + '<div class="pump-pill-hours">'+hrs+'</div>'
@@ -1596,9 +1607,10 @@ function renderPumps() {
     const d = latestData;
     const connected = d && d.connected;
     const pumps = d && d.pumps && d.pumps.length ? d.pumps : defaultPumps();
-    const jockey = pumps.filter(p =>  p.label.toLowerCase().startsWith('jockey'));
-    const main   = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
-    const ordered = [...jockey, ...main];
+    const jockey  = pumps.filter(p =>  p.label.toLowerCase().startsWith('jockey'));
+    const main    = pumps.filter(p => !p.label.toLowerCase().startsWith('jockey'));
+    const getNumP = p => { const m = p.label.match(/P(\d+)/i); return m ? parseInt(m[1]) : 0; };
+    const ordered = [...jockey, ...main.sort((a, b) => getNumP(b) - getNumP(a))];
     document.getElementById('all-pump-grid').innerHTML = ordered.map(p =>
         pumpAnimCard(p, connected, p.label.toLowerCase().startsWith('jockey'))
     ).join('');
@@ -1736,6 +1748,7 @@ function pumpAnimCard(p, connected, isJockey) {
             <span class="pump-badge ${BCLASS[state]}" style="margin-bottom:0;">${BLABEL[state]}</span>
             ${tempLed}
         </div>
+        ${state === 'fault' && p.alarm_desc ? `<div style="font-size:.65em;color:#e74c3c;text-align:center;margin-top:5px;font-weight:bold;padding:3px 6px;background:rgba(231,76,60,.12);border-radius:4px;">${p.alarm_desc}</div>` : ''}
         <div class="pump-stats" style="margin-top:9px;">
             <div class="pump-stat"><div class="ps-v">${sp}</div><div class="ps-l">Speed</div></div>
             <div class="pump-stat"><div class="ps-v">${pw}</div><div class="ps-l">Power</div></div>
@@ -1773,7 +1786,7 @@ async function renderPerfCharts() {
     // Pressure
     renderLineChart('c-pressure', noData, pts, [
         { label:'Actual (bar)',    data: xy(pts, r=>r.pa),                  borderColor:'#e67e22',          bg:'rgba(230,126,34,.12)', dashed:false },
-        { label:'Setpoint (bar)', data: xy(pts, r=>r.ps),                  borderColor:'#3498db',          bg:'transparent',          dashed:true  },
+        { label:'Setpoint (bar)', data: xy(pts, r=>r.ps),                  borderColor:'#27ae60',          bg:'transparent',          dashed:true, stepped:true },
         { label:'High limit (' +PRES_HIGH_LIMIT+' bar)', data: xy(pts, ()=>PRES_HIGH_LIMIT), borderColor:'rgba(231,76,60,.65)',  bg:'transparent', dashPattern:[10,6], thin:true, noHover:true },
         { label:'Low limit ('  +PRES_LOW_LIMIT +' bar)', data: xy(pts, ()=>PRES_LOW_LIMIT),  borderColor:'rgba(52,152,219,.55)', bg:'transparent', dashPattern:[10,6], thin:true, noHover:true },
     ], v=>v!=null?v.toFixed(2)+' bar':null);
@@ -2421,7 +2434,7 @@ function fmtAge(iso) {
 }
 
 function fmtDate(iso) {
-    return new Date(iso).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+    return new Date(iso).toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
 }
 
 function fmtChartTime(iso, rangeH) {
@@ -2429,7 +2442,7 @@ function fmtChartTime(iso, rangeH) {
     const hh = String(d.getHours()).padStart(2,'0');
     const mm = String(d.getMinutes()).padStart(2,'0');
     if (rangeH <= 24) return hh+':'+mm;
-    if (rangeH <= 48) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+hh+':'+mm;
+    if (rangeH <= 72) return d.toLocaleDateString('en-AU',{weekday:'short'})+' '+hh+':'+mm;
     return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short'});
 }
 
