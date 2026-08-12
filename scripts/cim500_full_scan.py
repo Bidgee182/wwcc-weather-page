@@ -82,7 +82,7 @@ def scan_device(client, device_id):
         while addr < start + count:
             chunk = min(100, start + count - addr)
             try:
-                r = client.read_holding_registers(addr, count=chunk, slave=device_id)
+                r = client.read_holding_registers(addr, count=chunk, device_id=device_id)
                 if not r.isError():
                     for i, val in enumerate(r.registers):
                         results[addr + i] = val
@@ -94,7 +94,7 @@ def scan_device(client, device_id):
 
 
 def main():
-    out_path = os.path.join(os.path.dirname(__file__), "../data/cim500_full_scan.json")
+    out_path = os.path.expanduser("~/pump_poller/cim500_scan_results.json")
     print(f"Connecting to {HOST}:{PORT} ...")
 
     client = ModbusTcpClient(HOST, port=PORT, timeout=8)
