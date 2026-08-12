@@ -44,7 +44,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "1.6"
+POLLER_VERSION = "1.7"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -759,15 +759,20 @@ class MinuteBuffer:
         self.pump_powers        = [[], [], [], []]
         self.pump_speeds        = [[], [], [], []]
         self.pump_currents      = [[], [], [], []]
-        self.last_sys_energy    = None
-        self.last_volume        = None
-        self.last_setpoint      = None
-        self.last_system_on     = None
-        self.last_alarm_code    = None
-        self.last_mode          = None
-        self.last_sys_run_hours = None
-        self.last_spec_e_avg    = None
-        self.last_tank_ok       = None
+        self.last_sys_energy        = None
+        self.last_volume            = None
+        self.last_setpoint          = None
+        self.last_system_on         = None
+        self.last_alarm_code        = None
+        self.last_mode              = None
+        self.last_sys_run_hours     = None
+        self.last_sys_powered_hours = None
+        self.last_spec_e_avg        = None
+        self.last_tank_ok           = None
+        self.last_pid_kp            = None
+        self.last_pid_ti            = None
+        self.last_sensor_max_bar    = None
+        self.last_power_ons         = None
         self.samples            = 0
 
     def add(self, state, ts_iso):
@@ -785,12 +790,17 @@ class MinuteBuffer:
         if state.get("power_kw")      is not None: self.powers.append(state["power_kw"])
         if state.get("spec_energy")   is not None: self.spec_energies.append(state["spec_energy"])
         if state.get("rel_perf_pct")  is not None: self.rel_perfs.append(state["rel_perf_pct"])
-        if state.get("sys_energy_kwh")  is not None: self.last_sys_energy    = state["sys_energy_kwh"]
-        if state.get("volume_m3")       is not None: self.last_volume         = state["volume_m3"]
-        if state.get("setpoint")        is not None: self.last_setpoint       = state["setpoint"]
-        if state.get("sys_run_hours")   is not None: self.last_sys_run_hours  = state["sys_run_hours"]
-        if state.get("spec_energy_avg") is not None: self.last_spec_e_avg     = state["spec_energy_avg"]
-        if state.get("tank_ok")         is not None: self.last_tank_ok        = state["tank_ok"]
+        if state.get("sys_energy_kwh")    is not None: self.last_sys_energy        = state["sys_energy_kwh"]
+        if state.get("volume_m3")         is not None: self.last_volume             = state["volume_m3"]
+        if state.get("setpoint")          is not None: self.last_setpoint           = state["setpoint"]
+        if state.get("sys_run_hours")     is not None: self.last_sys_run_hours      = state["sys_run_hours"]
+        if state.get("sys_powered_hours") is not None: self.last_sys_powered_hours  = state["sys_powered_hours"]
+        if state.get("spec_energy_avg")   is not None: self.last_spec_e_avg         = state["spec_energy_avg"]
+        if state.get("tank_ok")           is not None: self.last_tank_ok            = state["tank_ok"]
+        if state.get("pid_kp")            is not None: self.last_pid_kp             = state["pid_kp"]
+        if state.get("pid_ti")            is not None: self.last_pid_ti             = state["pid_ti"]
+        if state.get("sensor_max_bar")    is not None: self.last_sensor_max_bar     = state["sensor_max_bar"]
+        if state.get("power_ons")         is not None: self.last_power_ons          = state["power_ons"]
 
         self.last_system_on  = state.get("system_on")
         self.last_alarm_code = state.get("alarm_code")
@@ -813,7 +823,7 @@ class MinuteBuffer:
         self.samples += 1
         return False
 
-    def to_stat(self, mge_temps=None):
+    def to_stat(self, mge_temps=None, slow_state=None):
         def avg(lst): return round(sum(lst) / len(lst), 3) if lst else None
         labels = ["p1", "p2", "p3", "jockey"]
         mge    = mge_temps or []
@@ -836,7 +846,16 @@ class MinuteBuffer:
             "mode":               self.last_mode,
             "rel_perf_pct":       avg(self.rel_perfs),
             "sys_run_hours":      self.last_sys_run_hours,
+            "sys_powered_hours":  self.last_sys_powered_hours,
             "tank_ok":            self.last_tank_ok,
+            "pid_kp":             self.last_pid_kp,
+            "pid_ti":             self.last_pid_ti,
+            "sensor_max_bar":     self.last_sensor_max_bar,
+            "power_ons":          self.last_power_ons,
+            "cim_unit_family":    slow_state.get("cim_unit_family")  if slow_state else None,
+            "cim_unit_type":      slow_state.get("cim_unit_type")    if slow_state else None,
+            "cim_unit_version":   slow_state.get("cim_unit_version") if slow_state else None,
+            "cim_fw":             slow_state.get("cim_fw")           if slow_state else None,
             "p1_temp_c":          mge[0] if len(mge) > 0 else None,
             "p2_temp_c":          mge[1] if len(mge) > 1 else None,
             "p3_temp_c":          mge[2] if len(mge) > 2 else None,
@@ -956,7 +975,7 @@ def main():
         # ── Aggregate into minute buffer ───────────────────────────────────────
         new_minute = buf.add(state, ts_iso)
         if new_minute and buf.samples > 0:
-            stat = buf.to_stat(mge_temps=slow_state.get("mge_temps"))
+            stat = buf.to_stat(mge_temps=slow_state.get("mge_temps"), slow_state=slow_state)
             queue_minute_stat(con, stat)
             print(f"  Minute stat: p={stat['pressure_avg']} bar "
                   f"sp={stat['setpoint_bar']} bar mode={stat['mode']} "

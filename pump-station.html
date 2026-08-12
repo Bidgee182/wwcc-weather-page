@@ -1120,21 +1120,31 @@ function buildLatestData(statsRows, eventsRows) {
         last_seen:      row.ts,
         last_connected: row.ts,
         system: {
-            pressure_actual_bar:      row.pressure_avg      ?? null,
-            pressure_setpoint_bar:    row.setpoint_bar      ?? null,
-            pressure_suction_bar:     row.pressure_inlet    ?? null,
-            flow_m3h:                 row.flow_avg          ?? null,
-            power_kw:                 row.power_avg_kw      ?? null,
-            system_on:                row.system_on         || false,
+            pressure_actual_bar:      row.pressure_avg        ?? null,
+            pressure_setpoint_bar:    row.setpoint_bar        ?? null,
+            pressure_suction_bar:     row.pressure_inlet      ?? null,
+            flow_m3h:                 row.flow_avg            ?? null,
+            power_kw:                 row.power_avg_kw        ?? null,
+            system_on:                row.system_on           || false,
             fault:                    activeAlarmCode > 0,
             alarm_code:               activeAlarmCode,
             warning_code:             0,
-            mode:                     row.mode              ?? null,
-            energy_kwh:               row.sys_energy_kwh    ?? null,
-            volume_m3:                row.volume_m3         ?? null,
-            tank_ok:                  row.tank_ok           ?? null,
+            mode:                     row.mode                ?? null,
+            energy_kwh:               row.sys_energy_kwh      ?? null,
+            volume_m3:                row.volume_m3           ?? null,
+            tank_ok:                  row.tank_ok             ?? null,
             sys_active_funcs:         0,
-            specific_energy_wh_m3:    row.spec_energy_avg   ?? null,
+            specific_energy_wh_m3:    row.spec_energy_avg     ?? null,
+            run_hours:                row.sys_run_hours       ?? null,
+            powered_hours:            row.sys_powered_hours   ?? null,
+            power_ons:                row.power_ons           ?? null,
+            pid_kp:                   row.pid_kp              ?? null,
+            pid_ti:                   row.pid_ti              ?? null,
+            sensor_max_bar:           row.sensor_max_bar      ?? null,
+            cim_unit_family:          row.cim_unit_family     ?? null,
+            cim_unit_type:            row.cim_unit_type       ?? null,
+            cim_unit_version:         row.cim_unit_version    ?? null,
+            cim_fw:                   row.cim_fw              ?? null,
         },
         pumps,
         alarms:    activeAlarmCode ? [{
@@ -2410,33 +2420,13 @@ function renderSetupStatus() {
             const family = sys.cim_unit_family  != null ? sys.cim_unit_family  : null;
             const type   = sys.cim_unit_type     != null ? sys.cim_unit_type    : null;
             const ver    = sys.cim_unit_version  != null ? sys.cim_unit_version : null;
-            const fw1    = sys.cim_fw_ver1 != null ? sys.cim_fw_ver1 : null;  // ProductSoftwareVersionHI
-            const fw2    = sys.cim_fw_ver2 != null ? sys.cim_fw_ver2 : null;  // ProductSoftwareVersionLO
-            const fw3    = sys.cim_fw_ver3 != null ? sys.cim_fw_ver3 : null;  // ProductSoftwareDayMonth (BCD ddmm)
-            const fw4    = sys.cim_fw_ver4 != null ? sys.cim_fw_ver4 : null;  // ProductSoftwareYear (BCD yyyy)
 
             // UnitFamily=21, UnitType lookup: 1=CU351/352, 2=CU323, 3=CU354, 4=GENIECON
             const familyName = family === 21 ? 'Hydro MPC' : (family != null ? 'Family '+family : '--');
             const MPC_TYPES = {1:'CU 351/352', 2:'CU 323', 3:'CU 354', 4:'GENIECON'};
             const typeName   = (family === 21 && type != null) ? (MPC_TYPES[type] || 'Type '+type) : (type != null ? 'Type '+type : '--');
 
-            // Decode CIM firmware: addr33=major, addr34=hi-byte minor/lo-byte patch, addr35=BCD ddmm, addr36=BCD yyyy
-            let cimFwStr = '--';
-            if (fw1 != null && fw2 != null) {
-                const major = fw1;
-                const minor = (fw2 >> 8) & 0xFF;
-                const patch = fw2 & 0xFF;
-                cimFwStr = `v${major}.${String(minor).padStart(2,'0')}.${String(patch).padStart(2,'0')}`;
-                if (fw3 != null && fw4 != null) {
-                    const bcdNib = (v, s) => (v >> s) & 0xF;
-                    const day   = bcdNib(fw3,12)*10 + bcdNib(fw3,8);
-                    const month = bcdNib(fw3,4)*10  + bcdNib(fw3,0);
-                    const year  = bcdNib(fw4,12)*1000 + bcdNib(fw4,8)*100 + bcdNib(fw4,4)*10 + bcdNib(fw4,0);
-                    const MONTHS = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                    if (day && month && year > 2000)
-                        cimFwStr += ` (${day} ${MONTHS[month]||month} ${year})`;
-                }
-            }
+            const cimFwStr = sys.cim_fw || '--';
 
             // CU352 firmware from hardware config (not readable via Modbus - manually set)
             const hwCfg = hwConfigData || {};
