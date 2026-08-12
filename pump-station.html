@@ -942,7 +942,7 @@
     <div class="card">
         <h2>Digital I/O</h2>
         <div id="su-io-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;"></div>
-        <div style="font-size:.68em;color:#566573;margin-top:8px;">DI1 = External Start/Stop (10,11) &bull; DI2 = Water Shortage / Tank Float (12,13) &bull; DO1 = Common Alarm (70,71) &bull; DO2 = Common Alarm (73,74)</div>
+        <div style="font-size:.68em;color:#566573;margin-top:8px;">DI1 = External Start/Stop (terminals 10,11) &bull; DI2 = Water Shortage / Tank Float (terminals 12,13) &bull; DO1 = Common Alarm relay (terminals 70,71) &bull; DO2 = Common Alarm relay (terminals 73,74)</div>
     </div>
 
     <div class="card">
@@ -950,11 +950,19 @@
         <div class="sys-metrics" style="margin-bottom:0;">
             <div class="sys-metric">
                 <div class="sm-val" id="su-status" style="color:#e67e22;font-size:1.2em;">OFFLINE</div>
-                <div class="sm-lbl" style="margin-top:6px;">CIM 500</div>
+                <div class="sm-lbl" style="margin-top:6px;">Connection</div>
             </div>
             <div class="sys-metric">
                 <div class="sm-val" id="su-age" style="color:#7f8c8d;">--</div>
                 <div class="sm-lbl" style="margin-top:6px;">Data Age</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" id="su-poller-ver" style="color:#7f8c8d;font-size:1.2em;">--</div>
+                <div class="sm-lbl" style="margin-top:6px;">Poller Version</div>
+            </div>
+            <div class="sys-metric">
+                <div class="sm-val" id="su-host" style="color:#7f8c8d;font-size:.85em;word-break:break-all;">--</div>
+                <div class="sm-lbl" style="margin-top:6px;">Host</div>
             </div>
             <div class="sys-metric">
                 <div class="sm-val" style="color:#7f8c8d;font-size:1.2em;">60s</div>
@@ -1088,10 +1096,12 @@ function buildLatestData(statsRows, eventsRows) {
         { id:3, label:'P3 - CRNE45', model:'CRNE45-3', rated_kw:18.5, prefix:'p3'     },
         { id:4, label:'Jockey',      model:'CRNE10-9', rated_kw:5.5,  prefix:'jockey' },
     ];
-    // Extract poller version from the most recent online event
+    // Extract poller version + host from the most recent online event
     const latestOnline = eventsRows.find(e => e.event_type === 'online');
     const pollerVersion = latestOnline && latestOnline.details && latestOnline.details.version
                         ? latestOnline.details.version : null;
+    const pollerHost    = latestOnline && latestOnline.details && latestOnline.details.host
+                        ? latestOnline.details.host : null;
 
     const pumps = PUMP_DEFS_LOCAL.map((d, i) => {
         const px  = d.prefix;
@@ -1116,6 +1126,7 @@ function buildLatestData(statsRows, eventsRows) {
     return {
         connected,
         pollerVersion,
+        pollerHost,
         timestamp:      row.ts,
         last_seen:      row.ts,
         last_connected: row.ts,
@@ -2410,6 +2421,10 @@ function renderSetupStatus() {
     if (el) { el.textContent = online ? 'ONLINE' : 'OFFLINE'; el.style.color = online ? '#27ae60' : '#e67e22'; }
     const ageEl = document.getElementById('su-age');
     if (ageEl) ageEl.textContent = d && d.timestamp ? fmtAge(d.timestamp) : '--';
+    const verEl = document.getElementById('su-poller-ver');
+    if (verEl) { verEl.textContent = d && d.pollerVersion ? 'v' + d.pollerVersion : '--'; verEl.style.color = d && d.pollerVersion ? '#5dade2' : '#7f8c8d'; }
+    const hostEl = document.getElementById('su-host');
+    if (hostEl) { hostEl.textContent = d && d.pollerHost ? d.pollerHost : '--'; hostEl.style.color = d && d.pollerHost ? '#ecf0f1' : '#7f8c8d'; }
 
     // ── Device Information ────────────────────────────────────────────────────
     const dg = document.getElementById('su-device-grid');
@@ -2506,21 +2521,17 @@ function renderSetupStatus() {
         const alarmCount = sys ? (sys.alarm_count || 0) : null;
         const di2Color   = tankOk === true ? '#27ae60' : (tankOk === false ? '#e74c3c' : '#7f8c8d');
         const di2Label   = tankOk === true ? 'TANK OK' : (tankOk === false ? 'TANK EMPTY' : '--');
-        const do1Color   = alarmCount !== null ? (alarmCount > 0 ? '#e74c3c' : '#27ae60') : '#7f8c8d';
-        const do1Label   = alarmCount !== null ? (alarmCount > 0 ? alarmCount+' ACTIVE' : 'NO ALARMS') : '--';
+        const doColor    = alarmCount !== null ? (alarmCount > 0 ? '#e74c3c' : '#27ae60') : '#7f8c8d';
+        const doLabel    = alarmCount !== null ? (alarmCount > 0 ? alarmCount+' ACTIVE' : 'NO ALARMS') : '--';
+        const pill = (label, color, value) => `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
+                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">${label}</div>
+                <div style="font-weight:bold;color:${color};font-size:.9em;">${value}</div>
+            </div>`;
         ig.innerHTML = [
-            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
-                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DI1 - Ext Start/Stop (10,11)</div>
-                <div style="font-weight:bold;color:#566573;font-size:.9em;">Not monitored</div>
-            </div>`,
-            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
-                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DI2 - Tank Float (12,13)</div>
-                <div style="font-weight:bold;color:${di2Color};font-size:.9em;">${di2Label}</div>
-            </div>`,
-            `<div style="background:#1a252f;border-radius:6px;padding:10px 12px;">
-                <div style="font-size:.62em;color:#566573;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">DO1/DO2 - Common Alarm</div>
-                <div style="font-weight:bold;color:${do1Color};font-size:.9em;">${do1Label}</div>
-            </div>`,
+            pill('DI1 - Ext Start/Stop (10,11)', '#566573',  'Not monitored'),
+            pill('DI2 - Tank Float (12,13)',      di2Color,   di2Label),
+            pill('DO1 - Common Alarm (70,71)',     doColor,    doLabel),
+            pill('DO2 - Common Alarm (73,74)',     doColor,    doLabel),
         ].join('');
     }
 }
@@ -3284,19 +3295,40 @@ async function loadLogTab() {
     });
 
     // Pi poller system events - shown in log with distinct badge, not in alarm history
-    systemEvents.forEach(({ raw: e, leg }) => {
+    // systemEvents is newest-first; for each online event, look back to the next (older) online event
+    // to detect version upgrades vs fresh connects.
+    systemEvents.forEach(({ raw: e, leg }, idx) => {
         const isOnline  = e.event_type === 'online';
         const isOffline = e.event_type === 'offline';
-        const ver = e.details && e.details.version ? ' - v' + e.details.version : '';
+        const isPower   = e.event_type === 'power_cycle';
+        const ver       = e.details && e.details.version ? e.details.version : null;
+
+        let badgeText, barColor, title;
+        if (isOnline) {
+            // Find the next older online event to compare versions
+            const olderOnline = systemEvents.slice(idx + 1).find(ev => ev.raw.event_type === 'online');
+            const prevVer     = olderOnline && olderOnline.raw.details && olderOnline.raw.details.version;
+            const isUpgrade   = ver && prevVer && ver !== prevVer;
+            badgeText = isUpgrade ? 'Pi Updated' : 'Pi Online';
+            barColor  = '#27ae60';
+            title     = isUpgrade ? ('Pi poller updated to v' + ver)
+                                  : ('Poller came online' + (ver ? ' v' + ver : ''));
+        } else if (isOffline) {
+            badgeText = 'Pi Offline';
+            barColor  = '#e67e22';
+            title     = 'Poller went offline - data feed interrupted';
+        } else {
+            badgeText = 'Power Cycle';
+            barColor  = '#566573';
+            title     = 'Power cycle detected - Pi restarted';
+        }
         logAllEntries.push({
             ts: leg.timestamp_iso,
             filter: 'alarm',
             badgeClass: 'log-badge-audit',
-            badgeText: isOnline ? 'Pi Online' : isOffline ? 'Pi Offline' : 'Power Cycle',
-            barColor:  isOnline ? '#27ae60'   : isOffline ? '#e67e22'   : '#566573',
-            title: isOnline  ? ('Poller came online' + ver)
-                 : isOffline ? 'Poller went offline'
-                 : 'Power cycle detected',
+            badgeText,
+            barColor,
+            title,
             detail: 'Pi Poller',
             sub: null
         });
