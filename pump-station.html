@@ -591,6 +591,13 @@
             <button class="range-btn"        onclick="setPerfRange(720,this)">30d</button>
             <button class="range-btn"        onclick="setPerfRange(1440,this)">60d</button>
             <button class="range-btn"        onclick="setPerfRange(2160,this)">90d</button>
+            <button class="range-btn"        onclick="openCustomRange(this)">Custom</button>
+        </div>
+        <div id="custom-range-row" style="display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;">
+            <label style="font-size:.85em">From <input type="datetime-local" id="custom-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <label style="font-size:.85em">To <input type="datetime-local" id="custom-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <button class="range-btn" onclick="applyCustomRange()">Go</button>
+            <button class="range-btn" style="background:#444;color:#ccc" onclick="closeCustomRange()">Cancel</button>
         </div>
         <div class="loading-note" id="hist-loading">Loading historical data from server...</div>
     </div>
@@ -1224,6 +1231,7 @@ let farmbotTankData   = null;
 let farmbotLatestData = null;
 let hwConfigData   = null;
 let perfRangeH  = 24;
+let customRangeReadings = null;
 let trendsMetric = 'hrs';
 const charts = {};
 
@@ -1343,14 +1351,48 @@ async function ensureAlarmHistory() {
 
 // Get filtered readings for selected performance range
 async function getPerfReadings() {
+    if (customRangeReadings !== null) return customRangeReadings;
     const cutoff = Date.now() - perfRangeH * 3600000;
+    let readings;
     if (perfRangeH <= 24) {
         const h = latestData && latestData.history ? latestData.history : [];
-        return h.filter(r => new Date(r.ts).getTime() >= cutoff);
+        readings = h.filter(r => new Date(r.ts).getTime() >= cutoff);
+    } else {
+        await ensureHistory();
+        const all = historyData && historyData.readings ? historyData.readings : [];
+        readings = all.filter(r => new Date(r.ts).getTime() >= cutoff);
     }
-    await ensureHistory();
-    const readings = historyData && historyData.readings ? historyData.readings : [];
-    return readings.filter(r => new Date(r.ts).getTime() >= cutoff);
+    return bucketReadings(readings, perfRangeH);
+}
+
+// Downsample readings into time buckets for longer ranges
+function bucketReadings(readings, rangeH) {
+    let bucketMs;
+    if      (rangeH <= 48)  bucketMs = 0;
+    else if (rangeH <= 168) bucketMs = 5  * 60000;
+    else if (rangeH <= 720) bucketMs = 15 * 60000;
+    else                    bucketMs = 60 * 60000;
+    if (!bucketMs || !readings.length) return readings;
+
+    const map = new Map();
+    for (const r of readings) {
+        const t = new Date(r.ts).getTime();
+        const k = Math.floor(t / bucketMs) * bucketMs;
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(r);
+    }
+
+    return [...map.entries()].sort((a,b) => a[0]-b[0]).map(([k, g]) => {
+        const avg = f => {
+            const v = g.map(r => r[f]).filter(v => v != null);
+            return v.length ? v.reduce((s,n) => s+n, 0) / v.length : null;
+        };
+        const last = g[g.length - 1];
+        return { ts: new Date(k + bucketMs / 2).toISOString(),
+                 pa:avg('pa'), ps:avg('ps'), pi:avg('pi'),
+                 fl:avg('fl'), pk:avg('pk'), se:avg('se'),
+                 nr:last.nr, sp:last.sp, pw:last.pw, rh:last.rh, tm:last.tm };
+    });
 }
 
 // ─── Render all ──────────────────────────────────────────────────────────────
@@ -1745,10 +1787,58 @@ function defaultPumps() {
 
 // ─── Performance charts ───────────────────────────────────────────────────────
 async function setPerfRange(h, btn) {
+    customRangeReadings = null;
+    const row = document.getElementById('custom-range-row');
+    if (row) row.style.display = 'none';
     perfRangeH = h;
     document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderPerfCharts();
+}
+
+function openCustomRange(btn) {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const row = document.getElementById('custom-range-row');
+    if (row) row.style.display = 'flex';
+    const toEl   = document.getElementById('custom-to');
+    const fromEl = document.getElementById('custom-from');
+    if (toEl && !toEl.value) {
+        const now  = new Date();
+        const week = new Date(now.getTime() - 7 * 24 * 3600000);
+        toEl.value   = now.toISOString().slice(0, 16);
+        fromEl.value = week.toISOString().slice(0, 16);
+    }
+}
+
+async function applyCustomRange() {
+    const fromEl = document.getElementById('custom-from');
+    const toEl   = document.getElementById('custom-to');
+    if (!fromEl || !toEl || !fromEl.value || !toEl.value) return;
+    const fromMs = new Date(fromEl.value).getTime();
+    const toMs   = new Date(toEl.value).getTime();
+    if (isNaN(fromMs) || isNaN(toMs) || toMs <= fromMs) return;
+
+    perfRangeH = (toMs - fromMs) / 3600000;
+    const fromIso = new Date(fromMs).toISOString().slice(0, 19) + 'Z';
+    const toIso   = new Date(toMs).toISOString().slice(0, 19) + 'Z';
+
+    document.getElementById('hist-loading').style.display = 'block';
+    try {
+        const rows = await supaFetch('pump_minute_stats',
+            `order=ts.asc&ts=gte.${fromIso}&ts=lte.${toIso}&limit=150000`);
+        customRangeReadings = bucketReadings(rows.map(statsRowToReading), perfRangeH);
+    } catch(e) { customRangeReadings = []; }
+    document.getElementById('hist-loading').style.display = 'none';
+    renderPerfCharts();
+}
+
+function closeCustomRange() {
+    const row = document.getElementById('custom-range-row');
+    if (row) row.style.display = 'none';
+    customRangeReadings = null;
+    const btn24 = document.querySelector('.range-btn[onclick*="setPerfRange(24"]');
+    setPerfRange(24, btn24);
 }
 
 async function renderPerfCharts() {
