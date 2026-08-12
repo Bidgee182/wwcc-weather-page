@@ -684,6 +684,26 @@ def main():
             queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST})
             was_online = True
             prev_state = None
+            # Snapshot any alarms already active at startup - the poller only
+            # records transitions, so without this an in-progress alarm is invisible.
+            sys_alarm = state.get("alarm_code") or 0
+            if sys_alarm:
+                label = "System"
+                for p in state.get("pumps", []):
+                    if (p.get("alarm_code") or 0) == sys_alarm:
+                        label = p["label"]
+                        break
+                queue_event(con, ts_iso, "alarm_on", label, sys_alarm,
+                            ALARM_DESCRIPTIONS.get(sys_alarm, f"Code {sys_alarm}"),
+                            details={"initial_state": True})
+                print(f"  Initial alarm: code {sys_alarm} on {label}")
+            for p in state.get("pumps", []):
+                pac = p.get("alarm_code") or 0
+                if pac and pac != sys_alarm:
+                    queue_event(con, ts_iso, "pump_alarm_on", p["label"], pac,
+                                ALARM_DESCRIPTIONS.get(pac, f"Code {pac}"),
+                                details={"initial_state": True})
+                    print(f"  Initial pump alarm: code {pac} on {p['label']}")
 
         # ── Detect transitions ─────────────────────────────────────────────────
         detect_transitions(prev_state, state, ts_iso, con)
