@@ -1233,7 +1233,53 @@ let hwConfigData   = null;
 let perfRangeH  = 24;
 let customRangeReadings = null;
 let trendsMetric = 'hrs';
+
+const RANGE_LABELS = {1:'1h',6:'6h',12:'12h',24:'24h',48:'48h',72:'72h',168:'7d',336:'14d',720:'30d',1440:'60d',2160:'90d'};
+const RANGE_HOURS  = Object.fromEntries(Object.entries(RANGE_LABELS).map(([h,l])=>[l,+h]));
 const charts = {};
+
+// ─── URL hash — tab + range persistence ──────────────────────────────────────
+function updateHash(tab) {
+    let hash = '#' + tab;
+    if (tab === 'performance') {
+        const fromEl = document.getElementById('custom-from');
+        const toEl   = document.getElementById('custom-to');
+        if (customRangeReadings !== null && fromEl && toEl && fromEl.value && toEl.value) {
+            hash += '/' + fromEl.value + '~' + toEl.value;
+        } else {
+            hash += '/' + (RANGE_LABELS[perfRangeH] || Math.round(perfRangeH) + 'h');
+        }
+    }
+    history.replaceState(null, '', hash);
+}
+
+async function readHash() {
+    const raw = location.hash.slice(1);
+    if (!raw) return;
+    const [tab, rangeStr] = raw.split('/');
+    if (!TABS.includes(tab)) return;
+    const btn = document.querySelector(`.nav-btn[onclick*="'${tab}'"]`);
+    if (tab === 'performance' && rangeStr) {
+        if (rangeStr.includes('~')) {
+            const [from, to] = rangeStr.split('~');
+            const fromEl = document.getElementById('custom-from');
+            const toEl   = document.getElementById('custom-to');
+            if (fromEl && toEl) { fromEl.value = from; toEl.value = to; }
+            showTab(tab, btn);
+            await applyCustomRange();
+            return;
+        } else {
+            const h = RANGE_HOURS[rangeStr];
+            if (h) {
+                perfRangeH = h;
+                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+                const rb = document.querySelector(`.range-btn[onclick*="setPerfRange(${h},"]`);
+                if (rb) rb.classList.add('active');
+            }
+        }
+    }
+    showTab(tab, btn);
+}
 
 // ─── Tab switching ───────────────────────────────────────────────────────────
 function showTab(name, btn) {
@@ -1241,6 +1287,7 @@ function showTab(name, btn) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-'+name).classList.add('active');
     if (btn) btn.classList.add('active');
+    updateHash(name);
     if (name === 'performance') renderPerfCharts();
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
@@ -1286,6 +1333,7 @@ async function loadData() {
         } catch(e) { hwConfigData = {}; }
     }
     renderAll();
+    readHash();
 }
 
 async function ensureHistory() {
@@ -1793,6 +1841,7 @@ async function setPerfRange(h, btn) {
     perfRangeH = h;
     document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    updateHash('performance');
     renderPerfCharts();
 }
 
@@ -1830,6 +1879,7 @@ async function applyCustomRange() {
         customRangeReadings = bucketReadings(rows.map(statsRowToReading), perfRangeH);
     } catch(e) { customRangeReadings = []; }
     document.getElementById('hist-loading').style.display = 'none';
+    updateHash('performance');
     renderPerfCharts();
 }
 
