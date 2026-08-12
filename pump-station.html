@@ -1364,13 +1364,18 @@ async function ensureHistory() {
     if (historyData !== null) return;
     document.getElementById('hist-loading').style.display = 'block';
     try {
-        // Fetch 90d of data, newest-first then reverse so charts render oldest-to-newest.
-        // Time filter avoids pulling pre-history data; limit=150000 caps the response.
+        // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate.
         const cutoff = new Date(Date.now() - 90 * 24 * 3600000).toISOString().slice(0, 19) + 'Z';
-        const rows = await supaFetch('pump_minute_stats',
-            'order=ts.desc&limit=150000&ts=gte.' + cutoff);
-        rows.reverse();
-        historyData = { readings: rows.map(statsRowToReading) };
+        const PAGE = 1000;
+        let allRows = [], offset = 0;
+        while (true) {
+            const page = await supaFetch('pump_minute_stats',
+                `order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${offset}`);
+            allRows.push(...page);
+            if (page.length < PAGE) break;
+            offset += PAGE;
+        }
+        historyData = { readings: allRows.map(statsRowToReading) };
     } catch(e) { historyData = { readings:[] }; }
     document.getElementById('hist-loading').style.display = 'none';
 }
@@ -1425,16 +1430,9 @@ async function ensureAlarmHistory() {
 async function getPerfReadings() {
     if (customRangeReadings !== null) return customRangeReadings;
     const cutoff = Date.now() - perfRangeH * 3600000;
-    let readings;
-    if (perfRangeH <= 24) {
-        const h = latestData && latestData.history ? latestData.history : [];
-        readings = h.filter(r => new Date(r.ts).getTime() >= cutoff);
-    } else {
-        await ensureHistory();
-        const all = historyData && historyData.readings ? historyData.readings : [];
-        readings = all.filter(r => new Date(r.ts).getTime() >= cutoff);
-    }
-    return bucketReadings(readings, perfRangeH);
+    await ensureHistory();
+    const all = historyData && historyData.readings ? historyData.readings : [];
+    return bucketReadings(all.filter(r => new Date(r.ts).getTime() >= cutoff), perfRangeH);
 }
 
 // Downsample readings into time buckets for longer ranges
