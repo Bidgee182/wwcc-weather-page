@@ -44,7 +44,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "1.5"
+POLLER_VERSION = "1.6"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -342,13 +342,14 @@ def rhr(client, addr, count, device_id=1):
 
 
 def scan_mge_temperatures(client, pump_count=4):
-    """Read MotorTemperature from MGE single-pump profiles at device_id 2..pump_count+1.
-    Register addr 211 (doc 00212) = MotorTemperature (0.01 K).
-    Valid motor range: 0-120C = 27315-39315 in 0.01K. Returns list of temp_c or None per pump."""
+    """Read PumpLiquidTemp from MGE single-pump profiles at device_id 2..pump_count+1.
+    Register addr 321 (doc 00322) = PumpLiquidTemp (0.01 K) - requires PT100 configured
+    in GO app as Liquid temperature. Valid range 0-120C = 27315-39315 in 0.01K.
+    Returns list of temp_c or None per pump."""
     temps = []
     for device_id in range(2, 2 + pump_count):
         try:
-            r = client.read_holding_registers(211, count=1, device_id=device_id)
+            r = client.read_holding_registers(321, count=1, device_id=device_id)
             if r.isError():
                 temps.append(None)
                 continue
