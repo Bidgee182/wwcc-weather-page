@@ -587,7 +587,9 @@
             <button class="range-btn"        onclick="setPerfRange(48,this)">48h</button>
             <button class="range-btn"        onclick="setPerfRange(72,this)">72h</button>
             <button class="range-btn"        onclick="setPerfRange(168,this)">7d</button>
+            <button class="range-btn"        onclick="setPerfRange(336,this)">14d</button>
             <button class="range-btn"        onclick="setPerfRange(720,this)">30d</button>
+            <button class="range-btn"        onclick="setPerfRange(1440,this)">60d</button>
             <button class="range-btn"        onclick="setPerfRange(2160,this)">90d</button>
         </div>
         <div class="loading-note" id="hist-loading">Loading historical data from server...</div>
@@ -1282,7 +1284,12 @@ async function ensureHistory() {
     if (historyData !== null) return;
     document.getElementById('hist-loading').style.display = 'block';
     try {
-        const rows = await supaFetch('pump_minute_stats', 'order=ts.asc&limit=10080');  // 7 days
+        // Fetch 90d of data, newest-first then reverse so charts render oldest-to-newest.
+        // Time filter avoids pulling pre-history data; limit=150000 caps the response.
+        const cutoff = new Date(Date.now() - 90 * 24 * 3600000).toISOString().slice(0, 19) + 'Z';
+        const rows = await supaFetch('pump_minute_stats',
+            'order=ts.desc&limit=150000&ts=gte.' + cutoff);
+        rows.reverse();
         historyData = { readings: rows.map(statsRowToReading) };
     } catch(e) { historyData = { readings:[] }; }
     document.getElementById('hist-loading').style.display = 'none';
