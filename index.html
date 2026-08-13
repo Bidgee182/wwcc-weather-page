@@ -37,15 +37,15 @@
         .tab-btn:hover:not(.active) { background: #3d5166; color: #ecf0f1; }
 
         /* ── Conditions Bar ── */
-        .conditions-bar { display: grid; grid-template-columns: repeat(6, 1fr); background: #2c3e50; border-radius: 10px; padding: 14px 10px; margin-bottom: 16px; }
+        .conditions-bar { display: grid; grid-template-columns: repeat(8, 1fr); background: #2c3e50; border-radius: 10px; padding: 14px 10px; margin-bottom: 16px; }
         .cond-item { text-align: center; padding: 6px 8px; }
         .cond-item .label { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
         .cond-item .value { font-size: 1.4em; font-weight: bold; margin-top: 2px; }
         .cond-item + .cond-item { border-left: 1px solid #3d5166; }
         @media (max-width: 800px) {
-            .conditions-bar { grid-template-columns: repeat(3, 1fr); }
-            .cond-item:nth-child(4) { border-left: none; border-top: 1px solid #3d5166; }
-            .cond-item:nth-child(5), .cond-item:nth-child(6) { border-top: 1px solid #3d5166; }
+            .conditions-bar { grid-template-columns: repeat(4, 1fr); }
+            .cond-item:nth-child(4n+1) { border-left: none; }
+            .cond-item:nth-child(n+5) { border-top: 1px solid #3d5166; }
         }
         @media (max-width: 420px) {
             .conditions-bar { grid-template-columns: repeat(2, 1fr); padding: 10px 6px; }
@@ -729,6 +729,8 @@
         <div class="cond-item"><div class="label">Dew Point</div><div class="value" id="ds-dewpoint">--°C</div></div>
         <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
         <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
+        <div class="cond-item"><div class="label">Rain Today</div><div class="value" id="cond-rain-today">-- mm</div></div>
+        <div class="cond-item"><div class="label">Rain Month</div><div class="value" id="cond-rain-month">-- mm</div></div>
         <div class="cond-item" id="cond-gust-item" style="display:none"><div class="label">Gusts</div><div class="value" id="wind-gust">-- km/h</div></div>
     </div>
 
@@ -5877,6 +5879,8 @@ async function getWeatherData() {
         document.getElementById('wind-speed').innerText = windKmh.toFixed(0) + ' km/h';
         const windArrow = compassToArrow(windDir);
         document.getElementById('wind-dir').innerHTML = windArrow ? `${windDir} <span style="font-size:1.1em">${windArrow}</span>` : windDir;
+        document.getElementById('cond-rain-today').innerText = rain.toFixed(1) + ' mm';
+        document.getElementById('cond-rain-month').innerText = rainMonth !== null ? rainMonth.toFixed(1) + ' mm' : '-- mm';
         applyLakeWind(); // override with FarmBot lake wind if available
         const gustItem = document.getElementById('cond-gust-item');
         if (gustKmh && gustKmh > windKmh + 3) {
