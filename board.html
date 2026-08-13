@@ -297,7 +297,7 @@
                     <div class="outlook-block">
                         <div class="ob-val" id="ol-cost">--</div>
                         <div class="ob-lbl">Town Water Cost</div>
-                        <div class="ob-sub">if ceased - to end March</div>
+                        <div class="ob-sub">if ceased - to end of season (30 Apr)</div>
                     </div>
                 </div>
 
@@ -311,7 +311,7 @@
                     <div class="metric">
                         <div class="lbl">Daily Cost While Ceased</div>
                         <div class="val" id="ol-daily-cost">--</div>
-                        <div class="sub">irrigation from town water</div>
+                        <div class="sub" id="ol-daily-cost-sub">irrigation from town water</div>
                     </div>
                 </div>
             </div>
@@ -880,15 +880,19 @@ function currentZone(ahd) {
     return _cfg.zone_thresholds[_cfg.zone_thresholds.length - 1];
 }
 
-function projectToCease(ahd) {
+// Day-by-day no-rain simulation to a target AHD - shared by the cease and
+// next-zone projections so both use identical assumptions: month-by-month BOM
+// evaporation and irrigation demand in active months only (JS port of
+// lake_utils.project_to_level). Returns the crossing Date, or null if the
+// level is already at/below the target or does not reach it within 3 years.
+function projectToLevel(ahd, targetAhd) {
     const pan   = _cfg.evaporation.monthly_pan_mm_day;
     const pf    = _cfg.evaporation.pan_factor;
     const irrig = _cfg.town_water.daily_kl_by_month;
     const actM  = new Set(_cfg.irrigation_season.active_months);
-    const ceaseAhd = Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
 
     let cur = ahd, d = new Date(); d.setHours(0,0,0,0);
-    if (cur <= ceaseAhd) return null;
+    if (cur <= targetAhd) return null;
     for (let i = 0; i < 1095; i++) {
         const m = d.getMonth() + 1;
         const area = lakeArea(cur);
@@ -896,51 +900,40 @@ function projectToCease(ahd) {
         const irrigMl = actM.has(m) ? parseFloat(irrig[m] || 0) / 1000 : 0;
         cur -= (evapMl + irrigMl) * 1000 / area;
         d.setDate(d.getDate() + 1);
-        if (cur <= ceaseAhd) return new Date(d);
+        if (cur <= targetAhd) return new Date(d);
     }
     return null;
 }
 
-// Volume (ML) between two AHD levels - trapezoidal integration over the
-// linear area model. Identical to lake_utils.vol_between_ml so the board
-// dashboard and board email always produce the same figures.
-function volBetweenMl(loAhd, hiAhd, steps = 500) {
-    if (loAhd >= hiAhd) return 0;
-    const dh = (hiAhd - loAhd) / steps;
-    let total = 0;
-    for (let i = 0; i < steps; i++) {
-        total += (lakeArea(loAhd + i * dh) + lakeArea(loAhd + (i + 1) * dh)) / 2 * dh;
-    }
-    return total / 1000; // m³ → ML
+function projectToCease(ahd) {
+    const ceaseAhd = Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
+    return projectToLevel(ahd, ceaseAhd);
 }
 
 function daysToNextZone(ahd, zone) {
-    const zones = _cfg.zone_thresholds;
-    const nextZ = zones.find(z => z.zone === zone.zone + 1);
+    const nextZ = _cfg.zone_thresholds.find(z => z.zone === zone.zone + 1);
     if (!nextZ) return null;
-    const threshold = zone.min_ahd;
-    const pumpMl = zone.max_pump_ml_day;
-    const m = new Date().getMonth() + 1;
-    const pan = _cfg.evaporation.monthly_pan_mm_day;
-    const pf  = _cfg.evaporation.pan_factor;
-    const area = lakeArea(ahd);
-    const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
-    const totalLoss = pumpMl + evapMl;
-    if (totalLoss <= 0) return Infinity;
-    const volMl = volBetweenMl(threshold, ahd);
-    return volMl / totalLoss;
+    if (ahd <= zone.min_ahd) return 0;
+    // Same day-by-day model as the cease projection (actual irrigation demand
+    // plus monthly evaporation) so the two outlook figures agree.
+    const crossDate = projectToLevel(ahd, zone.min_ahd);
+    if (!crossDate) return Infinity;   // no crossing within the 3-year horizon
+    const today = new Date(); today.setHours(0,0,0,0);
+    return daysBetween(today, crossDate);
 }
 
-function townWaterCostToMarch(ceaseDate) {
+function townWaterCostToSeasonEnd(ceaseDate) {
     if (!ceaseDate) return null;
     const irrig = _cfg.town_water.daily_kl_by_month;
     const costKl = _cfg.town_water.cost_per_kl;
     const actM = new Set(_cfg.irrigation_season.active_months);
     const cease = new Date(ceaseDate); cease.setHours(0,0,0,0);
-    const yr = cease.getMonth() >= 3 ? cease.getFullYear() + 1 : cease.getFullYear();
-    const endMarch = new Date(yr, 2, 31);
+    // Season end = 30 April, the last irrigating month (May-Aug demand is 0).
+    // Cease in May or later rolls to the end of the NEXT season.
+    const yr = cease.getMonth() >= 4 ? cease.getFullYear() + 1 : cease.getFullYear();
+    const endSeason = new Date(yr, 3, 30);
     let total = 0;
-    for (const d of eachDay(cease, endMarch)) {
+    for (const d of eachDay(cease, endSeason)) {
         const m = d.getMonth() + 1;
         if (actM.has(m)) total += parseFloat(irrig[m] || 0) * costKl;
     }
@@ -1820,10 +1813,26 @@ async function loadAll() {
         const ceaseDate   = ahd != null ? projectToCease(ahd) : null;
         const daysNxtZone = (ahd != null && zone) ? daysToNextZone(ahd, zone) : null;
         const daysToC     = ceaseDate ? daysBetween(today, ceaseDate) : null;
-        const costToMarch = ceaseDate ? townWaterCostToMarch(ceaseDate) : null;
+        const costToEnd   = ceaseDate ? townWaterCostToSeasonEnd(ceaseDate) : null;
         const costPerKl   = _cfg.town_water.cost_per_kl;
-        const curMonth    = today.getMonth() + 1;
-        const dailyCost   = _cfg.town_water.daily_kl_by_month[curMonth] * costPerKl;
+        // Daily cost while ceased: demand of the first irrigating month at or
+        // after the projected cease date (today's month would read $0 all winter)
+        let dailyCost = null, dailyCostMonth = null;
+        {
+            const probe = new Date(ceaseDate || today);
+            probe.setHours(0,0,0,0);
+            for (let i = 0; i < 12; i++) {
+                const m = probe.getMonth() + 1;
+                const kl = parseFloat(_cfg.town_water.daily_kl_by_month[m] || 0);
+                if (_cfg.irrigation_season.active_months.includes(m) && kl > 0) {
+                    dailyCost = kl * costPerKl;
+                    dailyCostMonth = new Date(probe);
+                    break;
+                }
+                probe.setDate(1);
+                probe.setMonth(probe.getMonth() + 1);
+            }
+        }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
         const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
@@ -1897,7 +1906,7 @@ async function loadAll() {
         if (daysNxtZone != null) {
             const nxtZ = _cfg.zone_thresholds.find(z => z.zone === (zone.zone + 1));
             if (daysNxtZone === Infinity) {
-                $('ol-days-next').textContent = 'Rising';
+                $('ol-days-next').textContent = '3 yr+';
                 $('ol-days-next').style.color = '#27ae60';
             } else {
                 const d = Math.round(daysNxtZone);
@@ -1918,8 +1927,10 @@ async function loadAll() {
         } else {
             $('ol-days-cease').textContent = ahd!=null?'At cease':'--';
         }
-        $('ol-cost').textContent      = fmt$(costToMarch);
-        $('ol-daily-cost').textContent = '$' + Math.round(dailyCost) + '/day';
+        $('ol-cost').textContent      = fmt$(costToEnd);
+        $('ol-daily-cost').textContent = dailyCost != null ? '$' + Math.round(dailyCost) + '/day' : '--';
+        if (dailyCostMonth) $('ol-daily-cost-sub').textContent =
+            'at ' + dailyCostMonth.toLocaleDateString('en-AU', { month:'long' }) + ' demand, from town water';
 
         // This month at a glance - demand-based estimate headline, licence max as context
         $('ov-ml-month').textContent      = fmtMl(monthSav.totalMlDemand);

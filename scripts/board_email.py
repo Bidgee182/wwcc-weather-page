@@ -524,7 +524,7 @@ def build_html(now_syd):
     lv_txt   = level['color_text']
 
     nxt     = lu.next_zone_below(ahd)
-    days, _ = lu.days_to_next_zone(ahd, month)
+    days, _ = lu.days_to_next_zone(ahd, now_syd.date())
 
     week_change = None  # computed below from the daily table rows, so the
     # trend arrow, the chart and the table all describe the same 7 days
@@ -541,8 +541,8 @@ def build_html(now_syd):
         days_sub     = 'No lower level - cease to pump'
         days_col     = '#EB1E23'
     elif days == float('inf'):
-        days_display = 'Rising'
-        days_sub     = 'Net lake gain - level increasing'
+        days_display = '3 yr+'
+        days_sub     = 'No level change within the 3-year projection horizon'
         days_col     = '#00762A'
     else:
         days_int     = int(days)
@@ -768,7 +768,7 @@ def build_html(now_syd):
             _pb_date_html = '<span style="color:#b83c3c;">CEASE LEVEL REACHED</span>'
             _pb_days_html = 'extraction must stop now'
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march else '-')
-            _pb_cost_sub  = f'today to 31 Mar {now_syd.year + 1}'
+            _pb_cost_sub  = f'today to 30 Apr {now_syd.year + (1 if now_syd.month > 4 else 0)} (season end)'
         else:
             _cease_str    = f'{cease_date.day} {cease_date.strftime("%b %Y")}'
             _days_away    = (cease_date - now_syd.date()).days
@@ -797,9 +797,9 @@ def build_html(now_syd):
                 except Exception:
                     pass
             _pb_days_html = f'{_days_away:,} days from today'
-            _end_yr       = cease_date.year + (1 if cease_date.month > 3 else 0)
+            _end_yr       = cease_date.year + (1 if cease_date.month > 4 else 0)
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
-            _pb_cost_sub  = f'{_cease_str} to 31 Mar {_end_yr}'
+            _pb_cost_sub  = f'{_cease_str} to 30 Apr {_end_yr} (season end)'
 
         # Rainfall, evaporation and ET - always shown when a cease date is known
         _rain_row = ''
@@ -1449,9 +1449,10 @@ def build_html(now_syd):
     <td style="padding:14px 20px;border-top:1px solid {_BORDER};">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;
           line-height:1.7;">
-        <strong>Projection methodology:</strong> Days-to-next-level assumes pumping at the
-        maximum current licence rate ({lv_pump:.2f}&nbsp;ML/day) with <em>no rainfall</em> -
-        a conservative planning figure. {mth_name} open-water evaporation based on
+        <strong>Projection methodology:</strong> Days-to-next-level and days-to-cease use
+        the same day-by-day simulation: monthly BOM open-water evaporation plus daily
+        irrigation demand (irrigation season months only), with <em>no rainfall</em>
+        assumed - a conservative planning figure. {mth_name} evaporation based on
         BOM Wagga Wagga Airport long-term average
         ({pan_mm:.2f}&nbsp;mm/day pan &times;&nbsp;0.70&nbsp;lake factor
         = {lake_mm:.2f}&nbsp;mm/day = {evap_ml:.2f}&nbsp;ML/day at current lake area).
@@ -1841,7 +1842,7 @@ def build_monthly_html(now_syd):
     cease_date    = lu.project_to_cease(ahd, today)
     cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
     days_to_cease = (cease_date - today).days if cease_date else None
-    days_nxt, nxt_zone = lu.days_to_next_zone(ahd, today.month)
+    days_nxt, nxt_zone = lu.days_to_next_zone(ahd, today)
 
     # ── Zone change log for this month ────────────────────────────────────────
     zone_events = []
@@ -2144,7 +2145,7 @@ def build_monthly_html(now_syd):
     if days_nxt is None:
         nxt_disp = 'At cease level'
     elif days_nxt == float('inf'):
-        nxt_disp = 'Lake rising'
+        nxt_disp = 'Beyond 3-yr horizon'
     else:
         nxt_zone_name = nxt_zone['name'] if nxt_zone else 'next level'
         nxt_disp = f'~{int(days_nxt)} days to {nxt_zone_name}'
@@ -2167,7 +2168,7 @@ def build_monthly_html(now_syd):
         cease_date.strftime('%d %b %Y') if cease_date else 'N/A')}
     {_stat_cell(25, _ROW_B, 'Cost if Ceased',
         _fmt_dollar(cost_to_march),
-        'town water to end Mar', accent='#F58E1E' if cost_to_march else None)}
+        'town water to season end (30 Apr)', accent='#F58E1E' if cost_to_march else None)}
   </tr>
 </table>"""
         + _card_close()

@@ -201,18 +201,17 @@ def evap_ml_day(ahd, month):
 
 # ── Projection ────────────────────────────────────────────────────────────────
 
-def days_to_next_zone(ahd, month):
+def days_to_next_zone(ahd, start_date):
     """Estimated days until lake drops to the next lower zone threshold.
 
-    Assumes pumping at current zone's maximum allowable rate with no rainfall
-    (conservative planning figure). Evaporation uses current month's BOM pan
-    average × 0.70 lake factor. Surface area shrinkage as level drops is
-    accounted for via the linear area model.
+    Uses the SAME day-by-day no-rain simulation as project_to_cease (monthly
+    BOM evaporation plus irrigation demand in active months only), so the
+    days-to-next-zone and days-to-cease figures are always consistent.
 
     Returns:
         (days: float | None, next_zone: dict | None)
         days is None  → already at lowest zone (cease to pump)
-        days is inf   → net balance is positive (lake rising)
+        days is inf   → threshold not reached within the 3-year horizon
     """
     nxt = next_zone_below(ahd)
     if nxt is None:
@@ -220,34 +219,34 @@ def days_to_next_zone(ahd, month):
 
     # Threshold is the BOTTOM of the current zone (where you exit it), not the
     # bottom of the next zone - those differ by one full zone's depth.
-    threshold   = current_zone_info(ahd)['min_ahd']
-    vol_ml      = vol_between_ml(threshold, ahd)
-    pump_ml     = current_zone_info(ahd)['max_pump_ml_day']
-    evap_ml     = evap_ml_day(ahd, month)
-    total_loss  = pump_ml + evap_ml
+    threshold = current_zone_info(ahd)['min_ahd']
+    if ahd <= threshold:
+        return 0, nxt
 
-    if total_loss <= 0:
+    cross_date = project_to_level(ahd, threshold, start_date)
+    if cross_date is None:
         return float('inf'), nxt
 
-    return vol_ml / total_loss, nxt
+    return (cross_date - start_date).days, nxt
 
 
 # ── Cease-to-pump projection ───────────────────────────────────────────────────
 
-def project_to_cease(ahd, start_date):
-    """Day-by-day simulation: date AHD hits the cease-to-pump threshold.
+def project_to_level(ahd, target_ahd, start_date):
+    """Day-by-day simulation: date AHD drops to target_ahd.
 
     No future rainfall assumed. Each day deducts:
       - Lake surface evaporation: BOM pan × pan_factor × lake_area (ML)
       - Irrigation pumping (ML): from daily_kl_by_month in lake_config.json,
         only in active_months (no irrigation Jun/Jul/Aug).
 
-    The cease threshold is derived from the lowest numeric min_ahd in
-    zone_thresholds (Level 4 boundary = 189.650 m AHD).
+    Shared by project_to_cease and days_to_next_zone so every outlook figure
+    uses identical assumptions.
 
     Returns:
-        datetime.date  projected cease date
-        None           if ahd is already at or below cease level
+        datetime.date  projected crossing date
+        None           if ahd is already at/below target_ahd, or the level
+                       does not reach it within the 3-year cap
     """
     from datetime import timedelta
 
@@ -256,12 +255,11 @@ def project_to_cease(ahd, start_date):
     pf        = cfg['evaporation']['pan_factor']
     irrig_kl  = cfg['town_water']['daily_kl_by_month']
     active_m  = set(cfg['irrigation_season']['active_months'])
-    cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds'] if z['min_ahd'] is not None)
 
     cur_ahd  = float(ahd)
     cur_date = start_date
 
-    if cur_ahd <= cease_ahd:
+    if cur_ahd <= target_ahd:
         return None
 
     for _ in range(1095):  # 3-year cap
@@ -278,10 +276,25 @@ def project_to_cease(ahd, start_date):
         cur_ahd  -= (evap_ml + irrig_ml) * 1000.0 / area
         cur_date += timedelta(days=1)
 
-        if cur_ahd <= cease_ahd:
+        if cur_ahd <= target_ahd:
             return cur_date
 
     return None
+
+
+def project_to_cease(ahd, start_date):
+    """Date AHD hits the cease-to-pump threshold (see project_to_level).
+
+    The cease threshold is derived from the lowest numeric min_ahd in
+    zone_thresholds (Level 4 boundary = 189.650 m AHD).
+
+    Returns:
+        datetime.date  projected cease date
+        None           if ahd is already at or below cease level
+    """
+    cfg       = get_config()
+    cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds'] if z['min_ahd'] is not None)
+    return project_to_level(ahd, cease_ahd, start_date)
 
 
 def town_water_cost_projection(cease_date, end_date=None):
@@ -293,7 +306,9 @@ def town_water_cost_projection(cease_date, end_date=None):
     Args:
         cease_date: datetime.date extraction ceases
         end_date:   datetime.date to stop counting
-                    (defaults to 31 March of next calendar year)
+                    (defaults to 30 April - the end of the irrigation season,
+                    April being the last irrigating month; a cease date in May
+                    or later rolls to the end of the NEXT season)
 
     Returns:
         float  total estimated cost in dollars
@@ -306,8 +321,8 @@ def town_water_cost_projection(cease_date, end_date=None):
     active_m = set(cfg['irrigation_season']['active_months'])
 
     if end_date is None:
-        yr       = cease_date.year + (1 if cease_date.month > 3 else 0)
-        end_date = date(yr, 3, 31)
+        yr       = cease_date.year + (1 if cease_date.month > 4 else 0)
+        end_date = date(yr, 4, 30)
 
     total = 0.0
     cur   = cease_date
