@@ -44,6 +44,9 @@ DAVIS_TOKEN      = os.environ.get('DAVIS_TOKEN',       '771389FF9E4B4856A18AD350
 DAVIS_V2_KEY     = os.environ.get('DAVIS_V2_KEY',      'kvsweiywmnahb6ayvc7gstbdigst1k9x')
 DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET',   'urw4q7amnhwnajydf3r1ubggcrvcicvh')
 DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '243271')   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
+# Lake Albert station still supplies ET / solar / UV / THSW - the club
+# station's ISS has no solar or UV sensors fitted, so it cannot report them.
+DAVIS_V2_SOLAR_STATION = os.environ.get('DAVIS_V2_SOLAR_STATION', '10489')
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
@@ -322,10 +325,11 @@ def pythium_risk(night_wet_hours, night_min, day_temp):
 # DAVIS WEATHERLINK v2 API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fetch_davis_historic(target_date):
+def fetch_davis_historic(target_date, station=None):
     """
     Fetch sub-hourly records for target_date (date object, Sydney time).
     Returns list of record dicts from all sensors combined.
+    station overrides DAVIS_V2_STATION (used for the solar/UV station).
     """
     # Start/end of day in Sydney time, converted to UTC Unix timestamps
     day_start = datetime(target_date.year, target_date.month, target_date.day,
@@ -335,7 +339,7 @@ def fetch_davis_historic(target_date):
     start_ts  = int(day_start.timestamp())
     end_ts    = int(day_end.timestamp())
 
-    url = f'https://api.weatherlink.com/v2/historic/{DAVIS_V2_STATION}'
+    url = f'https://api.weatherlink.com/v2/historic/{station or DAVIS_V2_STATION}'
     params = {
         'api-key':         DAVIS_V2_KEY,
         'start-timestamp': str(start_ts),
@@ -355,6 +359,30 @@ def fetch_davis_historic(target_date):
         for rec in sensor.get('data', []):
             records.append(rec)
     return records
+
+
+# Values taken from the solar/UV station (Lake Albert) rather than the club station
+SOLAR_STATION_KEYS = ('et_mm', 'solar_rad_avg', 'solar_rad_hi', 'solar_energy_ly',
+                      'uv_max', 'uv_index_avg', 'uv_dose', 'thsw_index_c')
+
+
+def merge_solar_station(d, target_date):
+    """
+    Overlay ET / solar / UV / THSW from the Lake Albert station (which has the
+    sensors) onto a daily summary built from the club station (which does not).
+    """
+    try:
+        recs = fetch_davis_historic(target_date, station=DAVIS_V2_SOLAR_STATION)
+        if not recs:
+            log.warning('  Solar station returned no records - ET/solar/UV unavailable')
+            return d
+        s = process_davis_records(recs)
+        for k in SOLAR_STATION_KEYS:
+            if s.get(k) is not None:
+                d[k] = s[k]
+    except Exception as e:
+        log.warning(f'  Solar station merge failed: {e}')
+    return d
 
 
 def process_davis_records(records):
@@ -3616,6 +3644,9 @@ def backfill_history(from_date, to_date, force=False):
                       'night_wet_hours': 0, 'consec_rh90': 0,
                       'spray_go': 0, 'spray_caution': 0, 'spray_nogo': 0})
 
+        # 3b. ET / solar / UV / THSW come from the Lake Albert station
+        d = merge_solar_station(d, target_date)
+
         # 4. Fill gaps with Open-Meteo only when Davis data is missing/incomplete
         uv_max = d.get('uv_max')  # prefer Davis UV sensor; falls back to Open-Meteo below
         needs_gap_fill = (not davis_records or
@@ -3807,6 +3838,10 @@ def main():
         d['night_wet_hours'] = 0
         d['consec_rh90'] = 0
         d['spray_go'] = d['spray_caution'] = d['spray_nogo'] = 0
+
+    # ET / solar / UV / THSW come from the Lake Albert station (club ISS has no
+    # solar or UV sensors)
+    d = merge_solar_station(d, yesterday)
 
     # UV: prefer Davis sensor data; Open-Meteo is fallback
     uv_max = d.get('uv_max')

@@ -2251,13 +2251,16 @@ async function runCustomExport() {
             const dt      = new Date(dateStr + 'T00:00:00Z');
             const startTs = Math.floor(dt.getTime() / 1000) - offsetSecs;
             const endTs   = startTs + 86399;
-            return v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
-                .then(data => ({ dateStr, data }))
+            return Promise.all([
+                v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }),
+                v2Fetch(`historic/${v2SolarStationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }).catch(() => null)
+            ])
+                .then(([data, solarData]) => ({ dateStr, data, solarData }))
                 .catch(err  => ({ dateStr, err }));
         });
         const results = await Promise.all(dayPromises);
 
-        for (const { dateStr, data, err } of results) {
+        for (const { dateStr, data, err, solarData } of results) {
             if (err) { records.push({ date: dateStr }); continue; }
             let etInches = 0, rainMm = 0;
             let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
@@ -2267,6 +2270,11 @@ async function runCustomExport() {
                 if (se > 0) etInches = Math.max(etInches, se);
                 const sr = recs.reduce((s,r) => s + parseFloat(r.rainfall_mm ?? 0), 0);
                 if (sr > 0) rainMm = Math.max(rainMm, sr);
+            }
+            // ET from the solar station (club ISS has no solar sensor, so no ET)
+            for (const sensor of (solarData?.sensors || [])) {
+                const se = (sensor.data || []).reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
+                if (se > 0) etInches = Math.max(etInches, se);
             }
             const tempRecs = bestTempSensor(data?.sensors);
             for (const r of tempRecs) {
@@ -2333,15 +2341,18 @@ async function exportMonthCSV() {
             const dt      = new Date(dateStr + 'T00:00:00Z');
             const startTs = Math.floor(dt.getTime() / 1000) - offsetSecs;
             const endTs   = startTs + 86399;
-            return v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
-                .then(data => ({ dateStr, data }))
+            return Promise.all([
+                v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }),
+                v2Fetch(`historic/${v2SolarStationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }).catch(() => null)
+            ])
+                .then(([data, solarData]) => ({ dateStr, data, solarData }))
                 .catch(err  => ({ dateStr, err }));
         });
 
         const results = await Promise.all(dayPromises);
         const records = [];
 
-        for (const { dateStr, data, err } of results) {
+        for (const { dateStr, data, err, solarData } of results) {
             if (err) { records.push({ date: dateStr }); continue; }
             let etInches = 0, rainMm = 0;
             let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
@@ -2351,6 +2362,11 @@ async function exportMonthCSV() {
                 if (se > 0) etInches = Math.max(etInches, se);
                 const sr = recs.reduce((s,r) => s + parseFloat(r.rainfall_mm ?? 0), 0);
                 if (sr > 0) rainMm = Math.max(rainMm, sr);
+            }
+            // ET from the solar station (club ISS has no solar sensor, so no ET)
+            for (const sensor of (solarData?.sensors || [])) {
+                const se = (sensor.data || []).reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
+                if (se > 0) etInches = Math.max(etInches, se);
             }
             const tempRecs = bestTempSensor(data?.sensors);
             for (const r of tempRecs) {
@@ -5811,7 +5827,7 @@ async function getTodayET() {
         syd.setUTCHours(0, 0, 0, 0);
         const startTs = Math.floor(syd.getTime() / 1000) - offsetSecs;
         const endTs   = Math.floor(Date.now() / 1000);
-        const data = await v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs });
+        const data = await v2Fetch(`historic/${v2SolarStationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs });
         let etInches = 0;
         for (const sensor of (data?.sensors || [])) {
             const se = (sensor.data || []).reduce((s, r) => s + parseFloat(r.et ?? 0), 0);
@@ -6122,6 +6138,9 @@ async function v2Fetch(endpoint, params) {
 }
 
 const v2StationId = 243271;
+// Lake Albert station (10489) still supplies ET / solar / UV - the club
+// station's ISS has no solar or UV sensors fitted, so it cannot compute ET.
+const v2SolarStationId = 10489;
 
 async function fetchHistoricalWeather() {
     const offsetMs   = sydneyOffsetMs();
@@ -6137,8 +6156,11 @@ async function fetchHistoricalWeather() {
         const startTs = Math.floor(sydney.getTime() / 1000) - offsetSecs;
         const endTs   = startTs + 86399;
         dayPromises.push(
-            v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs })
-                .then(data => ({ dateStr, data }))
+            Promise.all([
+                v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }),
+                v2Fetch(`historic/${v2SolarStationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs }).catch(() => null)
+            ])
+                .then(([data, solarData]) => ({ dateStr, data, solarData }))
                 .catch(err  => ({ dateStr, err }))
         );
     }
@@ -6146,7 +6168,7 @@ async function fetchHistoricalWeather() {
     const results = await Promise.all(dayPromises);
     let updated = false;
 
-    for (const { dateStr, data, err } of results) {
+    for (const { dateStr, data, err, solarData } of results) {
         if (err) { console.warn('[v2 History]', dateStr, err.message); continue; }
         if (!data?.sensors) continue;
 
@@ -6184,6 +6206,13 @@ async function fetchHistoricalWeather() {
                 }
             }
             if (etFound && rainFound && tempFound) break;
+        }
+        // ET from the solar station (club ISS has no solar sensor, so no ET)
+        if (!etFound && solarData?.sensors) {
+            for (const sensor of solarData.sensors) {
+                const se = (sensor.data || []).reduce((s, r) => s + parseFloat(r.et ?? 0), 0);
+                if (se > 0) { etInches = se; etFound = true; break; }
+            }
         }
         const meanTemp = tempCount > 0 ? +((tempSum / tempCount).toFixed(1)) : null;
         const meanRH   = tempCount > 0 ? +((rhSum   / tempCount).toFixed(1)) : null;
