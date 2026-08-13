@@ -2265,7 +2265,11 @@ async function runCustomExport() {
             if (err) { records.push({ date: dateStr }); continue; }
             let etInches = 0, rainMm = 0;
             let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
-            for (const sensor of (data?.sensors || [])) {
+            // Dates before the Aug 2026 changeover have no club-station records -
+            // fall back to the Lake Albert station's data for rain and temp too
+            const clubHasData = (data?.sensors || []).some(s => (s.data || []).length > 0);
+            const srcSensors  = clubHasData ? data.sensors : (solarData?.sensors || []);
+            for (const sensor of srcSensors) {
                 const recs = sensor.data || [];
                 const se = recs.reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
                 if (se > 0) etInches = Math.max(etInches, se);
@@ -2277,7 +2281,7 @@ async function runCustomExport() {
                 const se = (sensor.data || []).reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
                 if (se > 0) etInches = Math.max(etInches, se);
             }
-            const tempRecs = bestTempSensor(data?.sensors);
+            const tempRecs = bestTempSensor(srcSensors);
             for (const r of tempRecs) {
                 const tF = r.temp ?? r.temp_out ?? r.temp_avg ?? r.temp_last; const h = r.hum ?? r.hum_out ?? r.hum_last;
                 if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }
@@ -2357,7 +2361,11 @@ async function exportMonthCSV() {
             if (err) { records.push({ date: dateStr }); continue; }
             let etInches = 0, rainMm = 0;
             let tempSum = 0, rhSum = 0, tempCount = 0, tempMax = -Infinity, tempMin = Infinity;
-            for (const sensor of (data?.sensors || [])) {
+            // Dates before the Aug 2026 changeover have no club-station records -
+            // fall back to the Lake Albert station's data for rain and temp too
+            const clubHasData = (data?.sensors || []).some(s => (s.data || []).length > 0);
+            const srcSensors  = clubHasData ? data.sensors : (solarData?.sensors || []);
+            for (const sensor of srcSensors) {
                 const recs = sensor.data || [];
                 const se = recs.reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
                 if (se > 0) etInches = Math.max(etInches, se);
@@ -2369,7 +2377,7 @@ async function exportMonthCSV() {
                 const se = (sensor.data || []).reduce((s,r) => s + parseFloat(r.et ?? 0), 0);
                 if (se > 0) etInches = Math.max(etInches, se);
             }
-            const tempRecs = bestTempSensor(data?.sensors);
+            const tempRecs = bestTempSensor(srcSensors);
             for (const r of tempRecs) {
                 const tF = r.temp ?? r.temp_out ?? r.temp_avg ?? r.temp_last; const h = r.hum ?? r.hum_out ?? r.hum_last;
                 if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }

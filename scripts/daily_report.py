@@ -3624,8 +3624,12 @@ def backfill_history(from_date, to_date, force=False):
     for i, target_date in enumerate(missing, start=1):
         log.info(f'[{i}/{len(missing)}] {target_date}')
 
-        # 1. Davis v2 historic fetch
+        # 1. Davis v2 historic fetch (Lake Albert station covers pre-changeover
+        #    dates and club-station outages)
         davis_records = fetch_davis_historic(target_date)
+        if not davis_records:
+            log.info('  No club-station records - trying Lake Albert station')
+            davis_records = fetch_davis_historic(target_date, station=DAVIS_V2_SOLAR_STATION)
         log.info(f'  Davis records: {len(davis_records)}')
 
         # 3. Process Davis data
@@ -3817,6 +3821,9 @@ def main():
     # ── 1. Fetch data ──────────────────────────────────────────────────────
     log.info('Fetching Davis v2 historic data...')
     davis_records = fetch_davis_historic(yesterday)
+    if not davis_records:
+        log.info('  No club-station records - trying Lake Albert station')
+        davis_records = fetch_davis_historic(yesterday, station=DAVIS_V2_SOLAR_STATION)
     log.info(f'  {len(davis_records)} records returned')
 
     log.info('Fetching Open-Meteo archive...')
