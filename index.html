@@ -37,7 +37,7 @@
         .tab-btn:hover:not(.active) { background: #3d5166; color: #ecf0f1; }
 
         /* ── Conditions Bar ── */
-        .conditions-bar { display: grid; grid-template-columns: repeat(8, 1fr); background: #2c3e50; border-radius: 10px; padding: 14px 10px; margin-bottom: 16px; }
+        .conditions-bar { display: grid; grid-template-columns: repeat(9, 1fr); background: #2c3e50; border-radius: 10px; padding: 14px 10px; margin-bottom: 16px; }
         .cond-item { text-align: center; padding: 6px 8px; }
         .cond-item .label { font-size: 0.72em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
         .cond-item .value { font-size: 1.4em; font-weight: bold; margin-top: 2px; }
@@ -730,6 +730,7 @@
         <div class="cond-item"><div class="label">Wind Speed</div><div class="value" id="wind-speed">-- km/h</div></div>
         <div class="cond-item"><div class="label">Wind Dir</div><div class="value" id="wind-dir">--</div></div>
         <div class="cond-item"><div class="label">Rain Today</div><div class="value" id="cond-rain-today">-- mm</div></div>
+        <div class="cond-item"><div class="label">Rain 24 Hr</div><div class="value" id="cond-rain-24h">-- mm</div></div>
         <div class="cond-item"><div class="label">Rain Month</div><div class="value" id="cond-rain-month">-- mm</div></div>
         <div class="cond-item" id="cond-gust-item" style="display:none"><div class="label">Gusts</div><div class="value" id="wind-gust">-- km/h</div></div>
     </div>
@@ -1659,7 +1660,7 @@ const GITHUB_REPO    = 'Bidgee182/wwcc-weather-page';
 // These files are updated every 30 minutes by the farmbot-poll GitHub Actions workflow.
 
 // ── Global state ──────────────────────────────────────────────────
-let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
+let wx = { temp: null, rh: null, pressure: null, windKmh: 0, gustKmh: null, windDeg: null, windDir: '--', rainToday: 0, rain24h: null, etToday: 0, rainMonth: null, rainYear: null, deltaT: null };
 
 // ── Spray product Delta T thresholds ─────────────────────────────
 // dtMin/dtMax = ideal window; dtWarnMax = marginal upper limit
@@ -5882,8 +5883,9 @@ async function getWeatherData() {
         const rh   = parseFloat(iss.hum);
         if (isNaN(temp) || isNaN(rh)) throw new Error('Davis API returned invalid temp/RH');
 
-        const rain = iss.rainfall_daily_mm != null ? parseFloat(iss.rainfall_daily_mm) || 0 : 0;
-        const et   = await getTodayET();
+        const rain   = iss.rainfall_daily_mm != null ? parseFloat(iss.rainfall_daily_mm) || 0 : 0;
+        const rain24 = iss.rainfall_last_24_hr_mm != null ? parseFloat(iss.rainfall_last_24_hr_mm) || 0 : null;
+        const et     = await getTodayET();
 
         let rainMonth = iss.rainfall_monthly_mm != null ? parseFloat(iss.rainfall_monthly_mm) : null;
         let rainYear  = iss.rainfall_year_mm    != null ? parseFloat(iss.rainfall_year_mm)    : null;
@@ -5929,7 +5931,7 @@ async function getWeatherData() {
         if (baro && baro.bar_sea_level != null) pressure = parseFloat(baro.bar_sea_level) * 33.8639;
         if (pressure != null && isNaN(pressure)) pressure = null;
 
-        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh, rainMonth, rainYear, deltaT };
+        wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, rain24h: rain24, etToday: et, gustKmh, rainMonth, rainYear, deltaT };
 
         // Conditions bar
         document.getElementById('temp').innerText       = temp.toFixed(1) + '°C';
@@ -5943,6 +5945,7 @@ async function getWeatherData() {
         const windArrow = compassToArrow(windDir);
         document.getElementById('wind-dir').innerHTML = windArrow ? `${windDir} <span style="font-size:1.1em">${windArrow}</span>` : windDir;
         document.getElementById('cond-rain-today').innerText = rain.toFixed(1) + ' mm';
+        document.getElementById('cond-rain-24h').innerText = rain24 !== null ? rain24.toFixed(1) + ' mm' : '-- mm';
         document.getElementById('cond-rain-month').innerText = rainMonth !== null ? rainMonth.toFixed(1) + ' mm' : '-- mm';
         applyLakeWind(); // override with FarmBot lake wind if available
         const gustItem = document.getElementById('cond-gust-item');
