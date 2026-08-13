@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-08-13T20:21:19.944349+00:00",
-  "last_seen": "2026-08-13T20:21:19.944349+00:00",
-  "last_connected": "2026-08-13T20:21:19.944349+00:00",
+  "timestamp": "2026-08-13T20:26:03.034696+00:00",
+  "last_seen": "2026-08-13T20:26:03.034696+00:00",
+  "last_connected": "2026-08-13T20:26:03.034696+00:00",
   "system": {
-    "pressure_actual_bar": 6.803,
-    "pressure_suction_bar": -0.821,
+    "pressure_actual_bar": 7.054,
+    "pressure_suction_bar": -0.812,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 7.6,
-    "power_kw": 2.8,
+    "flow_m3h": 0.0,
+    "power_kw": 3.8,
     "mode": "constant head",
     "fault": false,
-    "system_on": false,
-    "relative_performance_pct": 0.0,
+    "system_on": true,
+    "relative_performance_pct": 78.7,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198974,
@@ -21,7 +21,7 @@
     "power_ons": 82,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 0,
+    "do_bits": 2,
     "tank_ok": true,
     "cim_unit_family": 21,
     "cim_unit_type": 1,
@@ -48,7 +48,7 @@
       "bit": 0,
       "running": false,
       "fault": false,
-      "standby": false,
+      "standby": true,
       "speed_pct": 0.0,
       "power_kw": 0.0,
       "current_a": 0.0,
@@ -66,7 +66,7 @@
       "bit": 1,
       "running": false,
       "fault": false,
-      "standby": false,
+      "standby": true,
       "speed_pct": 0.0,
       "power_kw": 0.0,
       "current_a": 0.0,
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "speed_pct": 76.0,
+      "power_kw": 3.6,
+      "current_a": 12.4,
       "run_hours": 5148.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -100,12 +100,12 @@
       "rated_kw": 5.5,
       "block": 460,
       "bit": 6,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 79.9,
-      "power_kw": 2.8,
-      "current_a": 5.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 1396.0,
       "starts_today": 1,
       "temp_c": null,
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 6841,
+      "raw": 7532,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 179,
+      "raw": 188,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-12T21:03:45.414547+00:00",
-      "pa": 5.984,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5148.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-12T21:08:49.135332+00:00",
       "pa": 5.984,
@@ -11668,6 +11628,46 @@
         0,
         0,
         0,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-13T20:26:03.034696+00:00",
+      "pa": 7.054,
+      "ps": 7.8,
+      "pi": -0.812,
+      "fl": 0.0,
+      "nr": 1,
+      "pk": 3.8,
+      "sp": [
+        0.0,
+        0.0,
+        76.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        3.6,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        0,
+        1,
         1
       ],
       "tm": [
