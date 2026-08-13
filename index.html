@@ -5838,6 +5838,31 @@ async function getTodayET() {
     return _etTodayCache.mm;
 }
 
+// Month/year rain totals from the logged daily history (past days only -
+// today's live counter is added by the caller). The station's own counters
+// only know rain since its Aug 2026 install, so summing the history file
+// keeps totals correct across station changes. Cached for 30 min.
+let _rainHistCache = { totals: null, ts: 0 };
+async function getRainHistoryTotals() {
+    if (Date.now() - _rainHistCache.ts < 30 * 60 * 1000) return _rainHistCache.totals;
+    _rainHistCache.ts = Date.now();
+    try {
+        const res = await fetch('data/davis_weather_history.json?_=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const records = await res.json();
+        const todayStr = new Date(Date.now() + sydneyOffsetMs()).toISOString().slice(0, 10);
+        let monthPast = 0, yearPast = 0;
+        for (const rec of records) {
+            const d = rec.date;
+            if (!d || d >= todayStr || !d.startsWith(todayStr.slice(0, 4))) continue;
+            yearPast += rec.rain || 0;
+            if (d.startsWith(todayStr.slice(0, 7))) monthPast += rec.rain || 0;
+        }
+        _rainHistCache.totals = { monthPast, yearPast };
+    } catch (e) { console.warn('[Rain history]', e.message); }
+    return _rainHistCache.totals;
+}
+
 async function getWeatherData() {
     try {
         const data = await v2Fetch(`current/${v2StationId}`, {});
@@ -5864,6 +5889,14 @@ async function getWeatherData() {
         let rainYear  = iss.rainfall_year_mm    != null ? parseFloat(iss.rainfall_year_mm)    : null;
         if (rainMonth != null && isNaN(rainMonth)) rainMonth = null;
         if (rainYear  != null && isNaN(rainYear))  rainYear  = null;
+
+        // Prefer month/year totals computed from the logged daily history
+        // (station counters are the fallback if the file is unavailable)
+        const histTotals = await getRainHistoryTotals();
+        if (histTotals) {
+            rainMonth = histTotals.monthPast + rain;
+            rainYear  = histTotals.yearPast  + rain;
+        }
 
         // Wet bulb: real station value when present, else Stull (2011) estimate
         let tw;

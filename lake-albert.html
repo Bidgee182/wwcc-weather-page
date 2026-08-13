@@ -1971,6 +1971,23 @@ async function fetchWeather() {
         _rainMonthMm=iss.rainfall_monthly_mm!=null?parseFloat(iss.rainfall_monthly_mm):null;
         _rainYearMm =iss.rainfall_year_mm   !=null?parseFloat(iss.rainfall_year_mm):null;
 
+        // Prefer month/year totals from the logged daily history - the club
+        // station's counters only know rain since its Aug 2026 install
+        try {
+            const store=await loadDavisStore();
+            if(Object.keys(store).length>0){
+                const todayStr=new Date(Date.now()+sydneyOffsetMs()).toISOString().slice(0,10);
+                let mSum=0,ySum=0;
+                for(const [d,v] of Object.entries(store)){
+                    if(!d||d>=todayStr||!d.startsWith(todayStr.slice(0,4)))continue;
+                    ySum+=v.rain||0;
+                    if(d.startsWith(todayStr.slice(0,7)))mSum+=v.rain||0;
+                }
+                _rainMonthMm=mSum+_rainDayMm;
+                _rainYearMm =ySum+_rainDayMm;
+            }
+        } catch(e) {}
+
         // Pressure (inHg → hPa)
         _pressHpa=baro&&baro.bar_sea_level!=null?parseFloat(baro.bar_sea_level)*33.8639:null;
 
