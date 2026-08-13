@@ -851,12 +851,12 @@ const SAFE_DEPTH_SAIL = 1.2;   // sailing & leisure craft minimum
 const PADDLE_DEPTH_M  = 0.6;   // sailboats & paddle craft minimum
 const MARGINAL_DEPTH_M= 2.0;   // caution margin above the all-vessel minimum
 const RACE_DEPTH      = 2.0;   // competition water skiing minimum (Barry Carne Memorial etc.)
+// Davis WeatherLink v2 API - station 243271 (club WeatherLink Live, installed Aug 2026).
+// The old v1 NoaaExt API does not support WeatherLink Live devices, so live
+// conditions now come from the v2 /current endpoint.
 const v2ApiKey        = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
 const v2ApiSecret     = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
-const v2StationId     = 10489;
-const davisV1User     = '001D0A00AB84';
-const davisV1Pass     = 'Ap08021977';
-const davisV1Token    = '771389FF9E4B4856A18AD35028EAFCE8';
+const v2StationId     = 243271;
 
 // ── State ─────────────────────────────────────────────────────────────────
 let _range        = 24;
@@ -1637,6 +1637,32 @@ async function v2Fetch(endpoint,params) {
     throw lastErr||new Error('v2Fetch failed');
 }
 
+// Today's high/low from the station archive (WLL current data has no daily hi/lo).
+// Cached for 30 min so the weather tab doesn't hammer the API.
+let _hiloCache={hi:null,lo:null,ts:0};
+async function getTodayHiLo() {
+    if(Date.now()-_hiloCache.ts<30*60*1000) return _hiloCache;
+    _hiloCache.ts=Date.now();
+    try {
+        const offsetMs=sydneyOffsetMs(),offsetSecs=Math.round(offsetMs/1000);
+        const syd=new Date(Date.now()+offsetMs);syd.setUTCHours(0,0,0,0);
+        const startTs=Math.floor(syd.getTime()/1000)-offsetSecs;
+        const endTs=Math.floor(Date.now()/1000);
+        const data=await v2Fetch(`historic/${v2StationId}`,{'start-timestamp':startTs,'end-timestamp':endTs});
+        let hi=-Infinity,lo=Infinity;
+        for(const sensor of(data?.sensors||[])){
+            for(const r of(sensor.data||[])){
+                const hF=r.temp_hi??r.temp??r.temp_out,lF=r.temp_lo??r.temp??r.temp_out;
+                if(hF!=null){const c=(parseFloat(hF)-32)/1.8;if(c>hi)hi=c;}
+                if(lF!=null){const c=(parseFloat(lF)-32)/1.8;if(c<lo)lo=c;}
+            }
+        }
+        _hiloCache.hi=hi>-Infinity?hi:null;
+        _hiloCache.lo=lo<Infinity?lo:null;
+    } catch(e){ console.warn('[hilo]',e.message); }
+    return _hiloCache;
+}
+
 async function fetchDavisHistory() {
     const offsetMs  =sydneyOffsetMs();
     const offsetSecs=Math.round(offsetMs/1000);
@@ -1668,10 +1694,15 @@ async function fetchDavisHistory() {
                     const ts=((r.ts??r.timestamp)||0)*1000;if(!ts)continue;
                     const date=new Date(ts+offsetMs).toISOString().slice(0,10);
                     if(!dayData[date])dayData[date]={tMax:-Infinity,tMin:Infinity,rain:0,hasTemp:false};
-                    const tF=r.temp??r.temp_out;
-                    if(tF!=null){
-                        const tC=(parseFloat(tF)-32)/1.8;
+                    const hF=r.temp_hi??r.temp??r.temp_out??r.temp_last;
+                    const lF=r.temp_lo??r.temp??r.temp_out??r.temp_last;
+                    if(hF!=null){
+                        const tC=(parseFloat(hF)-32)/1.8;
                         if(tC>dayData[date].tMax)dayData[date].tMax=tC;
+                        dayData[date].hasTemp=true;
+                    }
+                    if(lF!=null){
+                        const tC=(parseFloat(lF)-32)/1.8;
                         if(tC<dayData[date].tMin)dayData[date].tMin=tC;
                         dayData[date].hasTemp=true;
                     }
@@ -1884,25 +1915,25 @@ function updateActivityPills(windKph) {
     }
 }
 
-// ── Weather tab (Davis v1 API) ────────────────────────────────────────────
+// ── Weather tab (Davis WeatherLink v2 current conditions) ─────────────────
 async function fetchWeather() {
     const err=document.getElementById('wx-err');
     try {
-        const v1Url=`https://api.weatherlink.com/v1/NoaaExt.json?user=${davisV1User}&pass=${davisV1Pass}&apiToken=${davisV1Token}`;
-        const proxies=[
-            `https://corsproxy.io/?${encodeURIComponent(v1Url)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(v1Url)}`
-        ];
-        let wx=null;
-        for(const url of proxies){
-            try{const res=await fetch(url);if(res.ok){wx=await res.json();break;}}catch(e){}
+        const data=await v2Fetch(`current/${v2StationId}`,{});
+        if(!data?.sensors) throw new Error('Davis weather station unavailable - try again shortly');
+
+        // Locate the outdoor sensor suite (ISS) and barometer records
+        let iss=null,baro=null;
+        for(const sensor of data.sensors){
+            const rec=(sensor.data||[])[0];
+            if(!rec)continue;
+            if(!iss  && rec.temp!=null && rec.hum!=null && rec.wind_speed_last!==undefined) iss=rec;
+            if(!baro && rec.bar_sea_level!=null) baro=rec;
         }
-        if(!wx) throw new Error('Davis weather station unavailable - try again shortly');
+        if(!iss) throw new Error('Davis weather station unavailable - try again shortly');
 
         // Ensure lake level is loaded so depth shows correctly on all tabs
         if(!_lakeLatest) { try{ const lr=await fetch('data/farmbot_lake_latest.json?_='+Date.now()); if(lr.ok)_lakeLatest=await lr.json(); }catch(e){} }
-
-        const dco=wx.davis_current_observation||{};
 
         // Wind speed & direction - FarmBot lake sensor (at the lake, no CORS proxy)
         try {
@@ -1912,37 +1943,36 @@ async function fetchWeather() {
             _windKph=fd.wind_kph!=null?parseFloat(fd.wind_kph):0;
             _windDeg=fd.wind_deg!=null?parseFloat(fd.wind_deg):0;
         } catch(e) {
-            // Fall back to Davis v1 wind
-            const windMph=parseFloat(dco.wind_ten_min_avg_mph??wx.wind_mph??0)||0;
+            // Fall back to Davis wind (club station)
+            const windMph=parseFloat(iss.wind_speed_avg_last_10_min??iss.wind_speed_last??0)||0;
             _windKph=windMph*1.60934;
-            _windDeg=parseFloat(wx.wind_degrees!==undefined&&wx.wind_degrees!==null?wx.wind_degrees:0)||0;
+            _windDeg=parseFloat(iss.wind_dir_scalar_avg_last_10_min??iss.wind_dir_last??0)||0;
         }
-        // Gust - Davis v1 only (FarmBot lake sensor doesn't record gusts)
-        const gustMph=parseFloat(dco.wind_gust_10_min_mph??0)||0;
+        // Gust - Davis only (FarmBot lake sensor doesn't record gusts)
+        const gustMph=parseFloat(iss.wind_speed_hi_last_10_min??0)||0;
         _windGustKph=gustMph>0?gustMph*1.60934:null;
 
-        // Temperature (°F → °C if needed)
-        const tempF=parseFloat(wx.temp_f??32);
-        _tempC=wx.temp_c!=null?parseFloat(wx.temp_c):(tempF-32)/1.8;
-        const highF=parseFloat(wx.temp_day_high_f??tempF);
-        const lowF =parseFloat(wx.temp_day_low_f ??tempF);
-        const highC=wx.temp_day_high_c!=null?parseFloat(wx.temp_day_high_c):(highF-32)/1.8;
-        const lowC =wx.temp_day_low_c !=null?parseFloat(wx.temp_day_low_c ):(lowF-32)/1.8;
+        // Temperature (°F → °C)
+        _tempC=(parseFloat(iss.temp)-32)/1.8;
+
+        // Today's high/low from the station archive
+        const hilo=await getTodayHiLo();
+        const highC=hilo.hi!=null?hilo.hi:_tempC;
+        const lowC =hilo.lo!=null?hilo.lo:_tempC;
 
         // Humidity & Magnus-formula dew point
-        const hum=parseFloat(wx.relative_humidity??0)||0;
+        const hum=parseFloat(iss.hum??0)||0;
         const dp=hum>0&&!isNaN(_tempC)
             ?(243.04*(Math.log(hum/100)+17.625*_tempC/(243.04+_tempC))/(17.625-(Math.log(hum/100)+17.625*_tempC/(243.04+_tempC))))
             :null;
 
-        // Rainfall (inches → mm)
-        _rainDayMm  =dco.rain_day_in  !=null?parseFloat(dco.rain_day_in  )*25.4:0;
-        _rainMonthMm=dco.rain_month_in!=null?parseFloat(dco.rain_month_in)*25.4:null;
-        _rainYearMm =dco.rain_year_in !=null?parseFloat(dco.rain_year_in )*25.4:null;
+        // Rainfall (mm direct from v2)
+        _rainDayMm  =iss.rainfall_daily_mm  !=null?parseFloat(iss.rainfall_daily_mm)||0:0;
+        _rainMonthMm=iss.rainfall_monthly_mm!=null?parseFloat(iss.rainfall_monthly_mm):null;
+        _rainYearMm =iss.rainfall_year_mm   !=null?parseFloat(iss.rainfall_year_mm):null;
 
-        // Pressure (mb or inHg → hPa)
-        _pressHpa=wx.pressure_mb!=null?parseFloat(wx.pressure_mb)
-                 :dco.bar_sea_level_in!=null?parseFloat(dco.bar_sea_level_in)*33.8639:null;
+        // Pressure (inHg → hPa)
+        _pressHpa=baro&&baro.bar_sea_level!=null?parseFloat(baro.bar_sea_level)*33.8639:null;
 
         // ── Populate Weather tab ─────────────────────────────────────────
         const setEl=(id,val,dec)=>{const e=document.getElementById(id);if(e)e.textContent=val!=null?parseFloat(val).toFixed(dec):'--';};

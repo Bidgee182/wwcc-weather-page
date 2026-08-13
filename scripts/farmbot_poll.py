@@ -61,7 +61,7 @@ DAVIS_WEATHER_HISTORY_JSON = DATA_DIR / 'davis_weather_history.json'
 # Davis WeatherLink v2 (same station as the golf course dashboard)
 DAVIS_V2_API_KEY    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x'
 DAVIS_V2_API_SECRET = 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
-DAVIS_V2_STATION_ID = 10489
+DAVIS_V2_STATION_ID = 243271   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
 DAVIS_V2_BASE       = 'https://api.weatherlink.com/v2'
 
 # Lake weather station sensor SIDs (hardcoded - fixed hardware)
@@ -269,20 +269,27 @@ def _process_davis_day(records):
     sin_sum  = 0.0; cos_sum = 0.0; dir_count = 0
     for sensor in records:
         for r in (sensor.get('data') or []):
-            t_f = r.get('temp') or r.get('temp_out')
-            if t_f is not None:
-                t_c = (float(t_f) - 32.0) / 1.8
+            # Archive records report hi/lo per interval (WLL: temp_hi/temp_lo/temp_last)
+            t_hi_f = r.get('temp_hi') or r.get('temp') or r.get('temp_out') or r.get('temp_last')
+            t_lo_f = r.get('temp_lo') or r.get('temp') or r.get('temp_out') or r.get('temp_last')
+            if t_hi_f is not None:
+                t_c = (float(t_hi_f) - 32.0) / 1.8
                 if t_c > t_max: t_max = t_c
+                has_temp = True
+            if t_lo_f is not None:
+                t_c = (float(t_lo_f) - 32.0) / 1.8
                 if t_c < t_min: t_min = t_c
                 has_temp = True
             rn = r.get('rainfall_mm')
             if rn is not None: rain += float(rn)
-            hm = r.get('hum') or r.get('hum_out')
+            hm = r.get('hum') or r.get('hum_out') or r.get('hum_last')
             if hm is not None: hum_sum += float(hm); hum_count += 1
-            # Wind speed: prefer 10-min avg (most stable), fall back to shorter averages
-            wm_avg = (r.get('wind_speed_avg_last_10_min') or r.get('wind_speed_avg_last_1_min')
-                      or r.get('wind_speed_last'))
-            wm_hi  = (r.get('wind_speed_last') or r.get('wind_speed_avg_last_1_min')
+            # Wind speed: prefer 10-min avg (most stable), fall back to shorter averages.
+            # WLL archive records use wind_speed_avg / wind_speed_hi.
+            wm_avg = (r.get('wind_speed_avg') or r.get('wind_speed_avg_last_10_min')
+                      or r.get('wind_speed_avg_last_1_min') or r.get('wind_speed_last'))
+            wm_hi  = (r.get('wind_speed_hi') or r.get('wind_speed_last')
+                      or r.get('wind_speed_avg_last_1_min')
                       or r.get('wind_speed_hi_last_2_min') or r.get('wind_speed_avg_last_10_min'))
             if wm_avg is not None:
                 kph_avg = float(wm_avg) * 1.60934

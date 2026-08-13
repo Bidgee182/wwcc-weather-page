@@ -43,7 +43,7 @@ DAVIS_PASS       = os.environ.get('DAVIS_PASS',        'Ap08021977')
 DAVIS_TOKEN      = os.environ.get('DAVIS_TOKEN',       '771389FF9E4B4856A18AD35028EAFCE8')
 DAVIS_V2_KEY     = os.environ.get('DAVIS_V2_KEY',      'kvsweiywmnahb6ayvc7gstbdigst1k9x')
 DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET',   'urw4q7amnhwnajydf3r1ubggcrvcicvh')
-DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '10489')
+DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '243271')   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
@@ -375,6 +375,7 @@ def process_davis_records(records):
     solar_rad_vals  = []   # solar_rad_avg (W/m²)
     solar_rad_hi_vals = [] # solar_rad_hi (W/m²)
     solar_energy_total = 0.0  # Langleys per interval, summed
+    sr_series   = []   # (rec_dt, solar_rad_avg) pairs for energy integration fallback
     dew_point_vals  = []   # dew_point_out (°F → °C)
     wet_bulb_vals   = []   # wet_bulb (°F → °C)
     heat_index_vals = []   # heat_index_out (°F → °C)
@@ -393,12 +394,12 @@ def process_davis_records(records):
         rec_dt = datetime.fromtimestamp(ts, tz=TZ)
         hour   = rec_dt.hour
 
-        # Temperature (F -> C)
-        t_f = rec.get('temp') or rec.get('temp_out')
+        # Temperature (F -> C). WLL archive records use temp_avg/temp_last.
+        t_f = rec.get('temp') or rec.get('temp_out') or rec.get('temp_avg') or rec.get('temp_last')
         t_c = f_to_c(float(t_f)) if t_f is not None else None
 
-        # Humidity
-        rh = rec.get('hum') or rec.get('hum_out')
+        # Humidity (WLL archive records use hum_last)
+        rh = rec.get('hum') or rec.get('hum_out') or rec.get('hum_last')
         rh = float(rh) if rh is not None else None
 
         # Wind speed (mph -> m/s for leaf-wetness model; mph -> km/h for reporting)
@@ -436,6 +437,7 @@ def process_davis_records(records):
         sr_avg = rec.get('solar_rad_avg') or rec.get('solar_rad')
         if sr_avg is not None:
             solar_rad_vals.append(float(sr_avg))
+            sr_series.append((rec_dt, float(sr_avg)))
         sr_hi = rec.get('solar_rad_hi')
         if sr_hi is not None:
             solar_rad_hi_vals.append(float(sr_hi))
@@ -446,17 +448,17 @@ def process_davis_records(records):
             solar_energy_total += float(se)
 
         # Dew point (°F -> °C)
-        dp_f = rec.get('dew_point_out') or rec.get('dew_point')
+        dp_f = rec.get('dew_point_out') or rec.get('dew_point') or rec.get('dew_point_last')
         if dp_f is not None:
             dew_point_vals.append(f_to_c(float(dp_f)))
 
         # Wet bulb (°F -> °C)
-        wb_f = rec.get('wet_bulb')
+        wb_f = rec.get('wet_bulb') or rec.get('wet_bulb_last')
         if wb_f is not None:
             wet_bulb_vals.append(f_to_c(float(wb_f)))
 
         # Heat index (°F -> °C)
-        hi_f = rec.get('heat_index_out') or rec.get('heat_index')
+        hi_f = rec.get('heat_index_out') or rec.get('heat_index') or rec.get('heat_index_last')
         if hi_f is not None:
             heat_index_vals.append(f_to_c(float(hi_f)))
 
@@ -466,7 +468,7 @@ def process_davis_records(records):
             wind_chill_vals.append(f_to_c(float(wc_f)))
 
         # THSW index (°F -> °C)
-        thsw_f = rec.get('thsw_index')
+        thsw_f = rec.get('thsw_index') or rec.get('thsw_index_last')
         if thsw_f is not None:
             thsw_vals.append(f_to_c(float(thsw_f)))
 
@@ -502,13 +504,16 @@ def process_davis_records(records):
         if cc is not None:
             cloud_cover_vals.append(float(cc))
 
-        # ISS reception (%)
+        # ISS reception (%) - WLL archive records call this 'reception'
         rx = rec.get('iss_reception')
+        if rx is None:
+            rx = rec.get('reception')
         if rx is not None:
             reception_vals.append(float(rx))
 
-        # Pressure (inHg -> hPa)
-        bar_in = rec.get('bar_sea_level_in') or rec.get('bar_in') or rec.get('bar')
+        # Pressure (inHg -> hPa) - WLL barometer records use bar_sea_level (inHg)
+        bar_in = (rec.get('bar_sea_level_in') or rec.get('bar_sea_level')
+                  or rec.get('bar_in') or rec.get('bar'))
         if bar_in:
             pressures.append(float(bar_in) * 33.8639)
 
@@ -584,6 +589,15 @@ def process_davis_records(records):
     solar_rad_avg_daily = round(sum(solar_rad_vals)/len(solar_rad_vals), 1) if solar_rad_vals else None
     solar_rad_hi_daily  = round(max(solar_rad_hi_vals), 0)  if solar_rad_hi_vals  else None
     solar_energy_daily  = round(solar_energy_total, 2)      if solar_energy_total > 0 else None
+    # WLL stations do not report solar_energy - integrate solar_rad_avg over the
+    # day instead (1 Langley = 41840 J/m²)
+    if solar_energy_daily is None and len(sr_series) >= 2:
+        sr_series.sort(key=lambda p: p[0])
+        _gaps = [(sr_series[i + 1][0] - sr_series[i][0]).total_seconds()
+                 for i in range(len(sr_series) - 1)]
+        _gaps = [g for g in _gaps if 0 < g <= 3600]
+        _interval_s = sorted(_gaps)[len(_gaps) // 2] if _gaps else 300.0
+        solar_energy_daily = round(sum(sr * _interval_s for _, sr in sr_series) / 41840.0, 2)
     dew_point_mean      = round(sum(dew_point_vals)/len(dew_point_vals), 1) if dew_point_vals else None
     wet_bulb_mean       = round(sum(wet_bulb_vals)/len(wet_bulb_vals), 1)   if wet_bulb_vals  else None
     heat_index_mean     = round(sum(heat_index_vals)/len(heat_index_vals), 1) if heat_index_vals else None

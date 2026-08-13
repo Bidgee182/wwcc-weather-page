@@ -1539,7 +1539,7 @@
         </div>
 
         <div style="font-size:0.72em;color:#566573;text-align:center;padding-top:4px">
-            &#128225; Davis WeatherLink v2 &nbsp;&middot;&nbsp; Station ID 10489 &nbsp;&middot;&nbsp; Wagga Wagga Country Club
+            &#128225; Davis WeatherLink v2 &nbsp;&middot;&nbsp; Station ID 243271 &nbsp;&middot;&nbsp; Wagga Wagga Country Club
         </div>
     </div>
 
@@ -1642,9 +1642,9 @@ const GK_MODE  = new URLSearchParams(window.location.search).has('gk');
 // ── Credentials ───────────────────────────────────────────────────
 // NOTE: Credentials visible in source. Do not host this file publicly
 // or on an open web server without access restrictions.
-const did         = '001D0A00AB84';
-const password    = 'Ap08021977';
-const tokenID     = '771389FF9E4B4856A18AD35028EAFCE8';
+// Davis WeatherLink v2 API - station 243271 (on-course WeatherLink Live, installed Aug 2026).
+// The old v1 NoaaExt API does not support WeatherLink Live devices, so live
+// conditions now come from the v2 /current endpoint.
 const v2ApiKey    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x';
 const v2ApiSecret = 'urw4q7amnhwnajydf3r1ubggcrvcicvh';
 const CLUB_LAT    = '-35.1082';
@@ -2069,7 +2069,7 @@ function triggerDownload(csv, filename) {
 function bestTempSensor(sensors) {
     let best = null, bestCount = 0;
     for (const sensor of (sensors || [])) {
-        const cnt = (sensor.data || []).filter(r => r.temp != null || r.temp_out != null).length;
+        const cnt = (sensor.data || []).filter(r => r.temp != null || r.temp_out != null || r.temp_last != null || r.temp_avg != null).length;
         if (cnt > bestCount) { bestCount = cnt; best = sensor; }
     }
     return best?.data || [];
@@ -2270,7 +2270,7 @@ async function runCustomExport() {
             }
             const tempRecs = bestTempSensor(data?.sensors);
             for (const r of tempRecs) {
-                const tF = r.temp ?? r.temp_out; const h = r.hum ?? r.hum_out;
+                const tF = r.temp ?? r.temp_out ?? r.temp_avg ?? r.temp_last; const h = r.hum ?? r.hum_out ?? r.hum_last;
                 if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }
             }
             records.push({
@@ -2354,7 +2354,7 @@ async function exportMonthCSV() {
             }
             const tempRecs = bestTempSensor(data?.sensors);
             for (const r of tempRecs) {
-                const tF = r.temp ?? r.temp_out; const h = r.hum ?? r.hum_out;
+                const tF = r.temp ?? r.temp_out ?? r.temp_avg ?? r.temp_last; const h = r.hum ?? r.hum_out ?? r.hum_last;
                 if (tF != null) { const tC = (parseFloat(tF) - 32) / 1.8; tempSum += tC; tempCount++; if (tC > tempMax) tempMax = tC; if (tC < tempMin) tempMin = tC; if (h != null) rhSum += parseFloat(h); }
             }
             records.push({
@@ -5797,73 +5797,87 @@ function renderHourlyForecast() {
     card.style.display = '';
 }
 
-// ── Davis weather fetch ───────────────────────────────────────────
+// ── Davis weather fetch (WeatherLink v2 current conditions) ───────
+// Today's ET is only available in archive records on WeatherLink Live,
+// so it is summed from today's historic intervals and cached for 30 min.
+let _etTodayCache = { mm: 0, ts: 0 };
+async function getTodayET() {
+    if (Date.now() - _etTodayCache.ts < 30 * 60 * 1000) return _etTodayCache.mm;
+    _etTodayCache.ts = Date.now();   // set first so a failure does not hammer the API
+    try {
+        const offsetMs   = sydneyOffsetMs();
+        const offsetSecs = Math.round(offsetMs / 1000);
+        const syd = new Date(Date.now() + offsetMs);
+        syd.setUTCHours(0, 0, 0, 0);
+        const startTs = Math.floor(syd.getTime() / 1000) - offsetSecs;
+        const endTs   = Math.floor(Date.now() / 1000);
+        const data = await v2Fetch(`historic/${v2StationId}`, { 'start-timestamp': startTs, 'end-timestamp': endTs });
+        let etInches = 0;
+        for (const sensor of (data?.sensors || [])) {
+            const se = (sensor.data || []).reduce((s, r) => s + parseFloat(r.et ?? 0), 0);
+            if (se > etInches) etInches = se;
+        }
+        _etTodayCache.mm = etInches * 25.4;
+    } catch (e) { console.warn('[ET today]', e.message); }
+    return _etTodayCache.mm;
+}
+
 async function getWeatherData() {
     try {
-        const davisUrl = `https://api.weatherlink.com/v1/NoaaExt.json?user=${did}&pass=${password}&apiToken=${tokenID}`;
-        const proxies  = [
-            `https://corsproxy.io/?${encodeURIComponent(davisUrl)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(davisUrl)}`
-        ];
-        let response, lastErr;
-        for (const url of proxies) {
-            try { response = await fetch(url); if (response.ok) break; }
-            catch (e) { lastErr = e; }
-        }
-        if (!response || !response.ok) throw lastErr || new Error('All proxies failed');
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message || 'Davis API error');
+        const data = await v2Fetch(`current/${v2StationId}`, {});
+        if (!data?.sensors) throw new Error('v2 API returned no sensor data');
 
-        const temp = parseFloat(data.temp_c);
-        const rh   = parseFloat(data.relative_humidity);
+        // Locate the outdoor sensor suite (ISS) and barometer records
+        let iss = null, baro = null;
+        for (const sensor of data.sensors) {
+            const rec = (sensor.data || [])[0];
+            if (!rec) continue;
+            if (!iss  && rec.temp != null && rec.hum != null && rec.wind_speed_last !== undefined) iss = rec;
+            if (!baro && rec.bar_sea_level != null) baro = rec;
+        }
+        if (!iss) throw new Error('No outdoor sensor record in v2 response');
+
+        const temp = (parseFloat(iss.temp) - 32) / 1.8;
+        const rh   = parseFloat(iss.hum);
         if (isNaN(temp) || isNaN(rh)) throw new Error('Davis API returned invalid temp/RH');
 
-        let rain = 0, et = 0;
-        if (data.davis_current_observation?.rain_day_in)
-            rain = parseFloat(data.davis_current_observation.rain_day_in) * 25.4;
-        if (data.davis_current_observation?.et_day)
-            et   = parseFloat(data.davis_current_observation.et_day) * 25.4;
+        const rain = iss.rainfall_daily_mm != null ? parseFloat(iss.rainfall_daily_mm) || 0 : 0;
+        const et   = await getTodayET();
 
-        const dco = data.davis_current_observation;
-        let rainMonth = null, rainYear = null;
-        if (dco?.rain_month_mm != null)      rainMonth = parseFloat(dco.rain_month_mm);
-        else if (dco?.rain_month_in != null) rainMonth = parseFloat(dco.rain_month_in) * 25.4;
-        if (dco?.rain_year_mm != null)       rainYear  = parseFloat(dco.rain_year_mm);
-        else if (dco?.rain_year_in != null)  rainYear  = parseFloat(dco.rain_year_in) * 25.4;
+        let rainMonth = iss.rainfall_monthly_mm != null ? parseFloat(iss.rainfall_monthly_mm) : null;
+        let rainYear  = iss.rainfall_year_mm    != null ? parseFloat(iss.rainfall_year_mm)    : null;
         if (rainMonth != null && isNaN(rainMonth)) rainMonth = null;
         if (rainYear  != null && isNaN(rainYear))  rainYear  = null;
 
-        // Wet-bulb / Delta T (Stull 2011)
-        const tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
-                 + Math.atan(temp + rh)
-                 - Math.atan(rh - 1.676331)
-                 + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
-                 - 4.686035;
+        // Wet bulb: real station value when present, else Stull (2011) estimate
+        let tw;
+        if (iss.wet_bulb != null && !isNaN(parseFloat(iss.wet_bulb))) {
+            tw = (parseFloat(iss.wet_bulb) - 32) / 1.8;
+        } else {
+            tw = temp * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
+               + Math.atan(temp + rh)
+               - Math.atan(rh - 1.676331)
+               + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
+               - 4.686035;
+        }
         const deltaT = temp - tw;
 
         let windKmh = 0, windDeg = null, windDir = '--';
-        const rawWind = data.davis_current_observation?.wind_ten_min_avg_mph ?? data.wind_mph;
+        const rawWind = iss.wind_speed_avg_last_10_min ?? iss.wind_speed_last;
         if (rawWind) windKmh = parseFloat(rawWind) * 1.60934;
-        if (data.wind_degrees !== undefined && data.wind_degrees !== null) {
-            windDeg = parseFloat(data.wind_degrees);
+        const rawDeg = iss.wind_dir_scalar_avg_last_10_min ?? iss.wind_dir_last;
+        if (rawDeg !== undefined && rawDeg !== null) {
+            windDeg = parseFloat(rawDeg);
             windDir = degreesToCompass(windDeg);
         }
 
         let gustKmh = null;
-        const rawGust = data.davis_current_observation?.wind_gust_10_min_mph
-                     ?? data.wind_gust_mph
-                     ?? data.davis_current_observation?.wind_day_hi_mph;
+        const rawGust = iss.wind_speed_hi_last_10_min ?? iss.wind_speed_hi_last_2_min;
         if (rawGust) { const g = parseFloat(rawGust) * 1.60934; if (!isNaN(g) && g > windKmh + 3) gustKmh = g; }
 
-        // Barometric pressure in hPa/mb
+        // Barometric pressure (inHg -> hPa)
         let pressure = null;
-        if (data.pressure_mb != null) {
-            pressure = parseFloat(data.pressure_mb);
-        } else if (data.davis_current_observation?.bar_sea_level_in != null) {
-            pressure = parseFloat(data.davis_current_observation.bar_sea_level_in) * 33.8639;
-        } else if (data.bar_in != null) {
-            pressure = parseFloat(data.bar_in) * 33.8639;
-        }
+        if (baro && baro.bar_sea_level != null) pressure = parseFloat(baro.bar_sea_level) * 33.8639;
         if (pressure != null && isNaN(pressure)) pressure = null;
 
         wx = { temp, rh, pressure, windKmh, windDeg, windDir, rainToday: rain, etToday: et, gustKmh, rainMonth, rainYear, deltaT };
@@ -6107,7 +6121,7 @@ async function v2Fetch(endpoint, params) {
     throw lastErr;
 }
 
-const v2StationId = 10489;
+const v2StationId = 243271;
 
 async function fetchHistoricalWeather() {
     const offsetMs   = sydneyOffsetMs();
@@ -6152,11 +6166,11 @@ async function fetchHistoricalWeather() {
                 if (sr > 0) { rainMm = sr; rainFound = true; }
             }
             if (!tempFound) {
-                const hasTemp = recs.some(r => r.temp != null || r.temp_out != null);
+                const hasTemp = recs.some(r => r.temp != null || r.temp_out != null || r.temp_last != null || r.temp_avg != null);
                 if (hasTemp) {
                     for (const r of recs) {
-                        const tF = r.temp ?? r.temp_out;
-                        const h  = r.hum  ?? r.hum_out;
+                        const tF = r.temp ?? r.temp_out ?? r.temp_avg ?? r.temp_last;
+                        const h  = r.hum  ?? r.hum_out  ?? r.hum_last;
                         if (tF != null) {
                             const tC = (parseFloat(tF) - 32) / 1.8;
                             tempSum += tC;
@@ -6231,8 +6245,8 @@ function getSmithKerns5Day() {
 function isCartWet(rec) {
     const rain = parseFloat(rec.rainfall_mm ?? rec.rain_mm ?? 0);
     if (rain > 0) return true;
-    const tF   = rec.temp ?? rec.temp_out;
-    const h    = rec.hum  ?? rec.hum_out;
+    const tF   = rec.temp ?? rec.temp_out ?? rec.temp_avg ?? rec.temp_last;
+    const h    = rec.hum  ?? rec.hum_out  ?? rec.hum_last;
     const wsMph = rec.wind_speed_avg ?? rec.wind_speed ?? null;   // Davis v2 returns mph
     if (tF == null || h == null) return false;
     const tC   = (parseFloat(tF) - 32) / 1.8;
@@ -6268,7 +6282,7 @@ async function fetchTodayWetness() {
     if (data?.sensors) {
         for (const sensor of data.sensors) {
             const recs = sensor.data || [];
-            if (recs.some(r => r.temp != null || r.temp_out != null)) {
+            if (recs.some(r => r.temp != null || r.temp_out != null || r.temp_last != null || r.temp_avg != null)) {
                 allRecs = recs;
                 break;
             }
@@ -6287,8 +6301,8 @@ async function fetchTodayWetness() {
 
     for (const rec of allRecs) {
         if (!rec.ts) continue;
-        const tF = rec.temp ?? rec.temp_out;
-        const h  = rec.hum  ?? rec.hum_out;
+        const tF = rec.temp ?? rec.temp_out ?? rec.temp_avg ?? rec.temp_last;
+        const h  = rec.hum  ?? rec.hum_out  ?? rec.hum_last;
         if (tF != null) {
             const tC = (parseFloat(tF) - 32) / 1.8;
             // Only track night min temp (8pm-8am Sydney time)
