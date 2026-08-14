@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-08-14T01:54:48.309580+00:00",
-  "last_seen": "2026-08-14T01:54:48.309580+00:00",
-  "last_connected": "2026-08-14T01:54:48.309580+00:00",
+  "timestamp": "2026-08-14T01:59:29.518639+00:00",
+  "last_seen": "2026-08-14T01:59:29.518639+00:00",
+  "last_connected": "2026-08-14T01:59:29.518639+00:00",
   "system": {
-    "pressure_actual_bar": 8.0,
-    "pressure_suction_bar": -0.815,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 90.0,
+    "power_kw": 21.4,
     "mode": "constant head",
     "fault": false,
-    "system_on": false,
-    "relative_performance_pct": 0.0,
+    "system_on": true,
+    "relative_performance_pct": 91.3,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198974,
@@ -21,7 +21,7 @@
     "power_ons": 82,
     "volume_m3": null,
     "di_bits": 3,
-    "do_bits": 0,
+    "do_bits": 2,
     "tank_ok": true,
     "cim_unit_family": 21,
     "cim_unit_type": 1,
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "speed_pct": 91.7,
+      "power_kw": 6.1,
+      "current_a": 14.8,
       "run_hours": 5150.0,
-      "starts_today": 1,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -64,14 +64,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "speed_pct": 91.7,
+      "power_kw": 5.5,
+      "current_a": 13.8,
       "run_hours": 5148.0,
-      "starts_today": 1,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "speed_pct": 91.3,
+      "power_kw": 9.8,
+      "current_a": 19.0,
       "run_hours": 5148.0,
-      "starts_today": 1,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -102,7 +102,7 @@
       "bit": 6,
       "running": false,
       "fault": false,
-      "standby": false,
+      "standby": true,
       "speed_pct": 0.0,
       "power_kw": 0.0,
       "current_a": 0.0,
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7969,
+      "raw": 7808,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 185,
+      "raw": 179,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-13T02:50:36.087705+00:00",
-      "pa": 5.984,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5148.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-13T02:55:14.431798+00:00",
       "pa": 5.984,
@@ -11668,6 +11628,46 @@
         1,
         1,
         1,
+        4
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-08-14T01:59:29.518639+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 90.0,
+      "nr": 3,
+      "pk": 21.4,
+      "sp": [
+        91.7,
+        91.7,
+        91.3,
+        0.0
+      ],
+      "pw": [
+        6.1,
+        5.5,
+        9.8,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        2,
+        2,
+        2,
         4
       ],
       "tm": [
