@@ -1046,6 +1046,7 @@ function eventRowToLegacy(e) {
     const t = e.event_type || '';
     const SYSTEM_EVTS = ['online', 'offline', 'power_cycle'];
     const tc = SYSTEM_EVTS.includes(t) ? 5
+             : /^func_low-flow/.test(t) ? 6                       // low-flow stop/boost = normal function, info only (not an alarm)
              : (t.endsWith('_on')  || t === 'pump_start') ? 1
              : (t.endsWith('_off') || t === 'pump_stop')  ? 2
              : t.includes('warning') ? 3 : 4;
@@ -2354,7 +2355,8 @@ function alarmRow(a, emailedCodes) {
 }
 
 function pairAlarmEvents(events) {
-    const sorted = [...events].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso));
+    // Exclude normal system-function info events (low-flow stop/boost) - not alarms
+    const sorted = [...events].filter(e => e.type_code !== 6).sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso));
     const paired = [];
     const pending = {};
     for (const e of sorted) {
@@ -3358,6 +3360,17 @@ async function loadLogTab() {
 
     // Alarm events
     alarmEvents.forEach(e => {
+        // Normal system functions (low-flow stop/boost) - informational, not an alarm
+        if (e.type_code === 6) {
+            const t = (e.type_name || '').replace(/^Func\s+/i, '').replace(/\s+On$/i, ' active').replace(/\s+Off$/i, ' cleared');
+            logAllEntries.push({
+                ts: e.timestamp_iso, filter: 'alarm',
+                badgeClass: 'log-badge-audit', badgeText: 'Function',
+                barColor: '#5dade2', title: t || 'System function',
+                detail: 'Normal operation', sub: null
+            });
+            return;
+        }
         const isApp = e.type_code===1||e.type_code===3;
         logAllEntries.push({
             ts: e.timestamp_iso,
