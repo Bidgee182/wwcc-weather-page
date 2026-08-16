@@ -753,7 +753,10 @@ class MinuteBuffer:
         self.rel_perfs          = []
         self.run_secs           = [0, 0, 0, 0]
         self.starts             = [0, 0, 0, 0]
-        self.last_run           = [False, False, False, False]
+        # Carry the running state across the minute boundary - resetting it to
+        # False made a continuously-running pump look like a fresh start at the
+        # top of every minute, inflating the per-minute start count.
+        self.last_run           = getattr(self, 'last_run', None) or [False, False, False, False]
         self.last_hours         = [None, None, None, None]
         self.last_kwh           = [None, None, None, None]
         self.pump_powers        = [[], [], [], []]
