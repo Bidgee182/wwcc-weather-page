@@ -1026,6 +1026,19 @@ async function supaFetch(table, query = '') {
     return r.json();
 }
 
+// Paginated fetch - PostgREST silently caps each request at 1000 rows, so page
+// through with offset until a short page. baseQuery must NOT include limit/offset.
+async function supaFetchAll(table, baseQuery, maxRows = 55000) {
+    let all = [], offset = 0, page;
+    do {
+        page = await supaFetch(table, baseQuery + '&limit=1000&offset=' + offset);
+        if (!Array.isArray(page) || !page.length) break;
+        all = all.concat(page);
+        offset += 1000;
+    } while (page.length === 1000 && offset < maxRows);
+    return all;
+}
+
 // Convert a pump_minute_stats row to the chart reading shape used by all charts
 function statsRowToReading(r) {
     const nr = [r.p1_run_secs, r.p2_run_secs, r.p3_run_secs, r.jockey_run_secs]
@@ -1421,12 +1434,14 @@ async function ensureFarmbotTank() {
 async function ensureDaily() {
     if (dailyData !== null) return;
     try {
-        // Fetch last 35 days (lean column set only — no per-second data needed)
-        const rows = await supaFetch('pump_minute_stats',
+        // Last 35 days, lean columns - paged past the 1000-row cap so recent
+        // days aren't dropped (ascending + cap = only the oldest 1000 otherwise).
+        const sinceIso = new Date(Date.now() - 35 * 86400000).toISOString();
+        const rows = await supaFetchAll('pump_minute_stats',
             'select=ts,p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,' +
             'p1_kwh,p2_kwh,p3_kwh,jockey_kwh,p1_starts,p2_starts,p3_starts,jockey_starts,' +
             'pressure_avg,pressure_min,pressure_max,flow_avg' +
-            '&order=ts.asc&limit=50400');
+            '&ts=gte.' + sinceIso + '&order=ts.asc');
         dailyData = { days: buildDailyStats(rows) };
     } catch(e) { dailyData = { days:[] }; }
 }
@@ -2200,9 +2215,9 @@ async function render24hTrend() {
     const sinceMs = Date.now() - 24 * 3600 * 1000;
     let rows = [];
     try {
-        rows = await supaFetch('pump_minute_stats',
+        rows = await supaFetchAll('pump_minute_stats',
             'select=ts,pressure_avg,flow_avg&ts=gte.' + new Date(sinceMs).toISOString() +
-            '&order=ts.asc&limit=1600');
+            '&order=ts.asc', 3000);
     } catch (e) {}
     if (!rows || !rows.length) {
         loader.style.display = 'flex'; wrap.style.display = 'none';
