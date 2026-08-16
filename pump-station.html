@@ -1199,16 +1199,29 @@ function buildLatestData(statsRows, eventsRows) {
 
 // Aggregate minute stats rows into per-AEST-day summaries for the Trends tab
 function buildDailyStats(rows) {
+    // Real starts are derived from run_secs transitions (0 -> >0), NOT the stored
+    // *_starts columns: a continuous run logged a phantom start every minute, so
+    // the stored counts are heavily inflated for historical rows. rows are
+    // chronological (ts.asc), so this also cleans up the historical data on display.
     const byDate = {};
+    const startsByDate = {};
+    const prevRun = [false, false, false, false];
     for (const r of rows) {
         const d = aestDateStr(new Date(r.ts).getTime());
-        if (!byDate[d]) byDate[d] = [];
+        if (!byDate[d]) { byDate[d] = []; startsByDate[d] = [0, 0, 0, 0]; }
         byDate[d].push(r);
+        const rsecs = [r.p1_run_secs, r.p2_run_secs, r.p3_run_secs, r.jockey_run_secs];
+        for (let i = 0; i < 4; i++) {
+            const running = (rsecs[i] || 0) > 0;
+            if (running && !prevRun[i]) startsByDate[d][i]++;
+            prevRun[i] = running;
+        }
     }
     return Object.keys(byDate).sort().map(date => {
         const rs = byDate[date];
         const pressures = rs.map(r => r.pressure_avg).filter(v => v != null);
         const flows     = rs.map(r => r.flow_avg).filter(v => v != null);
+        const setpoints = rs.map(r => r.setpoint_bar).filter(v => v != null);
         // kWh: last reading minus first reading of the day (accumulator delta)
         function kwhDelta(col) {
             const vs = rs.filter(r => r[col] != null);
@@ -1223,15 +1236,11 @@ function buildDailyStats(rows) {
                 rs.reduce((s, r) => s + (r.jockey_run_secs || 0), 0) / 3600,
             ],
             kwh: [kwhDelta('p1_kwh'), kwhDelta('p2_kwh'), kwhDelta('p3_kwh'), kwhDelta('jockey_kwh')],
-            sts: [
-                rs.reduce((s, r) => s + (r.p1_starts     || 0), 0),
-                rs.reduce((s, r) => s + (r.p2_starts     || 0), 0),
-                rs.reduce((s, r) => s + (r.p3_starts     || 0), 0),
-                rs.reduce((s, r) => s + (r.jockey_starts || 0), 0),
-            ],
+            sts: startsByDate[date],
             p_avg:  pressures.length ? pressures.reduce((a, b) => a + b, 0) / pressures.length : null,
             p_min:  pressures.length ? Math.min(...pressures) : null,
             p_max:  pressures.length ? Math.max(...pressures) : null,
+            sp:     setpoints.length ? setpoints.reduce((a, b) => a + b, 0) / setpoints.length : null,
             fl_max: flows.length     ? Math.max(...flows)     : null,
         };
     });
@@ -1443,7 +1452,7 @@ async function ensureDaily() {
         const rows = await supaFetchAll('pump_minute_stats',
             'select=ts,p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,' +
             'p1_kwh,p2_kwh,p3_kwh,jockey_kwh,p1_starts,p2_starts,p3_starts,jockey_starts,' +
-            'pressure_avg,pressure_min,pressure_max,flow_avg' +
+            'pressure_avg,pressure_min,pressure_max,flow_avg,setpoint_bar' +
             '&ts=gte.' + sinceIso + '&order=ts.asc');
         dailyData = { days: buildDailyStats(rows) };
     } catch(e) { dailyData = { days:[] }; }
@@ -2327,6 +2336,7 @@ async function renderTrendCharts() {
                 {label:'Max',data:days.map(d=>d.p_max),borderColor:'#e74c3c',borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
                 {label:'Avg',data:days.map(d=>d.p_avg),borderColor:'#e67e22',borderWidth:2, pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
                 {label:'Min',data:days.map(d=>d.p_min),borderColor:'#3498db',borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0.3,fill:false,spanGaps:true},
+                {label:'Setpoint',data:days.map(d=>d.sp),borderColor:'#2ecc71',borderWidth:1.5,borderDash:[5,4],pointRadius:0,pointHoverRadius:4,tension:0,fill:false,spanGaps:true},
             ]},
             options: opts
         });
