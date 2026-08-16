@@ -19,12 +19,18 @@ on:
         type: choice
         options: ['false', 'true']
 
+concurrency:
+  # Shared queue with the other repo-writing workflows so the email-log commit
+  # never collides with a poll or another report push.
+  group: repo-writes
+  cancel-in-progress: false
+
 jobs:
   send:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -48,3 +54,20 @@ jobs:
           TEST_SEND: ${{ github.event.inputs.test || 'false' }}
           FORCE_SEND: ${{ github.event.inputs.force || 'false' }}
         run: python3 scripts/pump_daily_email.py
+
+      - name: Commit email log
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/email_log.csv || true
+          if git diff --staged --quiet; then
+            echo "No email-log changes to commit"
+          else
+            git commit -m "Pump daily email log $(date -u +%Y-%m-%d)"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi

@@ -16,7 +16,7 @@ Required env vars:
   EMAIL_FROM
   PUMP_EMAIL_RECIPIENTS  (comma-separated addresses)
 """
-import json, logging, os, re, sys
+import json, logging, os, re, socket, sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -38,6 +38,12 @@ LATEST_FILE  = DATA_DIR / 'pump_station_latest.json'
 ALARM_FILE   = DATA_DIR / 'pump_alarm_history.json'
 EMCFG_FILE   = DATA_DIR / 'email_config.json'
 STATE_FILE  = DATA_DIR / 'pump_email_state.json'
+IP_LOG_FILE = DATA_DIR / 'pump_ip_log.json'
+
+# Hostname whose DNS record tracks the SIM's public IP (Duck DNS). Resolving it
+# each run and comparing lets us log/alert when the modem's IP changes and Duck
+# DNS self-heals. Driven by the GRUNDFOS_HOST secret, falls back to the known host.
+DDNS_HOST = os.environ.get('DDNS_HOST') or os.environ.get('GRUNDFOS_HOST') or 'bidgee-pumps.duckdns.org'
 
 PUMP_PAGE_URL = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
 LOGO_URL      = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
@@ -459,6 +465,24 @@ def cleared_html(entry, cleared_event, latest):
                  _body_section(_table(rows), note))
 
 
+def ip_change_html(old_ip, new_ip, when_dt, healed):
+    status = ('<span style="color:#27ae60;font-weight:bold;">Recovered automatically</span>'
+              if healed else
+              '<span style="color:#e67e22;font-weight:bold;">IP updated - verifying connection</span>')
+    tbl = _table([
+        ('Status',       status,           True),
+        ('Previous IP',  old_ip,           False),
+        ('New IP',       new_ip,           True),
+        ('Changed at',   fmt_aest(when_dt), False),
+    ])
+    note = ('The mobile SIM was assigned a new IP address and Duck DNS was updated '
+            'to match, so the pump station stays reachable at '
+            f'{DDNS_HOST}. No action needed - this is for your records.')
+    hdr = '#27ae60' if healed else '#e67e22'
+    return _wrap(_header(hdr, 'PUMP STATION - MODEM IP CHANGED'),
+                 _body_section(tbl, note))
+
+
 # ---------------------------------------------------------------------------
 # SendGrid
 # ---------------------------------------------------------------------------
@@ -532,6 +556,57 @@ def last_cleared_event(events, code):
 
 
 # ---------------------------------------------------------------------------
+# Modem IP change tracking
+# ---------------------------------------------------------------------------
+
+def _is_ip(s):
+    try:
+        socket.inet_aton(str(s))
+        return True
+    except Exception:
+        return False
+
+
+def check_ip_change(state, latest, now):
+    """Resolve the Duck DNS hostname and log/email when the SIM's public IP
+    changes (Duck DNS self-heal). Returns True if state was modified."""
+    host = DDNS_HOST
+    if not host or _is_ip(host):
+        return False   # nothing to track if we were handed a literal IP
+    try:
+        current = socket.gethostbyname(host)
+    except Exception as e:
+        log.warning(f'IP check: could not resolve {host}: {e}')
+        return False
+
+    last = state.get('last_dns_ip')
+    if current == last:
+        return False
+    state['last_dns_ip'] = current
+
+    if not last:
+        log.info(f'IP check: recording initial IP {current} (no email)')
+        return True   # first run - just remember it, no alert
+
+    healed = bool(latest.get('connected'))
+    log.info(f'IP check: modem IP changed {last} -> {current} (reachable={healed})')
+
+    entry = {'ts': now.isoformat(), 'old_ip': last, 'new_ip': current, 'healed': healed}
+    iplog = load_json(IP_LOG_FILE, [])
+    if not isinstance(iplog, list):
+        iplog = []
+    iplog.insert(0, entry)
+    save_json(IP_LOG_FILE, iplog[:100])
+
+    try:
+        subject = f'PUMP STATION - Modem IP changed to {current}'
+        send_email(subject, ip_change_html(last, current, now, healed))
+    except Exception as e:
+        log.error(f'IP change email failed: {e}')
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -540,25 +615,31 @@ def main():
         log.info('pump_alerts disabled in email_config.json - skipping.')
         return
 
-    latest = load_json(LATEST_FILE, {})
-    if not latest:
-        log.info('No latest data - skipping.')
-        return
-
-    alarms_data = load_json(ALARM_FILE, {})
-    events      = alarms_data.get('events', [])
-    state       = load_json(STATE_FILE, {
+    state = load_json(STATE_FILE, {
         'was_connected':      None,
         'offline_since':      None,
         'offline_alert_sent': False,
         'active_alarms':      {},
         'alarm_email_history': [],
     })
+    latest = load_json(LATEST_FILE, {})
+    now    = datetime.now(timezone.utc)
 
-    now       = datetime.now(timezone.utc)
+    # Modem IP change tracking runs regardless of pump connectivity
+    ip_changed = check_ip_change(state, latest, now)
+
+    if not latest:
+        log.info('No latest data - skipping alarm/offline checks.')
+        if ip_changed:
+            save_json(STATE_FILE, state)
+        return
+
+    alarms_data = load_json(ALARM_FILE, {})
+    events      = alarms_data.get('events', [])
+
     connected = latest.get('connected', False)
     last_conn = parse_iso(latest.get('last_connected') or latest.get('last_seen'))
-    changed   = False
+    changed   = ip_changed
 
     # -- Offline / recovery -------------------------------------------------
     if not connected:

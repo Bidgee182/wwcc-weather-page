@@ -36,13 +36,14 @@ jobs:
           GRUNDFOS_PORT: '502'
         run: python scripts/poll_grundfos.py
 
-      - name: Send alerts (offline / fault)
+      - name: Send alerts (offline / fault / IP change)
         env:
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
           PUMP_EMAIL_CC: ${{ secrets.PUMP_EMAIL_CC }}
           PUMP_EMAIL_BCC: ${{ secrets.PUMP_EMAIL_BCC }}
+          DDNS_HOST: ${{ secrets.GRUNDFOS_HOST }}
         run: |
           pip install sendgrid --quiet
           python3 scripts/pump_alert_email.py
@@ -58,6 +59,7 @@ jobs:
                   data/pump_commands.json \
                   data/pump_starts.json \
                   data/pump_email_state.json \
+                  data/pump_ip_log.json \
                   data/email_log.csv \
                   data/raw/ 2>/dev/null || true
 

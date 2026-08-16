@@ -3316,8 +3316,25 @@ async function loadLogTab() {
     } catch {}
     try { const r = await fetch('data/pump_commands.json' + bust); if (r.ok) { const d = await r.json(); cmdLog = d.log || []; } } catch {}
     try { const r = await fetch('data/pump_ctrl_log.json' + bust); if (r.ok) auditLog = await r.json(); } catch {}
+    let ipLog = [];
+    try { const r = await fetch('data/pump_ip_log.json' + bust); if (r.ok) { const d = await r.json(); if (Array.isArray(d)) ipLog = d; } } catch {}
 
     logAllEntries = [];
+
+    // Modem IP changes (SIM IP change + Duck DNS self-heal)
+    ipLog.forEach(e => {
+        logAllEntries.push({
+            ts: e.ts,
+            filter: 'alarm',
+            badgeClass: 'log-badge-audit',
+            badgeText: 'IP Changed',
+            barColor: '#5dade2',
+            title: e.healed === false ? 'Modem IP changed - verifying connection'
+                                      : 'Modem IP changed - Duck DNS self-healed',
+            detail: (e.old_ip || '?') + ' → ' + (e.new_ip || '?'),
+            sub: null
+        });
+    });
 
     // Alarm events
     alarmEvents.forEach(e => {
