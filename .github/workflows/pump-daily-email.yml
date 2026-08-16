@@ -1,8 +1,8 @@
-name: Pump Station Daily Summary Email
+name: Pump Station Weekly Summary Email
 
 on:
   schedule:
-    - cron: '0 21 * * *'   # 7:00am AEST (UTC+10) - runs at 21:00 UTC previous evening
+    - cron: '0 21 * * 0'   # Monday 7:00am AEST (UTC+10) - Sunday 21:00 UTC, same slot as the board email
 
   workflow_dispatch:
     inputs:

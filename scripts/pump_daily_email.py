@@ -119,9 +119,8 @@ def _key_value_table(rows):
             f' style="border:1px solid #eee;border-radius:4px;">{cells}</table>')
 
 
-def build_html(day_data, latest, yesterday_str, alarms_24h):
-    from datetime import datetime as _dt
-    date_label = _dt.strptime(yesterday_str, '%Y-%m-%d').strftime('%-d %B %Y')
+def build_html(day_data, latest, period_label, alarms_24h):
+    date_label = period_label
 
     p_min    = day_data.get('p_min')
     p_max    = day_data.get('p_max')
@@ -205,7 +204,7 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
        style="background:#003366;padding:28px 32px;">
 <tr><td>{_logo()}</td></tr>
 <tr><td style="padding-top:14px;font-family:Arial,sans-serif;font-size:20px;
-               font-weight:bold;color:#ffffff;">Pump Station Daily Summary</td></tr>
+               font-weight:bold;color:#ffffff;">Pump Station Weekly Summary</td></tr>
 <tr><td style="padding-top:4px;font-family:Arial,sans-serif;font-size:14px;
                color:#99bbdd;">{date_label}</td></tr>
 </table>
@@ -224,7 +223,7 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
 
 <!-- Pressure -->
 <table width="100%" cellpadding="0" cellspacing="0">
-{_section_heading("Yesterday's System Pressure")}
+{_section_heading("This Week's System Pressure")}
 <tr><td style="padding:0 32px 4px;">
 {_key_value_table([
     ('Minimum', fmt_bar(p_min)),
@@ -238,7 +237,7 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
 
 <!-- Pump Runs -->
 <table width="100%" cellpadding="0" cellspacing="0">
-{_section_heading("Yesterday's Pump Run Hours")}
+{_section_heading("This Week's Pump Run Hours")}
 <tr><td style="padding:0 32px 4px;">
 <table width="100%" cellpadding="0" cellspacing="0"
        style="border:1px solid #eee;border-radius:4px;">
@@ -254,7 +253,7 @@ def build_html(day_data, latest, yesterday_str, alarms_24h):
 
 <!-- Alarms -->
 <table width="100%" cellpadding="0" cellspacing="0">
-{_section_heading("Yesterday's Alarms and Events")}
+{_section_heading("This Week's Alarms and Events")}
 <tr><td style="padding:0 32px 4px;">
 <table width="100%" cellpadding="0" cellspacing="0"
        style="border:1px solid #eee;border-radius:4px;">
@@ -334,45 +333,81 @@ def send_email(subject, html):
 # Main
 # ---------------------------------------------------------------------------
 
+def aggregate_week(days, start_date, end_date):
+    """Combine the daily rollups whose date falls in [start_date, end_date]
+    into one day_data-shaped dict. Pressure min/max/avg are min/max/mean of the
+    daily figures; flow volume and pump hours/energy are summed; peak flow is the
+    week's max. Returns (agg_dict, day_count)."""
+    s, e = start_date.isoformat(), end_date.isoformat()
+    in_range = [d for d in days if s <= (d.get('date') or '') <= e]
+    if not in_range:
+        return {}, 0
+
+    p_mins = [d['p_min'] for d in in_range if d.get('p_min') is not None]
+    p_maxs = [d['p_max'] for d in in_range if d.get('p_max') is not None]
+    p_avgs = [d['p_avg'] for d in in_range if d.get('p_avg') is not None]
+    fl_max = [(d.get('fl_max') or 0.0) for d in in_range]
+
+    hrs, kwh = [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]
+    for d in in_range:
+        dh, dk = d.get('hrs', []), d.get('kwh', [])
+        for i in range(4):
+            hrs[i] += (dh[i] if i < len(dh) and dh[i] else 0)
+            kwh[i] += (dk[i] if i < len(dk) and dk[i] else 0)
+
+    agg = {
+        'p_min':    min(p_mins) if p_mins else None,
+        'p_max':    max(p_maxs) if p_maxs else None,
+        'p_avg':    round(sum(p_avgs) / len(p_avgs), 2) if p_avgs else None,
+        'fl_total': sum((d.get('fl_total') or 0.0) for d in in_range),
+        'fl_max':   max(fl_max) if fl_max else 0.0,
+        'hrs':      hrs,
+        'kwh':      kwh,
+    }
+    return agg, len(in_range)
+
+
 def main():
     if not FORCE_SEND and not TEST_SEND and not daily_enabled():
         log.info('pump_daily disabled in email_config.json - skipping.')
         return
 
-    now_syd   = datetime.now(tz=SYDNEY_TZ)
-    yesterday = (now_syd - timedelta(days=1)).date()
-    yesterday_str = yesterday.isoformat()
+    now_syd    = datetime.now(tz=SYDNEY_TZ)
+    week_end   = (now_syd - timedelta(days=1)).date()    # yesterday (Sunday)
+    week_start = week_end - timedelta(days=6)            # previous Monday
 
-    # Daily stats for yesterday
-    daily_data    = load_json(DAILY_FILE, {})
-    days          = daily_data.get('days', [])
-    day_data      = next((d for d in reversed(days)
-                          if d.get('date') == yesterday_str), None)
-    if day_data is None:
-        log.warning(f'No daily data for {yesterday_str} - using empty defaults.')
-        day_data = {'date': yesterday_str}
+    # Weekly stats aggregated from the daily rollups
+    daily_data      = load_json(DAILY_FILE, {})
+    days            = daily_data.get('days', [])
+    day_data, ndays = aggregate_week(days, week_start, week_end)
+    if not day_data:
+        log.warning(f'No daily data for {week_start}..{week_end} - using empty defaults.')
+        day_data = {}
 
     latest      = load_json(LATEST_FILE, {})
     alarms_data = load_json(ALARM_FILE, {})
     all_events  = alarms_data.get('events', [])
 
-    # Alarms that occurred yesterday (AEST)
-    y_start = datetime(yesterday.year, yesterday.month, yesterday.day, tzinfo=SYDNEY_TZ)
-    y_end   = y_start + timedelta(days=1)
-    alarms_24h = []
+    # Alarms across the week (AEST)
+    w_start = datetime(week_start.year, week_start.month, week_start.day, tzinfo=SYDNEY_TZ)
+    w_end   = datetime(week_end.year, week_end.month, week_end.day, tzinfo=SYDNEY_TZ) + timedelta(days=1)
+    alarms_week = []
     for e in all_events:
         try:
             ts = datetime.fromisoformat(
                 e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
-            if y_start <= ts < y_end:
-                alarms_24h.append(e)
+            if w_start <= ts < w_end:
+                alarms_week.append(e)
         except Exception:
             pass
-    alarms_24h.sort(key=lambda e: e.get('timestamp_iso', ''))
+    alarms_week.sort(key=lambda e: e.get('timestamp_iso', ''))
 
-    date_label = yesterday.strftime('%-d %B %Y')
-    subject    = f'Pump Station Daily Summary - {date_label}'
-    html       = build_html(day_data, latest, yesterday_str, alarms_24h)
+    if week_start.month == week_end.month:
+        period_label = f"{week_start.strftime('%-d')} - {week_end.strftime('%-d %B %Y')}"
+    else:
+        period_label = f"{week_start.strftime('%-d %b')} - {week_end.strftime('%-d %b %Y')}"
+    subject = f'Pump Station Weekly Summary - {period_label}'
+    html    = build_html(day_data, latest, period_label, alarms_week)
     send_email(subject, html)
 
 

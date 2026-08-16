@@ -28,13 +28,16 @@
         .header-gf-block .conn-title  { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; display:block; }
         /* Grundfos logo centred above PUMP STATION (always visible) */
         .header-gf-logo { display:inline-block; height:28px; width:auto; opacity:0.92; margin-bottom:4px; }
-        /* Mobile: pills move to a full-width row under the header, hide subtitle, shrink logo + title */
+        /* Mobile: minimal status pills stacked full-width under the header - just
+           the dot + a single-line status; detail/timestamp lines hidden so the
+           text can't wrap out of the pill and the header stays uncluttered. */
         @media (max-width:700px) {
             .header { flex-wrap:wrap; }
-            .header-gf-block { flex-direction:row; width:100%; justify-content:center; gap:8px; margin-left:0; }
-            .header-gf-block .conn-banner { flex:1; min-width:0; max-width:none; }
-            .header-gf-block .conn-title { max-width:none; }
-            .header-gf-block .conn-sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .header-gf-block { flex-direction:column; width:100%; margin-left:0; gap:6px; align-items:stretch; }
+            .header-gf-block .conn-banner { max-width:none; padding:7px 12px; margin-bottom:0; }
+            .header-gf-block .conn-sub, .header-gf-block .conn-ts { display:none; }
+            .header-gf-block .conn-title-row { flex-wrap:nowrap; }
+            .header-gf-block .conn-title { max-width:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             .header-text .subtitle { display:none; }
             .header-logo { height:48px; }
             .header-text h1 { font-size:1.4em; letter-spacing:4px; }
@@ -178,9 +181,9 @@
         .pump-pill.pp-running { border-color:#27ae60; animation:ppPulseGreen 3s ease-in-out infinite; }
         .pump-pill.pp-running .pump-pill-name   { background:rgba(39,174,96,.25);  color:#2ecc71; }
         .pump-pill.pp-running .pump-pill-status { color:#2ecc71; }
-        .pump-pill.pp-standby { border-color:#f39c12; }
-        .pump-pill.pp-standby .pump-pill-name   { background:rgba(243,156,18,.2);  color:#f0b429; }
-        .pump-pill.pp-standby .pump-pill-status { color:#f39c12; }
+        .pump-pill.pp-standby { border-color:#3498db; }
+        .pump-pill.pp-standby .pump-pill-name   { background:rgba(52,152,219,.2);  color:#5dade2; }
+        .pump-pill.pp-standby .pump-pill-status { color:#5dade2; }
         .pump-pill.pp-fault { border-color:#e74c3c; animation:ppPulseRed 1.6s ease-in-out infinite; }
         .pump-pill.pp-fault .pump-pill-name     { background:rgba(231,76,60,.25);  color:#e74c3c; }
         .pump-pill.pp-fault .pump-pill-status   { color:#e74c3c; }

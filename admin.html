@@ -248,7 +248,7 @@
                         </label>
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:.88em;color:#ecf0f1;">
                             <input type="checkbox" id="emcfg-pump-daily" style="width:16px;height:16px;accent-color:#2471a3;cursor:pointer;">
-                            Daily summary (7am)
+                            Weekly summary (Mon 7am)
                         </label>
                     </div>
                 </div>
@@ -286,9 +286,9 @@
             <button onclick="wfTrigger('board-email.yml', { report: $('wf-board-type').value, test: 'true' }, 'board ' + $('wf-board-type').value + ' test email')">Send Test (to Andrew)</button>
         </div>
         <div class="flexrow">
-            <span style="font-size:.88em;color:#ecf0f1;align-self:center;">Pump station daily summary</span>
-            <button onclick="wfTrigger('pump-daily-email.yml', { test: 'true' }, 'pump daily test email')">Send Test (to Andrew)</button>
-            <button onclick="wfTrigger('pump-daily-email.yml', { force: 'true' }, 'pump daily resend (full list)', 'This re-sends the daily summary to the FULL pump station recipients list. Continue?')">Resend (full list)</button>
+            <span style="font-size:.88em;color:#ecf0f1;align-self:center;">Pump station weekly summary</span>
+            <button onclick="wfTrigger('pump-daily-email.yml', { test: 'true' }, 'pump weekly test email')">Send Test (to Andrew)</button>
+            <button onclick="wfTrigger('pump-daily-email.yml', { force: 'true' }, 'pump weekly resend (full list)', 'This re-sends the weekly summary to the FULL pump station recipients list. Continue?')">Resend (full list)</button>
         </div>
         <div class="status" id="wf-trigger-status"></div>
         <p class="note">Dry runs build the email HTML without sending anything - the preview appears
@@ -575,7 +575,7 @@
                 <tr><td>EMAIL_BOARD_CC</td><td>Board reports - CC recipients (fallback)</td></tr>
                 <tr><td>EMAIL_BOARD_BCC</td><td>Board reports - BCC recipients (fallback)</td></tr>
                 <tr><td>RECIPIENTS_KEY</td><td>Decryption key for data/email_recipients.enc.json (the admin-editable recipient lists)</td></tr>
-                <tr><td>PUMP_EMAIL_RECIPIENTS</td><td>Pump station alert + daily summary recipients - comma-separated email addresses (offline alerts, fault alarms, 7am daily digest)</td></tr>
+                <tr><td>PUMP_EMAIL_RECIPIENTS</td><td>Pump station alert + weekly summary recipients - comma-separated email addresses (offline alerts, fault alarms, Monday 7am weekly digest)</td></tr>
                 <tr><td>FARMBOT_CLIENT_ID</td><td>FarmBot API OAuth client ID (tank + lake sensor data)</td></tr>
                 <tr><td>FARMBOT_CLIENT_SECRET</td><td>FarmBot API OAuth client secret</td></tr>
                 <tr><td>FARMBOT_TANK_SID</td><td>FarmBot sensor ID for the water tank level probe</td></tr>
@@ -1323,7 +1323,7 @@ function ensureWfRuns() {
     return _wfPromise;
 }
 
-const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts', pump_report:'Pump daily summary', pump_alert:'Pump alerts' };
+const EMAIL_NAMES = { gk_report:'Greenkeeper reports', lake_report:'Lake reports', board_report:'Board reports', lake_alert:'Lake level alerts', tank_alert:'Tank alerts', pump_report:'Pump weekly summary', pump_alert:'Pump alerts' };
 
 async function loadHealth() {
     _lastHealth = Date.now();
@@ -1555,6 +1555,7 @@ async function loadHealth() {
             ['Greenkeeper daily', nextDaily(6)],
             ['Lake Albert daily', nextDaily(7)],
             ['Board weekly (Mon)', nextMonday()],
+            ['Pump weekly (Mon)', nextMonday()],
             ['Board + GK monthly (1st)', nextFirst()],
         ];
         $('next-sends').innerHTML = sends.map(([n, d]) =>
