@@ -693,6 +693,12 @@
 <div id="tab-trends" class="tab-panel">
 
     <div class="card">
+        <h2>Last 24 Hours - Pressure &amp; Flow</h2>
+        <div class="chart-loader" id="c-t24-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(230,126,34,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
+        <div class="chart-wrap h200" id="c-t24-wrap"><canvas id="c-t24"></canvas></div>
+    </div>
+
+    <div class="card">
         <h2>Daily Totals per Pump - Last 30 Days</h2>
         <div class="range-row" style="margin-bottom:14px;">
             <button class="metric-btn active" onclick="setTrendsMetric('hrs',this)">Run Hours</button>
@@ -2186,7 +2192,52 @@ async function setTrendsMetric(metric, btn) {
     renderTrendCharts();
 }
 
+// Last-24h high-resolution pressure + flow, straight from the minute stats
+async function render24hTrend() {
+    const loader = document.getElementById('c-t24-loader');
+    const wrap   = document.getElementById('c-t24-wrap');
+    if (!loader || !wrap) return;
+    const sinceMs = Date.now() - 24 * 3600 * 1000;
+    let rows = [];
+    try {
+        rows = await supaFetch('pump_minute_stats',
+            'select=ts,pressure_avg,flow_avg&ts=gte.' + new Date(sinceMs).toISOString() +
+            '&order=ts.asc&limit=1600');
+    } catch (e) {}
+    if (!rows || !rows.length) {
+        loader.style.display = 'flex'; wrap.style.display = 'none';
+        if (charts['c-t24']) { charts['c-t24'].destroy(); delete charts['c-t24']; }
+        return;
+    }
+    loader.style.display = 'none'; wrap.style.display = 'block';
+    const pdata = rows.map(r => ({ x: new Date(r.ts).getTime(), y: r.pressure_avg }));
+    const fdata = rows.map(r => ({ x: new Date(r.ts).getTime(), y: r.flow_avg }));
+    const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+    opts.plugins.legend.display = true;
+    opts.plugins.legend.labels = llLabels();
+    opts.plugins.tooltip.callbacks = { title: items => items.length
+        ? new Date(items[0].parsed.x).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }) : '' };
+    opts.scales.x.min = sinceMs;
+    opts.scales.x.max = Date.now();
+    opts.scales.x.ticks.callback = v => String(new Date(v).getHours()).padStart(2, '0') + ':00';
+    opts.scales.y.ticks.callback = v => v.toFixed(1) + ' bar';
+    opts.scales.y1 = { position: 'right', min: 0, grid: { display: false },
+        ticks: { color: '#7f8c8d', font: { size: 9 }, callback: v => v.toFixed(0) + ' m³/h' } };
+    if (charts['c-t24']) charts['c-t24'].destroy();
+    charts['c-t24'] = new Chart(document.getElementById('c-t24').getContext('2d'), {
+        type: 'line',
+        data: { datasets: [
+            { label: 'Pressure (bar)', data: pdata, borderColor: '#e67e22', borderWidth: 2,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y',  spanGaps: true },
+            { label: 'Flow (m³/h)',    data: fdata, borderColor: '#3498db', borderWidth: 1.5,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: true },
+        ] },
+        options: opts
+    });
+}
+
 async function renderTrendCharts() {
+    render24hTrend();
     await ensureDaily();
     const days = dailyData && dailyData.days ? dailyData.days.slice(-30) : [];
     const noData = days.length === 0;
@@ -2216,6 +2267,7 @@ async function renderTrendCharts() {
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.plugins.legend.display = true;
         opts.plugins.legend.labels = llLabels();
+        opts.scales.x.type = 'category';   // day labels - not the linear time axis the base config uses
         opts.scales.x.stacked = false;
         opts.scales.y.ticks.callback = v => v+(unit?unit:'');
         if (charts['c-trends']) { charts['c-trends'].destroy(); }
@@ -2245,6 +2297,7 @@ async function renderTrendCharts() {
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
         opts.plugins.legend.display = true;
         opts.plugins.legend.labels = llLabels();
+        opts.scales.x.type = 'category';
         opts.scales.y.ticks.callback = v=>v.toFixed(1)+' bar';
         if (charts['c-dpres']) { charts['c-dpres'].destroy(); }
         charts['c-dpres'] = new Chart(document.getElementById('c-dpres').getContext('2d'), {
@@ -2265,6 +2318,7 @@ async function renderTrendCharts() {
     else {
         dfLoader.style.display='none'; dfWrap.style.display='block';
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
+        opts.scales.x.type = 'category';
         opts.scales.y.ticks.callback = v=>v.toFixed(0)+' m³/h';
         if (charts['c-dflow']) { charts['c-dflow'].destroy(); }
         charts['c-dflow'] = new Chart(document.getElementById('c-dflow').getContext('2d'), {
