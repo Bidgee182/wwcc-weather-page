@@ -1599,13 +1599,17 @@ async function renderOverview() {
         opModeEl.style.color = opColor;
     }
 
-    // Discharge pill — pulses green/amber/red vs setpoint
+    // Discharge pill: one-sided vs setpoint - high pressure is fine, only a drop
+    // well below setpoint is a problem (pumps can't hold pressure).
+    //   green: at/above setpoint or mild droop (within 0.5 bar below)
+    //   amber: a moderate sag (0.5-1.5 bar below)
+    //   red:   well below setpoint (>1.5 bar below - approaching the low limit)
     const ppDischarge = document.getElementById('pp-discharge');
     if (actual != null && setpoint != null && setpoint > 0) {
-        const diff = Math.abs(actual - setpoint);
-        ppDischarge.className = diff < 0.25 ? 'pres-pill pp-ok'
-                              : diff < 0.55 ? 'pres-pill pp-warn'
-                              :               'pres-pill pp-bad';
+        const below = setpoint - actual;   // positive = below setpoint
+        ppDischarge.className = below <= 0.5 ? 'pres-pill pp-ok'
+                              : below <= 1.5 ? 'pres-pill pp-warn'
+                              :                'pres-pill pp-bad';
     } else {
         ppDischarge.className = 'pres-pill';
     }

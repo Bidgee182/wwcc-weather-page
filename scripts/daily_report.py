@@ -126,6 +126,7 @@ CSV_HEADERS = [
     'fusarium_score', 'fusarium_risk',
     'brown_patch_risk',
     'pythium_risk',
+    'dollar_spot_hours', 'fusarium_hours', 'brown_patch_hours', 'pythium_hours',
     'soil_balance_7d', 'soil_zone',
     'spray_go_hours', 'spray_caution_hours', 'spray_nogo_hours',
     'rain_day',
@@ -561,11 +562,16 @@ def process_davis_records(records):
         if night and t_c is not None:
             night_temps.append(t_c)
         if hour not in hourly:
-            hourly[hour] = {'wet': wet, 'night': night, 'rh': rh or 0}
+            hourly[hour] = {'wet': wet, 'night': night, 'rh': rh or 0,
+                            't_sum': t_c if t_c is not None else 0.0,
+                            't_n':   1 if t_c is not None else 0}
         else:
             hourly[hour]['wet']   = hourly[hour]['wet'] or wet
             hourly[hour]['night'] = night
             hourly[hour]['rh']    = max(hourly[hour]['rh'], rh or 0)
+            if t_c is not None:
+                hourly[hour]['t_sum'] += t_c
+                hourly[hour]['t_n']   += 1
 
     # ── Daily summaries ────────────────────────────────────────────────────
     temp_max  = round(max(temps_c), 1)               if temps_c        else None
@@ -655,6 +661,20 @@ def process_davis_records(records):
     rh90_hours      = sum(1 for h in hourly.values() if h['rh'] >= 90)
     consec_rh90     = rh90_hours  # conservative - full consecutive calc needs ordering
 
+    # Conducive hours per disease: count hours where conditions sat inside each
+    # pathogen's window (leaf-wet, or high-RH for Fusarium, within its temp band).
+    # This surfaces short high-risk spells that a daily average would hide.
+    def _htemp(h):
+        return (h['t_sum'] / h['t_n']) if h.get('t_n') else None
+    dollar_spot_hours = sum(1 for h in hourly.values()
+                            if h['wet'] and _htemp(h) is not None and 15 <= _htemp(h) <= 30)
+    fusarium_hours    = sum(1 for h in hourly.values()
+                            if h['rh'] >= 90 and _htemp(h) is not None and 0 <= _htemp(h) <= 21)
+    brown_patch_hours = sum(1 for h in hourly.values()
+                            if h['wet'] and h['night'] and _htemp(h) is not None and _htemp(h) > 15)
+    pythium_hours     = sum(1 for h in hourly.values()
+                            if h['wet'] and h['night'] and _htemp(h) is not None and _htemp(h) > 20)
+
     # Spray condition hours
     spray_counts = {'GO': 0, 'CAUTION': 0, 'NO-GO': 0}
     for h_idx, hdata in hourly.items():
@@ -707,6 +727,10 @@ def process_davis_records(records):
         'night_wet_hours':   night_wet_hours,
         'night_min':         night_min,
         'consec_rh90':       consec_rh90,
+        'dollar_spot_hours': dollar_spot_hours,
+        'fusarium_hours':    fusarium_hours,
+        'brown_patch_hours': brown_patch_hours,
+        'pythium_hours':     pythium_hours,
         'spray_go':          spray_counts['GO'],
         'spray_caution':     spray_counts['CAUTION'],
         'spray_nogo':        spray_counts['NO-GO'],
@@ -2700,6 +2724,42 @@ def build_daily_html(row, target_date, history, forecast_days=None, hourly_forec
     return html
 
 
+RISK_RANK = {'LOW': 0, 'LOW-MOD': 1, 'LOW-MODERATE': 1, 'MODERATE': 2, 'MOD': 2,
+             'HIGH': 3, 'SEVERE': 4}
+
+_DISEASE_DEFS = [
+    ('Dollar Spot',    'dollar_spot_risk', 'dollar_spot_hours'),
+    ('Fusarium Patch', 'fusarium_risk',    'fusarium_hours'),
+    ('Brown Patch',    'brown_patch_risk', 'brown_patch_hours'),
+    ('Pythium Blight', 'pythium_risk',     'pythium_hours'),
+]
+
+
+def _disease_period_summary(history):
+    """Per disease over the period: (name, worst_risk_reached, total_conducive_hours).
+    Surfaces a short high-risk spell that a period average would otherwise hide."""
+    out = []
+    for name, rkey, hkey in _DISEASE_DEFS:
+        worst_rank, worst_lbl, total_hours = -1, 'LOW', 0
+        for r in history:
+            lvl  = (r.get(rkey) or '').upper()
+            rank = RISK_RANK.get(lvl, 0)
+            if rank > worst_rank:
+                worst_rank, worst_lbl = rank, (lvl or 'LOW')
+            total_hours += int(safe_float(r.get(hkey), 0) or 0)
+        out.append((name, worst_lbl, total_hours))
+    return out
+
+
+def _worst_risk_rows(history):
+    """KV rows: 'Dollar Spot' -> badge(worst) + ' - N conducive hrs' for the period."""
+    rows = []
+    for name, worst, hours in _disease_period_summary(history):
+        hrs_txt = f'&nbsp;&nbsp;<span style="color:#64748b;font-size:12px;">{hours} conducive hr{"s" if hours != 1 else ""}</span>'
+        rows.append((name, risk_badge(worst) + hrs_txt))
+    return rows
+
+
 def build_weekly_html(history, week_end_date):
     """Generate styled HTML for the weekly summary email."""
     date_str    = _fmt_d(week_end_date, 'Week ending %A, %-d %B %Y')
@@ -2836,7 +2896,15 @@ def build_weekly_html(history, week_end_date):
 
   {w_sec3}
 
-  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+  <tr><td style="background:white;padding:20px 24px 6px;">
+    <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:12px;">
+      Highest risk level reached on any single day this week, with the number of hours
+      conditions sat inside each pathogen's window - so a short high-risk spell is not
+      hidden by the daily averages.</div>
+    {_gk_kv_table(_worst_risk_rows(history))}
+  </td></tr>
+
+  <tr><td style="background:white;padding:6px 24px 28px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([
         ('Disease Alert Days', f"{alert_days} {'HIGH or SEVERE risk days' if alert_days > 0 else '- no high-risk days'}"),
         ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '- no frost this week'}"),
@@ -2993,7 +3061,15 @@ def build_monthly_html(history, month_label):
 
   {m_sec3}
 
-  <tr><td style="background:white;padding:20px 24px 28px;border-radius:0 0 10px 10px;">
+  <tr><td style="background:white;padding:20px 24px 6px;">
+    <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:12px;">
+      Highest risk level reached on any single day this month, with the total hours
+      conditions sat inside each pathogen's window - so short high-risk spells are not
+      hidden by the monthly averages.</div>
+    {_gk_kv_table(_worst_risk_rows(history))}
+  </td></tr>
+
+  <tr><td style="background:white;padding:6px 24px 28px;border-radius:0 0 10px 10px;">
     {_gk_kv_table([
         ('Disease Alert Days', f"{alert_days} {'days with HIGH or SEVERE risk' if alert_days > 0 else '- no high-risk days'}"),
         ('Frost Days',         f"{frost_days} {'nights below 2°C' if frost_days > 0 else '- no frost this month'}"),
@@ -3762,6 +3838,10 @@ def backfill_history(from_date, to_date, force=False):
             'fusarium_risk':       fus_lvl,
             'brown_patch_risk':    bp_risk,
             'pythium_risk':        pyt_risk,
+            'dollar_spot_hours':   d.get('dollar_spot_hours', 0),
+            'fusarium_hours':      d.get('fusarium_hours', 0),
+            'brown_patch_hours':   d.get('brown_patch_hours', 0),
+            'pythium_hours':       d.get('pythium_hours', 0),
             'soil_balance_7d':     balance_7,
             'soil_zone':           soil_zone(balance_7),
             'spray_go_hours':      d['spray_go']      or 0,
@@ -3976,6 +4056,10 @@ def main():
         'fusarium_risk':     fus_risk,
         'brown_patch_risk':  bp_risk,
         'pythium_risk':      pyt_risk,
+        'dollar_spot_hours': d.get('dollar_spot_hours', 0),
+        'fusarium_hours':    d.get('fusarium_hours', 0),
+        'brown_patch_hours': d.get('brown_patch_hours', 0),
+        'pythium_hours':     d.get('pythium_hours', 0),
         'soil_balance_7d':   balance_7,
         'soil_zone':         soil_zone(balance_7),
         'spray_go_hours':    d['spray_go'],
