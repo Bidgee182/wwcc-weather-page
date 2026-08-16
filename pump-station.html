@@ -1041,8 +1041,11 @@ async function supaFetchAll(table, baseQuery, maxRows = 55000) {
 
 // Convert a pump_minute_stats row to the chart reading shape used by all charts
 function statsRowToReading(r) {
+    // Count a pump as running this minute if it ran a meaningful few seconds -
+    // the jockey cycles in short bursts (often 5-30s) and a near-full-minute
+    // threshold hid it entirely.
     const nr = [r.p1_run_secs, r.p2_run_secs, r.p3_run_secs, r.jockey_run_secs]
-                   .filter(s => (s || 0) >= 55).length;
+                   .filter(s => (s || 0) >= 5).length;
     return {
         ts: r.ts,
         pa: r.pressure_avg,
@@ -1487,10 +1490,13 @@ function bucketReadings(readings, rangeH) {
             return v.length ? v.reduce((s,n) => s+n, 0) / v.length : null;
         };
         const last = g[g.length - 1];
+        // nr = peak pumps running in the bucket, so a brief run isn't lost to
+        // downsampling on longer ranges (last-value would usually miss it).
+        const nrMax = g.reduce((m, r) => Math.max(m, r.nr || 0), 0);
         return { ts: new Date(k + bucketMs / 2).toISOString(),
                  pa:avg('pa'), ps:avg('ps'), pi:avg('pi'),
                  fl:avg('fl'), pk:avg('pk'), se:avg('se'),
-                 nr:last.nr, sp:last.sp, pw:last.pw, rh:last.rh, tm:last.tm };
+                 nr:nrMax, sp:last.sp, pw:last.pw, rh:last.rh, tm:last.tm };
     });
 }
 
