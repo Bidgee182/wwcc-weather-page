@@ -1968,7 +1968,7 @@ async function renderPerfCharts() {
 
     // Suction pressure (can go negative under vacuum - autoMin lets chart scale freely)
     renderLineChart('c-suction', noData, pts, [
-        { label:'Suction (bar)', data: xy(pts, r=>r.pi), borderColor:'#3498db', bg:'rgba(52,152,219,.12)', dashed:false }
+        { label:'Suction (bar)', data: xy(pts, r=>r.pi), borderColor:'#3498db', bg:'rgba(52,152,219,.12)', dashed:false, smooth:9 }
     ], v=>v!=null?v.toFixed(2)+' bar':null, {autoMin:true});
     if (!noData) {
         const valsS = pts.map(r=>r.pi).filter(v=>v!=null);
@@ -2099,6 +2099,22 @@ async function renderPerfCharts() {
 
 }
 
+// Moving-average smoothing for noisy series - used only where a dataset sets
+// `smooth`. Averages each point's y over a window of `win` samples, keeping x.
+function smoothSeries(data, win) {
+    if (!Array.isArray(data) || data.length < 3 || !win || win < 2) return data;
+    const half = Math.floor(win / 2);
+    return data.map((pt, i) => {
+        if (!pt || pt.y == null) return pt;
+        let sum = 0, n = 0;
+        for (let j = Math.max(0, i - half); j <= Math.min(data.length - 1, i + half); j++) {
+            const y = data[j] && data[j].y;
+            if (y != null && !isNaN(y)) { sum += y; n++; }
+        }
+        return n ? { x: pt.x, y: sum / n } : pt;
+    });
+}
+
 function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     const canvasId = id;
     const loaderEl = document.getElementById(canvasId+'-loader');
@@ -2129,12 +2145,13 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
     const ds = datasets.map(d => ({
         label: d.label,
-        data:  d.data,
+        data:  d.smooth ? smoothSeries(d.data, d.smooth) : d.data,
         borderColor: d.borderColor,
         backgroundColor: d.bg || 'transparent',
         borderWidth: d.thin ? 1.5 : 2,
         borderDash: d.dashPattern || (d.dashed ? [7,4] : []),
         tension: 0,
+        cubicInterpolationMode: d.smooth ? 'monotone' : 'default',
         pointRadius: 0,
         pointHoverRadius: d.noHover ? 0 : 5,
         fill: !!(d.bg && d.bg !== 'transparent'),
