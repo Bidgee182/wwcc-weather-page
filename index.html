@@ -6988,7 +6988,11 @@ function renderTV2Station() {
         _tv2Cls('tile-feelslike', ['gt-'], 'gt-idle'));
     cell('tv2-st-wind', _tv2Txt('tile-wind-val'), gustTxt,
         _tv2Cls('tile-wind', ['gt-'], 'gt-idle'));
-    cell('tv2-st-uv', _tv2Txt('tile-uv-val'), _tv2Txt('tile-uv-explain', ''),
+    // UV: value like "UV 3 - Moderate" is too long for the big st-val font -
+    // keep "UV 3" as the value and move the category into the sub lines
+    const uvParts = _tv2Txt('tile-uv-val').split(' - ');
+    cell('tv2-st-uv', uvParts[0],
+        [uvParts.slice(1).join(' - '), ..._tv2Txt('tile-uv-explain', '').split('·').map(s => s.trim())].filter(Boolean),
         _tv2Cls('tile-uv', ['gt-'], 'gt-idle'));
     cell('tv2-st-rh', _tv2Txt('go-st-rh'), _tv2Txt('go-st-dewlive', ''), 'gt-idle');
     cell('tv2-st-press', _tv2Txt('go-st-pressure'), _tv2Txt('go-st-deltat', ''), 'gt-idle');
@@ -7171,8 +7175,9 @@ function renderTV2() {
     const fr = _tv2Insight('frost-risk-content');
     _tv2SetPill('tv2-p-frost', { lbl:'Frost Risk', icon:'&#10052;&#65039;', val:fr.big, med:true,
         sub:(fr.pill ? fr.pill + ' - ' : '') + fr.sub, cls:fr.cls });
-    _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:_tv2Txt('tile-uv-val'), med:true,
-        sub:_tv2Txt('tile-uv-explain', ''), cls:_tv2Cls('tile-uv', ['gt-'], 'gt-idle') });
+    const uvpParts = _tv2Txt('tile-uv-val').split(' - ');
+    _tv2SetPill('tv2-p-uv', { lbl:'UV Index', icon:'&#9728;&#65039;', val:uvpParts[0], med:true,
+        sub:(uvpParts[1] ? uvpParts[1] + ' - ' : '') + _tv2Txt('tile-uv-explain', ''), cls:_tv2Cls('tile-uv', ['gt-'], 'gt-idle') });
     const bt = _tv2Insight('best-time-content');
     _tv2SetPill('tv2-p-besttime', { lbl:'Best Time to Play',
         val:(bt.big !== '--' ? bt.big : 'Tomorrow'), med:true,

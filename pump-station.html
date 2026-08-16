@@ -28,9 +28,13 @@
         .header-gf-block .conn-title  { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; display:block; }
         /* Grundfos logo centred above PUMP STATION (always visible) */
         .header-gf-logo { display:inline-block; height:28px; width:auto; opacity:0.92; margin-bottom:4px; }
-        /* Mobile: hide Grundfos block + subtitle, shrink logo + title */
+        /* Mobile: pills move to a full-width row under the header, hide subtitle, shrink logo + title */
         @media (max-width:700px) {
-            .header-gf-block { display:none; }
+            .header { flex-wrap:wrap; }
+            .header-gf-block { flex-direction:row; width:100%; justify-content:center; gap:8px; margin-left:0; }
+            .header-gf-block .conn-banner { flex:1; min-width:0; max-width:none; }
+            .header-gf-block .conn-title { max-width:none; }
+            .header-gf-block .conn-sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             .header-text .subtitle { display:none; }
             .header-logo { height:48px; }
             .header-text h1 { font-size:1.4em; letter-spacing:4px; }
