@@ -6367,6 +6367,7 @@ async function fetchTodayWetness() {
     // not count each record as a separate hour.
     let minTempC  = Infinity;
     let rhSum     = 0, rhCount = 0;
+    let lastTempC = null, lastTempTs = 0;   // most-recent archive temp (fallback for disease scoring)
     const wetHourSet    = new Set();   // distinct Sydney hours that are wet
     const nightHourSet  = new Set();   // distinct night hours (20-08) that are wet
     const highRHHourSet = new Set();   // hours where any reading RH ≥ 90% (Fusarium)
@@ -6378,6 +6379,7 @@ async function fetchTodayWetness() {
         const h  = rec.hum  ?? rec.hum_out  ?? rec.hum_last;
         if (tF != null) {
             const tC = (parseFloat(tF) - 32) / 1.8;
+            if (rec.ts > lastTempTs) { lastTempC = tC; lastTempTs = rec.ts; }
             // Only track night min temp (8pm-8am Sydney time)
             const recHr = new Date(rec.ts * 1000 + offsetMs).getUTCHours();
             if (recHr >= 20 || recHr < 8) {
@@ -6431,7 +6433,10 @@ async function fetchTodayWetness() {
     const skProb  = getSmithKerns5Day();   // null | 0-1
     const skWarnEl = document.getElementById('sk-data-warn');
     if (skWarnEl) skWarnEl.style.display = skProb === null ? '' : 'none';
-    const tempC   = wx.temp;               // current live temp
+    // Prefer the live temp; fall back to the latest 24h archive reading so the
+    // disease scores still work if the live conditions fetch hasn't populated yet.
+    const tempC   = wx.temp != null ? wx.temp
+                  : (lastTempC != null ? +lastTempC.toFixed(1) : null);
 
     const diseases = [];
 
