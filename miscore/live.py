@@ -506,6 +506,12 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
             in_ntp_section = False
             continue
 
+        # "Gross Winner" is a separate scratch prize, not the main nett standings.
+        # Reuse the skip-until-next-section flag so its rows aren't counted.
+        if re.search(r'\bgross\s+winner', lower):
+            in_ntp_section = True
+            continue
+
         # NTP/LD/sponsor section headings - skip until next grade heading or section reset
         if re.search(r'\b(nearest|longest|ball\s+draw|ntp|sponsor)\b', lower):
             in_ntp_section = True
@@ -542,6 +548,7 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
         name_parts: list[str] = []
         score_parts: list[str] = []
         balls_count = 0
+        seen_prize = False   # once a "$" prize token appears, later bare numbers aren't scores
         remaining = texts[name_start_idx:]
         i = 0
         while i < len(remaining):
@@ -560,13 +567,21 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                 balls_count = int(t)
                 i += 1  # consume "Ball(s)"
                 continue
-            # Once we've started collecting name, a number means score
+            # A number before the prize ($) columns is a score/handicap; a bare number
+            # AFTER the prize is a ball count whose "Ball(s)" wrapped to the next PDF
+            # line (stroke reports, e.g. "...$15.00, 1" with "Ball" on the line below).
             if re.fullmatch(r'\+?-?\d+(?:\.\d+)?', t):
-                if name_parts:
+                if seen_prize:
+                    if re.fullmatch(r'\d+', t) and not balls_count:
+                        balls_count = int(t)
+                elif name_parts:
                     score_parts.append(t)
                 continue
-            if t.startswith('$') or re.search(r'\d', t):
-                continue  # prize money or mixed token - not a name, not a plain score
+            if t.startswith('$'):
+                seen_prize = True
+                continue
+            if re.search(r'\d', t):
+                continue  # other mixed token - not a name, not a plain score
             # "C/B" = countback marker; "-" = grade separator ("A - 1 Name ..."); skip both
             if t in ('C/B', 'C/b', '-', '–'):
                 continue
