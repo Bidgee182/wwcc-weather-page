@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-08-17T21:06:33.469045+00:00",
-  "last_seen": "2026-08-17T21:06:33.469045+00:00",
-  "last_connected": "2026-08-17T21:06:33.469045+00:00",
+  "timestamp": "2026-08-17T21:11:23.008898+00:00",
+  "last_seen": "2026-08-17T21:11:23.008898+00:00",
+  "last_connected": "2026-08-17T21:11:23.008898+00:00",
   "system": {
-    "pressure_actual_bar": 7.622,
-    "pressure_suction_bar": -0.812,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 35.8,
+    "power_kw": 8.4,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 92.9,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198974,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -64,14 +64,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 93.3,
+      "power_kw": 8.5,
+      "current_a": 17.4,
       "run_hours": 5148.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7601,
+      "raw": 7808,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 188,
+      "raw": 182,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-16T21:10:09.042357+00:00",
-      "pa": 8.126,
-      "ps": 7.8,
-      "pi": -0.812,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5148.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-16T21:14:57.489588+00:00",
       "pa": 8.126,
@@ -11557,9 +11517,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-17T21:11:23.008898+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 35.8,
+      "nr": 1,
+      "pk": 8.4,
+      "sp": [
+        0.0,
+        93.3,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        8.5,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5148.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-17T21:11:23.008898+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-16T09:35:58.541275+00:00",
       "type_code": 4,
@@ -11910,15 +11919,6 @@
       "description": "Pressure high",
       "pump_label": "System",
       "source_name": "System"
-    },
-    {
-      "timestamp_iso": "2026-08-08T00:46:20.139042+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 4,
-      "description": "Too many restarts",
-      "pump_label": "P1 - CRNE45",
-      "source_name": "Pump"
     }
   ],
   "pump_energy_kwh": [
