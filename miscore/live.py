@@ -192,40 +192,31 @@ def _wwcc_get_bytes(url: str) -> bytes:
 
 
 def _parse_ball_winners(pdf_bytes: bytes) -> list:
-    """Parse a WWCC prize PDF and return names of players who won a ball.
-
-    Finds all rows containing "N Ball(s)" text and extracts the player name
-    from the same y-line (±15 units to handle split-row PDF layouts).
-    Uses the shared _pdf_text_entries helper so any Tm matrix works.
+    """Names of ball winners in "Firstname Lastname" order (to match the live
+    board's player names). Derived from the standings 'balls' column - the prize
+    shows "N Ball(s)" next to each winner - via the reliable pdfplumber path.
+    (Replaces an older raw-stream scraper that returned garbled fragments.)
     """
-    entries = _pdf_text_entries(pdf_bytes)
-    if not entries:
-        return []
+    def _flip(member: str) -> str:
+        # Standings names are "Lastname Firstname[ ...]"; flip to "Firstname[ ...] Lastname"
+        w = member.split()
+        return ' '.join(w[1:] + w[:1]) if len(w) >= 2 else member
 
-    _name_skip = {'hole', 'the', 'and', 'grade', 'wagga', 'country', 'golf',
-                  'course', 'club', 'trophy', 'prize', 'prizes', 'nett', 'gross',
-                  'out', 'in', 'total', 'entrants', 'starters', 'ball', 'balls',
-                  'nearest', 'pin', 'longest', 'drive', 'ntp'}
-
-    ball_entries = [(y, x, txt) for y, x, txt in entries
-                    if re.fullmatch(r'\d+\s*Balls?', txt, re.IGNORECASE)]
-    winners: set = set()
-    for by, bx, _ in ball_entries:
-        row = [(x, txt) for y, x, txt in entries
-               if abs(y - by) <= 15
-               and not re.fullmatch(r'\d+\s*Balls?', txt, re.IGNORECASE)
-               and not re.fullmatch(r'\d{1,2}(?:st|nd|rd|th)?\.?', txt.strip(), re.IGNORECASE)]
-        name_parts = [txt for _, txt in sorted(row, key=lambda e: e[0])
-                      if any(c.isupper() for c in txt) and txt.lower() not in _name_skip
-                      and not re.fullmatch(r'\+?-?[\d.]+', txt)]
-        for part in name_parts:
-            part = part.strip()
-            if ',' in part:
-                sp = part.split(',', 1)
-                part = f'{sp[1].strip()} {sp[0].strip()}'.strip()
-            if len(part) >= 4 and ' & ' not in part:
-                winners.add(part)
-    return sorted(winners)
+    st = _parse_pdf_standings(pdf_bytes)
+    winners: list[str] = []
+    seen: set = set()
+    for p in st.get("players", []):
+        if not p.get("balls"):
+            continue
+        raw = p.get("name", "")
+        if '&' in raw.split():
+            nm = ' & '.join(_flip(m.strip()) for m in raw.split('&'))
+        else:
+            nm = _flip(raw)
+        if nm and nm not in seen:
+            seen.add(nm)
+            winners.append(nm)
+    return winners
 
 
 def _pdf_lines(pdf_bytes: bytes) -> list[list[dict]]:
