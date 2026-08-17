@@ -1096,7 +1096,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.2';
+const PUMP_VERSION = '2.3';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // ─── Supabase config ──────────────────────────────────────────────────────────
@@ -1827,20 +1827,31 @@ function renderBanner() {
     }
 }
 
-// Direction of B1 (discharge) over roughly the last 10 minutes, from the loaded
-// 1-minute history. Compares the mean of the newer half vs the older half of the
-// window, with a deadband so normal constant-pressure holding reads as Steady.
+// Direction of B1 (discharge) over roughly the last 30 minutes, from the loaded
+// 1-minute history. Uses a least-squares slope so a slow, persistent drift (e.g.
+// a leak bleeding pressure down) accumulates and is caught, while the random
+// ripple of normal pressure-holding averages to a flat slope and reads Steady.
+// Judges by the modeled drift ACROSS the window, and reports the rate (bar/hr).
 function b1Trend() {
     const h = (latestData && latestData.history) ? latestData.history : [];
-    const recent = h.slice(-10).filter(r => r && r.pa != null);
-    if (recent.length < 4) return null;
-    const mid = Math.floor(recent.length / 2);
-    const avg = a => a.reduce((s, r) => s + r.pa, 0) / a.length;
-    const delta = avg(recent.slice(mid)) - avg(recent.slice(0, mid));   // bar
-    const DEAD = 0.05;   // bar - below this it's holding, not trending
-    if (delta >=  DEAD) return { word: 'Rising',  arrow: '↗' };
-    if (delta <= -DEAD) return { word: 'Falling', arrow: '↘' };
-    return { word: 'Steady', arrow: '→' };
+    const raw = h.slice(-30).filter(r => r && r.pa != null && r.ts);
+    if (raw.length < 6) return null;
+    const t0 = new Date(raw[0].ts).getTime();
+    const pts = raw.map(r => ({ x: (new Date(r.ts).getTime() - t0) / 60000, y: r.pa })); // x in minutes
+    const n = pts.length;
+    const spanMin = pts[n - 1].x - pts[0].x;
+    if (spanMin < 8) return null;                                   // need a few minutes of span
+    const sx = pts.reduce((s, p) => s + p.x, 0),  sy = pts.reduce((s, p) => s + p.y, 0);
+    const sxx = pts.reduce((s, p) => s + p.x * p.x, 0), sxy = pts.reduce((s, p) => s + p.x * p.y, 0);
+    const denom = n * sxx - sx * sx;
+    if (denom === 0) return null;
+    const slopePerMin = (n * sxy - sx * sy) / denom;                // bar/min
+    const netChange   = slopePerMin * spanMin;                      // bar across the window
+    const ratePerHr   = slopePerMin * 60;                           // bar/hour
+    const FLOOR = 0.03;   // bar of modeled drift over the window before it counts as trending
+    if (netChange >=  FLOOR) return { word: 'Rising',  arrow: '↗', rate: ratePerHr };
+    if (netChange <= -FLOOR) return { word: 'Falling', arrow: '↘', rate: ratePerHr };
+    return { word: 'Steady', arrow: '→', rate: ratePerHr };
 }
 
 // ─── Overview ────────────────────────────────────────────────────────────────
