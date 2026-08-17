@@ -1096,8 +1096,13 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.3';
+const PUMP_VERSION = '2.4';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
+
+// The setpoint register is stored as a % of the 16-bar sensor and can't hold
+// 7.80 exactly (it quantises to ~7.8112 -> 7.81), while the CU352 shows the clean
+// configured value. Snap to the nearest 0.05 bar to recover it (7.81 -> 7.80).
+const snap05 = v => (v == null ? null : Math.round(v / 0.05) * 0.05);
 
 // ─── Supabase config ──────────────────────────────────────────────────────────
 const SUPA_URL = 'https://sduzxijjvpbfgvlwcwpp.supabase.co';
@@ -1134,7 +1139,7 @@ function statsRowToReading(r) {
     return {
         ts: r.ts,
         pa: r.pressure_avg,
-        ps: r.setpoint_bar   ?? null,
+        ps: snap05(r.setpoint_bar),
         pi: r.pressure_inlet ?? null,
         fl: r.flow_avg       ?? null,
         nr,
@@ -1246,7 +1251,7 @@ function buildLatestData(statsRows, eventsRows) {
         last_connected: row.ts,
         system: {
             pressure_actual_bar:      row.pressure_avg        ?? null,
-            pressure_setpoint_bar:    row.setpoint_bar        ?? null,
+            pressure_setpoint_bar:    snap05(row.setpoint_bar),
             pressure_suction_bar:     row.pressure_inlet      ?? null,
             flow_m3h:                 row.flow_avg            ?? null,
             power_kw:                 row.power_avg_kw        ?? null,

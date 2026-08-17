@@ -44,7 +44,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "2.3"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
+POLLER_VERSION = "2.4"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -444,10 +444,11 @@ def poll_once(client):
     power_kw = round(power_combined / 1000, 2) if power_combined is not None else None
 
     # raw is in 0.01% of sensor range; divide by 10000 to get fraction, then * sensor_max_bar.
-    # Prefer UserSetpoint (342) - the configured target the CU352 shows (e.g. 7.80) - over
-    # ActualSetpoint (307), which drifts with analog influence and rounds to 7.81.
+    # Prefer UserSetpoint (342) over ActualSetpoint (307). The register can't hold 7.80
+    # exactly (quantises to ~7.8112), so snap to the nearest 0.05 bar to recover the clean
+    # value the CU352 displays (7.8112 -> 7.80).
     _sp_src   = usersetpt_raw if usersetpt_raw is not None else setpt_raw
-    setpoint  = round(_sp_src * 0.0001 * sensor_max_mbar / 1000, 2) \
+    setpoint  = round(round(_sp_src * 0.0001 * sensor_max_mbar / 1000 / 0.05) * 0.05, 2) \
                 if _sp_src is not None and sensor_max_mbar else None
 
     sys_run_hours     = hi_lo_32(op_time_hi, op_time_lo)

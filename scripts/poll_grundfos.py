@@ -653,10 +653,11 @@ def main():
     volume_lo       = valid(data_regs[63])  # 00364: VolumeLO (0.1 m3)
 
     actual_bar   = round(head_raw * 0.001, 3) if head_raw is not None else pct_to_bar(process_fb, sensor_max_mbar)
-    # Prefer UserSetpoint (342) - the configured target the CU352 shows (e.g. 7.80) - over
-    # ActualSetpoint (307), which drifts with analog influence and rounds to 7.81.
+    # Prefer UserSetpoint (342) over ActualSetpoint (307). The register can't hold 7.80
+    # exactly (quantises to ~7.8112), so snap to the nearest 0.05 bar to recover the clean
+    # value the CU352 displays (7.8112 -> 7.80).
     _sp_raw      = pct_to_bar(usersetpt_raw if usersetpt_raw is not None else setpoint_raw, sensor_max_mbar)
-    setpoint_bar = round(_sp_raw, 2) if _sp_raw is not None else None
+    setpoint_bar = round(round(_sp_raw / 0.05) * 0.05, 2) if _sp_raw is not None else None
     flow_m3h     = round(flow_raw * 0.1, 2) if flow_raw is not None else None
     # B2 transmitter range -1.0 to 6.0 bar: CU352 stores offset from transmitter min.
     # raw=0 → -1.0 bar, raw=1000 → 0.0 bar, raw=680 → -0.32 bar (confirmed from CU352 photo).
