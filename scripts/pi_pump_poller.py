@@ -44,7 +44,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "1.9"
+POLLER_VERSION = "2.0"
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -409,7 +409,8 @@ def poll_once(client):
     rel_perf_raw   = valid(data[2])    # addr 302: RelativePerformance (0.01%)
     di_raw         = valid(data[5])    # addr 305: DigitalInput bits
     do_raw         = valid(data[6])    # addr 306: DigitalOutput bits
-    setpt_raw      = valid(data[7])    # addr 307: ActualSetpoint (0.01%)
+    setpt_raw      = valid(data[7])    # addr 307: ActualSetpoint (0.01%, incl analog influence)
+    usersetpt_raw  = valid(data[42])   # addr 342: UserSetpoint (0.01%, before any modification)
     power_hi       = valid(data[11])   # addr 311: PowerHI
     power_lo       = valid(data[12])   # addr 312: PowerLO
     inlet_raw      = valid(data[14])   # addr 314: InletPressure (0.001 bar, offset -1.0)
@@ -442,9 +443,12 @@ def poll_once(client):
     power_combined = hi_lo_32(power_hi, power_lo)
     power_kw = round(power_combined / 1000, 2) if power_combined is not None else None
 
-    # raw is in 0.01% of sensor range; divide by 10000 to get fraction, then * sensor_max_bar
-    setpoint  = round(setpt_raw * 0.0001 * sensor_max_mbar / 1000, 2) \
-                if setpt_raw is not None and sensor_max_mbar else None
+    # raw is in 0.01% of sensor range; divide by 10000 to get fraction, then * sensor_max_bar.
+    # Prefer UserSetpoint (342) - the configured target the CU352 shows (e.g. 7.80) - over
+    # ActualSetpoint (307), which drifts with analog influence and rounds to 7.81.
+    _sp_src   = usersetpt_raw if usersetpt_raw is not None else setpt_raw
+    setpoint  = round(_sp_src * 0.0001 * sensor_max_mbar / 1000, 2) \
+                if _sp_src is not None and sensor_max_mbar else None
 
     sys_run_hours     = hi_lo_32(op_time_hi, op_time_lo)
     sys_powered_hours = hi_lo_32(powered_hi, powered_lo)

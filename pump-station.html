@@ -647,6 +647,14 @@
         <h2>All Pumps - Grundfos Hydro MPC CU 352</h2>
         <div class="sk-grid" id="all-pump-grid"></div>
     </div>
+
+    <div class="card" id="cost-card">
+        <h2>Pump Electricity Cost</h2>
+        <div class="cost-tiles" id="cost-tiles"></div>
+        <div id="cost-perpump"></div>
+        <div class="cost-basis" id="cost-basis"></div>
+        <div id="cost-edit" style="display:none;"></div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════ CHARTS / PERFORMANCE ═══════════════════════════ -->
@@ -794,14 +802,6 @@
         <h2>Daily Max Flow Rate</h2>
         <div class="chart-loader" id="c-dflow-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(52,152,219,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
         <div class="chart-wrap h160" id="c-dflow-wrap"><canvas id="c-dflow"></canvas></div>
-    </div>
-
-    <div class="card" id="cost-card">
-        <h2>Pump Electricity Cost</h2>
-        <div class="cost-tiles" id="cost-tiles"></div>
-        <div id="cost-perpump"></div>
-        <div class="cost-basis" id="cost-basis"></div>
-        <div id="cost-edit" style="display:none;"></div>
     </div>
 
 </div>
@@ -1559,6 +1559,7 @@ function showTab(name, btn) {
     document.getElementById('tab-'+name).classList.add('active');
     if (btn) btn.classList.add('active');
     updateHash(name);
+    if (name === 'pumps')       ensureDaily().then(renderCostCard);
     if (name === 'performance') renderPerfCharts();
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
@@ -1844,17 +1845,16 @@ async function renderOverview() {
         opModeEl.style.color = opColor;
     }
 
-    // Discharge pill: one-sided vs setpoint - high pressure is fine, only a drop
-    // well below setpoint is a problem (pumps can't hold pressure).
-    //   green: at/above setpoint or mild droop (within 0.5 bar below)
-    //   amber: a moderate sag (0.5-1.5 bar below)
-    //   red:   well below setpoint (>1.5 bar below - approaching the low limit)
+    // Discharge pill: absolute thresholds on outlet pressure (B1). High pressure
+    // is fine; only a real drop below the setpoint band is a problem.
+    //   green: 7.0 bar and above (holding at/near the 7.80 setpoint)
+    //   amber: under 7.0 bar (sagging)
+    //   red:   under 6.0 bar (well below setpoint)
     const ppDischarge = document.getElementById('pp-discharge');
-    if (actual != null && setpoint != null && setpoint > 0) {
-        const below = setpoint - actual;   // positive = below setpoint
-        ppDischarge.className = below <= 0.5 ? 'pres-pill pp-ok'
-                              : below <= 1.5 ? 'pres-pill pp-warn'
-                              :                'pres-pill pp-bad';
+    if (actual != null) {
+        ppDischarge.className = actual >= 7 ? 'pres-pill pp-ok'
+                              : actual >= 6 ? 'pres-pill pp-warn'
+                              :               'pres-pill pp-bad';
     } else {
         ppDischarge.className = 'pres-pill';
     }
