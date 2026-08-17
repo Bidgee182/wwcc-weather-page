@@ -476,10 +476,10 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
         pos: int | None = None
         name_start_idx = 0
         for i, t in enumerate(texts[:3]):
-            pm = re.fullmatch(r'(\d{1,2})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
+            pm = re.fullmatch(r'(\d{1,3})(?:st|nd|rd|th)?\.?', t.strip(), re.IGNORECASE)
             if pm:
                 v = int(pm.group(1))
-                if 1 <= v <= 99:
+                if 1 <= v <= 999:   # large medley fields run past rank 100
                     pos = v
                     name_start_idx = i + 1
                     break
