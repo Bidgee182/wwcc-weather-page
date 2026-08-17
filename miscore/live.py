@@ -579,13 +579,15 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
                 name_parts.append(clean)
                 # We do NOT break here — "Lastname," is followed by "Firstname" as separate word
 
-        name = ' '.join(name_parts[:4]).strip()
-        # GA Score = last purely-numeric score before prize columns
-        numeric_scores = [s for s in score_parts if re.fullmatch(r'\d+', s)]
+        # Team comps (4BBB pairs, Ambrose 4-somes) join members with "&" and run
+        # well past 4 tokens; singles keep the defensive 4-token cap.
+        name = ' '.join(name_parts if '&' in name_parts else name_parts[:4]).strip()
+        # GA Score = last score before the prize columns (Ambrose scores are decimals).
+        numeric_scores = [s for s in score_parts if re.fullmatch(r'\d+(?:\.\d+)?', s)]
         score = numeric_scores[-1] if numeric_scores else ''
         balls_text = f'{balls_count} Ball{"s" if balls_count != 1 else ""}' if balls_count else ''
 
-        if ' & ' in name or len(name) < 3:
+        if len(name) < 3:
             continue
 
         players.append({
