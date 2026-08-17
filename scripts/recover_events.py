@@ -14,6 +14,7 @@ import json
 import glob
 import pathlib
 import urllib.request
+import urllib.parse
 from datetime import datetime
 
 import pdfplumber
@@ -83,7 +84,7 @@ def recover(event_ids: list[str]) -> int:
             continue
 
         for path in pdf_paths:
-            url = path if path.startswith("http") else _WWCC_BASE + ("" if path.startswith("/") else "/") + path.lstrip("/")
+            url = urllib.parse.urljoin(_WWCC_BASE + "/", path)
             try:
                 b = _get_bytes(url)
             except Exception as exc:
