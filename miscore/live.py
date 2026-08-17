@@ -260,6 +260,38 @@ def _pdf_lines(pdf_bytes: bytes) -> list[list[dict]]:
     return lines_all
 
 
+def _lf_name_prefix(line_words: list, skip: set) -> str | None:
+    """Pull 'Firstname Lastname' from a 'Lastname, Firstname ...' line prefix.
+
+    Stops at the first '$', number, or skip-word after the name. Used for the
+    'Other' Longest Drive rows where the winner's name leads the line.
+    """
+    parts: list[str] = []
+    got_comma = False
+    for w in line_words:
+        t = w['text'].strip()
+        if t.startswith('$') or re.fullmatch(r'[\d.,]+', t):
+            if got_comma:
+                break
+            continue
+        if t.lower() in skip or t in ('(', ')', ':'):
+            if got_comma:
+                break
+            continue
+        if any(c.isupper() for c in t) and len(t) >= 2:
+            if t.endswith(','):
+                parts.append(t.rstrip(','))
+                got_comma = True
+            elif got_comma:
+                parts.append(t)
+                break
+            else:
+                parts.append(t)
+    if got_comma and len(parts) >= 2:
+        return f'{parts[1]} {parts[0]}'
+    return ' '.join(parts) if parts else None
+
+
 def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
     """Extract Nearest the Pin and Longest Drive results from a prize presentation PDF.
 
@@ -271,6 +303,7 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
     ld: list[dict] = []
     ntp_holes_seen: set = set()
     ld_holes_seen: set = set()
+    ld_other_seen: set = set()
 
     _skip = {'hole', 'the', 'and', 'ntp', 'nearest', 'pin', 'longest', 'drive',
              'course', 'club', 'ga', 'green', 'grade', 'wagga', 'country',
@@ -290,6 +323,22 @@ def _parse_ntp_ld(pdf_bytes: bytes) -> dict:
         texts = [w['text'] for w in line_words]
         full_line = ' '.join(texts)
         lower = full_line.lower()
+
+        # Longest Drive winner in the "Other"-section format (before the section
+        # header check, which would otherwise swallow the line):
+        #   "Jenkins, Jacqueline $15.00 Long Drive 9th 0-55"
+        # A player name + "Long Drive <hole>th <band>" on one line (not a bare header).
+        ldm = re.search(r'long(?:est)?\s+drive\s+(\d+)(?:st|nd|rd|th)?\s*(.*)$', full_line, re.I)
+        if ldm and re.search(r'[A-Za-z]{2,},', full_line):
+            name = _lf_name_prefix(line_words, _skip)
+            if name:
+                band = ldm.group(2).strip()
+                key = (name, band)
+                if key not in ld_other_seen:
+                    ld.append({"hole": ldm.group(1), "winner": name,
+                               "distance": band, "type": "ld"})
+                    ld_other_seen.add(key)
+            continue
 
         # Section detection
         if re.search(r'nearest.{0,15}pin|near.{0,5}pin', lower):
