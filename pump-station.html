@@ -140,6 +140,7 @@
         .pp-sep { display:flex; align-items:center; padding:0 12px; color:#3d5166; font-size:1em; flex-shrink:0; }
         .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 12px 12px; text-align:center; position:relative; transition:border-color .4s; overflow:hidden; }
         .pp-lbl  { font-size:.88em; font-weight:bold; color:#ecf0f1; letter-spacing:0; text-transform:none; margin:0 -12px 10px -12px; padding:8px 12px; background:rgba(61,81,102,.5); }
+        .pp-dir  { font-size:1em; font-weight:bold; vertical-align:middle; }
         .pp-val  { font-size:2.1em; font-weight:bold; line-height:1; }
         .pp-unit { font-size:.7em; color:#7f8c8d; margin-top:5px; }
         .pp-edit { position:absolute; top:5px; right:7px; background:none; border:1px solid rgba(93,130,160,.4); color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; z-index:1; }
@@ -552,7 +553,7 @@
             <div class="pp-sep">&#8594;</div>
             <!-- Discharge -->
             <div class="pres-pill" id="pp-discharge">
-                <div class="pp-lbl">Discharge (B1)</div>
+                <div class="pp-lbl">Discharge (B1) <span class="pp-dir" id="ov-dir"></span></div>
                 <div class="pp-val" id="ov-actual">--</div>
                 <div class="pp-unit">bar</div>
             </div>
@@ -1845,18 +1846,27 @@ async function renderOverview() {
         opModeEl.style.color = opColor;
     }
 
-    // Discharge pill: absolute thresholds on outlet pressure (B1). High pressure
-    // is fine; only a real drop below the setpoint band is a problem.
-    //   green: 7.0 bar and above (holding at/near the 7.80 setpoint)
-    //   amber: under 7.0 bar (sagging)
-    //   red:   under 6.0 bar (well below setpoint)
+    // Discharge pill (B1): coloured relative to the live setpoint, and only while
+    // the system is ON - when it's off/idle the pressure bleeds down, so we show
+    // neutral grey rather than a false red. Low side is tighter than the high side
+    // because under-pressure is what actually hurts irrigation.
+    //   below setpoint: orange at -7%, red at -15%
+    //   above setpoint: orange at +10%, red at +20%
+    //   cue: down-arrow when below the band, up-arrow when above.
     const ppDischarge = document.getElementById('pp-discharge');
-    if (actual != null) {
-        ppDischarge.className = actual >= 7 ? 'pres-pill pp-ok'
-                              : actual >= 6 ? 'pres-pill pp-warn'
-                              :               'pres-pill pp-bad';
+    const ovDir = document.getElementById('ov-dir');
+    if (actual != null && setpoint != null && setpoint > 0 && sys.system_on) {
+        const dev = (actual - setpoint) / setpoint;   // signed: + above, - below
+        let cls = 'pp-ok', dir = '';
+        if      (dev <= -0.15) { cls = 'pp-bad';  dir = '▼'; }   // 15%+ below
+        else if (dev <= -0.07) { cls = 'pp-warn'; dir = '▼'; }   // 7-15% below
+        else if (dev >=  0.20) { cls = 'pp-bad';  dir = '▲'; }   // 20%+ above
+        else if (dev >=  0.10) { cls = 'pp-warn'; dir = '▲'; }   // 10-20% above
+        ppDischarge.className = 'pres-pill ' + cls;
+        if (ovDir) ovDir.textContent = dir;
     } else {
-        ppDischarge.className = 'pres-pill';
+        ppDischarge.className = 'pres-pill';        // neutral: idle or no data
+        if (ovDir) ovDir.textContent = '';
     }
 
     // Suction pill — green if in normal inlet range (-1.0 to 0.5 bar), red if outside
