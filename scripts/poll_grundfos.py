@@ -498,17 +498,19 @@ def execute_pending_command(client):
             else:
                 result = f"Unknown mode '{val}'"
 
-        elif act in ("start_pump", "stop_pump"):
+        elif act in ("start_pump", "stop_pump", "auto_pump"):
             pump_id  = int(val)   # 1-based (1=P1, 2=P2, 3=P3, 4=Jockey)
             pump_idx = pump_id - 1
             if 0 <= pump_idx < len(PUMP_CTRL_ADDRS):
                 ctrl_addr = PUMP_CTRL_ADDRS[pump_idx]
-                state_val = 1 if act == "start_pump" else 2
+                # 0 = Auto (release to controller), 1 = force Start, 2 = force Stop
+                state_val = 1 if act == "start_pump" else 2 if act == "stop_pump" else 0
                 # Write ONLY the pump's individual control register (addr 104-116).
                 # Do NOT write addr 100 - that risks loading wrong CU352 remote settings.
                 r2 = wr(ctrl_addr, state_val)
                 success = not r2.isError()
-                action_lbl = "started" if act == "start_pump" else "stopped"
+                action_lbl = ("started" if act == "start_pump"
+                              else "stopped" if act == "stop_pump" else "released to auto")
                 result = (f"Pump {pump_id} {action_lbl} (addr {ctrl_addr}={state_val})"
                           if success else f"Write failed addr {ctrl_addr}")
             else:
