@@ -140,9 +140,10 @@
         .pp-sep { display:flex; align-items:center; padding:0 12px; color:#3d5166; font-size:1em; flex-shrink:0; }
         .pres-pill { flex:1; background:#1a252f; border:2px solid #3d5166; border-radius:10px; padding:0 12px 12px; text-align:center; position:relative; transition:border-color .4s; overflow:hidden; }
         .pp-lbl  { font-size:.88em; font-weight:bold; color:#ecf0f1; letter-spacing:0; text-transform:none; margin:0 -12px 10px -12px; padding:8px 12px; background:rgba(61,81,102,.5); }
-        .pp-dir  { font-size:1em; font-weight:bold; vertical-align:middle; }
+        .pp-valrow { display:flex; align-items:baseline; justify-content:center; gap:6px; }
         .pp-val  { font-size:2.1em; font-weight:bold; line-height:1; }
-        .pp-unit { font-size:.7em; color:#7f8c8d; margin-top:5px; }
+        .pp-unit { font-size:.7em; color:#7f8c8d; }
+        .pp-status { font-size:.66em; color:#7f8c8d; margin-top:7px; min-height:1.1em; letter-spacing:.02em; }
         .pp-edit { position:absolute; top:5px; right:7px; background:none; border:1px solid rgba(93,130,160,.4); color:#566573; border-radius:5px; padding:3px 7px; font-size:.72em; cursor:pointer; transition:background .15s,color .15s; font-family:inherit; line-height:1; z-index:1; }
         .pp-edit:hover { background:rgba(44,62,80,.8); color:#ecf0f1; border-color:#5dade2; }
         @keyframes ppPulseGreen { 0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,0)}   60%{box-shadow:0 0 12px 4px rgba(46,204,113,.45)} }
@@ -547,22 +548,22 @@
             <!-- Suction -->
             <div class="pres-pill" id="pp-suction">
                 <div class="pp-lbl">Suction (B2)</div>
-                <div class="pp-val" id="ov-suction">--</div>
-                <div class="pp-unit">bar</div>
+                <div class="pp-valrow"><div class="pp-val" id="ov-suction">--</div><div class="pp-unit">bar</div></div>
+                <div class="pp-status"></div>
             </div>
             <div class="pp-sep">&#8594;</div>
             <!-- Discharge -->
             <div class="pres-pill" id="pp-discharge">
-                <div class="pp-lbl">Discharge (B1) <span class="pp-dir" id="ov-dir"></span></div>
-                <div class="pp-val" id="ov-actual">--</div>
-                <div class="pp-unit">bar</div>
+                <div class="pp-lbl">Discharge (B1)</div>
+                <div class="pp-valrow"><div class="pp-val" id="ov-actual">--</div><div class="pp-unit">bar</div></div>
+                <div class="pp-status" id="ov-b1-status"></div>
             </div>
             <div class="pp-sep">vs</div>
             <!-- Setpoint -->
             <div class="pres-pill" id="pp-setpoint">
                 <div class="pp-lbl">Setpoint</div>
-                <div class="pp-val" id="ov-setpoint">--</div>
-                <div class="pp-unit">bar</div>
+                <div class="pp-valrow"><div class="pp-val" id="ov-setpoint">--</div><div class="pp-unit">bar</div></div>
+                <div class="pp-status"></div>
                 <button class="pp-edit" onclick="ovEditSetpoint()" title="Change setpoint (PIN required)">&#9998;</button>
             </div>
             <div class="pp-sep">|</div>
@@ -1095,7 +1096,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.1';
+const PUMP_VERSION = '2.2';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // ─── Supabase config ──────────────────────────────────────────────────────────
@@ -1826,6 +1827,22 @@ function renderBanner() {
     }
 }
 
+// Direction of B1 (discharge) over roughly the last 10 minutes, from the loaded
+// 1-minute history. Compares the mean of the newer half vs the older half of the
+// window, with a deadband so normal constant-pressure holding reads as Steady.
+function b1Trend() {
+    const h = (latestData && latestData.history) ? latestData.history : [];
+    const recent = h.slice(-10).filter(r => r && r.pa != null);
+    if (recent.length < 4) return null;
+    const mid = Math.floor(recent.length / 2);
+    const avg = a => a.reduce((s, r) => s + r.pa, 0) / a.length;
+    const delta = avg(recent.slice(mid)) - avg(recent.slice(0, mid));   // bar
+    const DEAD = 0.05;   // bar - below this it's holding, not trending
+    if (delta >=  DEAD) return { word: 'Rising',  arrow: '↗' };
+    if (delta <= -DEAD) return { word: 'Falling', arrow: '↘' };
+    return { word: 'Steady', arrow: '→' };
+}
+
 // ─── Overview ────────────────────────────────────────────────────────────────
 async function renderOverview() {
     await ensureFarmbotLatest();
@@ -1858,21 +1875,28 @@ async function renderOverview() {
     // because under-pressure is what actually hurts irrigation.
     //   below setpoint: orange at -7%, red at -15%
     //   above setpoint: orange at +10%, red at +20%
-    //   cue: down-arrow when below the band, up-arrow when above.
+    // The status line under the value states which side of setpoint it's on (only
+    // when off-band) and which way it's trending (dead-banded slope of recent B1).
     const ppDischarge = document.getElementById('pp-discharge');
-    const ovDir = document.getElementById('ov-dir');
+    const b1Status = document.getElementById('ov-b1-status');
     if (actual != null && setpoint != null && setpoint > 0 && sys.system_on) {
         const dev = (actual - setpoint) / setpoint;   // signed: + above, - below
-        let cls = 'pp-ok', dir = '';
-        if      (dev <= -0.15) { cls = 'pp-bad';  dir = '▼'; }   // 15%+ below
-        else if (dev <= -0.07) { cls = 'pp-warn'; dir = '▼'; }   // 7-15% below
-        else if (dev >=  0.20) { cls = 'pp-bad';  dir = '▲'; }   // 20%+ above
-        else if (dev >=  0.10) { cls = 'pp-warn'; dir = '▲'; }   // 10-20% above
+        let cls = 'pp-ok';
+        if      (dev <= -0.15) cls = 'pp-bad';    // 15%+ below
+        else if (dev <= -0.07) cls = 'pp-warn';   // 7-15% below
+        else if (dev >=  0.20) cls = 'pp-bad';    // 20%+ above
+        else if (dev >=  0.10) cls = 'pp-warn';   // 10-20% above
         ppDischarge.className = 'pres-pill ' + cls;
-        if (ovDir) ovDir.textContent = dir;
+        if (b1Status) {
+            const parts = [];
+            if (cls !== 'pp-ok') parts.push(dev > 0 ? 'Above setpoint' : 'Below setpoint');
+            const tr = b1Trend();
+            if (tr) parts.push(tr.word + ' ' + tr.arrow);
+            b1Status.textContent = parts.join(' · ');
+        }
     } else {
         ppDischarge.className = 'pres-pill';        // neutral: idle or no data
-        if (ovDir) ovDir.textContent = '';
+        if (b1Status) b1Status.textContent = '';
     }
 
     // Suction pill — green if in normal inlet range (-1.0 to 0.5 bar), red if outside
