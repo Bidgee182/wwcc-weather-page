@@ -265,6 +265,30 @@
         .sk-pct { font-family:ui-monospace,Menlo,monospace; font-size:.78em; min-width:34px; text-align:right; color:#ecf0f1; }
         .sk-set { font-size:.6em; font-weight:800; text-transform:uppercase; color:#7f8c8d; background:#22303f; border:1px solid #3d5166; border-radius:6px; padding:5px 8px; cursor:not-allowed; }
         .sk-manual-note { font-size:.56em; color:#566573; text-align:center; letter-spacing:.3px; }
+
+        /* ── Pump electricity cost card ── */
+        .cost-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:4px 0 16px; }
+        @media (max-width:560px){ .cost-tiles{ grid-template-columns:1fr; } }
+        .cost-tile { background:#1a252f; border:1px solid #2b3d4d; border-radius:10px; padding:14px 16px; text-align:center; }
+        .cost-tile .ct-v { font-size:1.9em; font-weight:800; color:#2ecc71; font-variant-numeric:tabular-nums; }
+        .cost-tile .ct-l { font-size:.66em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:3px; }
+        .cost-tile .ct-sub { font-size:.62em; color:#566573; margin-top:4px; }
+        .cost-pp { width:100%; border-collapse:collapse; font-size:.85em; margin-bottom:14px; }
+        .cost-pp td, .cost-pp th { padding:7px 10px; border-bottom:1px solid #243344; text-align:right; }
+        .cost-pp th { color:#7f8c8d; font-weight:600; font-size:.9em; text-transform:uppercase; letter-spacing:.5px; }
+        .cost-pp td:first-child, .cost-pp th:first-child { text-align:left; color:#ecf0f1; }
+        .cost-pp .cp-total td { border-top:2px solid #3d5166; font-weight:800; color:#2ecc71; }
+        .cost-basis { font-size:.72em; color:#7f8c8d; line-height:1.6; background:#16212c; border:1px solid #213241; border-radius:8px; padding:11px 14px; }
+        .cost-basis b { color:#bdc9d4; }
+        .cost-basis .cb-edit { color:#5dade2; cursor:pointer; text-decoration:underline; font-weight:600; }
+        .cost-edit-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:12px 0; }
+        @media (max-width:560px){ .cost-edit-grid{ grid-template-columns:repeat(2,1fr); } }
+        .cost-edit-grid label { font-size:.7em; color:#7f8c8d; display:flex; flex-direction:column; gap:4px; }
+        .cost-edit-grid input { background:#1a252f; border:1px solid #3d5166; color:#ecf0f1; border-radius:6px; padding:7px 9px; font-size:1em; }
+        .cost-edit-actions { display:flex; gap:10px; }
+        .cost-edit-actions button { border:none; border-radius:7px; padding:9px 16px; font-weight:700; font-size:.8em; cursor:pointer; }
+        .cost-save { background:#27ae60; color:#fff; }
+        .cost-cancel { background:#22303f; color:#95a5a6; border:1px solid #3d5166; }
         .pump-row::-webkit-scrollbar { height:4px; }
         .pump-row::-webkit-scrollbar-track { background:#2c3e50; }
         .pump-row::-webkit-scrollbar-thumb { background:#3d5166; border-radius:2px; }
@@ -771,6 +795,14 @@
         <div class="chart-wrap h160" id="c-dflow-wrap"><canvas id="c-dflow"></canvas></div>
     </div>
 
+    <div class="card" id="cost-card">
+        <h2>Pump Electricity Cost</h2>
+        <div class="cost-tiles" id="cost-tiles"></div>
+        <div id="cost-perpump"></div>
+        <div class="cost-basis" id="cost-basis"></div>
+        <div id="cost-edit" style="display:none;"></div>
+    </div>
+
 </div>
 
 <!-- ═══════════════════════════ CONTROL ═══════════════════════════ -->
@@ -1241,6 +1273,33 @@ function buildLatestData(statsRows, eventsRows) {
     };
 }
 
+// ── Electricity tariff (marginal pump running cost only) ─────────────────────
+// Editable via data/electricity_tariff.json (PIN-protected editor on the page).
+let tariff = {
+    rates_c_per_kwh: { peak:32.3, shoulder:30.7, off:27.6 },
+    peak_start:17, peak_end:20, offpeak_start:22, offpeak_end:7, weekend_all_offpeak:true,
+    note:'', updated:''
+};
+async function loadTariff() {
+    try {
+        const r = await fetch('data/electricity_tariff.json?_='+Date.now());
+        if (r.ok) tariff = Object.assign(tariff, await r.json());
+    } catch(e) {}
+}
+const _touFmt = new Intl.DateTimeFormat('en-AU', { timeZone:'Australia/Sydney', weekday:'short', hour:'numeric', hour12:false });
+// Which time-of-use period a UTC timestamp (ms) falls in, in Sydney local time.
+function touPeriod(tsMs) {
+    let wd='', hr=0;
+    for (const p of _touFmt.formatToParts(new Date(tsMs))) {
+        if (p.type==='weekday') wd=p.value;
+        else if (p.type==='hour') hr=parseInt(p.value,10)%24;
+    }
+    if ((wd==='Sat'||wd==='Sun') && tariff.weekend_all_offpeak) return 'off';
+    if (hr>=tariff.offpeak_start || hr<tariff.offpeak_end) return 'off';   // overnight wrap
+    if (hr>=tariff.peak_start && hr<tariff.peak_end) return 'peak';
+    return 'shoulder';
+}
+
 // Aggregate minute stats rows into per-AEST-day summaries for the Trends tab
 function buildDailyStats(rows) {
     // Real starts are derived from run_secs transitions (0 -> >0), NOT the stored
@@ -1271,6 +1330,16 @@ function buildDailyStats(rows) {
         // power, which already bakes in the run duty-cycle. samples = seconds in
         // the window; energy(kWh) = avg_power_kw * seconds / 3600.
         const kwhFrom = col => rs.reduce((s, r) => s + (r[col] || 0) * (r.samples || 60) / 3600, 0);
+        // Marginal $ cost per pump: energy in each row x the TOU rate for its timestamp
+        const cost = [0, 0, 0, 0];
+        for (const r of rs) {
+            const rate = (tariff.rates_c_per_kwh[touPeriod(new Date(r.ts).getTime())] || 0) / 100;
+            const h = (r.samples || 60) / 3600;
+            cost[0] += (r.p1_power_kw     || 0) * h * rate;
+            cost[1] += (r.p2_power_kw     || 0) * h * rate;
+            cost[2] += (r.p3_power_kw     || 0) * h * rate;
+            cost[3] += (r.jockey_power_kw || 0) * h * rate;
+        }
         return {
             date,
             hrs: [
@@ -1280,6 +1349,7 @@ function buildDailyStats(rows) {
                 rs.reduce((s, r) => s + (r.jockey_run_secs || 0), 0) / 3600,
             ],
             kwh: [kwhFrom('p1_power_kw'), kwhFrom('p2_power_kw'), kwhFrom('p3_power_kw'), kwhFrom('jockey_power_kw')],
+            cost,
             sts: startsByDate[date],
             p_avg:  pressures.length ? pressures.reduce((a, b) => a + b, 0) / pressures.length : null,
             p_min:  pressures.length ? Math.min(...pressures) : null,
@@ -1288,6 +1358,96 @@ function buildDailyStats(rows) {
             fl_max: flows.length     ? Math.max(...flows)     : null,
         };
     });
+}
+
+// ─── Pump electricity cost (marginal energy cost from the tariff) ──────────────
+function _fmtWin(a, b) {
+    const f = h => { const hr=((h%24)+24)%24, ap=hr<12?'am':'pm', h12=hr%12||12; return h12+ap; };
+    return f(a)+'&ndash;'+f(b);
+}
+function renderCostCard() {
+    const el = document.getElementById('cost-tiles');
+    if (!el) return;
+    const days = dailyData && dailyData.days ? dailyData.days : [];
+    const todayStr = aestDateStr(Date.now());
+    const monthPrefix = todayStr.slice(0,7);
+    const weekAgo = aestDateStr(Date.now() - 6*86400000);
+    const sumBy = (key, filt) => { const t=[0,0,0,0]; for (const d of days){ if (d[key] && filt(d.date)) for(let i=0;i<4;i++) t[i]+=d[key][i]||0; } return t; };
+    const tot = a => a.reduce((s,v)=>s+v,0);
+    const $ = n => '$'+n.toFixed(2);
+    const mName = new Date().toLocaleDateString('en-AU',{month:'long',timeZone:'Australia/Sydney'});
+
+    const month = sumBy('cost', dt=>dt.startsWith(monthPrefix));
+    const week  = sumBy('cost', dt=>dt>=weekAgo);
+    const today = sumBy('cost', dt=>dt===todayStr);
+    const kwhMonth = sumBy('kwh', dt=>dt.startsWith(monthPrefix));
+
+    el.innerHTML =
+      `<div class="cost-tile"><div class="ct-v">${$(tot(month))}</div><div class="ct-l">${mName} to date</div><div class="ct-sub">this calendar month</div></div>`
+    + `<div class="cost-tile"><div class="ct-v">${$(tot(week))}</div><div class="ct-l">Last 7 days</div><div class="ct-sub">rolling week</div></div>`
+    + `<div class="cost-tile"><div class="ct-v">${$(tot(today))}</div><div class="ct-l">Today</div><div class="ct-sub">since midnight AEST</div></div>`;
+
+    const names = ['P1','P2','P3','Jockey'];
+    let rows = names.map((n,i)=>`<tr><td>${n}</td><td>${(kwhMonth[i]||0).toFixed(1)} kWh</td><td>${$(month[i]||0)}</td></tr>`).join('');
+    rows += `<tr class="cp-total"><td>Total</td><td>${tot(kwhMonth).toFixed(1)} kWh</td><td>${$(tot(month))}</td></tr>`;
+    document.getElementById('cost-perpump').innerHTML =
+      `<table class="cost-pp"><tr><th>Pump</th><th>Energy (${mName})</th><th>Cost (${mName})</th></tr>${rows}</table>`;
+
+    const r = tariff.rates_c_per_kwh;
+    document.getElementById('cost-basis').innerHTML =
+      `<b>Basis:</b> marginal energy cost only &mdash; excludes site demand &amp; supply charges (shared club meter). Rates incl GST: `
+      + `<b>Peak</b> (${_fmtWin(tariff.peak_start,tariff.peak_end)} wkdy) ${r.peak}c &middot; `
+      + `<b>Shoulder</b> ${r.shoulder}c &middot; `
+      + `<b>Off-peak</b> (${_fmtWin(tariff.offpeak_start,tariff.offpeak_end)} + weekends) ${r.off}c per kWh. `
+      + `<span class="cb-edit" onclick="costEditToggle()">Edit tariff</span>`
+      + (tariff.updated?` <span style="color:#566573">(updated ${tariff.updated})</span>`:'');
+}
+function costEditToggle() {
+    const box = document.getElementById('cost-edit');
+    if (box.style.display === 'block') { box.style.display='none'; return; }
+    if (!ctrlSes || !ctrlSes.unlocked) {
+        alert('Unlock on the Control tab first (PIN) to edit the tariff.');
+        showTab('control', document.getElementById('nav-btn-control'));
+        return;
+    }
+    const r = tariff.rates_c_per_kwh;
+    box.innerHTML =
+      `<div class="cost-edit-grid">`
+    + `<label>Peak c/kWh<input id="te-peak" type="number" step="0.1" value="${r.peak}"></label>`
+    + `<label>Shoulder c/kWh<input id="te-sh" type="number" step="0.1" value="${r.shoulder}"></label>`
+    + `<label>Off-peak c/kWh<input id="te-off" type="number" step="0.1" value="${r.off}"></label>`
+    + `<label>Peak start hr (0-23)<input id="te-ps" type="number" min="0" max="23" value="${tariff.peak_start}"></label>`
+    + `<label>Peak end hr (1-24)<input id="te-pe" type="number" min="1" max="24" value="${tariff.peak_end}"></label>`
+    + `<label></label>`
+    + `<label>Off-peak start hr<input id="te-os" type="number" min="0" max="24" value="${tariff.offpeak_start}"></label>`
+    + `<label>Off-peak end hr<input id="te-oe" type="number" min="0" max="24" value="${tariff.offpeak_end}"></label>`
+    + `<label></label>`
+    + `</div>`
+    + `<div class="cost-edit-actions"><button class="cost-save" onclick="costSave()">Save tariff</button><button class="cost-cancel" onclick="costEditToggle()">Cancel</button></div>`
+    + `<div id="cost-edit-status" style="font-size:.75em;color:#7f8c8d;margin-top:8px;"></div>`;
+    box.style.display='block';
+}
+async function costSave() {
+    const num = id => parseFloat(document.getElementById(id).value);
+    const t = {
+        note: tariff.note,
+        updated: new Date().toISOString().slice(0,10),
+        rates_c_per_kwh: { peak:num('te-peak'), shoulder:num('te-sh'), off:num('te-off') },
+        peak_start:num('te-ps'), peak_end:num('te-pe'),
+        offpeak_start:num('te-os'), offpeak_end:num('te-oe'),
+        weekend_all_offpeak:true
+    };
+    const st = document.getElementById('cost-edit-status'); st.textContent='Saving...';
+    try {
+        const cur = await ctrlGhGet('data/electricity_tariff.json');
+        await ctrlGhPut('data/electricity_tariff.json', JSON.stringify(t,null,2)+'\n',
+            'Update electricity tariff (pump cost)', cur && cur.sha);
+        tariff = Object.assign(tariff, t);
+        dailyData = null;               // force recompute with the new rates/windows
+        await ensureDaily();
+        renderCostCard();
+        document.getElementById('cost-edit').style.display='none';
+    } catch(e) { st.textContent = 'Save failed: ' + (e.message||e); }
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -1489,6 +1649,7 @@ async function ensureFarmbotTank() {
 
 async function ensureDaily() {
     if (dailyData !== null) return;
+    await loadTariff();   // rates/windows drive the per-day cost computed in buildDailyStats
     try {
         // Last 35 days, lean columns - paged past the 1000-row cap so recent
         // days aren't dropped (ascending + cap = only the oldest 1000 otherwise).
@@ -2328,6 +2489,7 @@ async function render24hTrend() {
 async function renderTrendCharts() {
     render24hTrend();
     await ensureDaily();
+    renderCostCard();
     const days = dailyData && dailyData.days ? dailyData.days.slice(-30) : [];
     const noData = days.length === 0;
     const labels = days.map(d=>fmtDayLabel(d.date));
