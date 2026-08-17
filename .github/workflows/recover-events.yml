@@ -1,0 +1,45 @@
+name: Recover event results
+
+# Manual: logs into the member portal (WWCC secrets), resolves given event pages
+# to their report PDFs, parses them, and backfills the matching history archives.
+on:
+  workflow_dispatch:
+    inputs:
+      eventIds:
+        description: "Space-separated member eventIds to recover"
+        required: true
+        default: "10393107 10393121 10393127 10393141"
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PDF reader
+        run: pip install pdfplumber==0.11.9
+
+      - name: Recover events
+        env:
+          WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+          WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
+        run: python scripts/recover_events.py ${{ github.event.inputs.eventIds }}
+
+      - name: Commit any recovered archives
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add out/history/*.json out/last-results.json
+          if git diff --staged --quiet; then
+            echo "No archives changed"
+          else
+            git commit -m "Recover past comp results from member portal (authenticated)"
+            git push
+          fi
