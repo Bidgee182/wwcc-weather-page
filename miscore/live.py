@@ -203,13 +203,16 @@ def _parse_ball_winners(pdf_bytes: bytes) -> list:
         return ' '.join(w[1:] + w[:1]) if len(w) >= 2 else member
 
     st = _parse_pdf_standings(pdf_bytes)
+    is_prize = st.get("is_prize_pdf", False)   # prize PDFs already use "First Last" - no flip
     winners: list[str] = []
     seen: set = set()
     for p in st.get("players", []):
         if not p.get("balls"):
             continue
         raw = p.get("name", "")
-        if '&' in raw.split():
+        if is_prize:
+            nm = raw
+        elif '&' in raw.split():
             nm = ' & '.join(_flip(m.strip()) for m in raw.split('&'))
         else:
             nm = _flip(raw)
@@ -627,6 +630,18 @@ def _parse_pdf_standings(pdf_bytes: bytes) -> dict:
         for p in players:
             if ',' not in p['name']:
                 p['grade'] = ''
+
+    # Prize Presentation PDFs list the overall winner(s) again under "Place Getters",
+    # producing exact-repeat rows; drop duplicates (same pos+name+score), keep first.
+    seen_rows: set = set()
+    deduped: list[dict] = []
+    for p in players:
+        k = (p["pos"], p["name"], p["score"])
+        if k in seen_rows:
+            continue
+        seen_rows.add(k)
+        deduped.append(p)
+    players = deduped
 
     # is_prize_format is set from the "Competition Presentation Report" header;
     # it means names are in "Firstname Lastname" order (no flip needed).
