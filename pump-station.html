@@ -1088,10 +1088,16 @@
 </div><!-- /main-layout -->
 
 <div class="page-footer">
-    Pump Station Monitor -- WWCC -- CIM 500 Modbus TCP -- Refreshes every 60s
+    Pump Station Monitor -- WWCC -- CIM 500 Modbus TCP -- Refreshes every 60s -- <span id="app-version"></span>
 </div>
 
 <script>
+// ─── Build version ────────────────────────────────────────────────────────────
+// Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
+// pi_pump_poller.py) equal to this so the Pi reports the same number.
+const PUMP_VERSION = '2.1';
+(function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
+
 // ─── Supabase config ──────────────────────────────────────────────────────────
 const SUPA_URL = 'https://sduzxijjvpbfgvlwcwpp.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
