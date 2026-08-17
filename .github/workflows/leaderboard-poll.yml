@@ -81,6 +81,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install PDF reader (pdfplumber)
+        if: steps.window.outputs.within == 'true'
+        run: pip install pdfplumber==0.11.9
+        # Without this, miscore/live._pdf_lines' lazy `import pdfplumber` fails and
+        # PDF standings + NTP/LD parsing silently return empty in CI.
+
       - name: Configure git
         if: steps.window.outputs.within == 'true'
         run: |
