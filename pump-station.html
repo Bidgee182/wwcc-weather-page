@@ -267,8 +267,9 @@
         .sk-manual-note { font-size:.56em; color:#566573; text-align:center; letter-spacing:.3px; }
 
         /* ── Pump electricity cost card ── */
-        .cost-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:4px 0 16px; }
-        @media (max-width:560px){ .cost-tiles{ grid-template-columns:1fr; } }
+        .cost-tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:4px 0 16px; }
+        @media (max-width:760px){ .cost-tiles{ grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:420px){ .cost-tiles{ grid-template-columns:1fr; } }
         .cost-tile { background:#1a252f; border:1px solid #2b3d4d; border-radius:10px; padding:14px 16px; text-align:center; }
         .cost-tile .ct-v { font-size:1.9em; font-weight:800; color:#2ecc71; font-variant-numeric:tabular-nums; }
         .cost-tile .ct-l { font-size:.66em; text-transform:uppercase; letter-spacing:1px; color:#7f8c8d; margin-top:3px; }
@@ -1377,13 +1378,16 @@ function renderCostCard() {
     const $ = n => '$'+n.toFixed(2);
     const mName = new Date().toLocaleDateString('en-AU',{month:'long',timeZone:'Australia/Sydney'});
 
+    const year  = todayStr.slice(0,4);
+    const ytd   = sumBy('cost', dt=>dt.slice(0,4)===year);
     const month = sumBy('cost', dt=>dt.startsWith(monthPrefix));
     const week  = sumBy('cost', dt=>dt>=weekAgo);
     const today = sumBy('cost', dt=>dt===todayStr);
     const kwhMonth = sumBy('kwh', dt=>dt.startsWith(monthPrefix));
 
     el.innerHTML =
-      `<div class="cost-tile"><div class="ct-v">${$(tot(month))}</div><div class="ct-l">${mName} to date</div><div class="ct-sub">this calendar month</div></div>`
+      `<div class="cost-tile"><div class="ct-v">${$(tot(ytd))}</div><div class="ct-l">Year to date</div><div class="ct-sub">${year} (records from Aug)</div></div>`
+    + `<div class="cost-tile"><div class="ct-v">${$(tot(month))}</div><div class="ct-l">Month to date</div><div class="ct-sub">${mName}</div></div>`
     + `<div class="cost-tile"><div class="ct-v">${$(tot(week))}</div><div class="ct-l">Last 7 days</div><div class="ct-sub">rolling week</div></div>`
     + `<div class="cost-tile"><div class="ct-v">${$(tot(today))}</div><div class="ct-l">Today</div><div class="ct-sub">since midnight AEST</div></div>`;
 
