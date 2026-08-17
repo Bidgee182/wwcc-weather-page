@@ -41,5 +41,9 @@ jobs:
             echo "No archives changed"
           else
             git commit -m "Recover past comp results from member portal (authenticated)"
-            git push
+            for i in 1 2 3 4 5 6; do
+              git pull --rebase && git push && { echo "pushed"; exit 0; }
+              echo "push race, retry $i"; sleep 7
+            done
+            echo "push failed after retries"; exit 1
           fi
