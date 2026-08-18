@@ -2181,8 +2181,21 @@ def _finalize_stories(cands, tier_rank, limit=55):
         others.append(c)
 
     out = golds + others
+    # Each player should appear only once in the reel. An ace, for instance, fires
+    # both the card "ACE!" and the field "Shot of the Day"; a strong round can fire a
+    # card story and a context story. Keep each single player's highest-priority one
+    # (golds are first, so the headline wins). Field lines (Hole N / Today) are exempt.
+    seen, deduped = set(), []
+    for c in out:
+        pl = c.get("player", "")
+        single = pl and " & " not in pl and ", " not in pl and not pl.startswith("Hole ") and pl != "Today"
+        if single:
+            if pl in seen:
+                continue
+            seen.add(pl)
+        deduped.append(c)
     return [{k: c.get(k) for k in ("player", "title", "detail", "tier", "emoji", "points", "thru")}
-            for c in out[:limit]]
+            for c in deduped[:limit]]
 
 
 def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
