@@ -1369,7 +1369,9 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
 
 
 def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> dict | None:
-    """Generate a Scoreboard Story from a player's played holes (hole-number order).
+    """Generate a Scoreboard Story from a player's played holes (in PLAY order,
+    tee-off hole first - see _play_order; front/back nines are still split by hole
+    number where "out"/"coming home" is meant geographically).
 
     is_stableford: use points-based language (3-pointer, 4-pointer etc).
                    False = delegates to _story_stroke().
@@ -1639,9 +1641,15 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
 
     # ── New character/round stories (positive angles get priority over the rough
     # ones below; a big round rarely coincides with a pile of wipes) ────────────
-    half = n // 2
-    front_pts = sum(gpts(h) or 0 for h in played[:half])
-    back_pts  = sum(gpts(h) or 0 for h in played[half:])
+    # Front/back are the two nines by HOLE NUMBER (1-9 vs 10-18), never by play
+    # order - a back-nine starter plays 10-18 first. start3/last3 use play order
+    # ("played" is already ordered tee-off hole first) so they mean the genuine
+    # opening and closing three holes.
+    front_holes = [h for h in played if isinstance(hnum(h), int) and hnum(h) <= 9]
+    back_holes  = [h for h in played if isinstance(hnum(h), int) and hnum(h) >= 10]
+    both_nines  = len(front_holes) >= 7 and len(back_holes) >= 7
+    front_pts = sum(gpts(h) or 0 for h in front_holes)
+    back_pts  = sum(gpts(h) or 0 for h in back_holes)
     start3    = sum(gpts(h) or 0 for h in played[:3])
     last3     = sum(gpts(h) or 0 for h in played[-3:])
     par3_birdies = [h for h in played if h.get("par") == 3 and is_birdie(h)]
@@ -1679,12 +1687,12 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
             ("Turn for the Better", f"Caught fire at the turn - {_tp} across 9, 10 & 11"),
             ("Made the Turn Count", "The round pivoted at the turn - found something on 9, 10 & 11"),
         ], "orange", "🔀")
-    if n >= 16 and back_pts - front_pts >= 7:
+    if both_nines and back_pts - front_pts >= 7:
         return _pick([
             ("Back-Nine Bandit", f"{back_pts} coming home after {front_pts} out - turned it right on"),
             ("Jekyll & Hyde", f"{front_pts} on the front, {back_pts} on the back - two different golfers"),
         ], "orange", "🔄")
-    if n >= 16 and front_pts - back_pts >= 7:
+    if both_nines and front_pts - back_pts >= 7:
         return _pick([
             ("Faded to Grey", f"{front_pts} on the front, {back_pts} on the back - flew out then ran out of legs"),
             ("Front-Runner", f"Front nine {front_pts}, back nine {back_pts} - the tank hit empty"),
@@ -1980,8 +1988,48 @@ def _is_visitor(home_club: str) -> bool:
     return bool(hc) and "wagga wagga cc" not in hc and "wagga wagga country" not in hc
 
 
-def _played_holes(p: dict) -> list:
-    return [h for h in p.get("holes", []) if h.get("points") is not None]
+def _play_order(holes: list, course_holes: int = 0) -> list:
+    """Return played holes in the order they were actually played.
+
+    Holes come off the scorecard in hole-number order (1..18), but a player who
+    tees off the back nine plays 10..18 then 1..9 - so hole-number order is NOT
+    play order for them. Detect the tee-off hole as the one immediately after the
+    largest unplayed arc on the course circle, then rotate into true play
+    sequence. For a completed round the tee can't be inferred from the card, so
+    hole-number order is returned unchanged (the common hole-1 start is correct).
+    """
+    hs = list(holes)
+    if len(hs) < 2:
+        return hs
+    nums = [h.get("hole") for h in hs]
+    if any(not isinstance(n, int) for n in nums):
+        return hs
+    C = max(course_holes or 0, max(nums))
+    if len(hs) >= C:                      # full round - can't infer the tee
+        return hs
+    idx = sorted(range(len(hs)), key=lambda i: nums[i])   # holes by number
+    snum = [nums[i] for i in idx]
+    k = len(idx)
+    best_gap, start = -1, 0
+    for j in range(k):
+        gap = (snum[(j + 1) % k] - snum[j]) % C           # holes until next played
+        if gap > best_gap:                                # biggest gap = unplayed arc
+            best_gap, start = gap, (j + 1) % k            # tee = hole after it
+    return [hs[idx[(start + t) % k]] for t in range(k)]
+
+
+def _played_holes(p: dict, course_holes: int = 0) -> list:
+    """Holes the player has actually played, in play order (tee-off hole first).
+
+    Mirrors _played()'s test: par must be populated (MiClub leaves par=None on
+    holes not yet reached) and the hole must carry a played flag or a real
+    strokes/points entry - so pre-filled placeholder zeros never count as played.
+    """
+    holes = [h for h in p.get("holes", [])
+             if h.get("par") is not None
+             and (h.get("played") or isinstance(h.get("strokes"), int)
+                  or isinstance(h.get("points"), int))]
+    return _play_order(holes, course_holes)
 
 
 def _context_story(p, leader_pts, is_stableford, hole_count):
@@ -1993,7 +2041,8 @@ def _context_story(p, leader_pts, is_stableford, hole_count):
         return None
     hc = hole_count or 18
     finished = thru >= hc
-    hp = [h.get("points") or 0 for h in _played_holes(p)]
+    holes_ip = _played_holes(p, hc)
+    hp = [h.get("points") or 0 for h in holes_ip]
 
     if rank == 1 and thru >= max(6, hc // 2):
         if finished:
@@ -2015,12 +2064,17 @@ def _context_story(p, leader_pts, is_stableford, hole_count):
                 "gold" if over >= 6 else "orange", "\U0001F3AF",
                 88 if over >= 6 else 74, pts, thru, "ctx")
 
-    if len(hp) >= max(8, hc - 2):
-        half = len(hp) // 2
-        front, back = sum(hp[:half]), sum(hp[half:])
-        if is_stableford and back - front >= 6:
+    # "Out" and "coming home" are the front (holes 1-9) and back (10-18) nines by
+    # HOLE NUMBER - never by play order. A back-nine starter's first holes are the
+    # back nine, so split geographically and only compare once BOTH nines are in.
+    front_holes = [h for h in holes_ip if isinstance(h.get("hole"), int) and h["hole"] <= 9]
+    back_holes  = [h for h in holes_ip if isinstance(h.get("hole"), int) and h["hole"] >= 10]
+    if is_stableford and len(front_holes) >= 7 and len(back_holes) >= 7:
+        front = sum(h.get("points") or 0 for h in front_holes)
+        back  = sum(h.get("points") or 0 for h in back_holes)
+        if back - front >= 6:
             return _mk_story(p["player"], "The Charge",
-                _rr(f"{back} on the back half after {front} on the front - flying home",
+                _rr(f"{back} on the back nine after {front} on the front - flying home",
                     f"Turned it on - {back} coming home vs {front} out"),
                 "orange", "\U0001F680", 70, pts, thru, "ctx")
 
@@ -2065,7 +2119,7 @@ def _suspense_story(p, is_stableford, hole_count):
     hc = hole_count or 18
     if thru >= hc or thru < 6 or not is_stableford:
         return None
-    hp = [h.get("points") or 0 for h in _played_holes(p)]
+    hp = [h.get("points") or 0 for h in _played_holes(p, hc)]   # play order: reversed() = latest first
     if hp and all(x >= 2 for x in hp) and thru >= 8:
         return _mk_story(p["player"], "Bogey-Free",
             f"Par or better on every hole through {thru} - not a blemish yet",
@@ -2113,7 +2167,7 @@ def _field_superlatives(ranked, hole_count, is_stableford):
     # else). Hole shown as an ordinal ("the 2nd").
     best = None   # (goodness, player_dict, hole, kind)
     for p in ranked:
-        for h in _played_holes(p):
+        for h in _played_holes(p, hole_count):
             par, strokes = h.get("par"), h.get("strokes")
             if par is None or not isinstance(strokes, int):
                 continue
@@ -2155,7 +2209,7 @@ def _field_superlatives(ranked, hole_count, is_stableford):
     birdies_by_hole, pars_by_hole, wipes_by_hole, pts_by_hole, played_by_hole = {}, {}, {}, {}, {}
     total_birdies = 0
     for p in ranked:
-        for h in _played_holes(p):
+        for h in _played_holes(p, hole_count):
             hn, pts = h.get("hole"), h.get("points")
             if hn is None or h.get("played") is False:
                 continue
@@ -2551,7 +2605,9 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         holes = _parse_holes(page_c) if page_c else []
         if HOLE_MAP:
             holes = [{**h, "hole": HOLE_MAP.get(h["hole"], h["hole"])} for h in holes]
-        played = _played(holes, is_stableford)
+        # Play order (tee-off hole first) so streaks, openers and finishes read
+        # correctly for back-nine and shotgun starts - not raw hole-number order.
+        played = _play_order(_played(holes, is_stableford), course_holes)
         thru = _thru(holes, hole_count, is_stableford)
 
         if is_ambrose:
