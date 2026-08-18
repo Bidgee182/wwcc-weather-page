@@ -109,6 +109,21 @@ def _git_remote_hash() -> str | None:
 GIT_HASH: str | None = _git_hash()
 GIT_REMOTE_HASH: str | None = _git_remote_hash()
 
+
+def _frontend_version() -> str | None:
+    """Read FRONTEND_VERSION from leaderboard.html so the kiosk can reload only
+    when the frontend itself changes (not on every data commit)."""
+    try:
+        with open("leaderboard.html", encoding="utf-8") as f:
+            txt = f.read()
+        m = re.search(r"FRONTEND_VERSION\s*=\s*['\"]([^'\"]+)['\"]", txt)
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
+
+FRONTEND_VERSION: str | None = _frontend_version()
+
 HOLE_MAP: dict[int, int] = {}
 HOLE_COUNT_OVERRIDE: int | None = None
 
@@ -2491,6 +2506,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "par": par_total or None,
         "gitHash": GIT_HASH,
         "gitRemoteHash": GIT_REMOTE_HASH,
+        "frontendVersion": FRONTEND_VERSION,
         "generatedAt": now.isoformat(),
         "playerCount": len(players),
         "started": any(p["thru"] > 0 for p in players),
