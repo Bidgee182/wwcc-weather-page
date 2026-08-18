@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '5';
+const FRONTEND_VERSION = '6';
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -653,8 +653,11 @@ function _applyPending() {
         }
     }
 
-    // Primary board (_boardIdx == 0)
-    const d = _pendingData || (_refreshStopped ? _lastRenderData : null);
+    // Primary board (_boardIdx == 0). Always fall back to the last rendered data
+    // (not only when officially stopped) so the scroll keeps looping - otherwise a
+    // finished-but-not-yet-official comp scrolls the field off once and never
+    // repeats, leaving just the pinned top 3.
+    const d = _pendingData || _lastRenderData;
     if (!d) return;
     if (_pendingData) { _lastRenderData = d; _pendingData = null; }
     _isStableford = d.isStableford !== false;
