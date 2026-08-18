@@ -1312,27 +1312,34 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll, preDelayMs) 
         el.innerHTML = '';
         el.appendChild(inner);
     }
+    // Gentle fade on each content swap so the refresh/reset doesn't hard-flash.
+    // Single exit (opacity always ends at 1) so the panel can never be left blank.
+    el.style.transition = 'opacity 0.3s ease';
+    el.style.opacity = '0';
+    let ret = 0;
     if (!rows.length) {
         inner.classList.remove('scrolling');
         inner.style.animationDelay = '0s';
         inner.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(emptyMsg) + '</div></div>';
-        return 0;
+    } else {
+        inner.classList.remove('scrolling');
+        inner.innerHTML = rows.join(''); // single copy — translateY(-100%) scrolls full content off
+        if (rows.length >= minForScroll) {
+            void inner.offsetHeight;
+            const dur = Math.max(15, rows.length * 2.5);
+            // preDelayMs holds the list static (people read the pinned headlines)
+            // before the scroll begins; animationend then fires after delay + scroll.
+            inner.style.animationDelay = (preDelayMs ? preDelayMs / 1000 : 0) + 's';
+            inner.style.animationDuration = dur + 's';
+            inner.classList.add('scrolling');
+            ret = dur * 1000 + (preDelayMs || 0);
+        } else {
+            inner.style.animationDelay = '0s';
+        }
     }
-    const html = rows.join('');
-    inner.classList.remove('scrolling');
-    inner.innerHTML = html; // single copy — translateY(-100%) scrolls full content off
-    if (rows.length >= minForScroll) {
-        void inner.offsetHeight;
-        const dur = Math.max(15, rows.length * 2.5);
-        // preDelayMs holds the list static (people read the pinned headlines) before
-        // the scroll begins; animationend then fires after delay + scroll.
-        inner.style.animationDelay = (preDelayMs ? preDelayMs / 1000 : 0) + 's';
-        inner.style.animationDuration = dur + 's';
-        inner.classList.add('scrolling');
-        return dur * 1000 + (preDelayMs || 0);
-    }
-    inner.style.animationDelay = '0s';
-    return 0;
+    void el.offsetHeight;   // commit opacity:0 (+ new content) so the fade-in animates
+    el.style.opacity = '1';
+    return ret;
 }
 
 function stripHcp(s) {
