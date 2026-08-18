@@ -2141,12 +2141,23 @@ def _field_superlatives(ranked, hole_count, is_stableford):
 
     if not is_stableford:
         return out
+
+    # Field-wide "all day" hole stories (Hot Hole, Golden Hole, The Graveyard,
+    # Hole That Bit Back) are retrospectives - they only make sense once a solid
+    # chunk of the field is actually in. Firing them 3 groups into a 12-player comp
+    # produces nonsense ("146 wipes on hole 1"). Require a mature field, and gate
+    # each individual hole on having been played by enough of the field.
+    n_field    = len(ranked)
+    n_finished = sum(1 for p in ranked if (p.get("thru") or 0) >= (hole_count or 18))
+    field_mature = n_field >= 8 and n_finished >= max(8, n_field * 0.5)
+    hole_quorum  = max(8, n_field * 0.5)   # min players through a hole to judge it
+
     birdies_by_hole, pars_by_hole, wipes_by_hole, pts_by_hole, played_by_hole = {}, {}, {}, {}, {}
     total_birdies = 0
     for p in ranked:
         for h in _played_holes(p):
             hn, pts = h.get("hole"), h.get("points")
-            if hn is None:
+            if hn is None or h.get("played") is False:
                 continue
             played_by_hole[hn] = played_by_hole.get(hn, 0) + 1
             pts_by_hole[hn] = pts_by_hole.get(hn, 0) + pts
@@ -2158,17 +2169,21 @@ def _field_superlatives(ranked, hole_count, is_stableford):
             elif pts == 0:
                 wipes_by_hole[hn] = wipes_by_hole.get(hn, 0) + 1
 
-    if birdies_by_hole:
-        hn, n = max(birdies_by_hole.items(), key=lambda kv: kv[1])
-        if n >= 8:
-            out.append(_mk_story(f"Hole {hn}", "Hot Hole",
-                f"gave up {n} threes today - the pin was there for the taking",
-                "blue", "\U0001F525", 70, src="field"))
-    if pts_by_hole and played_by_hole:  # Golden Hole - the field's easiest scoring hole
+    if field_mature and birdies_by_hole:
+        # only holes a real chunk of the field has played can win "hottest hole"
+        elig = {hn: n for hn, n in birdies_by_hole.items()
+                if played_by_hole.get(hn, 0) >= hole_quorum}
+        if elig:
+            hn, n = max(elig.items(), key=lambda kv: kv[1])
+            if n >= 8:
+                out.append(_mk_story(f"Hole {hn}", "Hot Hole",
+                    f"gave up {n} threes today - the pin was there for the taking",
+                    "blue", "\U0001F525", 70, src="field"))
+    if field_mature and pts_by_hole and played_by_hole:  # Golden Hole - easiest scoring hole
         golden = None
         for hn, tot in pts_by_hole.items():
             pl = played_by_hole.get(hn, 0)
-            if pl < max(6, len(ranked) * 0.5):
+            if pl < hole_quorum:
                 continue
             avg = tot / pl
             if golden is None or avg > golden[1]:
@@ -2177,16 +2192,19 @@ def _field_superlatives(ranked, hole_count, is_stableford):
             out.append(_mk_story(f"Hole {golden[0]}", "Golden Hole",
                 f"the field's happy place - averaged {golden[1]:.1f} points",
                 "blue", "\U0001F3C6", 66, src="field"))
-    if wipes_by_hole:  # The Graveyard - the true cold hole (most wipes)
-        hn, w = max(wipes_by_hole.items(), key=lambda kv: kv[1])
-        if w >= 6:
-            out.append(_mk_story(f"Hole {hn}", "The Graveyard",
-                f"{w} wipes handed out - where cards go to die",
-                "blue", "\U0001FAA6", 68, src="field"))
-    if pars_by_hole and played_by_hole and ranked:  # tough hole (fewest pars)
+    if field_mature and wipes_by_hole:  # The Graveyard - the true cold hole (most wipes)
+        elig = {hn: w for hn, w in wipes_by_hole.items()
+                if played_by_hole.get(hn, 0) >= hole_quorum}
+        if elig:
+            hn, w = max(elig.items(), key=lambda kv: kv[1])
+            if w >= 6:
+                out.append(_mk_story(f"Hole {hn}", "The Graveyard",
+                    f"{w} wipes handed out - where cards go to die",
+                    "blue", "\U0001FAA6", 68, src="field"))
+    if field_mature and pars_by_hole and played_by_hole and ranked:  # tough hole (fewest pars)
         tough = None
         for hn, pl in played_by_hole.items():
-            if pl < len(ranked) * 0.5:
+            if pl < hole_quorum:
                 continue
             rate = pars_by_hole.get(hn, 0) / pl
             if tough is None or rate < tough[1]:

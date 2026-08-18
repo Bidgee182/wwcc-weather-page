@@ -495,7 +495,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '6.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '6.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1371,8 +1371,12 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll, preDelayMs) 
     } else {
         inner.classList.remove('scrolling');
         inner.innerHTML = rows.join(''); // single copy — translateY(-100%) scrolls full content off
-        if (rows.length >= minForScroll) {
-            void inner.offsetHeight;
+        void inner.offsetHeight;
+        // Scroll when there are enough rows to warrant it OR whenever the content
+        // actually overflows the panel - a handful of tall cards can spill past the
+        // clip even below the row count, and those must scroll rather than clip.
+        const overflows = inner.scrollHeight > el.clientHeight + 4;
+        if (rows.length >= minForScroll || overflows) {
             const dur = Math.max(15, rows.length * 2.5);
             // preDelayMs holds the list static (people read the pinned headlines)
             // before the scroll begins; animationend then fires after delay + scroll.
