@@ -216,6 +216,10 @@ html, body {
 .ftr-left  { display: flex; gap: 14px; align-items: center; }
 .ftr-right { display: flex; gap: 14px; align-items: center; }
 .ftr-updated { color: #bdc3c7; }
+.ftr-dot { width: 9px; height: 9px; border-radius: 50%; background: #7f8c8d; display: inline-block; flex-shrink: 0; }
+.ftr-dot.fresh { background: #27ae60; box-shadow: 0 0 6px rgba(39,174,96,0.6); }
+.ftr-dot.stale { background: #e67e22; }
+.ftr-dot.down  { background: #e74c3c; }
 .ftr-build  { font-size: 0.62em; color: #2a3f52; letter-spacing: 0.05em; }
 .ftr-results { color: #4a6a84; font-size: 0.75em; text-decoration: none; }
 .ftr-results:hover { color: #7f8c8d; }
@@ -456,6 +460,7 @@ html, body {
     </div>
     <span id="ftr-status"></span>
     <div class="ftr-right">
+      <span class="ftr-dot" id="ftr-dot" title="Data feed"></span>
       <span class="ftr-updated" id="ftr-updated">Not yet loaded</span>
       <a href="results.html" class="ftr-results">Past Results</a>
     </div>
@@ -491,7 +496,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '6.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '6.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -785,7 +790,7 @@ function render(d) {
                   'Wagga Wagga Country Club - ' + (d.competition || 'next comp') + ' not yet started');
         setBlueBallVisible(lr.date);
         renderLeaderboard(lr.players || [], lr.holeCount || 18, true, lr.competition || '');
-        renderNtpLd(lr.ntpLd || []);
+        renderInfoTicker(lr);
         setFooter(d.generatedAt, '');
         return;
     }
@@ -798,35 +803,54 @@ function render(d) {
     renderComingLast(d.comingLast || [], d.holeCount || 18);
 }
 
-function renderNtpLd(ntpld) {
+// Top info marquee - live items: field progress, leader (+margin), today's
+// weather, and the day's headline story. NTP/LD is deliberately NOT here (it's
+// PDF-only / post-comp; it lives on the Past Results page).
+function renderInfoTicker(d) {
     const bar   = document.getElementById('ntpld-bar');
     const inner = document.getElementById('ntpld-inner');
     if (!bar || !inner) return;
-    // Filter out entries that look like course/admin labels rather than player names
-    const _golfWords = new Set(['course','temp','golf','club','grade','green','hole','the',
-                                 'a','b','c','d','mens','womens','ladies','mixed']);
-    const _looksLikeName = w => w.length >= 3 && !_golfWords.has(w.toLowerCase());
-    const valid = (ntpld || []).filter(e =>
-        e.winner && e.winner.split(' ').filter(_looksLikeName).length >= 2
-    );
-    if (!_officialResultsReady || !valid.length) {
-        bar.style.display = 'none';
-        return;
-    }
     const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const parts = valid.map(e => {
-        if (e.type === 'ntp') {
-            const label = 'NTP' + (e.hole ? ' Hole ' + e.hole : '');
-            return '<span class="ntpld-entry"><span class="ntpld-type">' + esc(label) + '</span>' + esc(e.winner) + (e.distance ? ' - ' + esc(e.distance) : '') + '</span>';
-        } else {
-            const label = 'Longest Drive' + (e.hole ? ' Hole ' + e.hole : '');
-            return '<span class="ntpld-entry"><span class="ntpld-type">' + esc(label) + '</span>' + esc(e.winner) + (e.distance ? ' - ' + esc(e.distance) : '') + '</span>';
+    const items = [];
+    const players = d.players || [];
+    const hc = d.holeCount || 18;
+    const active = players.filter(p => p.thru > 0);
+
+    if (active.length) {
+        const fin = active.filter(p => p.thru >= hc).length;
+        items.push({ t: 'Field', v: fin >= active.length
+            ? ('All ' + active.length + ' finished')
+            : (fin + ' of ' + active.length + ' finished') });
+    }
+    const lead = (d.leaders && d.leaders[0]) || players[0];
+    if (lead && lead.points != null && lead.thru > 0) {
+        let v = stripHcp(lead.player) + ' ' + fmtScore(lead.points) + (_isStableford ? 'pts' : '');
+        const second = (d.leaders && d.leaders[1]) || players[1];
+        if (_isStableford && second && second.points != null) {
+            const m = lead.points - second.points;
+            v += m > 0 ? (' (by ' + m + ')') : ' (tied)';
         }
-    });
+        items.push({ t: 'Leader', v: v });
+    }
+    const w = d.weather;
+    if (w && w.tMax != null) {
+        let v = Math.round(w.tMax) + '°C';
+        if (w.windDir && w.windMax != null) v += ' · ' + w.windDir + ' to ' + Math.round(w.windMax) + ' km/h';
+        if (w.humidity != null) v += ' · ' + Math.round(w.humidity) + '% hum';
+        if (w.rain) v += ' · ' + w.rain + 'mm';
+        items.push({ t: 'Today', v: v });
+    }
+    const gold = (d.stories || []).find(s => s.tier === 'gold' && s.player &&
+        s.player.indexOf(' & ') === -1 && !s.player.startsWith('Hole ') &&
+        ['Today', 'The Board', 'The Field'].indexOf(s.player) === -1);
+    if (gold) items.push({ t: gold.title, v: stripHcp(gold.player) });
+
+    if (!items.length) { bar.style.display = 'none'; return; }
+    const html = items.map(it =>
+        '<span class="ntpld-entry"><span class="ntpld-type">' + esc(it.t) + '</span>' + esc(it.v) + '</span>'
+    ).join('<span class="ntpld-sep">|</span>');
     const sep = '<span class="ntpld-sep">|</span>';
-    const text = parts.join(sep);
-    // Double content for seamless looping scroll
-    inner.innerHTML = text + sep + text;
+    inner.innerHTML = html + sep + html;   // double for seamless looping scroll
     bar.style.display = 'flex';
 }
 
@@ -898,7 +922,7 @@ function updateHeader(d) {
             if (el) el.textContent = 'Official results in';
         }
     }
-    renderNtpLd(d.ntpLd || []);
+    renderInfoTicker(d);
 }
 
 // ── Grade helpers ─────────────────────────────────────────────────
@@ -1498,6 +1522,8 @@ function queueComingLast(comingLast, holeCount) {
 function onFetchError(msg) {
     setBadge('offline', 'Offline');
     setBlueBallVisible(null);
+    const dot = document.getElementById('ftr-dot');
+    if (dot) dot.className = 'ftr-dot down';
     const sta = document.getElementById('ftr-status');
     if (sta) sta.textContent = msg;
     if (!_hasData) {
@@ -1529,6 +1555,13 @@ function setFooter(generatedAt, status) {
             const t = new Date(generatedAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', hour: 'numeric', minute: '2-digit' });
             upd.textContent = 'Updated ' + t;
         } catch (_) { upd.textContent = 'Updated'; }
+    }
+    // Health dot: green when the feed is fresh, amber when it's gone quiet.
+    const dot = document.getElementById('ftr-dot');
+    if (dot && generatedAt) {
+        const ageMin = (Date.now() - new Date(generatedAt).getTime()) / 60000;
+        dot.className = 'ftr-dot ' + (ageMin < 5 ? 'fresh' : 'stale');
+        dot.title = 'Data feed - ' + (ageMin < 1 ? 'just updated' : Math.round(ageMin) + ' min ago');
     }
     if (sta) sta.textContent = status || '';
 }

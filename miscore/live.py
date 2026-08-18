@@ -2243,6 +2243,20 @@ def _load_weather_flavour(board_date):
         return None
 
 
+def _ticker_weather():
+    """Compact today's conditions for the info ticker, from the committed Davis
+    daily summary (updated through the day by the farmbot poller)."""
+    try:
+        hist = json.load(open("data/davis_weather_history.json"))
+        if not isinstance(hist, list) or not hist:
+            return None
+        last = hist[-1]
+        return {k: last.get(k) for k in
+                ("date", "tMax", "tMin", "windMean", "windMax", "windDir", "humidity", "rain")}
+    except Exception:
+        return None
+
+
 def _weather_story(wx):
     if not wx:
         return None
@@ -2769,6 +2783,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         "stories": stories,
         "storiesArchive": archive_list,
         "storyRanks": {"boardId": board_id, "meta": story_meta},
+        "weather": _ticker_weather(),
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
             for p in coming_last[:10]
