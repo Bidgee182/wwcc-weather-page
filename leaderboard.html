@@ -495,7 +495,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '6.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '6.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1285,10 +1285,17 @@ function renderLeaderboard(players, holeCount, started, competition) {
             '</div>';
     }
 
-    // Pin the top 3 at all times - live AND finished - so the podium stays static
-    // throughout (including results mode); positions 4+ scroll below them.
+    // Pin the top 3 during live play so the podium stays static while positions 4+
+    // scroll below them. In RESULTS mode only, the top places are already shown in
+    // the grade-winners strip, so unpin the podium and let the whole field scroll
+    // together. Live scroll behaviour is unchanged.
     let top3Html, restHtml, scrollCount;
-    {
+    if (_officialResultsReady) {
+        top3Html  = '';
+        restHtml  = active.map((p, i) => buildRow(p, i, cbFlags[i])).join('') +
+                    (active.length ? '<div class="lb-gap"></div>' : '');
+        scrollCount = active.length;
+    } else {
         const podium = active.slice(0, 3);
         const field  = active.slice(3);
         top3Html  = podium.map((p, i) => buildRow(p, i, cbFlags[i])).join('');
