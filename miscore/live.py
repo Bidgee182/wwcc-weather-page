@@ -1667,6 +1667,13 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
             ("Out of the Blocks", f"{start3} points in the first three - a statement start"),
             ("Fast Starter", f"Nine-plus out of the gate - {start3} in the opening three"),
         ], "orange", "🚀")
+    _turn = [h for h in played if h.get("hole") in (9, 10, 11)]
+    if len(_turn) == 3 and sum(gpts(h) or 0 for h in _turn) >= 9:
+        _tp = sum(gpts(h) or 0 for h in _turn)
+        return _pick([
+            ("Turn for the Better", f"Caught fire at the turn - {_tp} across 9, 10 & 11"),
+            ("Made the Turn Count", "The round pivoted at the turn - found something on 9, 10 & 11"),
+        ], "orange", "🔀")
     if n >= 16 and back_pts - front_pts >= 7:
         return _pick([
             ("Back-Nine Bandit", f"{back_pts} coming home after {front_pts} out - turned it right on"),
@@ -2181,6 +2188,17 @@ def _field_superlatives(ranked, hole_count, is_stableford):
             out.append(_mk_story("The Board", "Nailbiter",
                 "one point splits the top two - down to the wire", "blue", "\U0001F630", 71, src="field"))
 
+    # Photo finish - top two tied on points, separated on countback (comp all but done)
+    if len(finishers) >= 2 and len(finishers) >= len(ranked) * 0.9:
+        a, b = finishers[0], finishers[1]
+        if (a.get("points") or 0) == (b.get("points") or 0):
+            out.append(_mk_story(a["player"], "Photo Finish",
+                f"Dead level with {b['player'].split()[0]} - won it on the countback",
+                "gold", "\U0001F4F8", 80, a.get("points"), a.get("thru"), "field"))
+            out.append(_mk_story(b["player"], "Pipped at the Post",
+                "Tied on points but edged on the countback - agonising",
+                "blue", "\U0001F629", 50, b.get("points"), b.get("thru"), "field"))
+
     if total_birdies >= 20 and total_birdies >= len(ranked) * 1.2:
         out.append(_mk_story("The Field", "Birdie Fest",
             f"{total_birdies} birdies across the field - the course is giving them up",
@@ -2288,6 +2306,54 @@ def _is_team_comp(ranked, comp_name):
     return bool(ranked) and " & " in (ranked[0].get("player") or "")
 
 
+def _rank_history_stories(ranked, prev_story, board_id, hole_count):
+    """Movers and leaders over the round, using ranks carried in the previous
+    output blob (fresh process each poll, so history lives on disk). Returns
+    (updated_meta, [stories]); meta = {player: [startRank, bestRank, ledInt]},
+    reset when the board changes."""
+    hc = hole_count or 18
+    prev_story = prev_story or {}
+    prev_meta = prev_story.get("meta", {}) if prev_story.get("boardId") == board_id else {}
+    meta, stories = {}, []
+    for p in ranked:
+        name = p.get("player")
+        if not name:
+            continue
+        rank = p.get("liveRank") or 999
+        thru = p.get("thru") or 0
+        pm = prev_meta.get(name)
+        start = (pm[0] if pm and pm[0] else (rank if thru >= 4 else None))
+        best  = min(pm[1], rank) if pm else rank
+        led   = (bool(pm[2]) if pm else False) or rank == 1
+        meta[name] = [start if start is not None else rank, best, 1 if led else 0]
+        finished = thru >= hc
+        if start is not None and thru >= 6:
+            climbed = start - rank
+            dropped = rank - best
+            if climbed >= 8 and rank <= 15:
+                stories.append(_mk_story(name, "The Bolter",
+                    _rr(f"Up {climbed} spots since early on - flying up the board",
+                        f"Climbed {climbed} places - the mover of the day"),
+                    "orange", "\U0001F4C8", 60, p.get("points"), thru, "hist"))
+            elif dropped >= 8 and best <= 10:
+                stories.append(_mk_story(name, "Slipping Away",
+                    _rr(f"Was up at {_ordinal(best)}, now {_ordinal(rank)} - wheels wobbling",
+                        f"Slid {dropped} from {_ordinal(best)} - it's getting away"),
+                    "blue", "\U0001F4C9", 48, p.get("points"), thru, "hist"))
+        _start = meta[name][0]
+        if finished and _start == 1 and rank == 1:
+            stories.append(_mk_story(name, "Wire to Wire",
+                _rr("Led from early doors and never let go - front to finish",
+                    "Out in front the whole way - wire to wire"),
+                "gold", "\U0001F3C1", 84, p.get("points"), thru, "hist"))
+        elif finished and led and rank > 1:
+            stories.append(_mk_story(name, "Caught at the Post",
+                _rr(f"Led most of the day, run down to {_ordinal(rank)} at the death",
+                    f"Held the front then got caught - {_ordinal(rank)}"),
+                "blue", "\U0001F3AF", 50, p.get("points"), thru, "hist"))
+    return meta, stories
+
+
 def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     out = []
     leader_pts = ranked[0].get("points", 0) if ranked else 0
@@ -2384,7 +2450,8 @@ def _finalize_stories(cands, tier_rank, limit=55):
             for c in deduped[:limit]]
 
 
-def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
+def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
+         prev_story: dict | None = None) -> dict:
     """One full read of a board -> kiosk JSON."""
     board_id = board["leaderboardId"]
     page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
@@ -2530,6 +2597,14 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     # Base layer: each player's card story (per-hole / whole-round). Skipped for
     # team comps, where per-hole best-ball scores make the individual stories misfire.
     _team_comp = _is_team_comp(ranked, board.get("name", ""))
+    # Rank history (movers/leaders over the round) - carried in the previous blob.
+    story_meta, hist_stories = {}, []
+    if not _team_comp:
+        try:
+            story_meta, hist_stories = _rank_history_stories(ranked, prev_story, board_id, hole_count)
+        except Exception as exc:
+            log.debug("rank history failed: %s", exc)
+            story_meta, hist_stories = {}, []
     base_stories = []
     for p in ranked:
         s = p.pop("_story", None)
@@ -2544,7 +2619,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     except Exception as exc:
         log.debug("story enrichment failed: %s", exc)
         enriched = []
-    stories = _finalize_stories(base_stories + enriched, _tier_rank)
+    stories = _finalize_stories(base_stories + enriched + hist_stories, _tier_rank)
 
     if is_stableford:
         coming_last = sorted(
@@ -2693,6 +2768,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "leaders": ranked[:10],
         "stories": stories,
         "storiesArchive": archive_list,
+        "storyRanks": {"boardId": board_id, "meta": story_meta},
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
             for p in coming_last[:10]
@@ -2772,7 +2848,15 @@ def main(argv=None) -> int:
                 }
                 log.info("no board found")
             else:
-                blob = poll(args.club, board, args.workers, prev)
+                # Carry rank history across polls via the previous output blob
+                # (fresh process each --once run, so it must live on disk).
+                prev_story = {}
+                try:
+                    if args.out.exists():
+                        prev_story = json.loads(args.out.read_text()).get("storyRanks") or {}
+                except Exception:
+                    prev_story = {}
+                blob = poll(args.club, board, args.workers, prev, prev_story)
                 lead = blob["leaders"][0] if blob["leaders"] else None
                 log.info(
                     "%s: %d players, %s, leader %s",
