@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '3';
+const FRONTEND_VERSION = '4';
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -663,20 +663,23 @@ function _applyPending() {
     const ptsHdr2 = document.getElementById('col-hdr-pts');
     if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
-    // Restore primary header immediately on switch-back (don't wait for next poll)
-    const hcP = d.holeCount || 18;
-    const metaP = ['Wagga Wagga Country Club'];
-    if (_companions.length > 0) metaP.push('Men');
-    if (d.type) metaP.push(d.type);
-    if (hcP)    metaP.push(hcP + ' holes');
-    if (d.par)  metaP.push('Par ' + d.par);
-    if ((d.players || []).length) metaP.push(d.players.length + ' players');
-    setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', metaP.join(' - '));
-    // Restore primary stories and blue ball when switching back from a companion
-    const ps = _pickStories(d);
-    renderStories(ps.stories, ps.skipExpiry);
-    _pendingStories = ps.stories; _pendingStoriesSkipExpiry = ps.skipExpiry;
-    setBlueBallVisible(d.date);
+    // Header/stories/blue-ball only need "restoring" when we're rotating back from a
+    // companion board. With no companions the leaderboard refresh must NOT re-render
+    // the stories - they run on their own independent cycle. (Header stays current via
+    // updateHeader() on each fetch; stories via their own loop.)
+    if (_companions.length > 0) {
+        const hcP = d.holeCount || 18;
+        const metaP = ['Wagga Wagga Country Club', 'Men'];
+        if (d.type) metaP.push(d.type);
+        if (hcP)    metaP.push(hcP + ' holes');
+        if (d.par)  metaP.push('Par ' + d.par);
+        if ((d.players || []).length) metaP.push(d.players.length + ' players');
+        setHeader('⛳ ' + (d.competition || 'Live Golf Leaderboard') + ' - Leaderboard', metaP.join(' - '));
+        const ps = _pickStories(d);
+        renderStories(ps.stories, ps.skipExpiry);
+        _pendingStories = ps.stories; _pendingStoriesSkipExpiry = ps.skipExpiry;
+        setBlueBallVisible(d.date);
+    }
 }
 document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 2000));
 
