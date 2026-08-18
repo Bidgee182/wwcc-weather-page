@@ -478,6 +478,11 @@ let _pendingStoriesSkipExpiry = false; // true when results mode: show all archi
 let _storyForceTimer          = null;  // fallback timer for story panel
 let _storyAnimDurMs           = 0;    // current story scroll cycle duration (ms)
 let _lastStoryRenderTime      = 0;    // timestamp of last story render (for minimum-hold guard)
+let _storyRotateOffset        = 0;    // rotating-window start into the mixed pool
+let _storyMixedPool           = [];   // tier-interleaved, shuffled non-gold story pool
+let _storyPoolSig             = '';   // signature of the story set the pool was built from
+const STORY_PAUSE_MS          = 10000; // static hold before each scroll begins
+const STORY_WINDOW            = 15;    // non-gold stories shown per scroll (below the pinned gold)
 
 let _pendingComingLast    = null; // coming-last buffered until its scroll cycle ends
 let _comingLastForceTimer = null; // fallback timer for coming-last panel
@@ -675,10 +680,12 @@ document.getElementById('lb-inner').addEventListener('animationend', () => setTi
 function _applyPendingStories() {
     if (_storyForceTimer) { clearTimeout(_storyForceTimer); _storyForceTimer = null; }
     // Use pending data, or fall back to last rendered data to keep the loop alive when stopped
+    // Always fall back to the last rendered set (not only when stopped) so the reel
+    // keeps looping and rotating every cycle, independent of when new data arrives.
     const hasPending = _pendingStories !== null;
-    const s    = hasPending ? _pendingStories    : (_refreshStopped ? _lastStoriesData       : null);
-    const skip = hasPending ? _pendingStoriesSkipExpiry : (_refreshStopped ? _lastStoriesSkipExpiry : false);
-    if (s === null) return;
+    const s    = hasPending ? _pendingStories          : _lastStoriesData;
+    const skip = hasPending ? _pendingStoriesSkipExpiry : _lastStoriesSkipExpiry;
+    if (s === null || s === undefined) return;
     // Hold for at least one full animation cycle so all stories are seen.
     const minHold = Math.max(25000, _storyAnimDurMs);
     const elapsed = Date.now() - _lastStoryRenderTime;
@@ -707,7 +714,9 @@ function queueStories(stories, skipExpiry) {
 // Attach animationend listeners to both side panels (elements exist in HTML at load)
 (function () {
     const heater = document.querySelector('#heater-list .side-list-inner');
-    if (heater) heater.addEventListener('animationend', () => setTimeout(_applyPendingStories, 5000));
+    // Loop promptly into the next cycle - the 10s pause lives at the START of each
+    // scroll now, so no long dead gap is needed after the list scrolls off.
+    if (heater) heater.addEventListener('animationend', () => setTimeout(_applyPendingStories, 400));
     const last = document.querySelector('#last-list .side-list-inner');
     if (last) last.addEventListener('animationend', () => setTimeout(_applyPendingComingLast, 5000));
 })();
@@ -1293,7 +1302,7 @@ function setBlueBallVisible(dateStr) {
     card.style.display = (day === 3 || day === 6) ? '' : 'none';
 }
 
-function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
+function renderSidePanel(containerId, rows, emptyMsg, minForScroll, preDelayMs) {
     const el = document.getElementById(containerId);
     if (!el) return 0;
     let inner = el.querySelector('.side-list-inner');
@@ -1305,6 +1314,7 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     }
     if (!rows.length) {
         inner.classList.remove('scrolling');
+        inner.style.animationDelay = '0s';
         inner.innerHTML = '<div class="no-data-msg"><div class="no-data-sub">' + esc(emptyMsg) + '</div></div>';
         return 0;
     }
@@ -1314,10 +1324,14 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll) {
     if (rows.length >= minForScroll) {
         void inner.offsetHeight;
         const dur = Math.max(15, rows.length * 2.5);
+        // preDelayMs holds the list static (people read the pinned headlines) before
+        // the scroll begins; animationend then fires after delay + scroll.
+        inner.style.animationDelay = (preDelayMs ? preDelayMs / 1000 : 0) + 's';
         inner.style.animationDuration = dur + 's';
         inner.classList.add('scrolling');
-        return dur * 1000;
+        return dur * 1000 + (preDelayMs || 0);
     }
+    inner.style.animationDelay = '0s';
     return 0;
 }
 
@@ -1327,6 +1341,32 @@ function stripHcp(s) {
 
 // Scoreboard Stories - track when each story first appeared for expiry
 const _storyState = {}; // { 'player|title': { since: timestamp } }
+
+function _shuffleArr(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// Build the rotating pool from the non-gold stories so tiers are evenly spread -
+// never all the oranges or reds clumped together, even when one tier is far more
+// common. Each tier's items are placed at even fractional positions across the
+// whole pool (with a little jitter), then merged by that position. Shuffled each
+// rebuild so the specific ordering varies.
+function _buildMixedStoryPool(rest) {
+    const buckets = {};
+    for (const s of rest) (buckets[s.tier] = buckets[s.tier] || []).push(s);
+    const tagged = [];
+    for (const k of Object.keys(buckets)) {
+        const arr = _shuffleArr(buckets[k]);
+        const n = arr.length;
+        arr.forEach((s, i) => tagged.push({ s, key: (i + 0.05 + Math.random() * 0.9) / n }));
+    }
+    tagged.sort((a, b) => a.key - b.key);
+    return tagged.map(t => t.s);
+}
 
 function renderStories(stories, skipExpiry) {
     _lastStoriesData       = stories;
@@ -1347,9 +1387,31 @@ function renderStories(stories, skipExpiry) {
         return (now - _storyState[key].since) < EXPIRY_MS;
     });
 
+    // Pin gold (the headline stories) at the top - always read during the pause.
+    // Below them, rotate a mixed-tier window so every scroll is fresh, tiers never
+    // clump, and over successive scrolls everyone's name gets its turn.
+    const gold = visible.filter(s => s.tier === 'gold');
+    const rest = visible.filter(s => s.tier !== 'gold');
+    const sig  = visible.map(s => s.player + '|' + s.title).sort().join('~');
+    if (sig !== _storyPoolSig) {
+        _storyMixedPool = _buildMixedStoryPool(rest);
+        _storyPoolSig = sig;
+    }
+    const pool = _storyMixedPool;
+    let windowRows;
+    if (pool.length <= STORY_WINDOW) {
+        windowRows = pool.slice();
+    } else {
+        windowRows = [];
+        const start = _storyRotateOffset % pool.length;
+        for (let i = 0; i < STORY_WINDOW; i++) windowRows.push(pool[(start + i) % pool.length]);
+        _storyRotateOffset = (_storyRotateOffset + STORY_WINDOW) % pool.length;
+    }
+    const shown = gold.concat(windowRows);
+
     const TIER_CSS = { gold: 'story-name-gold', orange: 'story-name-orange', red: 'story-name-red', blue: 'story-name-blue' };
 
-    const rows = visible.map(s => {
+    const rows = shown.map(s => {
         const emoji = s.emoji || '';   // per-story emoji set in Python
         const css   = TIER_CSS[s.tier] || 'story-name-blue';
         const name  = esc(stripHcp(s.player));
@@ -1365,7 +1427,7 @@ function renderStories(stories, skipExpiry) {
             '</div>' +
         '</div>';
     });
-    _storyAnimDurMs = renderSidePanel('heater-list', rows, 'Watching the field...', 6);
+    _storyAnimDurMs = renderSidePanel('heater-list', rows, 'Watching the field...', 6, STORY_PAUSE_MS);
 }
 
 function _doRenderComingLast(comingLast, holeCount) {
