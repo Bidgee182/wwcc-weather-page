@@ -2130,9 +2130,12 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     return out
 
 
-def _finalize_stories(cands, tier_rank, limit=14):
-    """Fold exact duplicates (same title+detail) across players, then rank the
-    reel by tier and per-story score, capping how often a title can repeat."""
+def _finalize_stories(cands, tier_rank, limit=55):
+    """Fold exact duplicates (same title+detail) across players, then return a
+    tier-BALANCED pool - gold headlines up front, plus a capped-per-tier mix of the
+    rest so no single tier (usually orange) dominates and the rough-day red/blue
+    stories still get a run. The display pins gold, then mixes and rotates the rest,
+    so this sends a generous pool rather than a pre-trimmed reel."""
     cands = [c for c in cands if c]
     folded = {}
     order = []
@@ -2157,26 +2160,29 @@ def _finalize_stories(cands, tier_rank, limit=14):
             c["player"] = f"{players[0]} & {players[1]}"
         else:
             c["player"] = f"{players[0]}, {players[1]} & {len(players) - 2} others"
-        c["_rankscore"] = tier_rank.get(c["tier"], 0) * 100 + c.get("_score", 0)
         ranked_c.append(c)
-    ranked_c.sort(key=lambda c: -c["_rankscore"])
+    ranked_c.sort(key=lambda c: -c.get("_score", 0))
 
-    final, title_count, red_count = [], {}, 0
+    golds = [c for c in ranked_c if c["tier"] == "gold"][:8]
+    # Cap each non-gold tier so the reel stays a genuine mix - the plurality tier
+    # (usually orange context stories) can't crowd out the rough-day reds/blues.
+    caps = {"orange": 18, "red": 15, "blue": 15}
+    per_tier, title_count, others = {}, {}, []
     for c in ranked_c:
-        t = c["title"]
-        if title_count.get(t, 0) >= 2:
+        t = c["tier"]
+        if t == "gold":
             continue
-        # Keep the reel good-natured: cap the "rough day" stories so the board
-        # never turns into a roast of the strugglers.
-        if c["tier"] == "red":
-            if red_count >= 3:
-                continue
-            red_count += 1
-        title_count[t] = title_count.get(t, 0) + 1
-        final.append({k: c.get(k) for k in ("player", "title", "detail", "tier", "emoji", "points", "thru")})
-        if len(final) >= limit:
-            break
-    return final
+        if per_tier.get(t, 0) >= caps.get(t, 15):
+            continue
+        if title_count.get(c["title"], 0) >= 3:
+            continue
+        per_tier[t] = per_tier.get(t, 0) + 1
+        title_count[c["title"]] = title_count.get(c["title"], 0) + 1
+        others.append(c)
+
+    out = golds + others
+    return [{k: c.get(k) for k in ("player", "title", "detail", "tier", "emoji", "points", "thru")}
+            for c in out[:limit]]
 
 
 def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
@@ -2485,7 +2491,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         "pdfStandings": _official_cache.get("pdfStandings") or {"grades": [], "players": []},
         "players": ranked,
         "leaders": ranked[:10],
-        "stories": stories[:12],
+        "stories": stories,
         "storiesArchive": archive_list,
         "comingLast": [
             {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
