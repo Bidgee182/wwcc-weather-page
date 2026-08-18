@@ -1632,6 +1632,74 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
     total_birdies = sum(1 for h in played if is_birdie(h))
     total_pts     = sum(gpts(h) or 0 for h in played)
 
+    # ── New character/round stories (positive angles get priority over the rough
+    # ones below; a big round rarely coincides with a pile of wipes) ────────────
+    half = n // 2
+    front_pts = sum(gpts(h) or 0 for h in played[:half])
+    back_pts  = sum(gpts(h) or 0 for h in played[half:])
+    start3    = sum(gpts(h) or 0 for h in played[:3])
+    last3     = sum(gpts(h) or 0 for h in played[-3:])
+    par3_birdies = [h for h in played if h.get("par") == 3 and is_birdie(h)]
+    par5_birdies = [h for h in played if h.get("par") == 5 and is_birdie(h)]
+
+    if total_pts >= (40 if n >= 15 else 20):
+        return _pick([
+            ("Forty Club" if n >= 15 else "Big Nine", f"{total_pts} points on the card - a round to remember"),
+            ("A Round to Frame", f"{total_pts} points - the sort of day you tell people about"),
+        ], "gold", "🏅")
+    if len(par3_birdies) >= 2:
+        return _pick([
+            ("Par-3 Assassin", f"Birdied {len(par3_birdies)} of the par 3s - the short holes never stood a chance"),
+            ("Short-Hole Sniper", f"{len(par3_birdies)} threes on the par 3s - dialled in with the irons"),
+        ], "orange", "🎯")
+    if len(par5_birdies) >= 2:
+        return _pick([
+            ("Big-Dog Territory", f"Birdied {len(par5_birdies)} of the par 5s - bombing them and holing out"),
+            ("Reachable Feeling", f"{len(par5_birdies)} of the par 5s gave up shots - length is a weapon"),
+        ], "orange", "🐕")
+    if last3 >= 9:
+        return _pick([
+            ("Big Finish", f"{last3} points on the last three - closed the deal in style"),
+            ("The Closer", f"Saved the best for last - {last3} coming home over the final three"),
+        ], "orange", "🎬")
+    if start3 >= 9:
+        return _pick([
+            ("Out of the Blocks", f"{start3} points in the first three - a statement start"),
+            ("Fast Starter", f"Nine-plus out of the gate - {start3} in the opening three"),
+        ], "orange", "🚀")
+    if n >= 16 and back_pts - front_pts >= 7:
+        return _pick([
+            ("Back-Nine Bandit", f"{back_pts} coming home after {front_pts} out - turned it right on"),
+            ("Jekyll & Hyde", f"{front_pts} on the front, {back_pts} on the back - two different golfers"),
+        ], "orange", "🔄")
+    if n >= 16 and front_pts - back_pts >= 7:
+        return _pick([
+            ("Faded to Grey", f"{front_pts} on the front, {back_pts} on the back - flew out then ran out of legs"),
+            ("Front-Runner", f"Front nine {front_pts}, back nine {back_pts} - the tank hit empty"),
+        ], "blue", "📉")
+    if total_birdies >= 3 and total_wipes >= 3:
+        return _pick([
+            ("Rollercoaster", f"{total_birdies} threes and {total_wipes} wipes - never a dull hole"),
+            ("Feast or Famine", f"{total_birdies} birdies, {total_wipes} blanks - no interest in the middle ground"),
+        ], "orange", "🎢")
+    if total_wipes >= 2 and all((gpts(played[i + 1]) or 0) >= 2
+                                for i, h in enumerate(played[:-1]) if is_wipe(h)):
+        return _pick([
+            ("Bounce-Back Merchant", "Answered every wipe with points next hole - never let one become two"),
+            ("Short Memory", f"{total_wipes} wipes, every one followed by a score - forgets fast"),
+        ], "orange", "🏀")
+    _par_run = _max_run(lambda h: (gpts(h) or 0) >= 2)
+    if _par_run >= 6:
+        return _pick([
+            ("The Metronome", f"{_par_run} holes in a row at par or better - tick, tick, tick"),
+            ("On Cruise Control", f"A run of {_par_run} straight scoring holes - smooth sailing"),
+        ], "orange", "⏱️")
+    if total_wipes == 0 and total_pars >= max(6, n // 2) and total_birdies <= 1:
+        return _pick([
+            ("Steady Eddie", f"{total_pars} pars, not a wipe in sight - metronomic golf"),
+            ("Rock Solid", f"Zero wipes and {total_pars} pars - boring in the best way"),
+        ], "blue", "🧱")
+
     # Wipe-heavy rounds
     if total_wipes >= 8:
         return _pick([
@@ -1952,6 +2020,30 @@ def _context_story(p, leader_pts, is_stableford, hole_count):
             return _mk_story(p["player"], "In the Hunt",
                 f"{_ordinal(rank)} - {gtxt}{tail}",
                 "orange" if rank <= 3 else "blue", "\U0001F3AF", 62 - rank, pts, thru, "ctx")
+
+    # Handicap-flavoured angles (once finished)
+    hcp = p.get("hcp")
+    if is_stableford and finished and hcp is not None:
+        if hcp >= 27 and rank <= 20:
+            return _mk_story(p["player"], "Playing Off the Wrong Card",
+                _rr(f"Off {int(hcp)} and lighting it up - {_ordinal(rank)} on the board",
+                    f"A {int(hcp)}-marker up at {_ordinal(rank)} - the handicapper's pen is twitching"),
+                "gold" if rank <= 5 else "orange", "\U0001F3AF", 58 - rank, pts, thru, "ctx")
+        if hcp <= 7 and rank <= 12:
+            return _mk_story(p["player"], "Low-Marker Masterclass",
+                _rr(f"Off the stick ({int(hcp)}) and {_ordinal(rank)} - proper ball-striking",
+                    f"Single-figure golf on show - {int(hcp)} marker sitting {_ordinal(rank)}"),
+                "orange", "\U0001F3CC", 52, pts, thru, "ctx")
+    if 2 <= rank <= 6 and hcp is not None and hcp >= 18 and thru >= max(9, hc - 6):
+        return _mk_story(p["player"], "Dark Horse",
+            _rr(f"An unlikely name up at {_ordinal(rank)} - who saw that coming?",
+                f"Bolted from the pack - {_ordinal(rank)} and turning heads"),
+            "orange", "\U0001F40E", 50, pts, thru, "ctx")
+    if is_stableford and finished and pts == 2 * hc:
+        return _mk_story(p["player"], "Level Pegging",
+            _rr(f"Played dead level - {_fmt_score(pts, is_stableford)}, exactly to the card",
+                f"Bang on the handicap - {_fmt_score(pts, is_stableford)} on the nose"),
+            "blue", "⚖️", 40, pts, thru, "ctx")
     return None
 
 
@@ -2018,24 +2110,49 @@ def _field_superlatives(ranked, hole_count, is_stableford):
 
     if not is_stableford:
         return out
-    birdies_by_hole, pars_by_hole, played_by_hole = {}, {}, {}
+    birdies_by_hole, pars_by_hole, wipes_by_hole, pts_by_hole, played_by_hole = {}, {}, {}, {}, {}
+    total_birdies = 0
     for p in ranked:
         for h in _played_holes(p):
             hn, pts = h.get("hole"), h.get("points")
             if hn is None:
                 continue
             played_by_hole[hn] = played_by_hole.get(hn, 0) + 1
+            pts_by_hole[hn] = pts_by_hole.get(hn, 0) + pts
             if pts >= 3:
                 birdies_by_hole[hn] = birdies_by_hole.get(hn, 0) + 1
+                total_birdies += 1
             elif pts == 2:
                 pars_by_hole[hn] = pars_by_hole.get(hn, 0) + 1
+            elif pts == 0:
+                wipes_by_hole[hn] = wipes_by_hole.get(hn, 0) + 1
+
     if birdies_by_hole:
         hn, n = max(birdies_by_hole.items(), key=lambda kv: kv[1])
         if n >= 8:
             out.append(_mk_story(f"Hole {hn}", "Hot Hole",
                 f"gave up {n} threes today - the pin was there for the taking",
-                "blue", "\U0001F525", 46, src="field"))
-    if pars_by_hole and played_by_hole and ranked:
+                "blue", "\U0001F525", 70, src="field"))
+    if pts_by_hole and played_by_hole:  # Golden Hole - the field's easiest scoring hole
+        golden = None
+        for hn, tot in pts_by_hole.items():
+            pl = played_by_hole.get(hn, 0)
+            if pl < max(6, len(ranked) * 0.5):
+                continue
+            avg = tot / pl
+            if golden is None or avg > golden[1]:
+                golden = (hn, avg)
+        if golden and golden[1] >= 2.3:
+            out.append(_mk_story(f"Hole {golden[0]}", "Golden Hole",
+                f"the field's happy place - averaged {golden[1]:.1f} points",
+                "blue", "\U0001F3C6", 66, src="field"))
+    if wipes_by_hole:  # The Graveyard - the true cold hole (most wipes)
+        hn, w = max(wipes_by_hole.items(), key=lambda kv: kv[1])
+        if w >= 6:
+            out.append(_mk_story(f"Hole {hn}", "The Graveyard",
+                f"{w} wipes handed out - where cards go to die",
+                "blue", "\U0001FAA6", 68, src="field"))
+    if pars_by_hole and played_by_hole and ranked:  # tough hole (fewest pars)
         tough = None
         for hn, pl in played_by_hole.items():
             if pl < len(ranked) * 0.5:
@@ -2046,7 +2163,28 @@ def _field_superlatives(ranked, hole_count, is_stableford):
         if tough and tough[1] < 0.25:
             out.append(_mk_story(f"Hole {tough[0]}", "Hole That Bit Back",
                 f"only {tough[2]} pars all day - the card-wrecker",
-                "blue", "\U0001F62C", 44, src="field"))
+                "blue", "\U0001F62C", 64, src="field"))
+
+    finishers = [p for p in ranked if (p.get("thru") or 0) >= (hole_count or 18)]
+    if len(finishers) >= 5:  # shape of the board once a decent number are in
+        pts_sorted = sorted((p.get("points") or 0 for p in finishers), reverse=True)
+        lead = pts_sorted[0]
+        margin = lead - pts_sorted[1]
+        tied_top = sum(1 for x in pts_sorted if x == lead)
+        if margin >= 5:
+            out.append(_mk_story("The Board", "Runaway",
+                f"{margin} clear at the top - daylight second", "blue", "\U0001F3C7", 72, src="field"))
+        elif tied_top >= 2:
+            out.append(_mk_story("The Board", "Logjam",
+                f"{tied_top} tied at the top on {lead} - countback territory", "blue", "\U0001F9E9", 71, src="field"))
+        elif margin == 1:
+            out.append(_mk_story("The Board", "Nailbiter",
+                "one point splits the top two - down to the wire", "blue", "\U0001F630", 71, src="field"))
+
+    if total_birdies >= 20 and total_birdies >= len(ranked) * 1.2:
+        out.append(_mk_story("The Field", "Birdie Fest",
+            f"{total_birdies} birdies across the field - the course is giving them up",
+            "blue", "\U0001F389", 65, src="field"))
     return out
 
 
@@ -2112,6 +2250,37 @@ def _weather_story(wx):
     return None
 
 
+def _social_stories(ranked):
+    """Club-flavoured one-offs: a visitor leading, and same-surname players up
+    the board together."""
+    out = []
+    if not ranked:
+        return out
+    top = ranked[0]
+    if _is_visitor(top.get("homeClub")) and (top.get("thru") or 0) >= 1:
+        club = (top.get("homeClub") or "").replace(" Golf Club", " GC")
+        out.append(_mk_story(top["player"], "Travelling Trophy",
+            _rr(f"a visitor from {club} leading the locals - awkward at the bar",
+                f"{club} raiding the silverware - top of the board"),
+            "orange", "\U0001F9F3", 58, top.get("points"), top.get("thru"), "social"))
+    surname = {}
+    for pp in ranked[:24]:
+        nm = re.sub(r"\s*\[[^\]]*\]", "", pp.get("player", "")).strip()
+        if " & " in nm:
+            continue
+        parts = nm.split()
+        if len(parts) >= 2 and len(parts[-1]) >= 3:
+            surname.setdefault(parts[-1], []).append(parts[0])
+    _common = {"smith", "jones", "brown", "wilson", "taylor", "lee", "young"}
+    for sn, firsts in surname.items():
+        if len(firsts) >= 2 and sn.lower() not in _common:
+            who = f"{firsts[0]} and {firsts[1]}" if len(firsts) == 2 else f"{firsts[0]}, {firsts[1]} & co"
+            out.append(_mk_story(f"The {sn}s", "Family Affair",
+                f"{who} {sn} - the family's having a day out", "blue", "\U0001F46A", 62, src="social"))
+            break
+    return out
+
+
 def _is_team_comp(ranked, comp_name):
     n = (comp_name or "").lower()
     if any(k in n for k in ("4bbb", "ambrose", "4 person", "four ball", "4ball")):
@@ -2139,6 +2308,7 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
             if v:
                 out.append(v)
         out += _field_superlatives(ranked, hole_count, is_stableford)
+        out += _social_stories(ranked)
     wx = _weather_story(_load_weather_flavour(board_date))
     if wx:
         out.append(wx)
@@ -2189,7 +2359,7 @@ def _finalize_stories(cands, tier_rank, limit=55):
             continue
         if per_tier.get(t, 0) >= caps.get(t, 15):
             continue
-        if title_count.get(c["title"], 0) >= 3:
+        if title_count.get(c["title"], 0) >= 2:   # at most 2 of any one title in the pool
             continue
         per_tier[t] = per_tier.get(t, 0) + 1
         title_count[c["title"]] = title_count.get(c["title"], 0) + 1
@@ -2203,7 +2373,8 @@ def _finalize_stories(cands, tier_rank, limit=55):
     seen, deduped = set(), []
     for c in out:
         pl = c.get("player", "")
-        single = pl and " & " not in pl and ", " not in pl and not pl.startswith("Hole ") and pl != "Today"
+        single = (pl and " & " not in pl and ", " not in pl and not pl.startswith("Hole ")
+                  and pl not in ("Today", "The Board", "The Field"))
         if single:
             if pl in seen:
                 continue
