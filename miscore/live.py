@@ -1846,6 +1846,339 @@ def _fetch_card(club: str, board_id: str, pno: str) -> str:
     return ""
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Scoreboard story enrichment: the competition-aware layer that runs after
+# ranking. The per-player card story (_story) still fires; these add context
+# (where they sit), live suspense, field superlatives, visitor + 4BBB + weather
+# angles, then _finalize_stories folds duplicates and ranks the reel.
+# All additive and defensively called - a failure here never breaks a poll.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _ordinal(n) -> str:
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return str(n)
+    suf = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suf}"
+
+
+def _rr(*opts: str) -> str:
+    return random.choice(opts)
+
+
+def _fmt_score(pts, is_stableford: bool) -> str:
+    try:
+        v = int(pts) if float(pts).is_integer() else round(float(pts), 1)
+    except (TypeError, ValueError):
+        return str(pts)
+    return f"{v} pts" if is_stableford else f"{'+' if v > 0 else ''}{v}"
+
+
+def _mk_story(player, title, detail, tier, emoji, score, points=None, thru=None, src="x"):
+    return {"player": player, "title": title, "detail": detail, "tier": tier,
+            "emoji": emoji, "_score": score, "points": points, "thru": thru, "_src": src}
+
+
+def _is_visitor(home_club: str) -> bool:
+    hc = (home_club or "").lower()
+    return bool(hc) and "wagga wagga cc" not in hc and "wagga wagga country" not in hc
+
+
+def _played_holes(p: dict) -> list:
+    return [h for h in p.get("holes", []) if h.get("points") is not None]
+
+
+def _context_story(p, leader_pts, is_stableford, hole_count):
+    """Where the player sits in the comp: leader / hcp-buster / charging / in the hunt."""
+    thru = p.get("thru") or 0
+    rank = p.get("liveRank") or 999
+    pts = p.get("points") or 0
+    if thru < 4:
+        return None
+    hc = hole_count or 18
+    finished = thru >= hc
+    hp = [h.get("points") or 0 for h in _played_holes(p)]
+
+    if rank == 1 and thru >= max(6, hc // 2):
+        if finished:
+            return _mk_story(p["player"], "Clubhouse Leader",
+                _rr(f"{_fmt_score(pts, is_stableford)} and in - the mark to beat",
+                    f"In with {_fmt_score(pts, is_stableford)} - top of the tree"),
+                "gold", "\U0001F451", 96, pts, thru, "ctx")
+        return _mk_story(p["player"], "Leading the Way",
+            _rr(f"Out in front on {_fmt_score(pts, is_stableford)} through {thru}",
+                f"Top of the board - {_fmt_score(pts, is_stableford)} so far"),
+            "orange", "\U0001F51D", 82, pts, thru, "ctx")
+
+    if is_stableford and finished:
+        over = pts - 2 * hc
+        if over >= 4:
+            return _mk_story(p["player"], "Handicap Buster",
+                _rr(f"{_fmt_score(pts, is_stableford)} - {over} under the card",
+                    f"Beat the handicap by {over} with {_fmt_score(pts, is_stableford)}"),
+                "gold" if over >= 6 else "orange", "\U0001F3AF",
+                88 if over >= 6 else 74, pts, thru, "ctx")
+
+    if len(hp) >= max(8, hc - 2):
+        half = len(hp) // 2
+        front, back = sum(hp[:half]), sum(hp[half:])
+        if is_stableford and back - front >= 6:
+            return _mk_story(p["player"], "The Charge",
+                _rr(f"{back} on the back half after {front} on the front - flying home",
+                    f"Turned it on - {back} coming home vs {front} out"),
+                "orange", "\U0001F680", 70, pts, thru, "ctx")
+
+    if 2 <= rank <= 5 and thru >= max(9, hc - 6):
+        gap = (leader_pts - pts) if is_stableford else (pts - leader_pts)
+        if gap >= 0:
+            gtxt = "level with the lead" if gap == 0 else f"{gap} off the pace"
+            tail = f" with {hc - thru} to play" if thru < hc else ""
+            return _mk_story(p["player"], "In the Hunt",
+                f"{_ordinal(rank)} - {gtxt}{tail}",
+                "orange" if rank <= 3 else "blue", "\U0001F3AF", 62 - rank, pts, thru, "ctx")
+    return None
+
+
+def _suspense_story(p, is_stableford, hole_count):
+    """Live-only tension while the player is still out on the course."""
+    thru = p.get("thru") or 0
+    hc = hole_count or 18
+    if thru >= hc or thru < 6 or not is_stableford:
+        return None
+    hp = [h.get("points") or 0 for h in _played_holes(p)]
+    if hp and all(x >= 2 for x in hp) and thru >= 8:
+        return _mk_story(p["player"], "Bogey-Free",
+            f"Par or better on every hole through {thru} - not a blemish yet",
+            "orange", "\U0001F9FC", 68, p.get("points"), thru, "live")
+    run = 0
+    for x in reversed(hp):
+        if x >= 3:
+            run += 1
+        else:
+            break
+    if run >= 3:
+        return _mk_story(p["player"], "On Fire",
+            f"{run} threes on the trot and still out there - who's stopping them?",
+            "orange", "\U0001F525", 66, p.get("points"), thru, "live")
+    if thru == hc - 1:
+        need = 40 - (p.get("points") or 0)
+        if 1 <= need <= 3:
+            return _mk_story(p["player"], "Grandstand Finish",
+                f"Needs {need} on the last to crack 40 - one hole to write the ending",
+                "orange", "\U0001F3AC", 64, p.get("points"), thru, "live")
+    return None
+
+
+def _visitor_story(p):
+    """A travelling player from another club making a mark on the local board."""
+    if not _is_visitor(p.get("homeClub")):
+        return None
+    rank = p.get("liveRank") or 999
+    if rank > 12:
+        return None
+    club = (p.get("homeClub") or "").replace(" Golf Club", " GC")
+    return _mk_story(p["player"], "Away-Day Raid",
+        _rr(f"Visitor from {club} sitting {_ordinal(rank)} - raiding the local silverware",
+            f"{club} making the trip count - {_ordinal(rank)} on the board"),
+        "orange" if rank <= 5 else "blue", "\U0001F9F3", 56 - rank,
+        p.get("points"), p.get("thru"), "visitor")
+
+
+def _field_superlatives(ranked, hole_count, is_stableford):
+    """One-off, field-wide stories computed across everyone's cards."""
+    out = []
+    ace = None
+    for p in ranked:
+        for h in _played_holes(p):
+            if h.get("strokes") == 1 and h.get("par") == 3:
+                ace = (p["player"], h.get("hole"))
+                break
+        if ace:
+            break
+    if ace:
+        out.append(_mk_story(ace[0], "Shot of the Day",
+            f"Hole in one on {ace[1]} - the shot everyone's talking about",
+            "gold", "\U0001F3C6", 99, src="field"))
+
+    if not is_stableford:
+        return out
+    birdies_by_hole, pars_by_hole, played_by_hole = {}, {}, {}
+    for p in ranked:
+        for h in _played_holes(p):
+            hn, pts = h.get("hole"), h.get("points")
+            if hn is None:
+                continue
+            played_by_hole[hn] = played_by_hole.get(hn, 0) + 1
+            if pts >= 3:
+                birdies_by_hole[hn] = birdies_by_hole.get(hn, 0) + 1
+            elif pts == 2:
+                pars_by_hole[hn] = pars_by_hole.get(hn, 0) + 1
+    if birdies_by_hole:
+        hn, n = max(birdies_by_hole.items(), key=lambda kv: kv[1])
+        if n >= 8:
+            out.append(_mk_story(f"Hole {hn}", "Hot Hole",
+                f"gave up {n} threes today - the pin was there for the taking",
+                "blue", "\U0001F525", 46, src="field"))
+    if pars_by_hole and played_by_hole and ranked:
+        tough = None
+        for hn, pl in played_by_hole.items():
+            if pl < len(ranked) * 0.5:
+                continue
+            rate = pars_by_hole.get(hn, 0) / pl
+            if tough is None or rate < tough[1]:
+                tough = (hn, rate, pars_by_hole.get(hn, 0))
+        if tough and tough[1] < 0.25:
+            out.append(_mk_story(f"Hole {tough[0]}", "Hole That Bit Back",
+                f"only {tough[2]} pars all day - the card-wrecker",
+                "blue", "\U0001F62C", 44, src="field"))
+    return out
+
+
+def _bbb_stories(ranked):
+    """Round-robin best-ball angles: the top pairing and the most-wanted partner."""
+    out = []
+    if not ranked:
+        return out
+    top = ranked[0]
+    out.append(_mk_story(top["player"], "Dream Team",
+        "Top of the pairings - best-ball at its best",
+        "gold", "\U0001F91D", 90, top.get("points"), top.get("thru"), "4bbb"))
+    appear = {}
+    for p in ranked[:12]:
+        for m in re.split(r"\s*&\s*", p.get("player", "")):
+            name = re.sub(r"\s*\[[^\]]*\]", "", m).strip()
+            if name:
+                appear[name] = appear.get(name, 0) + 1
+    if appear:
+        who, n = max(appear.items(), key=lambda kv: kv[1])
+        if n >= 2:
+            out.append(_mk_story(who, "Mr Popular",
+                f"in {n} of the top pairings - the partner everyone wants",
+                "orange", "⭐", 62, src="4bbb"))
+    return out
+
+
+def _load_weather_flavour(board_date):
+    try:
+        hist = json.load(open("data/davis_weather_history.json"))
+        if not isinstance(hist, list) or not hist:
+            return None
+        last = hist[-1]
+        if board_date and last.get("date") != board_date:
+            return None
+        return last
+    except Exception:
+        return None
+
+
+def _weather_story(wx):
+    if not wx:
+        return None
+    wind = wx.get("windMax") or 0
+    rain = wx.get("rain") or 0
+    tmax = wx.get("tMax")
+    if wind >= 40:
+        return _mk_story("Today", "Into the Breeze",
+            f"gusts to {round(wind)} km/h - anyone scoring well earned every point",
+            "blue", "\U0001F4A8", 48, src="wx")
+    if rain >= 2:
+        return _mk_story("Today", "In the Wet",
+            f"{rain} mm on the card - proper grinding conditions",
+            "blue", "\U0001F327", 47, src="wx")
+    if tmax is not None and tmax >= 35:
+        return _mk_story("Today", "Scorcher",
+            f"{round(tmax)}°C out there - hydration as vital as the short game",
+            "blue", "\U0001F975", 45, src="wx")
+    if tmax is not None and tmax <= 10:
+        return _mk_story("Today", "Rug-Up Golf",
+            f"topped out at {round(tmax)}°C - beanies-on scoring",
+            "blue", "\U0001F976", 45, src="wx")
+    return None
+
+
+def _is_team_comp(ranked, comp_name):
+    n = (comp_name or "").lower()
+    if any(k in n for k in ("4bbb", "ambrose", "4 person", "four ball", "4ball")):
+        return True
+    return bool(ranked) and " & " in (ranked[0].get("player") or "")
+
+
+def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
+    out = []
+    leader_pts = ranked[0].get("points", 0) if ranked else 0
+    # Team comps (4BBB best-ball, Ambrose) get partnership stories only - the
+    # individual per-hole/context angles don't map onto best-ball scoring.
+    if _is_team_comp(ranked, comp_name):
+        out += _bbb_stories(ranked)
+    else:
+        for p in ranked:
+            c = _context_story(p, leader_pts, is_stableford, hole_count)
+            if c:
+                out.append(c)
+            if (p.get("thru") or 0) < (hole_count or 18):
+                s = _suspense_story(p, is_stableford, hole_count)
+                if s:
+                    out.append(s)
+            v = _visitor_story(p)
+            if v:
+                out.append(v)
+        out += _field_superlatives(ranked, hole_count, is_stableford)
+    wx = _weather_story(_load_weather_flavour(board_date))
+    if wx:
+        out.append(wx)
+    return out
+
+
+def _finalize_stories(cands, tier_rank, limit=14):
+    """Fold exact duplicates (same title+detail) across players, then rank the
+    reel by tier and per-story score, capping how often a title can repeat."""
+    cands = [c for c in cands if c]
+    folded = {}
+    order = []
+    for c in cands:
+        key = (c["title"], c["detail"])
+        if key in folded:
+            folded[key]["_players"].append(c["player"])
+            folded[key]["_score"] = max(folded[key]["_score"], c.get("_score", 0))
+        else:
+            folded[key] = {**c, "_players": [c["player"]]}
+            order.append(key)
+
+    ranked_c = []
+    for key in order:
+        c = folded[key]
+        players = [p for p in c["_players"] if p]
+        if not players:
+            c["player"] = ""
+        elif len(players) == 1:
+            c["player"] = players[0]
+        elif len(players) == 2:
+            c["player"] = f"{players[0]} & {players[1]}"
+        else:
+            c["player"] = f"{players[0]}, {players[1]} & {len(players) - 2} others"
+        c["_rankscore"] = tier_rank.get(c["tier"], 0) * 100 + c.get("_score", 0)
+        ranked_c.append(c)
+    ranked_c.sort(key=lambda c: -c["_rankscore"])
+
+    final, title_count, red_count = [], {}, 0
+    for c in ranked_c:
+        t = c["title"]
+        if title_count.get(t, 0) >= 2:
+            continue
+        # Keep the reel good-natured: cap the "rough day" stories so the board
+        # never turns into a roast of the strugglers.
+        if c["tier"] == "red":
+            if red_count >= 3:
+                continue
+            red_count += 1
+        title_count[t] = title_count.get(t, 0) + 1
+        final.append({k: c.get(k) for k in ("player", "title", "detail", "tier", "emoji", "points", "thru")})
+        if len(final) >= limit:
+            break
+    return final
+
+
 def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
     """One full read of a board -> kiosk JSON."""
     board_id = board["leaderboardId"]
@@ -1989,20 +2322,24 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict]) -> dict:
         p["liveRank"] = i
 
     _tier_rank = {"gold": 3, "orange": 2, "red": 1, "blue": 0}
-    stories = []
+    # Base layer: each player's card story (per-hole / whole-round). Skipped for
+    # team comps, where per-hole best-ball scores make the individual stories misfire.
+    _team_comp = _is_team_comp(ranked, board.get("name", ""))
+    base_stories = []
     for p in ranked:
         s = p.pop("_story", None)
-        if s:
-            stories.append({
-                "player": p["player"],
-                "title":  s["title"],
-                "detail": s["detail"],
-                "tier":   s["tier"],
-                "emoji":  s.get("emoji", ""),
-                "points": p["points"],
-                "thru":   p["thru"],
-            })
-    stories.sort(key=lambda s: -_tier_rank.get(s["tier"], 0))
+        if s and not _team_comp:
+            base_stories.append(_mk_story(p["player"], s["title"], s["detail"], s["tier"],
+                                          s.get("emoji", ""), 50, p["points"], p["thru"], "card"))
+    # Competition-aware enrichment (context / suspense / field / visitor / 4bbb /
+    # weather). Defensive - a failure here must never break the poll.
+    try:
+        enriched = _enrich_stories(ranked, is_stableford, hole_count,
+                                   board.get("name", ""), board.get("date"))
+    except Exception as exc:
+        log.debug("story enrichment failed: %s", exc)
+        enriched = []
+    stories = _finalize_stories(base_stories + enriched, _tier_rank)
 
     if is_stableford:
         coming_last = sorted(
