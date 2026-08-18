@@ -696,6 +696,11 @@ def _past_sunset_plus(minutes: int) -> bool:
     return cur >= sunset + minutes / 60
 
 
+# How long to hold official results OFF the screen after the PDF is first found -
+# so the board never reveals them before the club presentation.
+RESULTS_REVEAL_DELAY_MIN = 60
+
+
 def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
     """Poll WWCC official results API and return publication status.
 
@@ -2102,18 +2107,37 @@ def _visitor_story(p):
 def _field_superlatives(ranked, hole_count, is_stableford):
     """One-off, field-wide stories computed across everyone's cards."""
     out = []
-    ace = None
+    # Shot of the Day: the standout single hole in the whole field. Hole-in-one
+    # first; if none, fall back to the best gross albatross, then eagle. If there's
+    # no ace or eagle all day, there's simply no Shot of the Day (the reel has plenty
+    # else). Hole shown as an ordinal ("the 2nd").
+    best = None   # (goodness, player_dict, hole, kind)
     for p in ranked:
         for h in _played_holes(p):
-            if h.get("strokes") == 1 and h.get("par") == 3:
-                ace = (p["player"], h.get("hole"), p.get("points"), p.get("thru"))
-                break
-        if ace:
-            break
-    if ace:
-        out.append(_mk_story(ace[0], "Shot of the Day",
-            f"Hole in one on {ace[1]} - the shot everyone's talking about",
-            "gold", "\U0001F3C6", 99, points=ace[2], thru=ace[3], src="field"))
+            par, strokes = h.get("par"), h.get("strokes")
+            if par is None or not isinstance(strokes, int):
+                continue
+            to_par = strokes - par
+            if strokes == 1 and par == 3:
+                cand = (4, p, h.get("hole"), "ace")
+            elif to_par <= -3:
+                cand = (3, p, h.get("hole"), "albatross")
+            elif to_par == -2:
+                cand = (2, p, h.get("hole"), "eagle")
+            else:
+                continue
+            if best is None or cand[0] > best[0]:
+                best = cand
+    if best:
+        _, bp, bhole, kind = best
+        ho = _ordinal(bhole)
+        detail = {
+            "ace":       f"Hole in one on the {ho} - the shot everyone's talking about",
+            "albatross": f"Albatross on the {ho} - a shot in a million",
+            "eagle":     f"Eagle on the {ho} - the pick of the day",
+        }[kind]
+        out.append(_mk_story(bp["player"], "Shot of the Day", detail,
+            "gold", "\U0001F3C6", 99, points=bp.get("points"), thru=bp.get("thru"), src="field"))
 
     if not is_stableford:
         return out
@@ -2465,7 +2489,7 @@ def _finalize_stories(cands, tier_rank, limit=55):
 
 
 def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
-         prev_story: dict | None = None) -> dict:
+         prev_story: dict | None = None, prev_found_at: str | None = None) -> dict:
     """One full read of a board -> kiosk JSON."""
     board_id = board["leaderboardId"]
     page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
@@ -2656,7 +2680,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
     if board_id != _official_cache_board:
         _official_cache = {"published": False, "reportLinks": [], "eventId": None, "ballWinners": None}
         _official_cache_board = board_id
-    if round_complete and not _official_cache.get("published") and _past_sunset_plus(60):
+    if round_complete and not _official_cache.get("published"):
         result = _wwcc_check_results(board["name"], board.get("date"))
         result.setdefault("ballWinners", None)
         _official_cache = result
@@ -2756,6 +2780,22 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             _stories_archive[key]["thru"]   = s["thru"]
     archive_list = sorted(_stories_archive.values(), key=lambda x: x["firstSeen"])
 
+    # Results are DETECTED as soon as the PDF is published, but held OFF the screen
+    # for RESULTS_REVEAL_DELAY_MIN so the board never beats the club presentation.
+    # Stamp when first found (carried across polls via the previous blob) and only
+    # reveal once the delay has elapsed.
+    official_published = _official_cache.get("published", False)
+    official_found_at = (prev_found_at if (prev_found_at and official_published)
+                         else (now.isoformat() if official_published else None))
+    reveal = False
+    if official_published and official_found_at:
+        try:
+            _fdt = datetime.fromisoformat(official_found_at)
+            reveal = (now - _fdt).total_seconds() >= RESULTS_REVEAL_DELAY_MIN * 60
+        except Exception:
+            reveal = True   # unparseable stamp: don't hide results forever
+    _empty_std = {"grades": [], "players": []}
+
     return {
         "competition": board["name"],
         "type": comp_type,
@@ -2772,12 +2812,13 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         "started": any(p["thru"] > 0 for p in players),
         "isStableford": is_stableford,
         "isAmbrose": is_ambrose,
-        "officialResultsReady": _official_cache.get("published", False),
+        "officialResultsReady": reveal,
+        "officialFoundAt": official_found_at,
         "wwccCredSet": bool(_WWCC_USERNAME and _WWCC_PASSWORD),
-        "officialResultsLink": (_official_cache.get("reportLinks") or [None])[0],
-        "ballWinners": _official_cache.get("ballWinners") or [],
-        "ntpLd": _official_cache.get("ntpLd") or [],
-        "pdfStandings": _official_cache.get("pdfStandings") or {"grades": [], "players": []},
+        "officialResultsLink": ((_official_cache.get("reportLinks") or [None])[0]) if reveal else None,
+        "ballWinners": (_official_cache.get("ballWinners") or []) if reveal else [],
+        "ntpLd": (_official_cache.get("ntpLd") or []) if reveal else [],
+        "pdfStandings": (_official_cache.get("pdfStandings") or _empty_std) if reveal else _empty_std,
         "players": ranked,
         "leaders": ranked[:10],
         "stories": stories,
@@ -2863,15 +2904,18 @@ def main(argv=None) -> int:
                 }
                 log.info("no board found")
             else:
-                # Carry rank history across polls via the previous output blob
-                # (fresh process each --once run, so it must live on disk).
-                prev_story = {}
+                # Carry state across polls via the previous output blob (fresh
+                # process each --once run, so it must live on disk): rank history,
+                # and when official results were first found (for the reveal delay).
+                prev_story, prev_found_at = {}, None
                 try:
                     if args.out.exists():
-                        prev_story = json.loads(args.out.read_text()).get("storyRanks") or {}
+                        _prev_blob = json.loads(args.out.read_text())
+                        prev_story = _prev_blob.get("storyRanks") or {}
+                        prev_found_at = _prev_blob.get("officialFoundAt")
                 except Exception:
-                    prev_story = {}
-                blob = poll(args.club, board, args.workers, prev, prev_story)
+                    prev_story, prev_found_at = {}, None
+                blob = poll(args.club, board, args.workers, prev, prev_story, prev_found_at)
                 lead = blob["leaders"][0] if blob["leaders"] else None
                 log.info(
                     "%s: %d players, %s, leader %s",
