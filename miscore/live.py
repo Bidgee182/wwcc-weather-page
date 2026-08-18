@@ -2007,14 +2007,14 @@ def _field_superlatives(ranked, hole_count, is_stableford):
     for p in ranked:
         for h in _played_holes(p):
             if h.get("strokes") == 1 and h.get("par") == 3:
-                ace = (p["player"], h.get("hole"))
+                ace = (p["player"], h.get("hole"), p.get("points"), p.get("thru"))
                 break
         if ace:
             break
     if ace:
         out.append(_mk_story(ace[0], "Shot of the Day",
             f"Hole in one on {ace[1]} - the shot everyone's talking about",
-            "gold", "\U0001F3C6", 99, src="field"))
+            "gold", "\U0001F3C6", 99, points=ace[2], thru=ace[3], src="field"))
 
     if not is_stableford:
         return out

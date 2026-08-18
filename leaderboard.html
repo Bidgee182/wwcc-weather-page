@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '2';
+const FRONTEND_VERSION = '3';
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1428,16 +1428,22 @@ function renderStories(stories, skipExpiry) {
         const emoji = s.emoji || '';   // per-story emoji set in Python
         const css   = TIER_CSS[s.tier] || 'story-name-blue';
         const name  = esc(stripHcp(s.player));
+        // Field-only stories (Hot Hole, weather) have no player score - omit the
+        // right column entirely instead of showing "nullpts / thru null".
+        const hasPts  = s.points !== null && s.points !== undefined;
+        const thruTxt = (s.thru !== null && s.thru !== undefined) ? ('thru ' + s.thru) : '';
+        const right = hasPts
+            ? '<div class="story-right">' +
+                  '<div class="story-pts">' + fmtScore(s.points) + (_isStableford ? 'pts' : '') + '</div>' +
+                  (thruTxt ? '<div class="story-thru">' + thruTxt + '</div>' : '') +
+              '</div>'
+            : '';
         return '<div class="story-row">' +
             '<div class="story-left">' +
                 '<div class="story-name ' + css + '">' + name + ' ' + emoji + '</div>' +
                 '<div class="story-title">' + esc(s.title) + '</div>' +
                 '<div class="story-detail">' + esc(s.detail) + '</div>' +
-            '</div>' +
-            '<div class="story-right">' +
-                '<div class="story-pts">' + fmtScore(s.points) + (_isStableford ? 'pts' : '') + '</div>' +
-                '<div class="story-thru">thru ' + s.thru + '</div>' +
-            '</div>' +
+            '</div>' + right +
         '</div>';
     });
     _storyAnimDurMs = renderSidePanel('heater-list', rows, 'Watching the field...', 6, STORY_PAUSE_MS);
