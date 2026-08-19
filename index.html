@@ -6123,6 +6123,7 @@ async function getForecast() {
         renderHourlyForecast();
 
         updateAllGolferTiles();
+        updateGolferStation();   // push today's high/low into the station tile as soon as the forecast lands
         updateInsights();
         updateRecommendation();
 
