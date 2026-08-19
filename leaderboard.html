@@ -495,7 +495,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '6.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '6.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1169,12 +1169,16 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Sort by score: best first (higher for stableford, lower for stroke/gross)
     const scoreDir = _isStableford ? 1 : -1;
     if (_officialResultsReady && Object.keys(_pdfPosMap).length) {
-        // PDF position is the authority once results are official — ensures exact match with standings
+        // Points are always the primary sort so the board reads top-to-bottom by
+        // score. The official PDF position is used only to break ties between
+        // players on equal points - it carries the club's official countback order
+        // (some result PDFs list players by playing group, not by rank, so PDF
+        // position must NOT drive the overall order).
         active.sort((a, b) => {
+            if (b.points !== a.points) return scoreDir * (b.points - a.points);
             const pa = _pdfPosMap[(a.player || '').toLowerCase()] || 999;
             const pb = _pdfPosMap[(b.player || '').toLowerCase()] || 999;
             if (pa !== pb) return pa - pb;
-            if (b.points !== a.points) return scoreDir * (b.points - a.points);
             const cb = countbackCompare(a, b, holeCount);
             return cb !== 0 ? cb : a.player.localeCompare(b.player);
         });
