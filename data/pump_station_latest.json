@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-08-20T03:10:12.842586+00:00",
-  "last_seen": "2026-08-20T03:10:12.842586+00:00",
-  "last_connected": "2026-08-20T03:10:12.842586+00:00",
+  "timestamp": "2026-08-20T03:14:55.033525+00:00",
+  "last_seen": "2026-08-20T03:14:55.033525+00:00",
+  "last_connected": "2026-08-20T03:14:55.033525+00:00",
   "system": {
-    "pressure_actual_bar": 7.434,
+    "pressure_actual_bar": 7.874,
     "pressure_suction_bar": -0.815,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 13.2,
+    "power_kw": 5.7,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 88.6,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198984,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
-      "run_hours": 5148.0,
-      "starts_today": 1,
+      "standby": false,
+      "speed_pct": 89.0,
+      "power_kw": 5.7,
+      "current_a": 15.2,
+      "run_hours": 5150.0,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7440,
+      "raw": 7854,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-19T04:16:39.857848+00:00",
-      "pa": 7.118,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5148.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        1
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-19T04:21:25.654047+00:00",
       "pa": 7.118,
@@ -11677,9 +11637,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-20T03:14:55.033525+00:00",
+      "pa": 7.874,
+      "ps": 7.8,
+      "pi": -0.815,
+      "fl": 13.2,
+      "nr": 1,
+      "pk": 5.7,
+      "sp": [
+        0.0,
+        0.0,
+        89.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        5.7,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5150.0,
+        1396.0
+      ],
+      "st": [
+        4,
+        0,
+        2,
+        4
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-08-20T03:14:55.033525+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-08-20T03:00:47.163225+00:00",
       "type_code": 3,
@@ -12028,15 +12037,6 @@
       "type_name": "Low-Flow Stop deactivated",
       "code": 12,
       "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-08-08T10:41:59.759735+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
     }
