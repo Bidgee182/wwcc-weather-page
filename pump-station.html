@@ -1135,7 +1135,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.8';
+const PUMP_VERSION = '2.9';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -2695,7 +2695,7 @@ async function renderTrendCharts() {
 // Description-pattern fallback for events that carry no GENIECON code (e.g. DI2 water shortage)
 const ALARM_DESC_LOOKUP = [
     { pattern: /water.shortage|tank.empty|tank.float|di2/i,
-      info: { name:'Water Shortage (DI2)', cause:'The tank float switch on DI2 (terminals 12, 13) has signalled that the supply tank or lake is empty or below the low-level mark. The system will not run pumps to protect against dry running.', steps:['Check lake level or supply tank level visually','Check float switch wiring at terminals 12 and 13 on CU352','Manually lift/lower the float to verify it changes state','If lake level is OK and switch is faulty, bypass DI2 temporarily and arrange switch replacement'] } },
+      info: { name:'Water Shortage (DI2)', cause:'The tank float switch on DI2 (terminals 12, 13) has signalled that the supply tank is empty or below the low-level mark. The system will not run pumps to protect against dry running.', steps:['Check the mains water supply going into the tank - confirm the ball valve or solenoid fill valve is open and flowing','Check the physical tank level visually','Check float switch wiring at terminals 12 and 13 on CU352','Manually lift/lower the float to verify it changes state and resets the alarm','If tank level is OK and switch is faulty, bypass DI2 temporarily and arrange switch replacement'] } },
     { pattern: /dry.run|dry_run/i,
       info: { name:'Dry Running', cause:'Pump detected running without adequate water flow.', steps:['Check suction supply and foot valve','Check suction isolation valve is fully open','Do not restart until water supply is confirmed'] } },
     { pattern: /pressure.high|pressure_high/i,
