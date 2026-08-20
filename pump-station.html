@@ -401,6 +401,20 @@
         .ae-tl-row     { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
         .ae-tl-lbl     { font-size:0.70em; color:#7f8c8d; min-width:58px; }
         .ae-tl-time    { font-size:0.70em; color:#bdc3c7; }
+        /* Alarm info popup button + modal */
+        .alarm-info-btn { background:none; border:1px solid #3d5166; color:#7f8c8d; border-radius:50%; width:15px; height:15px; font-size:.6em; cursor:pointer; font-weight:bold; line-height:13px; text-align:center; padding:0; flex-shrink:0; transition:all .15s; vertical-align:middle; margin-left:4px; }
+        .alarm-info-btn:hover { background:#e67e22; border-color:#e67e22; color:white; }
+        #alarm-info-popup { display:none; position:fixed; top:0;left:0;right:0;bottom:0; z-index:9999; background:rgba(0,0,0,.65); align-items:center; justify-content:center; }
+        #alarm-info-popup.open { display:flex; }
+        .alarm-popup-box { background:#1a252f; border-radius:10px; padding:20px 22px; max-width:400px; width:92%; border:1px solid #3d5166; position:relative; box-shadow:0 8px 32px rgba(0,0,0,.5); }
+        .alarm-popup-code { font-size:.7em; color:#7f8c8d; font-family:monospace; letter-spacing:.04em; }
+        .alarm-popup-name { font-size:1.05em; font-weight:bold; color:#ecf0f1; margin:4px 0 12px; }
+        .alarm-popup-section { font-size:.68em; color:#e67e22; text-transform:uppercase; letter-spacing:.07em; font-weight:bold; margin:10px 0 3px; }
+        .alarm-popup-text { font-size:.85em; color:#bdc3c7; line-height:1.55; }
+        .alarm-popup-steps { margin:2px 0 0; padding-left:16px; }
+        .alarm-popup-steps li { font-size:.83em; color:#bdc3c7; margin-bottom:4px; line-height:1.45; }
+        .alarm-popup-close { position:absolute; top:10px; right:12px; background:none; border:none; color:#566573; font-size:1.1em; cursor:pointer; padding:2px 5px; border-radius:4px; }
+        .alarm-popup-close:hover { color:#ecf0f1; background:#2c3e50; }
         /* Min/Max timestamp under stat */
         .sm-ts         { font-size:0.55em; color:#566573; margin-top:2px; line-height:1.3; min-height:1.2em; }
 
@@ -1096,7 +1110,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.4';
+const PUMP_VERSION = '2.5';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -2644,6 +2658,53 @@ async function renderTrendCharts() {
     }
 }
 
+// ─── Alarm code reference table (GENIECON booster profile, doc 6012934) ──────
+const ALARM_LOOKUP = {
+    1:   { name:'Sensor fault', cause:'A system pressure sensor has failed or is reading out of range.', steps:['Check system pressure transducer wiring at CU352','Check sensor supply voltage (8-30 V DC)','Replace transducer if reading is stuck or erratic'] },
+    2:   { name:'Communication fault', cause:'CU352 has lost GENIbus communication with one or more pump drives.', steps:['Check GENIbus A/B/Y wiring between CU352 and motor drives','Check for loose terminals or corroded connections','Cycle power to the affected drive'] },
+    3:   { name:'Motor overtemperature', cause:'Motor winding temperature exceeded the trip limit set in the drive.', steps:['Allow motor to cool before reset (minimum 20 min)','Check motor cooling fan/fins for blockage or debris','Check ambient temperature at pump station','Compare running current to motor nameplate rating'] },
+    4:   { name:'Too many restarts (cycling)', cause:'Pump has restarted too many times in a short period - a persistent fault is cycling on/off.', steps:['Check suction pressure - low suction can cause repeated trips','Check discharge pressure is not too high for a single pump to hold','Check for small leaks keeping system pressure low','Look at alarm history for the underlying fault code that triggered cycling'] },
+    5:   { name:'Overvoltage', cause:'Supply voltage to the drive exceeded the upper limit.', steps:['Check incoming supply voltage at switchboard','Check for voltage spikes from other equipment','Check earth connections'] },
+    6:   { name:'Undervoltage', cause:'Supply voltage dropped below the minimum required level.', steps:['Check supply voltage at switchboard during pump start (voltage dip is common)','Check cable sizing and connections for voltage drop','Check for heavy concurrent load on the same circuit'] },
+    7:   { name:'Phase loss', cause:'One phase of the 3-phase supply is missing or has a fault.', steps:['Check all three phases at the switchboard','Check fuses and contactors','Check wiring to the drive input terminals'] },
+    8:   { name:'Overload', cause:'Motor is drawing more current than its rated limit.', steps:['Check discharge pressure is not set too high','Check for pump blockage (debris in impeller)','Check motor bearings for wear','Compare actual current to nameplate rated current'] },
+    20:  { name:'System pressure sensor fault', cause:'Main system pressure transducer has failed or the signal cable is damaged.', steps:['Check transducer wiring at CU352 analog input terminals','Check supply voltage to transducer (typically 24 V DC)','Measure transducer output (should be 4-20 mA across 0-16 bar range)','Replace transducer if reading is stuck or drifting'] },
+    21:  { name:'Inlet (suction) pressure sensor fault', cause:'Suction pressure transducer has failed or is disconnected.', steps:['Check suction transducer wiring at CU352 terminals','Check sensor supply voltage','Measure output - should be 4-20 mA proportional to pressure','Compare reading to a handheld gauge on the suction flange'] },
+    28:  { name:'Battery fault', cause:'Backup battery inside the CU352 is low or has failed - affects clock and memory only.', steps:['Battery is internal to CU352 - contact Grundfos service for replacement','Check that date and time on CU352 display are still correct','Note: battery fault does not affect pump operation'] },
+    40:  { name:'Min pressure - system fault', cause:'System pressure fell below the configured low-pressure alarm threshold.', steps:['Check suction supply (lake level, foot valve, suction restriction)','Check for open irrigation zones demanding more than the station can supply','Verify min pressure threshold setting on CU352 is appropriate'] },
+    41:  { name:'Max pressure fault', cause:'System pressure exceeded the configured high-pressure alarm threshold.', steps:['Check all downstream zones are not blocked','Verify pressure setpoint and max threshold settings on CU352','Check pressure transducer is reading correctly - compare to handheld gauge'] },
+    42:  { name:'Pressure deviation', cause:'Measured pressure deviated from setpoint beyond the allowed tolerance for too long.', steps:['Check for large demand fluctuations','Check pump speed is responding (not stuck at fixed speed)','Check all isolation valves are open','Compare pressure transducer reading to a handheld gauge'] },
+    43:  { name:'Min pressure stop', cause:'Pressure dropped below the minimum stop threshold - system shut down to protect pipework.', steps:['Check suction supply immediately','Check all isolation valves are fully open','Check foot valve is not blocked or jammed'] },
+    50:  { name:'Pump blocked', cause:'Impeller is jammed or a blocked-rotor condition has been detected.', steps:['Check for debris in suction or pump housing','Remove blockage if accessible','May require pump pull for internal inspection'] },
+    55:  { name:'Max flow stop', cause:'Flow rate exceeded the maximum limit - possible burst pipe or open line downstream.', steps:['Check all downstream zones for open or burst pipes','Check flow meter reading','Inspect visible pipework for leaks'] },
+    56:  { name:'Underload', cause:'Pump is drawing less power than expected, indicating low or zero flow (restriction, air ingestion, or cavitation).', steps:['Check suction pressure - should be around -0.2 bar, not more negative','Listen for cavitation noise at pump casing (hissing/crackling)','Check duo check valve on suction side opens fully when pumping starts','Check foot valve is not partially blocked','Check suction isolation valve is fully open'] },
+    57:  { name:'Dry running', cause:'Pump is running with insufficient water - suction supply is lost or severely restricted.', steps:['DO NOT run pump dry - mechanical seal damage will occur','Check lake level','Check foot valve is not blocked or stuck closed','Check suction isolation valve is fully open','Check duo check valve is opening properly','Do not reset until root cause is confirmed'] },
+    60:  { name:'Low input power', cause:'Motor input power is below the minimum threshold, indicating very low or no flow - consistent with suction restriction or air ingestion.', steps:['Check suction pressure reading and compare to expected value (~-0.2 bar for 2 m lift)','Check for air in suction line','Check duo check valve is opening fully','Listen for cavitation at pump casing'] },
+    65:  { name:'Temperature shutdown', cause:'Motor or drive electronics temperature caused an automatic shutdown.', steps:['Allow to cool at least 20 min before reset','Check ambient temperature at pump station','Check motor cooling','Check if alarm codes 190 or 191 were also logged (liquid temperature limit)'] },
+    70:  { name:'External fault', cause:'A fault signal received on a digital input - typically the water shortage float switch or an external stop signal.', steps:['Check DI2 - Water Shortage / Tank Float (terminals 12, 13)','Check DI1 - External Start/Stop (terminals 10, 11)','Check wiring and sensor condition at those terminals'] },
+    190: { name:'PT100 Limit 1 exceeded', cause:'Pumped liquid temperature exceeded the first (lower) PT100 threshold. Most likely cause: restricted suction flow, causing water to recirculate and heat inside the pump casing. The pump absorbed the same shaft power but with less mass flow through the impeller.', steps:['Check suction pressure while running - compare to static reading (pumps off). Less than 50 mbar difference at 90% speed indicates restriction','Listen for cavitation noise (hissing/crackling) at pump casing','Check duo check valve on suction side opens fully when pumping demand starts','Check foot valve is not partially blocked','Check suction isolation valve is fully open','If restriction confirmed, pull the suction check valve for inspection'] },
+    191: { name:'PT100 Limit 2 exceeded', cause:'Pumped liquid temperature exceeded the second (higher/critical) PT100 threshold - pump most likely shut down automatically. Same root cause as code 190 but at a more severe level.', steps:['Do NOT restart until suction restriction is investigated','Allow pump casing to cool before inspection','Check duo check valve on suction side - pull for inspection if restriction is suspected','Check foot valve','Check suction isolation valve is fully open','If issue recurs after fixing suction, contact Grundfos - may indicate PT100 configuration issue'] },
+    248: { name:'Battery alarm (alternate code)', cause:'Same as code 28 - backup battery inside CU352 is low or failed. Some GENIECON firmware versions report this code.', steps:['Same as code 28 - internal CU352 battery','Contact Grundfos service for battery replacement','Note: does not affect pump operation'] },
+};
+
+function showAlarmPopup(code) {
+    const info = ALARM_LOOKUP[Number(code)];
+    document.getElementById('aip-code').textContent = 'Alarm code ' + code;
+    if (info) {
+        document.getElementById('aip-name').textContent = info.name;
+        document.getElementById('aip-cause').textContent = info.cause;
+        document.getElementById('aip-steps').innerHTML = info.steps.map(s => '<li>' + s + '</li>').join('');
+    } else {
+        document.getElementById('aip-name').textContent = 'Unknown alarm code';
+        document.getElementById('aip-cause').textContent = 'This code is not in the local reference. Check the Grundfos GENIECON booster documentation (doc 6012934) for the full alarm code list.';
+        document.getElementById('aip-steps').innerHTML = '<li>Refer to Grundfos GENIECON documentation</li><li>Contact Grundfos technical support</li>';
+    }
+    document.getElementById('alarm-info-popup').classList.add('open');
+}
+function closeAlarmPopup() {
+    document.getElementById('alarm-info-popup').classList.remove('open');
+}
+
 // ─── Alarms ──────────────────────────────────────────────────────────────────
 async function renderAlarms() {
     const d         = latestData;
@@ -2713,10 +2774,12 @@ async function renderAlarms() {
 function alarmRow(a, emailedCodes) {
     const emailBadge = (emailedCodes && emailedCodes.has(String(a.code)))
         ? '<span class="emailed-badge">&#9993; Emailed</span>' : '';
+    const code = a.code || 0;
+    const infoBtn = code ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
     return '<div class="alarm-row">'+
         '<div class="alarm-dot '+(a.active?'active':'cleared')+'"></div>'+
         '<div style="flex:1;min-width:0;">'+
-            '<div class="alarm-code">'+(a.code||'ALM')+'</div>'+
+            '<div class="alarm-code">Code '+code+infoBtn+'</div>'+
             '<div class="alarm-desc">'+(a.description||'Unknown Alarm')+' '+emailBadge+'</div>'+
             '<div class="alarm-pump">'+(a.pump||'System')+'</div>'+
         '</div>'+
@@ -2767,6 +2830,8 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
     const name  = e.description||('Code '+e.code);
     const src   = e.pump_label||e.source_name||'System';
     const cu352 = e.imported?'<span class="cu352-badge">CU352</span>':'';
+    const code  = e.code || 0;
+    const infoBtn = code ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
 
     // Email history lookup: key is "code|appeared_at"
     const histKey  = String(e.code)+'|'+(p.appeared ? p.appeared.timestamp_iso : '');
@@ -2805,8 +2870,8 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
     return '<div class="alarm-evt '+evCls+'">'
         +'<div class="ae-dot '+evCls+'"></div>'
         +'<div class="ae-body">'
-            +'<div class="ae-name">'+name+' '+cu352+'</div>'
-            +'<div class="ae-meta">'+src+'</div>'
+            +'<div class="ae-name">'+name+' '+infoBtn+' '+cu352+'</div>'
+            +'<div class="ae-meta">'+(code?'<span style="font-family:monospace;color:#566573;">Code '+code+'</span><span class="ae-sep">|</span>':'')+src+'</div>'
             +'<div class="ae-timeline">'+appearRow+clearRow+'</div>'
         +'</div>'
     +'</div>';
@@ -3860,6 +3925,22 @@ function renderLogEntries() {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();
 setInterval(loadData, 60000);
+document.getElementById('alarm-info-popup').addEventListener('click', function(e) {
+    if (e.target === this) closeAlarmPopup();
+});
 </script>
+
+<!-- Alarm info popup -->
+<div id="alarm-info-popup">
+    <div class="alarm-popup-box">
+        <button class="alarm-popup-close" onclick="closeAlarmPopup()">&#x2715;</button>
+        <div class="alarm-popup-code" id="aip-code"></div>
+        <div class="alarm-popup-name" id="aip-name"></div>
+        <div class="alarm-popup-section">Likely cause</div>
+        <div class="alarm-popup-text" id="aip-cause"></div>
+        <div class="alarm-popup-section">Check</div>
+        <ul class="alarm-popup-steps" id="aip-steps"></ul>
+    </div>
+</div>
 </body>
 </html>
