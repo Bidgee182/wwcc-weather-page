@@ -1135,7 +1135,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.9';
+const PUMP_VERSION = '3.0';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -1732,7 +1732,12 @@ let alarmCustomTo       = null;
 async function ensureAlarmHistory() {
     if (alarmHistoryData !== null) return;
     try {
-        const rows = await supaFetch('pump_events_hires', 'order=ts.desc&limit=1000');
+        // Exclude high-volume operational events so 2000 rows reaches months of alarm history
+        const exclude = 'pump_start,pump_stop,online,offline,power_cycle,' +
+            'func_low-flow_stop_on,func_low-flow_stop_off,' +
+            'func_low-flow_boost_on,func_low-flow_boost_off';
+        const rows = await supaFetch('pump_events_hires',
+            'order=ts.desc&limit=2000&event_type=not.in.('+exclude+')');
         alarmHistoryData = { events: rows.map(eventRowToLegacy) };
     } catch(e) { alarmHistoryData = { events:[] }; }
 }
@@ -2901,7 +2906,9 @@ function pairAlarmEvents(events) {
             paired.push({appeared:pending[key],cleared:e});
             delete pending[key];
         } else if (isClr) {
-            paired.push({appeared:null,cleared:e});
+            // Orphaned clear with no matching appeared - suppress (pressure_high/clear events
+            // always land here because type_code 4 = isClr, never isApp; hiding them removes
+            // the duplicate orange card that appears alongside the formal alarm_on/off pair)
         } else {
             paired.push({appeared:e,cleared:null});
         }
@@ -2964,7 +2971,14 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
             +(clearEmailed ? ' '+eBadge : '')
             +'</div>';
     } else if (isActive) {
-        clearRow = '<div class="ae-tl-row"><span class="ae-tl-lbl" style="color:#e74c3c;">Still active</span></div>';
+        const appearedMs = p.appeared ? new Date(p.appeared.timestamp_iso).getTime() : 0;
+        const ageH = appearedMs ? (Date.now() - appearedMs) / 3600000 : 0;
+        if (ageH > 48) {
+            clearRow = '<div class="ae-tl-row"><span class="ae-tl-lbl" style="color:#7f8c8d;">Unresolved</span>'
+                + '<span class="ae-tl-time" style="color:#566573;font-size:.65em;">no clear event in history</span></div>';
+        } else {
+            clearRow = '<div class="ae-tl-row"><span class="ae-tl-lbl" style="color:#e74c3c;">Still active</span></div>';
+        }
     }
 
     return '<div class="alarm-evt '+evCls+'">'
