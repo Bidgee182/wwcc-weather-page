@@ -1110,7 +1110,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.5';
+const PUMP_VERSION = '2.6';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -2775,7 +2775,7 @@ function alarmRow(a, emailedCodes) {
     const emailBadge = (emailedCodes && emailedCodes.has(String(a.code)))
         ? '<span class="emailed-badge">&#9993; Emailed</span>' : '';
     const code = a.code || 0;
-    const infoBtn = code ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
+    const infoBtn = code && ALARM_LOOKUP[code] ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
     return '<div class="alarm-row">'+
         '<div class="alarm-dot '+(a.active?'active':'cleared')+'"></div>'+
         '<div style="flex:1;min-width:0;">'+
@@ -2831,7 +2831,7 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
     const src   = e.pump_label||e.source_name||'System';
     const cu352 = e.imported?'<span class="cu352-badge">CU352</span>':'';
     const code  = e.code || 0;
-    const infoBtn = code ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
+    const infoBtn = code && ALARM_LOOKUP[code] ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
 
     // Email history lookup: key is "code|appeared_at"
     const histKey  = String(e.code)+'|'+(p.appeared ? p.appeared.timestamp_iso : '');
@@ -2871,7 +2871,7 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
         +'<div class="ae-dot '+evCls+'"></div>'
         +'<div class="ae-body">'
             +'<div class="ae-name">'+name+' '+infoBtn+' '+cu352+'</div>'
-            +'<div class="ae-meta">'+(code?'<span style="font-family:monospace;color:#566573;">Code '+code+'</span><span class="ae-sep">|</span>':'')+src+'</div>'
+            +'<div class="ae-meta">'+(code&&ALARM_LOOKUP[code]?'<span style="font-family:monospace;color:#566573;">Code '+code+'</span><span class="ae-sep">|</span>':'')+src+'</div>'
             +'<div class="ae-timeline">'+appearRow+clearRow+'</div>'
         +'</div>'
     +'</div>';
