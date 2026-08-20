@@ -1009,6 +1009,31 @@
     </div>
     <div class="card">
         <h2>Alarm History</h2>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:.68em;color:#7f8c8d;min-width:56px;flex-shrink:0;">Severity</span>
+                <button class="log-filter-btn ah-sev-btn active" onclick="setAlarmSev('all',this)">All</button>
+                <button class="log-filter-btn ah-sev-btn" onclick="setAlarmSev('ae-active',this)">Faults</button>
+                <button class="log-filter-btn ah-sev-btn" onclick="setAlarmSev('ae-warning',this)">Warnings</button>
+                <button class="log-filter-btn ah-sev-btn" onclick="setAlarmSev('ae-cleared',this)">Cleared</button>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <span style="font-size:.68em;color:#7f8c8d;min-width:56px;flex-shrink:0;">Period</span>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('24h',this)">24h</button>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('48h',this)">48h</button>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('72h',this)">72h</button>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('4d',this)">4d</button>
+                <button class="log-filter-btn ah-date-btn active" onclick="setAlarmDate('7d',this)">7d</button>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('all',this)">All time</button>
+                <button class="log-filter-btn ah-date-btn" onclick="setAlarmDate('custom',this)">Custom</button>
+            </div>
+            <div id="ah-custom-wrap" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;padding-left:64px;">
+                <span style="font-size:.68em;color:#7f8c8d;">From</span>
+                <input type="date" id="ah-from" onchange="setAlarmCustomDate()" style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:5px;padding:3px 8px;font-size:.78em;font-family:inherit;">
+                <span style="font-size:.68em;color:#7f8c8d;">To</span>
+                <input type="date" id="ah-to" onchange="setAlarmCustomDate()" style="background:#1a252f;border:1px solid #3d5166;color:#ecf0f1;border-radius:5px;padding:3px 8px;font-size:.78em;font-family:inherit;">
+            </div>
+        </div>
         <div id="alarm-history"><div class="alarm-none">No alarm history available</div></div>
     </div>
 </div>
@@ -1110,7 +1135,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '2.6';
+const PUMP_VERSION = '2.7';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -1695,7 +1720,15 @@ async function ensureDaily() {
     } catch(e) { dailyData = { days:[] }; }
 }
 
-let alarmHistoryData = null;
+let alarmHistoryData    = null;
+let _alarmPairsCache    = null;
+let _alarmEmailedCodes  = new Set();
+let _alarmEmailHistory  = new Map();
+let alarmSevFilter      = 'all';
+let alarmDateFilter     = '7d';
+let alarmCustomFrom     = null;
+let alarmCustomTo       = null;
+
 async function ensureAlarmHistory() {
     if (alarmHistoryData !== null) return;
     try {
@@ -2658,7 +2691,29 @@ async function renderTrendCharts() {
     }
 }
 
-// ─── Alarm code reference table (GENIECON booster profile, doc 6012934) ──────
+// ─── Alarm reference tables (GENIECON booster profile, doc 6012934) ─────────
+// Description-pattern fallback for events that carry no GENIECON code (e.g. DI2 water shortage)
+const ALARM_DESC_LOOKUP = [
+    { pattern: /water.shortage|tank.empty|tank.float|di2/i,
+      info: { name:'Water Shortage (DI2)', cause:'The tank float switch on DI2 (terminals 12, 13) has signalled that the supply tank or lake is empty or below the low-level mark. The system will not run pumps to protect against dry running.', steps:['Check lake level or supply tank level visually','Check float switch wiring at terminals 12 and 13 on CU352','Manually lift/lower the float to verify it changes state','If lake level is OK and switch is faulty, bypass DI2 temporarily and arrange switch replacement'] } },
+    { pattern: /dry.run|dry_run/i,
+      info: { name:'Dry Running', cause:'Pump detected running without adequate water flow.', steps:['Check suction supply and foot valve','Check suction isolation valve is fully open','Do not restart until water supply is confirmed'] } },
+    { pattern: /pressure.high|pressure_high/i,
+      info: { name:'Pressure High', cause:'System pressure exceeded the configured high-pressure threshold.', steps:['Check if all downstream irrigation zones are open','Check setpoint and max pressure threshold on CU352','Compare transducer reading to handheld gauge'] } },
+    { pattern: /pressure.low|pressure_low/i,
+      info: { name:'Pressure Low', cause:'System pressure dropped below the configured low-pressure threshold.', steps:['Check suction supply and foot valve','Check for burst pipe or open line','Check min pressure threshold setting on CU352'] } },
+];
+
+function getAlarmInfo(code, desc) {
+    if (code && ALARM_LOOKUP[code]) return ALARM_LOOKUP[code];
+    if (desc) {
+        for (const d of ALARM_DESC_LOOKUP) {
+            if (d.pattern.test(desc)) return d.info;
+        }
+    }
+    return null;
+}
+
 const ALARM_LOOKUP = {
     1:   { name:'Sensor fault', cause:'A system pressure sensor has failed or is reading out of range.', steps:['Check system pressure transducer wiring at CU352','Check sensor supply voltage (8-30 V DC)','Replace transducer if reading is stuck or erratic'] },
     2:   { name:'Communication fault', cause:'CU352 has lost GENIbus communication with one or more pump drives.', steps:['Check GENIbus A/B/Y wiring between CU352 and motor drives','Check for loose terminals or corroded connections','Cycle power to the affected drive'] },
@@ -2687,16 +2742,21 @@ const ALARM_LOOKUP = {
     248: { name:'Battery alarm (alternate code)', cause:'Same as code 28 - backup battery inside CU352 is low or failed. Some GENIECON firmware versions report this code.', steps:['Same as code 28 - internal CU352 battery','Contact Grundfos service for battery replacement','Note: does not affect pump operation'] },
 };
 
-function showAlarmPopup(code) {
-    const info = ALARM_LOOKUP[Number(code)];
-    document.getElementById('aip-code').textContent = 'Alarm code ' + code;
+function showAlarmPopupEl(btn) {
+    const code = parseInt(btn.dataset.acode) || 0;
+    const desc = btn.dataset.adesc || '';
+    showAlarmPopup(code, desc);
+}
+function showAlarmPopup(code, desc) {
+    const info = getAlarmInfo(code, desc);
+    document.getElementById('aip-code').textContent = code ? 'Alarm code ' + code : 'System Event';
     if (info) {
         document.getElementById('aip-name').textContent = info.name;
         document.getElementById('aip-cause').textContent = info.cause;
         document.getElementById('aip-steps').innerHTML = info.steps.map(s => '<li>' + s + '</li>').join('');
     } else {
-        document.getElementById('aip-name').textContent = 'Unknown alarm code';
-        document.getElementById('aip-cause').textContent = 'This code is not in the local reference. Check the Grundfos GENIECON booster documentation (doc 6012934) for the full alarm code list.';
+        document.getElementById('aip-name').textContent = desc || 'Unknown';
+        document.getElementById('aip-cause').textContent = 'No diagnostic information is available for this event. Check the Grundfos GENIECON booster documentation (doc 6012934) for the full alarm code list.';
         document.getElementById('aip-steps').innerHTML = '<li>Refer to Grundfos GENIECON documentation</li><li>Contact Grundfos technical support</li>';
     }
     document.getElementById('alarm-info-popup').classList.add('open');
@@ -2741,33 +2801,71 @@ async function renderAlarms() {
     }
     document.getElementById('active-alarms').innerHTML = combined.length ? combined.map(a=>alarmRow(a,emailedCodes)).join('') : '<div class="alarm-none">No active alarms</div>';
 
-    // Load full alarm history file (up to 200 events) and merge with any live event_log entries
+    // Load alarm history, merge with live event_log, cache pairs for filter re-use
     await ensureAlarmHistory();
-    const histEvents  = alarmHistoryData && alarmHistoryData.events ? alarmHistoryData.events : [];
-    const liveEvents  = latestData && latestData.event_log ? latestData.event_log : [];
-
-    // Merge: live events first (from current poll), then history file, deduplicate by timestamp+code
-    const seen = new Set();
-    const merged = [];
+    const histEvents = alarmHistoryData && alarmHistoryData.events ? alarmHistoryData.events : [];
+    const liveEvents = latestData && latestData.event_log ? latestData.event_log : [];
+    const seenEvt    = new Set();
+    const merged     = [];
     for (const e of [...liveEvents, ...histEvents]) {
-        const key = (e.timestamp_iso||'') + '|' + (e.code||'') + '|' + (e.type_code||'') + '|' + (e.pump_label||'');
-        if (!seen.has(key)) { seen.add(key); merged.push(e); }
+        const key = (e.timestamp_iso||'')+'|'+(e.code||'')+'|'+(e.type_code||'')+'|'+(e.pump_label||'');
+        if (!seenEvt.has(key)) { seenEvt.add(key); merged.push(e); }
     }
-    // Sort newest first
-    merged.sort((a,b)=> new Date(b.timestamp_iso||0) - new Date(a.timestamp_iso||0));
+    merged.sort((a,b) => new Date(b.timestamp_iso||0) - new Date(a.timestamp_iso||0));
+    _alarmEmailedCodes = emailedCodes;
+    _alarmEmailHistory = emailHistory;
+    _alarmPairsCache   = pairAlarmEvents(merged.filter(e => e.type_code !== 5));
+    applyAlarmFilters();
+}
 
-    if (merged.length) {
-        const connected = latestData && latestData.connected;
-        const srcNote   = connected ? 'Live + CU352 import' : 'CU352 import only';
-        const alarmMerged = merged.filter(e => e.type_code !== 5);
-        const pairs     = pairAlarmEvents(alarmMerged);
-        document.getElementById('alarm-history').innerHTML =
-            '<div style="font-size:.72em;color:#566573;margin-bottom:8px;">'+pairs.length+' alarms - '+srcNote+'</div>' +
-            pairs.map(p=>renderAlarmPair(p,emailedCodes,emailHistory)).join('');
+function setAlarmSev(val, btn) {
+    alarmSevFilter = val;
+    document.querySelectorAll('.ah-sev-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyAlarmFilters();
+}
+function setAlarmDate(val, btn) {
+    alarmDateFilter = val;
+    document.querySelectorAll('.ah-date-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const cw = document.getElementById('ah-custom-wrap');
+    if (cw) cw.style.display = val === 'custom' ? 'flex' : 'none';
+    applyAlarmFilters();
+}
+function setAlarmCustomDate() {
+    const f = document.getElementById('ah-from');
+    const t = document.getElementById('ah-to');
+    alarmCustomFrom = f && f.value ? new Date(f.value + 'T00:00:00') : null;
+    alarmCustomTo   = t && t.value ? new Date(t.value + 'T23:59:59') : null;
+    applyAlarmFilters();
+}
+function applyAlarmFilters() {
+    if (!_alarmPairsCache) return;
+    const now = Date.now();
+    const dateMs = { '24h':86400000, '48h':172800000, '72h':259200000, '4d':345600000, '7d':604800000 };
+    function pairTs(p) { const e = p.appeared||p.cleared; return e ? new Date(e.timestamp_iso).getTime() : 0; }
+    function pairCls(p) {
+        const e = p.appeared||p.cleared; if (!e) return '';
+        const isActive = !p.cleared, isWarn = e.type_code===3||e.type_code===4;
+        return isActive ? (isWarn?'ae-warning':'ae-active') : (isWarn?'ae-warning':'ae-cleared');
+    }
+    let filtered = _alarmPairsCache;
+    if (alarmDateFilter === 'custom') {
+        const from = alarmCustomFrom ? alarmCustomFrom.getTime() : 0;
+        const to   = alarmCustomTo   ? alarmCustomTo.getTime()   : now + 86400000;
+        filtered = filtered.filter(p => { const t = pairTs(p); return t >= from && t <= to; });
+    } else if (dateMs[alarmDateFilter]) {
+        const cutoff = now - dateMs[alarmDateFilter];
+        filtered = filtered.filter(p => pairTs(p) >= cutoff);
+    }
+    if (alarmSevFilter !== 'all') filtered = filtered.filter(p => pairCls(p) === alarmSevFilter);
+    const el = document.getElementById('alarm-history');
+    if (!el) return;
+    if (filtered.length) {
+        el.innerHTML = '<div style="font-size:.72em;color:#566573;margin-bottom:8px;">'+filtered.length+' event'+(filtered.length!==1?'s':'')+'</div>' +
+            filtered.map(p => renderAlarmPair(p, _alarmEmailedCodes, _alarmEmailHistory)).join('');
     } else {
-        const connected = latestData && latestData.connected;
-        document.getElementById('alarm-history').innerHTML =
-            '<div class="alarm-none">' + (connected ? 'No alarm events recorded yet' : 'No alarm history available') + '</div>';
+        el.innerHTML = '<div class="alarm-none">No events match the selected filters</div>';
     }
 }
 
@@ -2775,11 +2873,14 @@ function alarmRow(a, emailedCodes) {
     const emailBadge = (emailedCodes && emailedCodes.has(String(a.code)))
         ? '<span class="emailed-badge">&#9993; Emailed</span>' : '';
     const code = a.code || 0;
-    const infoBtn = code && ALARM_LOOKUP[code] ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
+    const info = getAlarmInfo(code, a.description);
+    const safeDesc = (a.description||'').replace(/"/g,'&quot;');
+    const infoBtn  = info ? '<button class="alarm-info-btn" data-acode="'+code+'" data-adesc="'+safeDesc+'" onclick="showAlarmPopupEl(this)" title="What does this mean?">?</button>' : '';
+    const codeLabel = code ? 'Code '+code : '';
     return '<div class="alarm-row">'+
         '<div class="alarm-dot '+(a.active?'active':'cleared')+'"></div>'+
         '<div style="flex:1;min-width:0;">'+
-            '<div class="alarm-code">Code '+code+infoBtn+'</div>'+
+            '<div class="alarm-code">'+(codeLabel||'&nbsp;')+infoBtn+'</div>'+
             '<div class="alarm-desc">'+(a.description||'Unknown Alarm')+' '+emailBadge+'</div>'+
             '<div class="alarm-pump">'+(a.pump||'System')+'</div>'+
         '</div>'+
@@ -2830,8 +2931,10 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
     const name  = e.description||('Code '+e.code);
     const src   = e.pump_label||e.source_name||'System';
     const cu352 = e.imported?'<span class="cu352-badge">CU352</span>':'';
-    const code  = e.code || 0;
-    const infoBtn = code && ALARM_LOOKUP[code] ? '<button class="alarm-info-btn" onclick="showAlarmPopup('+code+')" title="What does this mean?">?</button>' : '';
+    const code     = e.code || 0;
+    const _info    = getAlarmInfo(code, e.description);
+    const safeDesc = (e.description||'').replace(/"/g,'&quot;');
+    const infoBtn  = _info ? '<button class="alarm-info-btn" data-acode="'+code+'" data-adesc="'+safeDesc+'" onclick="showAlarmPopupEl(this)" title="What does this mean?">?</button>' : '';
 
     // Email history lookup: key is "code|appeared_at"
     const histKey  = String(e.code)+'|'+(p.appeared ? p.appeared.timestamp_iso : '');
@@ -2872,6 +2975,7 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
         +'<div class="ae-body">'
             +'<div class="ae-name">'+name+' '+infoBtn+' '+cu352+'</div>'
             +'<div class="ae-meta">'+(code&&ALARM_LOOKUP[code]?'<span style="font-family:monospace;color:#566573;">Code '+code+'</span><span class="ae-sep">|</span>':'')+src+'</div>'
+
             +'<div class="ae-timeline">'+appearRow+clearRow+'</div>'
         +'</div>'
     +'</div>';
