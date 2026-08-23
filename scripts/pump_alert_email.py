@@ -740,15 +740,34 @@ def main():
         was_offline = (state.get('was_connected') is False
                        and state.get('offline_alert_sent'))
         if was_offline:
-            log.info('Station recovered - sending recovery email')
-            offline_since_dt = parse_iso(state.get('offline_since'))
-            offline_sec = ((now - offline_since_dt).total_seconds()
-                           if offline_since_dt else 0)
-            html    = recovery_html(latest, offline_since_dt, duration_str(offline_sec))
-            subject = 'PUMP STATION - Connection Restored'
-            send_email(subject, html)
+            # Park the recovery notice so a failed send (e.g. SendGrid 401 on
+            # 23 Aug 2026) is retried on later polls instead of being dropped.
+            state['recovery_pending'] = {
+                'offline_since': state.get('offline_since'),
+                'restored_at':   parse_iso(latest.get('last_connected')).isoformat()
+                                 if parse_iso(latest.get('last_connected')) else now.isoformat(),
+                'attempts':      0,
+            }
             state['offline_alert_sent'] = False
             state['offline_since']      = None
+            changed = True
+
+        rp = state.get('recovery_pending')
+        if rp:
+            offline_since_dt = parse_iso(rp.get('offline_since'))
+            restored_dt      = parse_iso(rp.get('restored_at')) or now
+            offline_sec = ((restored_dt - offline_since_dt).total_seconds()
+                           if offline_since_dt else 0)
+            log.info(f'Station recovered - sending recovery email (attempt {rp.get("attempts", 0) + 1})')
+            html    = recovery_html(latest, offline_since_dt, duration_str(offline_sec))
+            subject = 'PUMP STATION - Connection Restored'
+            if send_email(subject, html):
+                state['recovery_pending'] = None
+            else:
+                rp['attempts'] = rp.get('attempts', 0) + 1
+                if rp['attempts'] >= 288:   # give up after ~24 h of 5-min polls
+                    log.error('Recovery email abandoned after 288 failed attempts')
+                    state['recovery_pending'] = None
             changed = True
 
         if state.get('was_connected') is not True:
