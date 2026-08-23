@@ -650,8 +650,18 @@ def main():
     # Load previous state before connecting - needed for alarm transition detection
     prev = load_json(LATEST_FILE, {"history": []})
 
+    # The cellular link drops packets now and then; one failed TCP handshake
+    # must not mark the station offline (23 Aug 2026: false OFFLINE at 21:38
+    # while the on-site Pi stayed connected). Try up to 3 times, 4 s apart.
+    import time as _time
     client = ModbusTcpClient(HOST, port=PORT, timeout=10)
-    connected = client.connect()
+    connected = False
+    for attempt in range(3):
+        connected = client.connect()
+        if connected:
+            break
+        print(f"connect attempt {attempt + 1}/3 failed")
+        _time.sleep(4)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     if not connected:
