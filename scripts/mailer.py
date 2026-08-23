@@ -104,7 +104,10 @@ def send_html(subject, html, to, cc=None, bcc=None, stream="default",
         RESEND_URL,
         data=json.dumps(payload).encode("utf-8"),
         headers={"Authorization": f"Bearer {RESEND_API_KEY}",
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 # Cloudflare fronts api.resend.com and rejects urllib's default
+                 # Python-urllib UA with 403 error 1010 - any explicit UA passes
+                 "User-Agent": "wwcc-mailer/1.0 (github.com/Bidgee182/wwcc-weather-page)"},
         method="POST",
     )
     try:
