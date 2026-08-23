@@ -1,10 +1,10 @@
 {
-  "connected": false,
-  "timestamp": "2026-08-23T11:54:29.249480+00:00",
-  "last_seen": "2026-08-23T11:48:56.158714+00:00",
-  "last_connected": "2026-08-23T11:48:56.158714+00:00",
+  "connected": true,
+  "timestamp": "2026-08-23T11:59:16.994407+00:00",
+  "last_seen": "2026-08-23T11:59:16.994407+00:00",
+  "last_connected": "2026-08-23T11:59:16.994407+00:00",
   "system": {
-    "pressure_actual_bar": 7.496,
+    "pressure_actual_bar": 7.434,
     "pressure_suction_bar": -0.815,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7486,
+      "raw": 7463,
       "temp_c": null
     },
     {
@@ -158,86 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-22T11:51:24.260232+00:00",
-      "pa": 7.37,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5150.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-08-22T11:56:07.370524+00:00",
-      "pa": 7.37,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5150.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-22T12:00:52.108851+00:00",
       "pa": 7.307,
@@ -3797,6 +3717,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-23T11:59:16.994407+00:00",
+      "pa": 7.434,
+      "ps": 7.8,
+      "pi": -0.815,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5150.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -4172,20 +4132,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "unreachable",
-    "dns_ip": "101.168.15.127",
-    "detail": "",
-    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127: nothing answers on 80/443/502 - modem offline or IP released",
-    "checked_at": "2026-08-23T11:54:29.249480+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-08-23T11:54:40.196540+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "101.168.15.127",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
