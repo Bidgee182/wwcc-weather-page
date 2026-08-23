@@ -1,8 +1,8 @@
 {
-  "connected": false,
-  "timestamp": "2026-08-23T14:42:50.393750+00:00",
-  "last_seen": "2026-08-23T14:37:23.287319+00:00",
-  "last_connected": "2026-08-23T14:37:23.287319+00:00",
+  "connected": true,
+  "timestamp": "2026-08-23T14:48:04.406138+00:00",
+  "last_seen": "2026-08-23T14:48:04.406138+00:00",
+  "last_connected": "2026-08-23T14:48:04.406138+00:00",
   "system": {
     "pressure_actual_bar": 7.307,
     "pressure_suction_bar": -0.815,
@@ -16,7 +16,7 @@
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 198990,
-    "run_hours": 40930,
+    "run_hours": 40932,
     "powered_hours": null,
     "power_ons": 82,
     "volume_m3": null,
@@ -158,126 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-08-22T14:37:58.564870+00:00",
-      "pa": 7.118,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5150.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-08-22T14:42:39.896129+00:00",
-      "pa": 7.118,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5150.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-08-22T14:47:21.162193+00:00",
-      "pa": 7.118,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5150.0,
-        5148.0,
-        5150.0,
-        1396.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-08-22T14:52:07.228070+00:00",
       "pa": 7.874,
@@ -3757,6 +3637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-23T14:48:04.406138+00:00",
+      "pa": 7.307,
+      "ps": 7.8,
+      "pi": -0.815,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5150.0,
+        1396.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -4132,20 +4052,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "ip_reassigned",
-    "dns_ip": "101.168.15.127",
-    "detail": "(untitled page)",
-    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127 now answers as '(untitled page)' - NOT our router. Telstra reassigned the IP and DuckDNS is stale",
-    "checked_at": "2026-08-23T14:42:50.393750+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-08-23T14:42:53.895609+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "101.168.15.127",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
