@@ -1135,7 +1135,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.0';
+const PUMP_VERSION = '3.1';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -1814,7 +1814,14 @@ function renderBanner() {
         title.textContent = 'OFFLINE';
         ts.textContent    = d && d.timestamp ? '· Tried: '+fmtAge(d.timestamp) : '';
         const lastOk = d && (d.last_connected || d.last_seen);
-        sub.textContent   = lastOk ? 'Last data: '+fmtDate(lastOk) : 'No data yet';
+        // Poller's offline diagnosis + DuckDNS self-heal result (poll_grundfos.py / ddns_selfheal.py)
+        const DIAG_LBL = { ip_reassigned:'DuckDNS stale - modem IP changed', dns_private:'DuckDNS wrong (private IP)',
+                           router_no_modbus:'Modem online, Modbus :502 closed', unreachable:'Modem unreachable',
+                           dns_failed:'Hostname not resolving' };
+        const diag = d && d.offline_diagnosis, heal = d && d.selfheal;
+        let why = diag && DIAG_LBL[diag.code] ? ' · ' + DIAG_LBL[diag.code] : '';
+        if (heal && heal.action === 'duckdns_updated') why += ' · DuckDNS auto-repaired, next poll should reconnect';
+        sub.textContent   = (lastOk ? 'Last data: '+fmtDate(lastOk) : 'No data yet') + why;
     } else {
         banner.className = 'conn-banner online'; dot.className = 'conn-dot online';
         title.textContent = 'ONLINE';

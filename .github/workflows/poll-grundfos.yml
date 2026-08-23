@@ -5,6 +5,14 @@ on:
     - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'   # Every 5 minutes, offset by 2 min
 
   workflow_dispatch:
+    inputs:
+      router_ip:
+        description: >-
+          Optional: the modem's CURRENT public IP (from the Telstra/Jasper portal
+          "Device IPv4"). If given, DuckDNS is re-pointed to it and the station
+          is re-polled immediately. Leave blank for a normal poll.
+        required: false
+        default: ''
 
 concurrency:
   group: grundfos-poll
@@ -33,6 +41,30 @@ jobs:
       - name: Poll Grundfos CIM 500
         env:
           GRUNDFOS_HOST: ${{ secrets.GRUNDFOS_HOST }}
+          GRUNDFOS_PORT: '502'
+        run: python scripts/poll_grundfos.py
+
+      # Self-heal: if offline because DuckDNS is stale (Telstra reissued the
+      # SIM IP and the modem's DDNS client missed it), find the real IP
+      # (manual input / on-site Pi heartbeat / Jasper API), prove it is ours,
+      # re-point DuckDNS and re-poll straight away. No-op when online.
+      - name: Self-heal DuckDNS if the modem IP changed
+        id: selfheal
+        env:
+          DUCKDNS_TOKEN:      ${{ secrets.DUCKDNS_TOKEN }}
+          DUCKDNS_DOMAIN:     ${{ secrets.DUCKDNS_DOMAIN || 'bidgee-pumps' }}
+          DDNS_HOST:          ${{ secrets.GRUNDFOS_HOST }}
+          ROUTER_IP_OVERRIDE: ${{ github.event.inputs.router_ip }}
+          JASPER_API_BASE:    ${{ secrets.JASPER_API_BASE }}
+          JASPER_API_USER:    ${{ secrets.JASPER_API_USER }}
+          JASPER_API_KEY:     ${{ secrets.JASPER_API_KEY }}
+          JASPER_ICCID:       ${{ secrets.JASPER_ICCID }}
+        run: python scripts/ddns_selfheal.py
+
+      - name: Re-poll immediately after a DNS repair
+        if: steps.selfheal.outputs.new_ip != ''
+        env:
+          GRUNDFOS_HOST: ${{ steps.selfheal.outputs.new_ip }}
           GRUNDFOS_PORT: '502'
         run: python scripts/poll_grundfos.py
 

@@ -20,6 +20,11 @@ Setup:
 Run as a systemd service so it starts on boot:
     sudo cp pump-poller.service /etc/systemd/system/
     sudo systemctl enable --now pump-poller
+
+Optional settings live in /home/andrew/pump_poller/poller.env (see
+poller.env.example): GRUNDFOS_HOST for the on-site LAN address, and the
+DuckDNS guard (ROUTER_PASSWORD / DUCKDNS_TOKEN) that keeps the public
+hostname pointed at the modem when Telstra reissues the SIM IP.
 """
 
 import json
@@ -44,7 +49,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "2.4"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
+POLLER_VERSION = "2.5"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -317,6 +322,130 @@ def flush_supabase_queue(con, session):
                 "UPDATE supabase_queue SET attempts=attempts+1 WHERE id=?", (row_id,))
             print(f"  Supabase queue error: {e}")
     con.commit()
+
+
+# ── DuckDNS guard (on-site self-heal) ─────────────────────────────────────────
+# Telstra reissues the SIM's public IP now and then, and the USR modem's own
+# DDNS client has twice failed to push the new one (16 Aug 2026 reboot test,
+# 23 Aug 2026: 14 h outage - DuckDNS pointed at a stranger's router). When
+# this Pi sits in the pump shed behind the modem it can ask the modem for the
+# real wan_4g address over the LAN, push it to DuckDNS itself (explicit ip= -
+# DuckDNS must never auto-detect, Telstra's outbound NAT address differs from
+# the assigned one), and publish a heartbeat row to Supabase that the GitHub
+# poll workflow's ddns_selfheal.py uses as its IP source.
+#
+# Enabled only when a router source is configured (ROUTER_PASSWORD for the
+# modem's ubus JSON-RPC, or ROUTER_IP_CMD). DUCKDNS_TOKEN is optional: without
+# it the guard only publishes the heartbeat and the GitHub side does the
+# DuckDNS update. Runs in a daemon thread so it can never stall the 1-second
+# Modbus loop. All settings come from the environment - see poller.env.example.
+DUCKDNS_TOKEN    = os.environ.get("DUCKDNS_TOKEN", "").strip()
+DUCKDNS_DOMAIN   = os.environ.get("DUCKDNS_DOMAIN", "bidgee-pumps").strip()
+DDNS_HOST        = os.environ.get("DDNS_HOST", f"{DUCKDNS_DOMAIN}.duckdns.org").strip()
+ROUTER_URL       = os.environ.get("ROUTER_URL", "http://192.168.1.1").rstrip("/")
+ROUTER_USER      = os.environ.get("ROUTER_USER", "root")
+ROUTER_PASSWORD  = os.environ.get("ROUTER_PASSWORD", "")
+ROUTER_WAN_IFACE = os.environ.get("ROUTER_WAN_IFACE", "wan_4g")
+ROUTER_IP_CMD    = os.environ.get("ROUTER_IP_CMD", "")    # alternative: shell cmd that prints the WAN IP
+DDNS_CHECK_S     = int(os.environ.get("DDNS_CHECK_S", "300"))
+DDNS_GUARD_ENABLED = bool(ROUTER_PASSWORD or ROUTER_IP_CMD)
+
+
+def _router_wan_ip_ubus():
+    """WAN IPv4 via the modem's LuCI ubus JSON-RPC (OpenWrt). Returns ip or None."""
+    import urllib.request
+
+    def rpc(params):
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "call", "params": params}).encode()
+        req = urllib.request.Request(f"{ROUTER_URL}/ubus", data=body,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return json.load(r)
+
+    sid = "00000000000000000000000000000000"
+    login = rpc([sid, "session", "login", {"username": ROUTER_USER, "password": ROUTER_PASSWORD}])
+    res = login.get("result") or []
+    if len(res) < 2 or res[0] != 0:
+        raise RuntimeError(f"ubus login failed: {str(login)[:160]}")
+    sid = res[1]["ubus_rpc_session"]
+    st = rpc([sid, f"network.interface.{ROUTER_WAN_IFACE}", "status", {}])
+    res = st.get("result") or []
+    if len(res) < 2 or res[0] != 0:
+        raise RuntimeError(f"ubus {ROUTER_WAN_IFACE} status failed: {str(st)[:160]}")
+    addrs = res[1].get("ipv4-address") or []
+    return addrs[0]["address"] if addrs else None
+
+
+def _router_wan_ip_cmd():
+    import re
+    import subprocess
+    out = subprocess.run(ROUTER_IP_CMD, shell=True, capture_output=True,
+                         text=True, timeout=20).stdout
+    m = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b", out)
+    return m.group(1) if m else None
+
+
+def _resolve(host):
+    import socket
+    try:
+        return socket.gethostbyname(host)
+    except Exception:
+        return None
+
+
+def _post_router_heartbeat(session, row):
+    if not (HAVE_REQUESTS and session):
+        return
+    try:
+        session.post(f"{SUPABASE_URL}/rest/v1/pump_router_status", data=json.dumps(row),
+                     headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}",
+                              "Content-Type": "application/json", "Prefer": "return=minimal"},
+                     timeout=10)
+    except Exception as e:
+        print(f"  [ddns] heartbeat post failed: {e}", flush=True)
+
+
+def ddns_guard_loop():
+    """Daemon thread: every DDNS_CHECK_S read the modem's WAN IP, publish a
+    heartbeat row, and re-point DuckDNS (explicit ip=) if DNS disagrees."""
+    import urllib.parse
+    import urllib.request
+    session = requests.Session() if HAVE_REQUESTS else None
+    source = "cmd" if ROUTER_IP_CMD else f"ubus:{ROUTER_WAN_IFACE}"
+    print(f"[ddns] guard active: router via {source}, domain {DDNS_HOST}, "
+          f"every {DDNS_CHECK_S}s, duckdns token {'set' if DUCKDNS_TOKEN else 'NOT set (heartbeat only)'}",
+          flush=True)
+    while True:
+        ts  = datetime.now(timezone.utc).isoformat()
+        row = {"ts": ts, "source": source, "poller_version": POLLER_VERSION,
+               "wan_ip": None, "dns_ip": None, "action": "ok", "note": None}
+        try:
+            wan = _router_wan_ip_cmd() if ROUTER_IP_CMD else _router_wan_ip_ubus()
+            dns = _resolve(DDNS_HOST)
+            row["wan_ip"], row["dns_ip"] = wan, dns
+            if not wan:
+                row["action"] = "router_query_failed"
+                row["note"]   = f"no ipv4 address on {ROUTER_WAN_IFACE}"
+            elif wan.startswith(("10.", "192.168.", "172.", "100.")):
+                row["note"]   = "wan ip is private/CGNAT - nothing to publish"
+            elif dns != wan:
+                if DUCKDNS_TOKEN:
+                    url = (f"https://www.duckdns.org/update?domains={urllib.parse.quote(DUCKDNS_DOMAIN)}"
+                           f"&token={urllib.parse.quote(DUCKDNS_TOKEN)}&ip={wan}")
+                    with urllib.request.urlopen(url, timeout=15) as r:
+                        body = r.read().decode("utf-8", "ignore").strip()
+                    row["action"] = "duckdns_updated" if body.upper() == "OK" else "duckdns_failed"
+                    row["note"]   = f"{dns} -> {wan} ({body})"
+                else:
+                    row["action"] = "duckdns_stale"
+                    row["note"]   = f"dns {dns} != wan {wan} - no DUCKDNS_TOKEN on Pi, GitHub self-heal will use this heartbeat"
+                print(f"[ddns] {row['action']}: {row['note']}", flush=True)
+        except Exception as e:
+            row["action"] = "router_query_failed"
+            row["note"]   = str(e)[:200]
+            print(f"[ddns] router query failed: {e}", flush=True)
+        _post_router_heartbeat(session, row)
+        time.sleep(DDNS_CHECK_S)
 
 
 # ── Modbus helpers ─────────────────────────────────────────────────────────────
@@ -890,6 +1019,11 @@ def main():
 
     con        = init_db(DB_PATH)
     session    = requests.Session() if HAVE_REQUESTS else None
+    if DDNS_GUARD_ENABLED:
+        import threading
+        threading.Thread(target=ddns_guard_loop, name="ddns-guard", daemon=True).start()
+    else:
+        print("[ddns] guard disabled (set ROUTER_PASSWORD or ROUTER_IP_CMD in poller.env to enable)")
     buf        = MinuteBuffer()
     client     = None
     prev_state = None
@@ -916,6 +1050,7 @@ def main():
                     ts_iso = datetime.now(timezone.utc).isoformat()
                     print(f"OFFLINE at {ts_iso}")
                     queue_event(con, ts_iso, "offline", details={"host": GRUNDFOS_HOST})
+                    flush_supabase_queue(con, session)   # make the outage visible now, not on reconnect
                     was_online = False
                 time.sleep(RECONNECT_WAIT)
                 continue
@@ -929,6 +1064,7 @@ def main():
             if was_online:
                 print(f"READ FAIL at {ts_iso} - reconnecting")
                 queue_event(con, ts_iso, "offline", details={"host": GRUNDFOS_HOST})
+                flush_supabase_queue(con, session)   # make the outage visible now, not on reconnect
                 was_online = False
             time.sleep(RECONNECT_WAIT)
             continue

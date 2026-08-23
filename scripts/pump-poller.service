@@ -7,6 +7,9 @@ Wants=network-online.target
 Type=simple
 User=andrew
 WorkingDirectory=/home/andrew/pump_poller
+# Optional settings (GRUNDFOS_HOST on-site LAN address, DuckDNS guard creds).
+# Leading '-' = file may be absent. See poller.env.example.
+EnvironmentFile=-/home/andrew/pump_poller/poller.env
 ExecStart=/home/andrew/venv/bin/python3 /home/andrew/pump_poller/pi_pump_poller.py
 Restart=always
 RestartSec=10

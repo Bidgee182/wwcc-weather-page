@@ -554,6 +554,96 @@ def execute_pending_command(client):
     print(f"CMD {act}={val}: {'OK' if success else 'FAIL'} - {result}")
 
 
+# ── Offline diagnosis ─────────────────────────────────────────────────────────
+# Our router is a USR IoT cellular gateway (LuCI/OpenWrt, hostname
+# "Bidgee_Gateway"). If the DuckDNS name resolves to an IP where a DIFFERENT
+# device answers on 80/443, Telstra has reassigned our IP and DuckDNS is
+# stale - the single most common cause of "poller down".
+ROUTER_FINGERPRINTS = ("luci", "usr", "bidgee", "openwrt")
+
+
+def _http_title(url, timeout=6):
+    """Fetch url and return its <title> text (lower-case) or None."""
+    import re as _re
+    import ssl as _ssl
+    import urllib.request as _ur
+    try:
+        ctx = _ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = _ssl.CERT_NONE
+        req = _ur.Request(url, headers={"User-Agent": "wwcc-pump-poller/diag"})
+        with _ur.urlopen(req, timeout=timeout, context=ctx) as r:
+            body = r.read(20000).decode("utf-8", "ignore")
+        m = _re.search(r"<title>(.*?)</title>", body, _re.I | _re.S)
+        return (m.group(1).strip().lower() if m else "") or "(untitled page)"
+    except Exception:
+        return None
+
+
+def _tcp_open(ip, port, timeout=5):
+    import socket as _sock
+    try:
+        with _sock.create_connection((ip, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def diagnose_offline(host, port):
+    """Return {code, dns_ip, detail, summary} explaining a failed connection.
+
+    code is one of:
+      dns_failed       - hostname does not resolve at all
+      dns_private      - resolves to a private/CGNAT address (DuckDNS wrong)
+      ip_reassigned    - another device answers at that IP (DuckDNS stale)
+      router_no_modbus - our router answers on 80/443 but :502 is closed
+                         (port-forward lost or CIM500 unreachable on the LAN)
+      unreachable      - nothing answers at that IP (site/modem down, or IP
+                         released and not yet reissued)
+    """
+    import socket as _sock
+    d = {"code": "unknown", "dns_ip": None, "detail": "", "summary": ""}
+    try:
+        resolved = list({r[4][0] for r in _sock.getaddrinfo(host, port, _sock.AF_INET)})
+    except Exception as e:
+        d.update(code="dns_failed", detail=str(e),
+                 summary=f"{host} does not resolve: {e}")
+        return d
+    ip = resolved[0] if resolved else None
+    d["dns_ip"] = ip
+    if not ip:
+        d.update(code="dns_failed", summary=f"{host} returned no A record")
+        return d
+
+    if any(ip.startswith(pfx) for pfx in ("10.", "192.168.", "172.", "100.")):
+        d.update(code="dns_private",
+                 summary=f"{host} -> {ip} is a PRIVATE/CGNAT address - DuckDNS is wrong")
+        return d
+
+    web_open = _tcp_open(ip, 80) or _tcp_open(ip, 443)
+    if not web_open:
+        d.update(code="unreachable",
+                 summary=f"{host} -> {ip}: nothing answers on 80/443/502 - "
+                         f"modem offline or IP released")
+        return d
+
+    title = ""
+    for url in (f"https://{ip}/", f"http://{ip}/", f"https://{ip}/", f"http://{ip}/"):
+        title = _http_title(url) or ""          # link can be lossy - retry once each
+        if title:
+            break
+    d["detail"] = title
+    if title and any(fp in title for fp in ROUTER_FINGERPRINTS):
+        d.update(code="router_no_modbus",
+                 summary=f"{host} -> {ip}: our router answers ('{title}') but :502 "
+                         f"is closed - port-forward or CIM500 LAN link lost")
+    else:
+        d.update(code="ip_reassigned",
+                 summary=f"{host} -> {ip} now answers as '{title or 'unknown device'}' "
+                         f"- NOT our router. Telstra reassigned the IP and DuckDNS is stale")
+    return d
+
+
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -568,18 +658,13 @@ def main():
         prev["connected"] = False
         prev["last_seen"]  = prev.get("timestamp")
         prev["timestamp"]  = now_iso
+        # Diagnose WHY we are offline so the alert email and the self-heal
+        # step can act on it (stale DuckDNS vs site genuinely down).
+        diag = diagnose_offline(HOST, PORT)
+        diag["checked_at"] = now_iso
+        prev["offline_diagnosis"] = diag
         write_json(LATEST_FILE, prev)
-        # Diagnose: resolve hostname to show if DuckDNS is pointing to wrong IP
-        try:
-            import socket as _sock
-            resolved = list({r[4][0] for r in _sock.getaddrinfo(HOST, PORT, _sock.AF_INET)})
-            ip = resolved[0] if resolved else "?"
-            cgnat_ranges = [("10.",), ("192.168.",), ("172.",), ("100.",)]
-            is_private = any(ip.startswith(r[0]) for r in cgnat_ranges)
-            flag = " <-- PRIVATE/CGNAT - DuckDNS pointing to wrong IP" if is_private else ""
-            print(f"OFFLINE: {HOST} resolved to {ip}{flag}")
-        except Exception as _e:
-            print(f"OFFLINE: DNS lookup failed for {HOST}: {_e}")
+        print(f"OFFLINE: {diag.get('summary')}")
         sys.exit(0)
 
     try:

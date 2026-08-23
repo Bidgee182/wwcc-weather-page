@@ -55,6 +55,7 @@ _CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
 _BCC_RAW         = os.environ.get('PUMP_EMAIL_BCC', '')
 
 OFFLINE_GRACE_MIN = 15  # alert after this many minutes offline
+OFFLINE_REMIND_H  = 6   # while still offline, re-send the alert every N hours
 REMINDER_HOURS    = 6
 
 # Guidance hints per alarm code - shown inside fault and reminder emails
@@ -380,10 +381,73 @@ def offline_html(latest, offline_since_dt, offline_dur):
         ('Last pressure reading', p_str, False),
         ('Last successful data', fmt_aest(last_c), True),
     ])
-    note = ('This may indicate a power outage, network failure, or SIM IP change.<br>'
-            'Check that Duck DNS is pointing to the correct IP and the USR modem is online.')
+    note = _offline_note(latest)
     return _wrap(_header('#c0392b', 'PUMP STATION - CONNECTION LOST'),
                  _body_section(tbl, note))
+
+
+def _offline_note(latest):
+    """Plain-English cause + what to do, from the poller's offline diagnosis
+    and the DuckDNS self-heal result (both written into latest by the workflow)."""
+    diag = latest.get('offline_diagnosis') or {}
+    heal = latest.get('selfheal') or {}
+    code = diag.get('code')
+    ip   = diag.get('dns_ip') or '?'
+    host = DDNS_HOST
+    sub  = host.split('.')[0]
+    if code == 'ip_reassigned':
+        dev = diag.get('detail') or 'another device'
+        cause = (f'<b>Cause: DuckDNS is stale.</b> {host} still points at {ip}, but that '
+                 f'address now answers as "{dev}" - Telstra has reissued the SIM public IP '
+                 f'and the modem DDNS client did not push the new one.')
+        fix = (f'<b>Fix:</b> read the modem current IP from the Telstra / Jasper portal '
+               f'(Device IPv4), then either run the <i>Grundfos Pump Station Poll</i> workflow '
+               f'with that IP in the router_ip box (auto-repairs DuckDNS and re-polls), or '
+               f'update DuckDNS directly: https://www.duckdns.org/update?domains='
+               f'{sub}&amp;token=YOUR_TOKEN&amp;ip=NEW_IP (explicit ip= is required). '
+               f'On site: Save &amp; Apply on the modem Services &gt; DDNS page.')
+    elif code == 'dns_private':
+        cause = (f'<b>Cause: DuckDNS is wrong.</b> {host} points at {ip}, a private/CGNAT '
+                 f'address that cannot be reached from the internet.')
+        fix = ('<b>Fix:</b> update DuckDNS with the modem real public IP (see Telstra / '
+               'Jasper portal) - run the poll workflow with router_ip set, or use the DuckDNS '
+               'update URL with an explicit ip=.')
+    elif code == 'router_no_modbus':
+        cause = (f'<b>Cause: the modem is online at {ip} but Modbus port 502 is closed.</b> '
+                 f'The port-forward to the CIM500 (192.168.1.2:502) is missing or the CIM500 '
+                 f'is not answering on the shed LAN.')
+        fix = ('<b>Fix:</b> check the CIM500 has power and a link light, and the modem '
+               'port-forward rule (Network &gt; Firewall &gt; Port Forwards) for 502 -&gt; '
+               '192.168.1.2. DuckDNS is fine - do not change it.')
+    elif code == 'unreachable':
+        cause = (f'<b>Cause: nothing answers at {ip}</b> (no web page, no Modbus). Either the '
+                 f'modem is off (power / SIM / reboot) or the IP was released and DuckDNS is '
+                 f'stale.')
+        fix = ('<b>Fix:</b> check the Telstra / Jasper portal - if the session is up on a '
+               'different IP, repair DuckDNS (poll workflow with router_ip, or the DuckDNS update '
+               'URL). If there is no session, the modem needs power / a reboot on site.')
+    elif code == 'dns_failed':
+        cause = f'<b>Cause: {host} does not resolve at all</b> - DuckDNS record missing or DNS outage.'
+        fix = f'<b>Fix:</b> check the DuckDNS dashboard for the {sub} domain.'
+    else:
+        cause = 'This may indicate a power outage, network failure, or SIM IP change.'
+        fix = 'Check that Duck DNS is pointing to the correct IP and the USR modem is online.'
+
+    heal_line = ''
+    act = heal.get('action')
+    if act == 'duckdns_updated':
+        heal_line = (f'<br><b style="color:#1e8449;">Self-heal: DuckDNS was re-pointed to '
+                     f'{heal.get("candidate_ip")} automatically</b> (source: {heal.get("source")}). '
+                     f'Data should resume on the next poll - this email is for your records.')
+    elif act == 'token_missing':
+        heal_line = (f'<br><b style="color:#c0392b;">Self-heal found the new IP '
+                     f'{heal.get("candidate_ip")} but could not update DuckDNS:</b> add the '
+                     f'DUCKDNS_TOKEN repository secret (Admin page &gt; Secrets) to make this automatic.')
+    elif act in ('candidate_rejected', 'duckdns_failed'):
+        heal_line = f'<br><b>Self-heal attempted but failed:</b> {heal.get("detail")}'
+    elif act == 'none' and heal.get('detail'):
+        heal_line = f'<br><i>Self-heal: {heal.get("detail")}</i>'
+    return f'{cause}<br><br>{fix}{heal_line}'
 
 
 def recovery_html(latest, offline_since_dt, offline_dur):
@@ -651,9 +715,22 @@ def main():
             html    = offline_html(latest, last_conn, dur)
             subject = f'PUMP STATION OFFLINE - {fmt_aest(last_conn)}'
             if send_email(subject, html):
-                state['offline_alert_sent'] = True
-                state['offline_since']      = last_conn.isoformat() if last_conn else None
+                state['offline_alert_sent']     = True
+                state['offline_since']          = last_conn.isoformat() if last_conn else None
+                state['offline_last_alert_at']  = now.isoformat()
                 changed = True
+        elif state.get('offline_alert_sent'):
+            # Still down: nag every OFFLINE_REMIND_H hours so a long outage is
+            # not a single 4 am email nobody saw (23 Aug 2026: 14 h unnoticed).
+            last_alert = parse_iso(state.get('offline_last_alert_at')) or parse_iso(state.get('offline_since'))
+            since_alert_h = ((now - last_alert).total_seconds() / 3600) if last_alert else 999
+            if since_alert_h >= OFFLINE_REMIND_H:
+                log.info(f'Station still offline ({dur}) - sending reminder')
+                html    = offline_html(latest, last_conn, dur)
+                subject = f'PUMP STATION STILL OFFLINE - {dur} - since {fmt_aest(last_conn)}'
+                if send_email(subject, html):
+                    state['offline_last_alert_at'] = now.isoformat()
+                    changed = True
 
         if state.get('was_connected') is not False:
             state['was_connected'] = False
