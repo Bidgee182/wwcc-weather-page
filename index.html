@@ -6062,8 +6062,7 @@ async function getForecast() {
             + `&hourly=temperature_2m,precipitation_probability,precipitation,uv_index,windspeed_10m,winddirection_10m,weather_code,cloud_cover,relative_humidity_2m,dew_point_2m,visibility`
             + `&timezone=Australia%2FSydney&forecast_days=4&models=gfs_seamless`;
         const fcUrls = [
-            omUrl,
-            `https://corsproxy.io/?${encodeURIComponent(omUrl)}`,
+            omUrl,   // open-meteo supports CORS directly; allorigins is the fallback
             `https://api.allorigins.win/raw?url=${encodeURIComponent(omUrl)}`,
         ];
         let response, lastFcErr, lastFcUrl;
@@ -6156,21 +6155,30 @@ async function getForecast() {
     }
 }
 
-// ── WeatherLink v2 historical fetch ──────────────────────────────
-// corsproxy.io is primary - only it reliably forwards X-Api-Secret.
-// allorigins is a fallback in case corsproxy.io is down.
+// ── WeatherLink v2 fetch via the club's own relay ────────────────
+// The WeatherLink API sends no CORS headers, so browsers need a relay.
+// corsproxy.io ended anonymous access (24 Aug 2026, every live figure went
+// "--") and allorigins.win strips the X-Api-Secret header, so the primary
+// route is now the club's Supabase edge function (wx-proxy) - our own
+// infrastructure, monitored hourly by the Watchdog workflow. allorigins is
+// kept only as a header-less last resort (it will 401, but costs nothing).
+const SB_FN_URL  = 'https://sduzxijjvpbfgvlwcwpp.supabase.co/functions/v1/wx-proxy';
+const SB_ANON    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
 async function v2Fetch(endpoint, params) {
     const qs      = new URLSearchParams({ ...params, 'api-key': v2ApiKey }).toString();
     const baseUrl = `https://api.weatherlink.com/v2/${endpoint}?${qs}`;
-    const proxies = [
-        `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+    const attempts = [
+        { url: `${SB_FN_URL}?endpoint=${encodeURIComponent(endpoint)}&${qs}`,
+          headers: { Authorization: `Bearer ${SB_ANON}`, apikey: SB_ANON,
+                     'X-Api-Secret': v2ApiSecret } },
+        { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`,
+          headers: { 'X-Api-Secret': v2ApiSecret } },
     ];
     let lastErr;
-    for (const proxyUrl of proxies) {
+    for (const a of attempts) {
         for (let attempt = 1; attempt <= 2; attempt++) {
             try {
-                const res = await fetch(proxyUrl, { headers: { 'X-Api-Secret': v2ApiSecret } });
+                const res = await fetch(a.url, { headers: a.headers });
                 if (res.ok) return res.json();
                 throw new Error(`v2 HTTP ${res.status}`);
             } catch (e) {

@@ -366,6 +366,15 @@
         token to have Actions: Read and write on the repository.</p>
     </div>
     <div class="card">
+        <h2>Live Weather Path (Greenkeeper / Lake pages)</h2>
+        <div id="wxpath-live" style="font-size:0.9em;color:#7f8c8d;">Testing the relay...</div>
+        <div id="wxpath-server" style="font-size:0.8em;color:#566573;margin-top:6px;"></div>
+        <p class="note">Live figures on the greenkeeper and Lake Albert pages travel browser
+        &rarr; club Supabase relay (wx-proxy) &rarr; WeatherLink. The Watchdog workflow tests this
+        path hourly and emails the admins on failure and recovery (plus a reminder every 6 h
+        while broken). This card runs the same test from your browser right now.</p>
+    </div>
+    <div class="card">
         <h2>Workflow Health - Last 14 Days</h2>
         <div id="wf-strips">Loading...</div>
     </div>
@@ -1262,7 +1271,56 @@ function enterApp() {
     loadHealth(); loadAllLogs(); loadControls(); admRender();
     recTryStored();
     secPopulate();
+    wxPathCheck();
     if (!window._healthTimer) window._healthTimer = setInterval(loadHealth, 5 * 60000);
+    if (!window._wxPathTimer) window._wxPathTimer = setInterval(wxPathCheck, 5 * 60000);
+}
+
+// ── Live weather path check (same route the greenkeeper/lake pages use) ──────
+// corsproxy.io's free tier ended 24 Aug 2026 and silently blanked every live
+// figure; this card makes the path visible so it can never fail unnoticed.
+const WXP_SB   = 'https://sduzxijjvpbfgvlwcwpp.supabase.co';
+const WXP_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
+async function wxPathCheck() {
+    const live = $('wxpath-live'), srv = $('wxpath-server');
+    if (!live) return;
+    try {
+        const r = await fetch(WXP_SB + '/functions/v1/wx-proxy?endpoint=current/243271'
+            + '&api-key=kvsweiywmnahb6ayvc7gstbdigst1k9x',
+            { headers: { Authorization: 'Bearer ' + WXP_ANON, apikey: WXP_ANON,
+                         'X-Api-Secret': 'urw4q7amnhwnajydf3r1ubggcrvcicvh' } });
+        if (!r.ok) throw new Error('relay HTTP ' + r.status);
+        const d = await r.json();
+        let newest = 0;
+        for (const sen of d.sensors || []) for (const x of sen.data || []) if (x.ts > newest) newest = x.ts;
+        const ageMin = (Date.now() / 1000 - newest) / 60;
+        if (!newest) throw new Error('relay OK but no sensor data in response');
+        if (ageMin > 45) {
+            live.innerHTML = '<span style="color:#e67e22;font-weight:bold;">&#9888; RELAY OK - STATION STALE</span> '
+                + '- newest reading ' + Math.round(ageMin) + ' min old. Check the WeatherLink Live console at the club.';
+        } else {
+            live.innerHTML = '<span style="color:#27ae60;font-weight:bold;">&#10004; HEALTHY</span> '
+                + '- relay and station OK, latest reading ' + Math.round(ageMin) + ' min ago.';
+        }
+    } catch (e) {
+        live.innerHTML = '<span style="color:#e74c3c;font-weight:bold;">&#10008; FAILED</span> - ' + e.message
+            + '. Greenkeeper/lake pages will be showing "--". Check Supabase &gt; Edge Functions &gt; wx-proxy logs.';
+    }
+    // last server-side (hourly watchdog) verdict from monitor_state
+    try {
+        const r = await fetch(WXP_SB + '/rest/v1/monitor_state?key=eq.wx_path&select=value,updated_at',
+            { headers: { apikey: WXP_ANON, Authorization: 'Bearer ' + WXP_ANON } });
+        const rows = await r.json();
+        if (rows.length) {
+            const v = rows[0].value || {};
+            srv.textContent = 'Hourly watchdog check: ' + (v.status || '?')
+                + (v.checked_at ? ' at ' + new Date(v.checked_at).toLocaleString('en-AU',
+                    { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '')
+                + (v.detail ? ' (' + v.detail + ')' : '');
+        } else {
+            srv.textContent = 'Hourly watchdog check: no result recorded yet (first run within the hour).';
+        }
+    } catch { srv.textContent = ''; }
 }
 function logout() { try { sessionStorage.removeItem('wwcc_admin_ses'); } catch {} location.reload(); }
 

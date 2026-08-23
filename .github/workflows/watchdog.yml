@@ -13,6 +13,9 @@ on:
       - "Board Lake Update Email"
       - "FarmBot Tank Poll"
     types: [completed]
+  schedule:
+    - cron: '18 * * * *'   # hourly: live weather path check (wx_path_check.py)
+  workflow_dispatch: {}     # manual run of the path check
 
 permissions:
   actions: write
@@ -24,9 +27,10 @@ jobs:
     # shared repo-writes concurrency group gets re-dispatched), and successes
     # that only happened thanks to a retry (those get the "self-healed" email)
     if: >-
-      github.event.workflow_run.conclusion == 'failure' ||
+      github.event_name == 'workflow_run' &&
+      (github.event.workflow_run.conclusion == 'failure' ||
       github.event.workflow_run.conclusion == 'cancelled' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.run_attempt > 1)
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.run_attempt > 1))
     runs-on: ubuntu-latest
 
     steps:
@@ -46,3 +50,19 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: python scripts/watchdog.py
+
+  # Hourly end-to-end check of the BROWSER data path (Supabase wx-proxy relay
+  # -> WeatherLink). Added 24 Aug 2026 after corsproxy.io ended free access and
+  # the greenkeeper page silently showed "--" until a human noticed. Emails the
+  # admins on failure/recovery; state + dedup live in Supabase monitor_state.
+  wx-path-check:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check live weather path and alert on change
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python scripts/wx_path_check.py

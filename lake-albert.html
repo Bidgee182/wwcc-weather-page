@@ -1622,16 +1622,22 @@ function renderBalanceChart() {
 }
 
 // ── Davis v2 helpers ──────────────────────────────────────────────────────
+// Primary route is the club's own Supabase relay (wx-proxy) - corsproxy.io
+// ended anonymous access 24 Aug 2026 and allorigins strips the auth header.
 async function v2Fetch(endpoint,params) {
+    const SB_FN='https://sduzxijjvpbfgvlwcwpp.supabase.co/functions/v1/wx-proxy';
+    const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
     const qs     =new URLSearchParams({...params,'api-key':v2ApiKey}).toString();
     const baseUrl=`https://api.weatherlink.com/v2/${endpoint}?${qs}`;
-    const proxies=[
-        `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+    const attempts=[
+        {url:`${SB_FN}?endpoint=${encodeURIComponent(endpoint)}&${qs}`,
+         headers:{Authorization:`Bearer ${SB_ANON}`,apikey:SB_ANON,'X-Api-Secret':v2ApiSecret}},
+        {url:`https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`,
+         headers:{'X-Api-Secret':v2ApiSecret}}
     ];
     let lastErr;
-    for(const url of proxies){
-        try{const res=await fetch(url,{headers:{'X-Api-Secret':v2ApiSecret}});if(res.ok)return res.json();}
+    for(const a of attempts){
+        try{const res=await fetch(a.url,{headers:a.headers});if(res.ok)return res.json();}
         catch(e){lastErr=e;}
     }
     throw lastErr||new Error('v2Fetch failed');
@@ -2330,8 +2336,7 @@ async function fetchLakeForecast() {
         +'&hourly=temperature_2m,weather_code,windspeed_10m,winddirection_10m,precipitation_probability'
         +'&timezone=Australia%2FSydney&forecast_days=7&models=gfs_seamless';
     const urls = [
-        omUrl,
-        'https://corsproxy.io/?'+encodeURIComponent(omUrl),
+        omUrl,   // open-meteo supports CORS directly; allorigins is the fallback
         'https://api.allorigins.win/raw?url='+encodeURIComponent(omUrl),
     ];
     let data = null;
