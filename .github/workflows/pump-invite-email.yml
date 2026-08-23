@@ -30,11 +30,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests sendgrid
+        run: echo "stdlib only - no extra deps"
 
       - name: Send invite email
         env:
-          SENDGRID_API_KEY:  ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY:    ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM:        ${{ secrets.EMAIL_FROM }}
           RECIPIENT_EMAIL:   ${{ inputs.recipient_email }}
           RECIPIENT_NAME:    ${{ inputs.recipient_name }}

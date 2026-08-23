@@ -41,7 +41,7 @@ LAKE_BATTERY_SID = '783eabbf-eda5-4d5d-bc36-bd0e8a6b7547'   # port 124, lake/wea
 # Base offset = 190.00 - (65.84 / 100) = 189.3416; +0.003 correction 2026-07-04; +0.013 correction 2026-07-14
 LAKE_AHD_OFFSET = float(os.environ.get('LAKE_AHD_OFFSET', '189.3746'))
 
-SENDGRID_API_KEY    = os.environ.get('SENDGRID_API_KEY',    '')
+RESEND_API_KEY      = os.environ.get('RESEND_API_KEY',      '')
 EMAIL_FROM          = os.environ.get('EMAIL_FROM',          '')
 EMAIL_GK_RECIPIENTS = os.environ.get('EMAIL_GK_RECIPIENTS', '')
 
@@ -145,11 +145,9 @@ STATE_ORDER = {'unknown': -1, 'ok': 0, 'warning': 1, 'low': 2, 'critical': 3}
 
 # ── Alert email ───────────────────────────────────────────────────────────────
 def send_alert(pct, volume_l, state):
-    if not SENDGRID_API_KEY:
-        log.warning('SendGrid not configured - skipping alert email')
+    if not RESEND_API_KEY:
+        log.warning('RESEND_API_KEY not configured - skipping alert email')
         return
-    from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
 
     volume_kl = (volume_l or 0) / 1000
     color     = '#dc2626' if state in ('critical', 'low') else '#d97706'
@@ -202,22 +200,18 @@ def send_alert(pct, volume_l, state):
     if not to_list:
         log.warning('No alert recipients configured - skipping alert email')
         return
-    sg   = SendGridAPIClient(SENDGRID_API_KEY)
     from lake_utils import html_to_text
-    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
-                plain_text_content=html_to_text(html), html_content=html)
-    for addr in to_list:
-        mail.add_to(To(addr))
-    if cc_list:
-        mail.cc = [Cc(a) for a in cc_list]
-    if bcc_list:
-        mail.bcc = [Bcc(a) for a in bcc_list]
-    sg.send(mail)
+    from mailer import send_html
+    ok, detail = send_html(subject, html, to_list, cc_list, bcc_list,
+                           stream='lake', text=html_to_text(html))
     everyone = to_list + cc_list + bcc_list
-    log.info(f'Alert email sent ({state}) to {len(everyone)} recipient(s)')
+    if ok:
+        log.info(f'Alert email sent ({state}) to {len(everyone)} recipient(s)')
+    else:
+        log.error(f'Alert email failed: {detail}')
     try:
         from lake_utils import log_email
-        log_email('tank_alert', subject, everyone, 'sent')
+        log_email('tank_alert', subject, everyone, detail)
     except Exception:
         pass
 

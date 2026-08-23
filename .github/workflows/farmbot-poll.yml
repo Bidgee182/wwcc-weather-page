@@ -59,7 +59,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests sendgrid
+        run: pip install requests
 
       - name: Run FarmBot poll / backfill
         env:
@@ -87,7 +87,7 @@ jobs:
         if: ${{ github.event.inputs.backfill != 'true' && github.event.inputs.backfill_lake != 'true' }}
         continue-on-error: true
         env:
-          SENDGRID_API_KEY:           ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY:             ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM:                 ${{ secrets.EMAIL_FROM }}
           EMAIL_GK_RECIPIENTS:        ${{ secrets.EMAIL_GK_RECIPIENTS }}
           EMAIL_COMMITTEE_RECIPIENTS: ${{ secrets.EMAIL_COMMITTEE_RECIPIENTS }}

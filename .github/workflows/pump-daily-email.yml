@@ -42,11 +42,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install sendgrid
+        run: echo "stdlib only - no extra deps"
 
       - name: Send daily summary email
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           PUMP_EMAIL_RECIPIENTS: ${{ secrets.PUMP_EMAIL_RECIPIENTS }}
           PUMP_EMAIL_CC: ${{ secrets.PUMP_EMAIL_CC }}

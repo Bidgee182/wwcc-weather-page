@@ -46,7 +46,7 @@ def _white_logo_html():
     return (f'<img src="{_WHITE_LOGO_URL}" width="194" height="44" alt="Wagga Wagga Country Club"'
             f' style="display:block;border:0;">')
 
-SENDGRID_API_KEY          = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY            = os.environ.get('RESEND_API_KEY', '')
 EMAIL_FROM                = os.environ.get('EMAIL_FROM', '')
 def _tcb(base, env_name):
     try:
@@ -437,38 +437,23 @@ def _build_email(ahd, new_num, new_rate, new_bg, new_fg, old_num, old_rate, now_
 
 def send_email(subject, html, recipients, cc=None, bcc=None):
     cc, bcc = cc or [], bcc or []
-    if not SENDGRID_API_KEY:
-        log.warning('No SENDGRID_API_KEY - skipping send.')
-        return False
     if not recipients:
         log.warning('No recipients - skipping send.')
         return False
     everyone = recipients + cc + bcc
+    from lake_utils import html_to_text, log_email
+    from mailer import send_html
+    ok, detail = send_html(subject, html, recipients, cc, bcc,
+                           stream='lake', text=html_to_text(html))
+    if ok:
+        log.info(f'Sent "{subject}" - {detail} - to {everyone}')
+    else:
+        log.error(f'Send error: {detail}')
     try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
-        from lake_utils import html_to_text
-        mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
-                    plain_text_content=html_to_text(html), html_content=html)
-        mail.to = [To(e) for e in recipients]
-        if cc:
-            mail.cc = [Cc(e) for e in cc]
-        if bcc:
-            mail.bcc = [Bcc(e) for e in bcc]
-        sg   = SendGridAPIClient(SENDGRID_API_KEY)
-        resp = sg.send(mail)
-        log.info(f'Sent "{subject}" - {resp.status_code} - to {everyone}')
-        from lake_utils import log_email
-        log_email('lake_alert', subject, everyone, f'sent ({resp.status_code})')
-        return True
-    except Exception as e:
-        log.error(f'Send error: {e}')
-        try:
-            from lake_utils import log_email
-            log_email('lake_alert', subject, everyone, f'failed: {e}')
-        except Exception:
-            pass
-        return False
+        log_email('lake_alert', subject, everyone, detail)
+    except Exception:
+        pass
+    return ok
 
 
 def main():

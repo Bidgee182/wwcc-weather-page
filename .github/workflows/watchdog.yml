@@ -43,6 +43,6 @@ jobs:
           WF_NAME: ${{ github.event.workflow_run.name }}
           WF_RUN_URL: ${{ github.event.workflow_run.html_url }}
           WF_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: python scripts/watchdog.py

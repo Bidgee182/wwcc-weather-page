@@ -5,7 +5,7 @@ Triggered by workflow_dispatch from admin.html when a new pump control user is a
 Sends a styled invitation email with the one-time invite code.
 
 Environment variables (set in workflow):
-  SENDGRID_API_KEY  - SendGrid API key
+  RESEND_API_KEY    - Resend API key (shared mailer, scripts/mailer.py)
   EMAIL_FROM        - From address
   RECIPIENT_EMAIL   - New user's email address
   RECIPIENT_NAME    - New user's name
@@ -18,7 +18,6 @@ import sys
 import json
 import requests
 
-SENDGRID_API_KEY = os.environ['SENDGRID_API_KEY']
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', 'noreply@wwcc.com.au')
 RECIPIENT_EMAIL  = os.environ['RECIPIENT_EMAIL']
 RECIPIENT_NAME   = os.environ['RECIPIENT_NAME']
@@ -214,20 +213,10 @@ def build_html(name, invite_code, pump_url, logo_url):
 def send(name, email, invite_code, pump_url, logo_url):
     html = build_html(name, invite_code, pump_url, logo_url)
     subject = f'WWCC Pump Control - Your access invite code'
-    payload = {
-        'personalizations': [{'to': [{'email': email, 'name': name}]}],
-        'from':    {'email': EMAIL_FROM, 'name': 'WWCC Pump Station'},
-        'subject': subject,
-        'content': [{'type': 'text/html', 'value': html}],
-    }
-    r = requests.post(
-        'https://api.sendgrid.com/v3/mail/send',
-        headers={'Authorization': f'Bearer {SENDGRID_API_KEY}', 'Content-Type': 'application/json'},
-        data=json.dumps(payload),
-        timeout=30,
-    )
-    if r.status_code not in (200, 202):
-        print(f'SendGrid error {r.status_code}: {r.text}', file=sys.stderr)
+    from mailer import send_html
+    ok, detail = send_html(subject, html, [f'{name} <{email}>'], stream='pump')
+    if not ok:
+        print(f'Resend error: {detail}', file=sys.stderr)
         sys.exit(1)
     print(f'Invite email sent to {email} ({name})')
 

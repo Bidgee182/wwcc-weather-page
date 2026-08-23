@@ -18,7 +18,7 @@ Usage:
     python scripts/lake_email_report.py --dry-run          # preview HTML, no send
 
 Secrets required:
-    SENDGRID_API_KEY   - SendGrid API key
+    RESEND_API_KEY     - Resend API key (shared mailer, scripts/mailer.py)
     EMAIL_FROM         - sender address
     EMAIL_LAKE_TO      - comma-separated To addresses
     EMAIL_LAKE_CC      - comma-separated CC addresses (optional)
@@ -88,7 +88,7 @@ def _white_logo_html():
             f' style="display:block;border:0;">')
 
 
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 EMAIL_LAKE_TO    = os.environ.get('EMAIL_LAKE_TO', '')
 EMAIL_LAKE_CC    = os.environ.get('EMAIL_LAKE_CC', '')
@@ -801,19 +801,6 @@ def build_yearly(data, now_syd):
 # ── Email sending ─────────────────────────────────────────────────────────────
 
 def send_email(subject, html_content, test_mode=False):
-    if not SENDGRID_API_KEY:
-        log.error('SENDGRID_API_KEY not set - cannot send')
-        return False
-    if not EMAIL_FROM:
-        log.error('EMAIL_FROM not set - cannot send')
-        return False
-    try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
-    except ImportError:
-        log.error('sendgrid package not installed (pip install sendgrid)')
-        return False
-
     if test_mode:
         to_list, cc_list, bcc_list = ['andrew@bidgeepumps.com.au'], [], []
         subject = f'[TEST] {subject}'
@@ -830,38 +817,20 @@ def send_email(subject, html_content, test_mode=False):
         return False
 
     everyone = to_list + cc_list + bcc_list
-    from lake_utils import html_to_text
-    mail = Mail(
-        from_email=Email(EMAIL_FROM),
-        subject=subject,
-        plain_text_content=html_to_text(html_content),
-        html_content=html_content,
-    )
-    mail.to = [To(e) for e in to_list]
-    if cc_list:
-        mail.cc = [Cc(e) for e in cc_list]
-    if bcc_list:
-        mail.bcc = [Bcc(e) for e in bcc_list]
-
-    try:
-        sg   = SendGridAPIClient(SENDGRID_API_KEY)
-        resp = sg.send(mail)
-        log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
+    from lake_utils import html_to_text, log_email
+    from mailer import send_html
+    ok, detail = send_html(subject, html_content, to_list, cc_list, bcc_list,
+                           stream='lake', text=html_to_text(html_content))
+    if ok:
+        log.info(f'Sent "{subject}" - {detail} - to: {", ".join(to_list)}')
         if cc_list:
             log.info(f'  CC: {", ".join(cc_list)}')
         if bcc_list:
             log.info(f'  BCC: {len(bcc_list)} address(es)')
-        from lake_utils import log_email
-        log_email('lake_report', subject, everyone, f'sent ({resp.status_code})')
-        return True
-    except Exception as e:
-        log.error(f'SendGrid error sending "{subject}": {e}')
-        try:
-            from lake_utils import log_email
-            log_email('lake_report', subject, everyone, f'failed: {e}')
-        except Exception:
-            pass
-        return False
+    else:
+        log.error(f'Send error for "{subject}": {detail}')
+    log_email('lake_report', subject, everyone, detail)
+    return ok
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

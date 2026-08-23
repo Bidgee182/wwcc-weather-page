@@ -12,7 +12,7 @@ State is persisted in data/pump_email_state.json so dedup
 works across workflow runs.
 
 Required env vars:
-  SENDGRID_API_KEY
+  RESEND_API_KEY
   EMAIL_FROM
   PUMP_EMAIL_RECIPIENTS  (comma-separated addresses)
 """
@@ -48,7 +48,7 @@ DDNS_HOST = os.environ.get('DDNS_HOST') or os.environ.get('GRUNDFOS_HOST') or 'b
 PUMP_PAGE_URL = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
 LOGO_URL      = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 _TO_RAW          = os.environ.get('PUMP_EMAIL_RECIPIENTS', '')
 _CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
@@ -564,37 +564,18 @@ def send_email(subject, html, email_type='pump_alert'):
     cc_list  = _addr(_CC_RAW)
     bcc_list = _addr(_BCC_RAW)
     everyone = to_list + cc_list + bcc_list
-    if not SENDGRID_API_KEY:
-        log.warning('No SENDGRID_API_KEY - skipping.')
-        return False
     if not to_list:
         log.warning('No PUMP_EMAIL_RECIPIENTS - skipping.')
         return False
-    if not EMAIL_FROM:
-        log.warning('No EMAIL_FROM - skipping.')
-        return False
-    try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
-        mail = Mail(
-            from_email=Email(EMAIL_FROM),
-            subject=subject,
-            plain_text_content=html_to_text(html),
-            html_content=html,
-        )
-        mail.to = [To(r) for r in to_list]
-        if cc_list:
-            mail.cc = [Cc(r) for r in cc_list]
-        if bcc_list:
-            mail.bcc = [Bcc(r) for r in bcc_list]
-        resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
-        log.info(f'Sent "{subject}" - HTTP {resp.status_code} - to {to_list} cc {cc_list} bcc {bcc_list}')
-        log_email(email_type, subject, everyone, f'sent ({resp.status_code})')
-        return True
-    except Exception as e:
-        log.error(f'Send error: {e}')
-        log_email(email_type, subject, everyone, f'failed: {e}')
-        return False
+    from mailer import send_html
+    ok, detail = send_html(subject, html, to_list, cc_list, bcc_list,
+                           stream='pump', text=html_to_text(html))
+    if ok:
+        log.info(f'Sent "{subject}" - {detail} - to {to_list} cc {cc_list} bcc {bcc_list}')
+    else:
+        log.error(f'Send error: {detail}')
+    log_email(email_type, subject, everyone, detail)
+    return ok
 
 
 # ---------------------------------------------------------------------------

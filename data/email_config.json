@@ -14,5 +14,15 @@
     "pump_daily": true
   },
   "updated_at": "2026-07-31T11:41:58.946Z",
-  "updated_by": "andrew@bidgeepumps.com.au"
+  "updated_by": "andrew@bidgeepumps.com.au",
+  "senders": {
+    "_note": "From identities for the shared Resend mailer (scripts/mailer.py). Domain send.wwcc.com.au is verified in Resend - any local-part works. Replies go to default_reply_to, not these addresses.",
+    "pump": "WWCC Pump Station <pump@send.wwcc.com.au>",
+    "weather": "WWCC Weather <weather@send.wwcc.com.au>",
+    "lake": "WWCC Lake Albert <lake@send.wwcc.com.au>",
+    "board": "WWCC Board Dashboard <board@send.wwcc.com.au>",
+    "watchdog": "WWCC Automation <watchdog@send.wwcc.com.au>",
+    "default": "WWCC Weather <weather@send.wwcc.com.au>",
+    "default_reply_to": "andrew@bidgeepumps.com.au"
+  }
 }

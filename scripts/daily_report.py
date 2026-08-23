@@ -24,8 +24,6 @@ import requests
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, To, Email
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,7 +46,7 @@ DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '243271')   # club Weathe
 # station's ISS has no solar or UV sensors fitted, so it cannot report them.
 DAVIS_V2_SOLAR_STATION = os.environ.get('DAVIS_V2_SOLAR_STATION', '10489')
 
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM',       'wwccweather@gmail.com')
 
 # Comma-separated list of email addresses from secret, e.g.:
@@ -3595,40 +3593,21 @@ def send_email(subject, html_body, recipients):
         to_list, cc_list, bcc_list = recipients
     else:
         to_list, cc_list, bcc_list = recipients, [], []
-    if not SENDGRID_API_KEY:
-        log.warning('No SendGrid API key - skipping email send.')
-        SEND_FAILURES.append(subject)
-        return
     if not to_list or to_list == ['']:
         log.warning('No email recipients configured.')
         SEND_FAILURES.append(subject)
         return
     everyone = [a.strip() for a in list(to_list) + list(cc_list) + list(bcc_list) if a and a.strip()]
     from lake_utils import html_to_text, log_email
-    from sendgrid.helpers.mail import Cc, Bcc
-    message = Mail(
-        from_email=Email(EMAIL_FROM, 'WWCC Weather'),
-        subject=subject,
-        plain_text_content=html_to_text(html_body),
-        html_content=html_body,
-    )
-    for addr in to_list:
-        addr = addr.strip()
-        if addr:
-            message.add_to(To(addr))
-    if cc_list:
-        message.cc = [Cc(a.strip()) for a in cc_list if a.strip()]
-    if bcc_list:
-        message.bcc = [Bcc(a.strip()) for a in bcc_list if a.strip()]
-    try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
-        log.info(f'Email sent: {response.status_code} to {everyone}')
-        log_email('gk_report', subject, everyone, f'sent ({response.status_code})')
-    except Exception as e:
-        log.error(f'Email send error: {e}')
-        log_email('gk_report', subject, everyone, f'failed: {e}')
+    from mailer import send_html
+    ok, detail = send_html(subject, html_body, list(to_list), list(cc_list), list(bcc_list),
+                           stream='weather', text=html_to_text(html_body))
+    if ok:
+        log.info(f'Email sent: {detail} to {everyone}')
+    else:
+        log.error(f'Email send error: {detail}')
         SEND_FAILURES.append(subject)
+    log_email('gk_report', subject, everyone, detail)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -101,7 +101,7 @@ jobs:
       - name: Run board email
         if: steps.cfg.outputs.ok == 'true'
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
           EMAIL_BOARD_TO:   ${{ secrets.EMAIL_BOARD_TO }}
           EMAIL_BOARD_CC:   ${{ secrets.EMAIL_BOARD_CC }}

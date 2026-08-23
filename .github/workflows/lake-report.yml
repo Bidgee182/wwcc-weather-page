@@ -74,7 +74,7 @@ jobs:
 
       - name: Run Lake Albert email reports
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM:       ${{ secrets.EMAIL_FROM }}
           EMAIL_LAKE_TO:    ${{ secrets.EMAIL_LAKE_TO }}
           EMAIL_LAKE_CC:    ${{ secrets.EMAIL_LAKE_CC }}

@@ -89,27 +89,13 @@ def admin_emails():
 
 
 def send_email(subject, body_text):
-    key = os.environ.get("SENDGRID_API_KEY", "")
-    sender = os.environ.get("EMAIL_FROM", "")
     tos = admin_emails()
-    if not key or not sender or not tos:
-        print("email skipped (missing key, from-address or recipients)")
+    if not tos:
+        print("email skipped (no recipients)")
         return
-    payload = {
-        "personalizations": [{"to": [{"email": t} for t in tos]}],
-        "from": {"email": sender, "name": "WWCC Weather Watchdog"},
-        "subject": subject,
-        "content": [{"type": "text/plain", "value": body_text}],
-    }
-    req = urllib.request.Request(
-        "https://api.sendgrid.com/v3/mail/send",
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": "Bearer " + key,
-                 "Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req) as r:
-        print("sendgrid status", r.status)
+    from mailer import send_html
+    ok, detail = send_html(subject, None, tos, stream="watchdog", text=body_text)
+    print("resend", detail)
 
 
 def main():

@@ -6,7 +6,7 @@ Sends Monday 7 AM AEST. Shows lake level, licence level, extraction rate,
 days to next level, 7-day weather table, rainfall totals, and tank status.
 
 Environment variables:
-    SENDGRID_API_KEY   - SendGrid API key
+    RESEND_API_KEY     - Resend API key (shared mailer, scripts/mailer.py)
     EMAIL_FROM         - sender address
     EMAIL_BOARD_TO     - comma-separated To recipients
     EMAIL_BOARD_CC     - comma-separated CC recipients (optional)
@@ -46,7 +46,7 @@ _ROW_B    = '#eaf4fb'
 
 SYDNEY_TZ = ZoneInfo('Australia/Sydney')
 
-SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 EMAIL_BOARD_TO   = os.environ.get('EMAIL_BOARD_TO', '')
 EMAIL_BOARD_CC   = os.environ.get('EMAIL_BOARD_CC', '')
@@ -2276,20 +2276,6 @@ def build_monthly_html(now_syd):
 # ── Send ───────────────────────────────────────────────────────────────────────
 
 def send_email(subject, html_content, test_mode=False):
-    if not SENDGRID_API_KEY:
-        log.error('SENDGRID_API_KEY not set')
-        return False
-    if not EMAIL_FROM:
-        log.error('EMAIL_FROM not set')
-        return False
-
-    try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail, To, Cc, Bcc, Email
-    except ImportError:
-        log.error('sendgrid package not installed')
-        return False
-
     if test_mode:
         to_list  = ['andrew@bidgeepumps.com.au']
         cc_list  = []
@@ -2306,26 +2292,15 @@ def send_email(subject, html_content, test_mode=False):
         log.error('No To recipients - cannot send')
         return False
 
-    mail = Mail(from_email=Email(EMAIL_FROM), subject=subject,
-                plain_text_content=lu.html_to_text(html_content), html_content=html_content)
-    mail.to = [To(e) for e in to_list]
-    if cc_list:
-        mail.cc = [Cc(e) for e in cc_list]
-    if bcc_list:
-        mail.bcc = [Bcc(e) for e in bcc_list]
-
-    try:
-        resp = SendGridAPIClient(SENDGRID_API_KEY).send(mail)
-        log.info(f'Sent "{subject}" - status {resp.status_code} - to: {", ".join(to_list)}')
-        lu.log_email('board_report', subject, to_list + cc_list + bcc_list, f'sent ({resp.status_code})')
-        return True
-    except Exception as e:
-        log.error(f'SendGrid error: {e}')
-        try:
-            log.error(f'SendGrid response body: {e.body}')
-        except AttributeError:
-            pass
-        return False
+    from mailer import send_html
+    ok, detail = send_html(subject, html_content, to_list, cc_list, bcc_list,
+                           stream='board', text=lu.html_to_text(html_content))
+    if ok:
+        log.info(f'Sent "{subject}" - {detail} - to: {", ".join(to_list)}')
+    else:
+        log.error(f'Send error: {detail}')
+    lu.log_email('board_report', subject, to_list + cc_list + bcc_list, detail)
+    return ok
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
