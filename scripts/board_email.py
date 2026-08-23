@@ -1040,6 +1040,9 @@ def build_html(now_syd):
 
     # ── Daily weather table rows ───────────────────────────────────────────────
     daily_rows = ''
+    _pan_rates    = cfg['evaporation']['monthly_pan_mm_day']
+    _pf_daily     = cfg['evaporation']['pan_factor']
+    _bom_et_total = 0.0
     for i, r in enumerate(reversed(wx_7)):
         bg = _ROW_A if i % 2 == 0 else _ROW_B
         try:
@@ -1047,6 +1050,13 @@ def build_html(now_syd):
             d_label = f'{_dt.strftime("%a")} {_dt.day} {_dt.strftime("%b")}'
         except Exception:
             d_label = r['date']
+        # BOM long-term figure for that day's month (pan x lake factor) - shown
+        # beside the station's measured ET so the board sees assumed vs actual
+        try:
+            _bom_et = float(_pan_rates[str(datetime.fromisoformat(r['date']).month)]) * _pf_daily
+            _bom_et_total += _bom_et
+        except Exception:
+            _bom_et = None
         wind_dir = _deg_to_compass(r.get('wind_dir_deg'))
         wind_spd = r.get('wind_max_kmh', '').strip()
         if wind_spd:
@@ -1070,10 +1080,39 @@ def build_html(now_syd):
       <td {td}>{_v(r.get('rain_mm'))}</td>
       <td {td}>{_v(r.get('rh_mean'), '.0f')}%</td>
       <td {td}>{_v(r.get('et_mm'))}</td>
+      <td {td}>{f'{_bom_et:.2f}' if _bom_et is not None else '-'}</td>
       <td {td}>{_v(r.get('uv_max'), '.1f')}</td>
       <td {td}>{wind_str}</td>
       <td {td}>{_v(r.get('dew_point_c'))}&deg;</td>
     </tr>"""
+
+    # ── ET check line: week's measured ET vs the BOM long-term assumption ─────
+    _et_check_html = ''
+    if _bom_et_total > 0:
+        _et_diff_pct = (et_7 - _bom_et_total) / _bom_et_total * 100
+        if _et_diff_pct <= -10:
+            _et_verdict = ('water losses are running <strong>below</strong> the long-term '
+                           'average, so the cease-to-pump projection is currently '
+                           'conservative (the real date is likely later)')
+        elif _et_diff_pct >= 10:
+            _et_verdict = ('water losses are running <strong>above</strong> the long-term '
+                           'average, so the cease-to-pump projection may be optimistic '
+                           '(the real date could be earlier)')
+        else:
+            _et_verdict = 'tracking close to the long-term average'
+        _et_check_html = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td style="padding:8px 4px 0;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#475569;line-height:1.6;">
+        <strong>ET check:</strong> the station measured <strong>{et_7:.1f}&nbsp;mm</strong> of ET this
+        week vs <strong>{_bom_et_total:.1f}&nbsp;mm</strong> at the BOM long-term average
+        ({abs(_et_diff_pct):.0f}% {'below' if _et_diff_pct < 0 else 'above'}) - {_et_verdict}.
+      </p>
+    </td>
+  </tr>
+</table>"""
 
     # ── Lake status card (5-dot scale) ───────────────────────────────────────
     _muted_bg = {1: '#d4edda', 2: '#e8f5d0', 3: '#fef9c3', 4: '#ffedd5', 5: '#fef2f2'}
@@ -1425,6 +1464,9 @@ def build_html(now_syd):
               border-right:1px solid {_BORDER};white-space:nowrap;">ET</th>
           <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
+              border-right:1px solid {_BORDER};white-space:nowrap;">BOM&nbsp;Avg</th>
+          <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
+              font-size:11px;color:#ffffff;font-weight:700;text-align:center;
               border-right:1px solid {_BORDER};white-space:nowrap;">UV</th>
           <th style="background-color:{_HDR_BG};padding:7px 8px;font-family:Arial,sans-serif;
               font-size:11px;color:#ffffff;font-weight:700;text-align:center;
@@ -1439,6 +1481,7 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>"""
+        + _et_check_html
         + _card_close()
 
         # ── Disclaimer ─────────────────────────────────────────────────────────
@@ -1456,7 +1499,9 @@ def build_html(now_syd):
         BOM Wagga Wagga Airport long-term average
         ({pan_mm:.2f}&nbsp;mm/day pan &times;&nbsp;0.70&nbsp;lake factor
         = {lake_mm:.2f}&nbsp;mm/day = {evap_ml:.2f}&nbsp;ML/day at current lake area).
-        Lake surface area adjusts as level changes. All figures are estimates only.
+        Lake surface area adjusts as level changes. The daily table's BOM&nbsp;Avg column is
+        this long-term monthly figure per day, shown beside the station's measured ET
+        (ET is read from the Lake Albert station's solar sensor). All figures are estimates only.
         <strong>Water balance</strong> = ET &minus; rainfall; positive = irrigation demand
         exceeds rainfall (deficit), negative = rainfall exceeds ET (surplus).
         Weather data from on-site Davis weather station.
