@@ -1,6 +1,6 @@
 {
-  "connected": true,
-  "timestamp": "2026-08-24T08:27:26.081738+00:00",
+  "connected": false,
+  "timestamp": "2026-08-24T08:33:07.015851+00:00",
   "last_seen": "2026-08-24T08:27:26.081738+00:00",
   "last_connected": "2026-08-24T08:27:26.081738+00:00",
   "system": {
@@ -10692,5 +10692,20 @@
     null,
     null,
     null
-  ]
+  ],
+  "offline_diagnosis": {
+    "code": "unreachable",
+    "dns_ip": "101.168.15.127",
+    "detail": "",
+    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127: nothing answers on 80/443/502 - modem offline or IP released",
+    "checked_at": "2026-08-24T08:33:07.015851+00:00"
+  },
+  "selfheal": {
+    "checked_at": "2026-08-24T08:33:17.735697+00:00",
+    "candidate_ip": null,
+    "source": null,
+    "dns_ip": "101.168.15.127",
+    "action": "none",
+    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
+  }
 }
