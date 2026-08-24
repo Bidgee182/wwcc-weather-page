@@ -1,10 +1,10 @@
 {
-  "connected": false,
-  "timestamp": "2026-08-24T06:17:58.458710+00:00",
-  "last_seen": "2026-08-24T06:12:32.410662+00:00",
-  "last_connected": "2026-08-24T06:12:32.410662+00:00",
+  "connected": true,
+  "timestamp": "2026-08-24T06:23:00.511108+00:00",
+  "last_seen": "2026-08-24T06:23:00.511108+00:00",
+  "last_connected": "2026-08-24T06:23:00.511108+00:00",
   "system": {
-    "pressure_actual_bar": 8.251,
+    "pressure_actual_bar": 8.189,
     "pressure_suction_bar": -0.815,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 8222,
+      "raw": 8199,
       "temp_c": null
     },
     {
@@ -9397,6 +9397,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-24T06:23:00.511108+00:00",
+      "pa": 8.189,
+      "ps": 7.8,
+      "pi": -0.815,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5150.0,
+        1396.0
+      ],
+      "st": [
+        2,
+        3,
+        1,
+        4
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -9772,20 +9812,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "ip_reassigned",
-    "dns_ip": "101.168.15.127",
-    "detail": "(untitled page)",
-    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127 now answers as '(untitled page)' - NOT our router. Telstra reassigned the IP and DuckDNS is stale",
-    "checked_at": "2026-08-24T06:17:58.458710+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-08-24T06:18:04.471980+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "101.168.15.127",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
