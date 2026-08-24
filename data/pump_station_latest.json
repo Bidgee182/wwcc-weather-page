@@ -1,6 +1,6 @@
 {
-  "connected": true,
-  "timestamp": "2026-08-24T06:12:32.410662+00:00",
+  "connected": false,
+  "timestamp": "2026-08-24T06:17:58.458710+00:00",
   "last_seen": "2026-08-24T06:12:32.410662+00:00",
   "last_connected": "2026-08-24T06:12:32.410662+00:00",
   "system": {
@@ -9772,5 +9772,20 @@
     null,
     null,
     null
-  ]
+  ],
+  "offline_diagnosis": {
+    "code": "ip_reassigned",
+    "dns_ip": "101.168.15.127",
+    "detail": "(untitled page)",
+    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127 now answers as '(untitled page)' - NOT our router. Telstra reassigned the IP and DuckDNS is stale",
+    "checked_at": "2026-08-24T06:17:58.458710+00:00"
+  },
+  "selfheal": {
+    "checked_at": "2026-08-24T06:18:04.471980+00:00",
+    "candidate_ip": null,
+    "source": null,
+    "dns_ip": "101.168.15.127",
+    "action": "none",
+    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
+  }
 }
