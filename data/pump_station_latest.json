@@ -1,10 +1,10 @@
 {
-  "connected": false,
-  "timestamp": "2026-08-24T09:53:27.857934+00:00",
-  "last_seen": "2026-08-24T09:48:28.558839+00:00",
-  "last_connected": "2026-08-24T09:32:06.075062+00:00",
+  "connected": true,
+  "timestamp": "2026-08-24T09:58:09.107864+00:00",
+  "last_seen": "2026-08-24T09:58:09.107864+00:00",
+  "last_connected": "2026-08-24T09:58:09.107864+00:00",
   "system": {
-    "pressure_actual_bar": 7.874,
+    "pressure_actual_bar": 7.811,
     "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7877,
+      "raw": 7831,
       "temp_c": null
     },
     {
@@ -10717,6 +10717,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-08-24T09:58:09.107864+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5150.0,
+        5148.0,
+        5150.0,
+        1396.0
+      ],
+      "st": [
+        2,
+        3,
+        1,
+        4
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -11092,20 +11132,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "unreachable",
-    "dns_ip": "101.168.15.127",
-    "detail": "",
-    "summary": "bidgee-pumps.duckdns.org -> 101.168.15.127: nothing answers on 80/443/502 - modem offline or IP released",
-    "checked_at": "2026-08-24T09:53:27.857934+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-08-24T09:53:32.310022+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "101.168.15.127",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
