@@ -604,7 +604,7 @@
            same height on every pill regardless of content */
         body.tv2-mode .tv2-body { flex: 1; min-height: 0; width: 100%; display: flex;
             flex-direction: column; align-items: center; justify-content: flex-start;
-            padding: 1vw 1.2vw 1.2vw; }
+            padding: 1vw 1.2vw 1.2vw; overflow: hidden; }
         body.tv2-mode .tv2-icon { height: 4.8vw; line-height: 4.8vw; margin: 0 0 0.4vw; flex-shrink: 0; }
         body.tv2-mode .tv2-val  { min-height: 6.8vw; display: flex; align-items: center;
             justify-content: center; flex-wrap: wrap; flex-shrink: 0; }
@@ -635,7 +635,8 @@
             display: flex; flex-direction: column; align-items: center; overflow: hidden;
             min-height: 0; text-align: center; }
         body.tv2-mode .tv2-st-body { flex: 1; min-height: 0; width: 100%; display: flex;
-            flex-direction: column; align-items: center; justify-content: center; padding: 0.6vw 1vw 1vw; }
+            flex-direction: column; align-items: center; justify-content: center; padding: 0.6vw 1vw 1vw;
+            overflow: hidden; }   /* content taller than the tile must clip, not bleed over the header */
         body.tv2-mode .tv2-st .st-val { font-size: 4.3vw; font-weight: bold; color: #fff; line-height: 1.05; }
         body.tv2-mode .tv2-st .st-sub { font-size: 1.5vw; color: rgba(255,255,255,0.85);
             margin-top: 0.7vw; line-height: 1.4; padding: 0 0.6vw; }
@@ -7006,7 +7007,8 @@ function renderTV2Station() {
     // keep "UV 3" as the value and move the category into the sub lines
     const uvParts = _tv2Txt('tile-uv-val').split(' - ');
     cell('tv2-st-uv', uvParts[0],
-        [uvParts.slice(1).join(' - '), ..._tv2Txt('tile-uv-explain', '').split('·').map(s => s.trim())].filter(Boolean),
+        [uvParts.slice(1).join(' - '), ..._tv2Txt('tile-uv-explain', '').split('·').map(s => s.trim())]
+            .filter(Boolean).slice(0, 2),   // 3+ sub lines overflow the fixed tile height
         _tv2Cls('tile-uv', ['gt-'], 'gt-idle'));
     cell('tv2-st-rh', _tv2Txt('go-st-rh'), _tv2Txt('go-st-dewlive', ''), 'gt-idle');
     cell('tv2-st-press', _tv2Txt('go-st-pressure'), _tv2Txt('go-st-deltat', ''), 'gt-idle');
