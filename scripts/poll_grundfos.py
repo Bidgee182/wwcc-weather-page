@@ -279,12 +279,18 @@ def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_s
         prev_code = (prev_pumps[i].get("alarm_code") or 0) if i < len(prev_pumps) and prev_pumps[i] else 0
         if curr_code == prev_code:
             continue
-        if curr_code and not prev_code:
+        # A direct code-to-code change (e.g. 190 -> 4 on 7 Aug 2026) must CLOSE
+        # the old code, or it stays 'active' forever in the history and the
+        # alert emails nag about it daily.
+        if prev_code and curr_code and prev_code != curr_code:
+            new_events.append(evt(2, "Alarm cleared", prev_code,
+                                  ALARM_DESCRIPTIONS.get(prev_code, f"Alarm code {prev_code}"),
+                                  pump["label"], "Pump"))
             tc, tn, code_to_log = 1, "Alarm appeared", curr_code
-        elif prev_code and not curr_code:
-            tc, tn, code_to_log = 2, "Alarm cleared", prev_code
+        elif curr_code and not prev_code:
+            tc, tn, code_to_log = 1, "Alarm appeared", curr_code
         else:
-            tc, tn, code_to_log = 1, "Alarm changed", curr_code
+            tc, tn, code_to_log = 2, "Alarm cleared", prev_code
         new_events.append(evt(tc, tn, code_to_log,
                               ALARM_DESCRIPTIONS.get(code_to_log, f"Alarm code {code_to_log}"),
                               pump["label"], "Pump"))
@@ -293,6 +299,11 @@ def update_alarm_history(pump_data, prev_pumps, alarm_code, warning_code, prev_s
     prev_alarm = ps.get("alarm_code") or 0
     curr_alarm = alarm_code or 0
     if curr_alarm != prev_alarm:
+        if prev_alarm and curr_alarm:
+            # superseded code (e.g. 4 <-> 210 flapping) is closed explicitly
+            new_events.append(evt(2, "Alarm cleared", prev_alarm,
+                                  ALARM_DESCRIPTIONS.get(prev_alarm, f"Alarm code {prev_alarm}"),
+                                  "System", "System"))
         if curr_alarm:
             # Cross-reference per-pump alarm registers to identify specific pump
             sys_pump_label = "System"

@@ -757,6 +757,16 @@ def main():
 
         # -- Fault alarm tracking (only when connected - data is current) ----
         current_active = active_alarms_from_history(events)
+        # Safety net: the history is a transition log and can miss a clear
+        # (a code-to-code change, an offline gap). The live registers are the
+        # truth - a code the station no longer reports is not active, however
+        # the history reads. (Aug 2026: code 190 nagged daily for 18 days.)
+        live_codes = {latest.get('system', {}).get('alarm_code') or 0}
+        live_codes.update((p.get('alarm_code') or 0) for p in latest.get('pumps', []))
+        for code in list(current_active.keys()):
+            if not (code.isdigit() and int(code) in live_codes):
+                log.info(f'Fault code {code} in history but not in live registers - treating as cleared')
+                del current_active[code]
         state_active   = state.get('active_alarms', {})
 
         # 1. Newly appeared alarms (in current but not tracked in state)
