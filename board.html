@@ -95,6 +95,16 @@
         .data-table tr:hover td { background:rgba(255,255,255,0.03); }
         .data-table tfoot td { border-top:2px solid #3d5166; font-weight:bold; color:#ecf0f1; border-bottom:none; }
 
+        /* ── Zone threshold table: current zone stands out, others fade ── */
+        .zt-cur td { background:rgba(255,255,255,0.07); font-weight:bold; color:#fff;
+            box-shadow: inset 4px 0 0 var(--zt-col, #5dade2); }
+        .zt-cur .zt-now { display:inline-block; margin-left:8px; font-size:0.72em; font-weight:700;
+            letter-spacing:1px; text-transform:uppercase; color:#1a252f; background:var(--zt-col, #5dade2);
+            padding:2px 8px; border-radius:10px; }
+        .zt-other td { opacity:0.38; }
+        .data-table tr.zt-other:hover td { opacity:0.7; }
+        @media print { .zt-other td { opacity:0.5; } .zt-cur td { background:#f1f5f9 !important; } }
+
         /* ── Zone pills ── */
         .zpill { display:inline-block; font-size:0.75em; font-weight:700; padding:3px 10px; border-radius:10px; white-space:nowrap; }
 
@@ -1889,9 +1899,10 @@ async function loadAll() {
         for (const z of _cfg.zone_thresholds) {
             const isCur = zone && z.zone === zone.zone;
             const tr = document.createElement('tr');
-            if (isCur) tr.style.fontWeight = 'bold';
+            tr.className = isCur ? 'zt-cur' : 'zt-other';
+            if (isCur) tr.style.setProperty('--zt-col', (ZONE_STYLE[z.zone] || {}).bg || '#5dade2');
             tr.innerHTML = `
-                <td>${zpill(z.zone)}${isCur?' &nbsp;&#9664;':''}</td>
+                <td>${zpill(z.zone)}${isCur ? '<span class="zt-now">Current</span>' : ''}</td>
                 <td>${z.min_ahd != null ? '&ge; '+z.min_ahd.toFixed(3)+' m AHD' : 'Below Level 4'}</td>
                 <td style="text-align:right;">${z.max_pump_ml_day} ML/day</td>`;
             thBody.appendChild(tr);
