@@ -1896,6 +1896,7 @@ async function loadAll() {
 
         // Zone threshold table
         const thBody = $('ov-threshold-body');
+        thBody.innerHTML = '';   // loadAll re-runs every 15 min - never append onto the old rows
         for (const z of _cfg.zone_thresholds) {
             const isCur = zone && z.zone === zone.zone;
             const tr = document.createElement('tr');
@@ -2011,6 +2012,7 @@ async function loadAll() {
         $('sv-cost-per-kl').textContent = costPerKl.toFixed(2);
 
         const svBody = $('sv-monthly-body');
+        svBody.innerHTML = '';
         let totDays = 0, totMl = 0, totMlDemand = 0, totSaving = 0;
         const monthKeys = Object.keys(seasonSav.byMonth).sort();
         for (const key of monthKeys) {
@@ -2146,6 +2148,8 @@ async function loadAll() {
         // ════════════════════════════════════════════════════════════════════
         const rainBody = $('rain-body');
         const balBody  = $('bal-body');
+        rainBody.innerHTML = '';
+        balBody.innerHTML  = '';
         const chartLabels = [], chartActuals = [], chartAvgs = [];
         let seasonRainTotal = 0, seasonAvgTotal = 0;
 
