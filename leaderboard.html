@@ -585,8 +585,11 @@ async function fetchData() {
         const _bEl = document.getElementById('ftr-build');
         if (_bEl) _bEl.textContent = 'v' + FRONTEND_VERSION;
 
-        // Store companion boards array; fall back to old single-companion field for compat
-        _companions = data.companions || (data.companion ? [data.companion] : []);
+        // Store companion boards array; fall back to old single-companion field for compat.
+        // 4BBB board is parked for now — add ?4bbb=1 to the URL to show it again.
+        const show4bbb = new URLSearchParams(location.search).get('4bbb') === '1';
+        _companions = (data.companions || (data.companion ? [data.companion] : []))
+            .filter(c => show4bbb || !((c.competition || '').toLowerCase().includes('4bbb')));
 
         if (!_hasData) {
             // First successful load - render everything immediately
