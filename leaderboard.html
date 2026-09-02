@@ -12,9 +12,9 @@ html, body {
     background: #0a1628; color: #ecf0f1;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     /* Scale with screen height so any TV resolution shows the same layout.
-       1.7vh ≈ 18px on a 1080p screen — denser than the original 22px so
+       1.85vh ≈ 20px on a 1080p screen — a touch denser than the original 22px so
        more rows fit. Override with ?fs= (e.g. ?fs=1.2 bigger, ?fs=0.85 smaller) */
-    font-size: clamp(11px, 1.7vh, 30px);
+    font-size: clamp(11px, 1.85vh, 32px);
 }
 
 #root {
@@ -477,7 +477,7 @@ const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/liv
 (() => {
     const fs = parseFloat(new URLSearchParams(location.search).get('fs'));
     if (!(fs > 0)) return;
-    const size = fs < 4 ? `calc(clamp(11px, 1.7vh, 30px) * ${fs})` : `${fs}px`;
+    const size = fs < 4 ? `calc(clamp(11px, 1.85vh, 32px) * ${fs})` : `${fs}px`;
     document.documentElement.style.fontSize = size;
     document.body.style.fontSize = size;
 })();
