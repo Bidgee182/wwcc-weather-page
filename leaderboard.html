@@ -19,7 +19,10 @@ html, body {
 
 #root {
     display: flex; flex-direction: column;
-    height: 100vh; padding: 0.73em 1.09em 0.55em; gap: 0.55em;
+    /* --edge: extra safe margin for TV overscan (TVs crop the picture edges).
+       Default 1.2vw each side; tune per TV with ?edge=<px> in the URL. */
+    height: 100vh; gap: 0.55em;
+    padding: 0.73em calc(1.09em + var(--edge, 1.2vw)) 0.55em;
 }
 
 /* ── Header ──────────────────────────────────────────────────────── */
@@ -475,11 +478,16 @@ const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/liv
 // TV size tweak: ?fs=1.2 makes everything 20% bigger, ?fs=0.85 smaller,
 // or an absolute pixel base like ?fs=18. No param = auto-scale to screen.
 (() => {
-    const fs = parseFloat(new URLSearchParams(location.search).get('fs'));
-    if (!(fs > 0)) return;
-    const size = fs < 4 ? `calc(clamp(11px, 1.85vh, 32px) * ${fs})` : `${fs}px`;
-    document.documentElement.style.fontSize = size;
-    document.body.style.fontSize = size;
+    const params = new URLSearchParams(location.search);
+    const fs = parseFloat(params.get('fs'));
+    if (fs > 0) {
+        const size = fs < 4 ? `calc(clamp(11px, 1.85vh, 32px) * ${fs})` : `${fs}px`;
+        document.documentElement.style.fontSize = size;
+        document.body.style.fontSize = size;
+    }
+    // Overscan safe margin: ?edge=40 adds 40px each side (0 disables)
+    const edge = parseFloat(params.get('edge'));
+    if (!isNaN(edge)) document.documentElement.style.setProperty('--edge', edge + 'px');
 })();
 const REFRESH_SEC = 15;
 
@@ -508,7 +516,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
