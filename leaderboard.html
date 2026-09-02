@@ -508,7 +508,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '6.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '6.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -638,6 +638,7 @@ function _companionLabel(c) {
 }
 
 function _applyPending() {
+    _lastApplyTs = Date.now();
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     if (_needsReload) { location.reload(); return; }
 
@@ -705,6 +706,17 @@ function _applyPending() {
     }
 }
 document.getElementById('lb-inner').addEventListener('animationend', () => setTimeout(_applyPending, 2000));
+
+// Watchdog: rotation normally advances via animationend / force timers, but if
+// those ever stall (e.g. a board that never scrolls, or a lost timer) the kiosk
+// would freeze on one board forever - and even a deployed frontend update could
+// not reload it. Recover automatically if nothing has applied for a while.
+let _lastApplyTs = Date.now();
+setInterval(() => {
+    const idleMs = Date.now() - _lastApplyTs;
+    if (_needsReload && idleMs > 120000) { location.reload(); return; }
+    if (_hasData && idleMs > 180000) _applyPending();
+}, 60000);
 
 // Apply buffered stories at the natural story-scroll loop point.
 // Guards against applying before a full scroll cycle has passed - so viewers
