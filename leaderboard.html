@@ -11,12 +11,15 @@ html, body {
     height: 100%; overflow: hidden;
     background: #0a1628; color: #ecf0f1;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 22px;
+    /* Scale with screen height so any TV resolution shows the same layout.
+       1.7vh ≈ 18px on a 1080p screen — denser than the original 22px so
+       more rows fit. Override with ?fs= (e.g. ?fs=1.2 bigger, ?fs=0.85 smaller) */
+    font-size: clamp(11px, 1.7vh, 30px);
 }
 
 #root {
     display: flex; flex-direction: column;
-    height: 100vh; padding: 16px 24px 12px; gap: 12px;
+    height: 100vh; padding: 0.73em 1.09em 0.55em; gap: 0.55em;
 }
 
 /* ── Header ──────────────────────────────────────────────────────── */
@@ -26,7 +29,7 @@ html, body {
     padding-bottom: 12px; border-bottom: 2px solid #27ae60;
     flex-shrink: 0;
 }
-.hdr-logo { height: 58px; width: auto; }
+.hdr-logo { height: 2.64em; width: auto; }
 .hdr-center { text-align: center; min-width: 0; }
 .hdr-comp {
     font-size: 1.45em; font-weight: bold; letter-spacing: 3px;
@@ -43,7 +46,7 @@ html, body {
 .hdr-date { font-size: 0.8em; color: #bdc3c7; margin-top: 4px; }
 
 /* ── Main layout ─────────────────────────────────────────────────── */
-.main { flex: 1; display: flex; gap: 14px; min-height: 0; overflow: hidden; }
+.main { flex: 1; display: flex; gap: 0.64em; min-height: 0; overflow: hidden; }
 
 /* ── Leaderboard panel ───────────────────────────────────────────── */
 .lb-panel {
@@ -72,7 +75,7 @@ html, body {
 .col-hdr {
     display: grid;
     grid-template-columns: 3em 1fr 6em 3.2em;
-    gap: 6px; padding: 5px 16px;
+    gap: 0.27em; padding: 0.23em 0.73em;
     background: rgba(0,0,0,0.25); flex-shrink: 0;
     font-size: 1.02em; font-weight: bold; letter-spacing: 1.5px;
     text-transform: uppercase; color: #4a6a84;
@@ -100,12 +103,12 @@ html, body {
     to   { transform: translateY(-100%); }
 }
 .lb-scroll-inner.scrolling { animation: lb-scroll linear 1 forwards; }
-.lb-gap { height: 80px; }
+.lb-gap { height: 3.64em; }
 
 .lb-row {
     display: grid;
     grid-template-columns: 3em 1fr 6em 3.2em;
-    gap: 6px; padding: 10px 16px;
+    gap: 0.27em; padding: 0.45em 0.73em;
     align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.04);
 }
@@ -247,8 +250,8 @@ html, body {
 }
 .grade-strip.visible { display: block; }
 .grade-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 5px 16px;
+    display: flex; align-items: center; gap: 0.45em;
+    padding: 0.23em 0.73em;
     border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .grade-row:last-child { border-bottom: none; }
@@ -468,6 +471,16 @@ html, body {
 </div>
 <script>
 const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/live-leaderboard.json';
+
+// TV size tweak: ?fs=1.2 makes everything 20% bigger, ?fs=0.85 smaller,
+// or an absolute pixel base like ?fs=18. No param = auto-scale to screen.
+(() => {
+    const fs = parseFloat(new URLSearchParams(location.search).get('fs'));
+    if (!(fs > 0)) return;
+    const size = fs < 4 ? `calc(clamp(11px, 1.7vh, 30px) * ${fs})` : `${fs}px`;
+    document.documentElement.style.fontSize = size;
+    document.body.style.fontSize = size;
+})();
 const REFRESH_SEC = 15;
 
 let _countdown    = REFRESH_SEC;
