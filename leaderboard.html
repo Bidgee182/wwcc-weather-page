@@ -226,7 +226,7 @@ html, body {
 .ftr-dot.fresh { background: #27ae60; box-shadow: 0 0 6px rgba(39,174,96,0.6); }
 .ftr-dot.stale { background: #e67e22; }
 .ftr-dot.down  { background: #e74c3c; }
-.ftr-build  { font-size: 0.62em; color: #2a3f52; letter-spacing: 0.05em; }
+.ftr-build  { font-size: 0.62em; color: #4a6a84; letter-spacing: 0.05em; }
 .ftr-results { color: #4a6a84; font-size: 0.75em; text-decoration: none; }
 .ftr-results:hover { color: #7f8c8d; }
 
@@ -516,7 +516,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -591,7 +591,9 @@ async function fetchData() {
 
         // Footer build tag: the running frontend version.
         const _bEl = document.getElementById('ftr-build');
-        if (_bEl) _bEl.textContent = 'v' + FRONTEND_VERSION;
+        if (_bEl) _bEl.textContent = 'v' + FRONTEND_VERSION + ' · ' +
+            window.innerWidth + '×' + window.innerHeight +
+            (window.devicePixelRatio !== 1 ? ' @' + window.devicePixelRatio.toFixed(2) : '');
 
         // Store companion boards array; fall back to old single-companion field for compat.
         // 4BBB board is parked for now — add ?4bbb=1 to the URL to show it again.
