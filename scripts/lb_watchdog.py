@@ -146,23 +146,26 @@ def fetch_board_list():
     'guest' (public host lost the org but the guest JSON API works - the
     poller's fallback source since 3 Sep 2026), 'org-missing' (both dead)
     or 'error: ...'."""
+    from datetime import date
+    today = date.today().isoformat()
+
+    def _todays(comps):
+        return sorted(c["leaderboardId"] for c in comps if c.get("date") == today)
+
     public_dead = False
     try:
-        from miscore.webscrape import BASE, _get
+        from miscore.webscrape import BASE, _get, list_competitions
         page = _get(f"{BASE}/show-leaderboards?club=wwcc&days=1")
         if "Organisation doesn" in page or "doesn&#039;t exist" in page:
             public_dead = True
         else:
-            return "ok", sorted(set(re.findall(r"leaderboardId=(\d+)", page)))
+            # days=1 covers today AND yesterday - count only today's boards
+            return "ok", _todays(list_competitions("wwcc", 1))
     except Exception:
         public_dead = True
     try:
         from miscore.guestapi import guest_list_competitions
-        from datetime import date
-        comps = guest_list_competitions("wwcc", 1)
-        today = date.today().isoformat()
-        ids = sorted(c["leaderboardId"] for c in comps if c.get("date") == today)
-        return ("guest", ids)
+        return "guest", _todays(guest_list_competitions("wwcc", 1))
     except Exception as e:
         return ("org-missing" if public_dead else f"error: {e}"), []
 
