@@ -19,10 +19,11 @@ html, body {
 
 #root {
     display: flex; flex-direction: column;
-    /* --edge: extra safe margin for TV overscan (TVs crop the picture edges).
-       Default 1.2vw each side; tune per TV with ?edge=<px> in the URL. */
+    /* --edge: safe margin for TV overscan (TVs crop the picture edges). Small
+       by default so the board runs near edge-to-edge; if the real TV crops the
+       sides, add ?edge=30 (px) to the URL to pad them back in. */
     height: 100vh; gap: 0.55em;
-    padding: 0.73em calc(1.09em + var(--edge, 2vw)) 0.55em;
+    padding: 0.5em calc(0.5em + var(--edge, 0.4vw)) 0.4em;
 }
 
 /* ── Header ──────────────────────────────────────────────────────── */
@@ -53,7 +54,7 @@ html, body {
 
 /* ── Leaderboard panel ───────────────────────────────────────────── */
 .lb-panel {
-    flex: 1.05; display: flex; flex-direction: column; min-height: 0; min-width: 0; font-size: 1.44em;
+    flex: 1.45; display: flex; flex-direction: column; min-height: 0; min-width: 0; font-size: 1.44em;
     background: #1e2f3e; border: 2px solid #4a6a84; border-top: 4px solid #27ae60;
     border-radius: 12px; overflow: hidden;
 }
@@ -136,7 +137,7 @@ html, body {
 
 /* ── Side panels ─────────────────────────────────────────────────── */
 .side-panels {
-    flex: 1.5; display: flex; flex-direction: column; gap: 0.55em; min-height: 0; min-width: 0; font-size: 1.44em;
+    flex: 1.1; display: flex; flex-direction: column; gap: 0.55em; min-height: 0; min-width: 0; font-size: 1.44em;
 }
 .side-card {
     flex: 1; display: flex; flex-direction: column; min-height: 0;
@@ -248,7 +249,7 @@ html, body {
 /* ── Grade winners bar (full-width, below the two columns) ───────────── */
 .grade-strip {
     flex-shrink: 0; display: none;
-    margin: 0.55em 1.09em 0;
+    margin: 0.5em 0.5em 0;
     gap: 0.64em;
     /* Three grade columns side by side across the full width */
 }
@@ -481,7 +482,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1127,8 +1128,8 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         if (!el) return;
         const all = gradeAll[gk];
         if (!all.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
-        // Top 2 per grade (winner + runner-up) so names stay legible on the bar
-        const top = all.slice(0, 2);
+        // Grade winner only - one clear name per grade keeps the bar legible
+        const top = all.slice(0, 1);
         el.innerHTML = top.map((p, i) =>
             '<div class="grade-item">' +
                 '<span class="grade-medal-sm">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
