@@ -1,0 +1,53 @@
+{
+ "updatedAt": "2026-09-03T04:19:51.538769+00:00",
+ "window": "day",
+ "alertsActive": [],
+ "competition": null,
+ "compDate": null,
+ "playerCount": null,
+ "pollAgeMin": 0.2,
+ "officialResultsReady": false,
+ "prizes": {
+  "ntp": 0,
+  "ld": 0,
+  "balls": 0
+ },
+ "checks": [
+  {
+   "key": "stale",
+   "label": "Poller freshness",
+   "status": "ok",
+   "detail": "Updated 0 min ago"
+  },
+  {
+   "key": "creds",
+   "label": "WWCC login secrets",
+   "status": "ok",
+   "detail": "Present"
+  },
+  {
+   "key": "players",
+   "label": "Field size",
+   "status": "ok",
+   "detail": "0 players"
+  },
+  {
+   "key": "accuracy",
+   "label": "Matches MiScore",
+   "status": "idle",
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf",
+   "label": "Results PDF",
+   "status": "idle",
+   "detail": "Awaiting official results"
+  },
+  {
+   "key": "ntpld",
+   "label": "NTP / Longest Drive",
+   "status": "idle",
+   "detail": "Awaiting official results"
+  }
+ ]
+}
