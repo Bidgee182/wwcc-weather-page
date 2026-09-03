@@ -77,7 +77,7 @@ html, body {
 
 .col-hdr {
     display: grid;
-    grid-template-columns: 3em 1fr 6em 3.2em;
+    grid-template-columns: 2.6em 1fr 3.6em 2.3em;
     gap: 0.27em; padding: 0.23em 0.73em;
     background: rgba(0,0,0,0.25); flex-shrink: 0;
     font-size: 1.02em; font-weight: bold; letter-spacing: 1.5px;
@@ -110,7 +110,7 @@ html, body {
 
 .lb-row {
     display: grid;
-    grid-template-columns: 3em 1fr 6em 3.2em;
+    grid-template-columns: 2.6em 1fr 3.6em 2.3em;
     gap: 0.27em; padding: 0.45em 0.73em;
     align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -245,28 +245,32 @@ html, body {
 .no-data-sub   { font-size: 1.1em; color: #7f8c8d; line-height: 1.5; white-space: pre-line; }
 .no-data-err   { font-size: 1.05em; color: #e74c3c; margin-top: 8px; }
 
-/* ── Grade leader strip ──────────────────────────────────────────── */
+/* ── Grade winners bar (full-width, below the two columns) ───────────── */
 .grade-strip {
     flex-shrink: 0; display: none;
-    background: rgba(0,0,0,0.2);
-    border-bottom: 2px solid #2a3f52;
+    margin: 0.55em 1.09em 0;
+    gap: 0.64em;
+    /* Three grade columns side by side across the full width */
 }
-.grade-strip.visible { display: block; }
-.grade-row {
-    display: flex; align-items: center; gap: 0.45em;
-    padding: 0.23em 0.73em;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+.grade-strip.visible { display: flex; }
+.grade-col {
+    flex: 1; min-width: 0;
+    background: #1e2f3e; border: 2px solid #4a6a84; border-top: 4px solid #27ae60;
+    border-radius: 10px; padding: 0.32em 0.73em;
+    display: flex; align-items: center; gap: 0.73em;
 }
-.grade-row:last-child { border-bottom: none; }
+#grade-col-a { border-top-color: #f1c40f; }
+#grade-col-b { border-top-color: #bdc3c7; }
+#grade-col-c { border-top-color: #cd7f32; }
 .grade-label {
-    font-size: 0.9em; font-weight: bold; letter-spacing: 1px;
-    color: #4a6a84; width: 6em; flex-shrink: 0; text-transform: uppercase;
+    font-size: 0.82em; font-weight: bold; letter-spacing: 1px;
+    color: #8fb8cc; flex-shrink: 0; text-transform: uppercase;
 }
-.grade-leaders-list { display: grid; grid-template-columns: repeat(3, 1fr); min-width: 0; overflow: hidden; align-items: center; }
-.grade-item { display: flex; align-items: center; gap: 3px; min-width: 0; overflow: hidden; }
-.grade-medal-sm { font-size: 1.17em; flex-shrink: 0; }
-.grade-name-sm  { font-size: 1.08em; color: #ecf0f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.grade-pts-sm   { font-size: 1.08em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
+.grade-leaders-list { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; min-width: 0; overflow: hidden; align-items: center; }
+.grade-item { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.grade-medal-sm { font-size: 1.25em; flex-shrink: 0; }
+.grade-name-sm  { font-size: 1.15em; color: #ecf0f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.grade-pts-sm   { font-size: 1.15em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
 
 /* Grade badge in scrolling rows */
 .grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
@@ -279,30 +283,6 @@ html, body {
 .story-name-red    { color: #e74c3c; }
 .story-name-blue   { color: #5dade2; }
 
-/* ── Results 3-column layout ─────────────────────────────────────── */
-.results-grade-panel {
-    display: none; flex: 1.4; flex-direction: column; gap: 0.45em; min-height: 0; min-width: 0;
-}
-.main.results-mode .results-grade-panel { display: flex; }
-.main.results-mode .lb-panel { flex: 1.4; }
-.main.results-mode .grade-strip { display: none !important; }
-
-.grade-card {
-    flex: 1; min-height: 0; display: flex; flex-direction: column;
-    background: #1e2f3e; border: 2px solid #4a6a84; border-radius: 12px; overflow: hidden;
-}
-.grade-card-hdr {
-    background: rgba(0,0,0,0.4); padding: 7px 14px; flex-shrink: 0;
-    font-size: 0.78em; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; color: #4a6a84;
-}
-.grade-card-body {
-    flex: 1; display: flex; flex-direction: column; justify-content: center;
-    padding: 8px 14px; gap: 10px;
-}
-.grade-podium-row   { display: flex; align-items: center; gap: 8px; }
-.grade-podium-medal { font-size: 1.7em; flex-shrink: 0; line-height: 1; }
-.grade-podium-name  { flex: 1; font-size: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.grade-podium-pts   { font-size: 1.65em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
 
 /* ── Mobile / small screen responsive ───────────────────────────── */
 @media (max-width: 900px) {
@@ -329,12 +309,9 @@ html, body {
     .side-list { height: 260px; overflow: hidden; padding: 0; }
     .side-list-inner { padding: 8px 12px 6px; }
 
-    /* Grade strip: hidden during live play, shown in results mode */
-    .grade-strip { display: none; }
-    .grade-strip.visible { display: block; }
-    /* Results left-panel and layout adjustments not applicable on mobile */
-    .main.results-mode .results-grade-panel { display: none !important; }
-    .main.results-mode .lb-panel { flex: none; height: 55vh; }
+    /* Grade winners bar: stack the three columns on mobile */
+    .grade-strip { margin: 8px 10px 0; }
+    .grade-strip.visible { display: flex; flex-direction: column; }
 
     .col-hdr { grid-template-columns: 2.5em 1fr 5.5em 3em; }
     .lb-row  { grid-template-columns: 2.5em 1fr 5.5em 3em; padding: 6px 10px; }
@@ -386,41 +363,12 @@ html, body {
 
   <main class="main">
 
-    <section class="results-grade-panel" id="results-grade-panel">
-      <div class="grade-card" style="border-top:4px solid #f1c40f">
-        <div class="grade-card-hdr">A Grade</div>
-        <div class="grade-card-body" id="grade-card-a-body"></div>
-      </div>
-      <div class="grade-card" style="border-top:4px solid #bdc3c7">
-        <div class="grade-card-hdr">B Grade</div>
-        <div class="grade-card-body" id="grade-card-b-body"></div>
-      </div>
-      <div class="grade-card" style="border-top:4px solid #cd7f32">
-        <div class="grade-card-hdr">C Grade</div>
-        <div class="grade-card-body" id="grade-card-c-body"></div>
-      </div>
-    </section>
-
     <section class="lb-panel">
       <div class="col-hdr">
         <span class="col-hdr-rank">#</span>
         <span class="col-hdr-name">Player</span>
         <span class="col-hdr-pts" id="col-hdr-pts">Pts</span>
         <span class="col-hdr-thru">Thru</span>
-      </div>
-      <div class="grade-strip" id="grade-strip">
-        <div class="grade-row">
-          <span class="grade-label">A Grade</span>
-          <div class="grade-leaders-list" id="grade-a"></div>
-        </div>
-        <div class="grade-row">
-          <span class="grade-label">B Grade</span>
-          <div class="grade-leaders-list" id="grade-b"></div>
-        </div>
-        <div class="grade-row">
-          <span class="grade-label">C Grade</span>
-          <div class="grade-leaders-list" id="grade-c"></div>
-        </div>
       </div>
       <div class="lb-scroll-clip" id="lb-clip">
         <div id="lb-top3"></div>
@@ -451,6 +399,23 @@ html, body {
     </aside>
 
   </main>
+
+  <!-- Grade winners: full-width bar under the two columns, shown once results
+       are official. Keeps leaderboard + stories at full width (no 3rd column). -->
+  <div class="grade-strip" id="grade-strip">
+    <div class="grade-col" id="grade-col-a">
+      <span class="grade-label">A Grade</span>
+      <div class="grade-leaders-list" id="grade-a"></div>
+    </div>
+    <div class="grade-col" id="grade-col-b">
+      <span class="grade-label">B Grade</span>
+      <div class="grade-leaders-list" id="grade-b"></div>
+    </div>
+    <div class="grade-col" id="grade-col-c">
+      <span class="grade-label">C Grade</span>
+      <div class="grade-leaders-list" id="grade-c"></div>
+    </div>
+  </div>
 
   <div class="ntpld-bar" id="ntpld-bar" style="display:none">
     <div class="ntpld-scroll">
@@ -516,7 +481,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1070,12 +1035,10 @@ function fmtScore(pts) {
 
 function renderGradeStrip(activeSorted, grades, holeCount, competition, roundComplete, officialResultsReady) {
     const strip  = document.getElementById('grade-strip');
-    const panel  = document.getElementById('results-grade-panel');
     const mainEl = document.querySelector('.main');
 
     function exitResults() {
         if (strip)  strip.classList.remove('visible');
-        if (panel)  panel.style.display = 'none';
         if (mainEl) mainEl.classList.remove('results-mode');
     }
 
@@ -1144,13 +1107,11 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         return used ? '<sup style="font-size:0.55em;color:#f39c12;vertical-align:super">CB</sup>' : '';
     }
 
-    // Show/hide C grade elements based on grade count
-    const cRow = document.getElementById('grade-c')?.closest('.grade-row');
-    if (cRow) cRow.style.display = gradeCount >= 3 ? '' : 'none';
-    const cCard = document.getElementById('grade-card-c-body')?.closest('.grade-card');
-    if (cCard) cCard.style.display = gradeCount >= 3 ? '' : 'none';
+    // Show/hide the C-grade column based on grade count
+    const cCol = document.getElementById('grade-col-c');
+    if (cCol) cCol.style.display = gradeCount >= 3 ? '' : 'none';
 
-    // Compact grade strip (inside leaderboard - hidden in results mode by CSS, kept for live use)
+    // Fill each grade column's top 3 (full-width bottom bar)
     gradeKeys.forEach(gk => {
         const el = document.getElementById('grade-' + gk.toLowerCase());
         if (!el) return;
@@ -1166,24 +1127,7 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         ).join('');
     });
 
-    // Expanded grade cards (left results panel)
-    gradeKeys.forEach(gk => {
-        const body = document.getElementById('grade-card-' + gk.toLowerCase() + '-body');
-        if (!body) return;
-        const all = gradeAll[gk];
-        if (!all.length) { body.innerHTML = '<div style="color:#4a6a84;text-align:center">-</div>'; return; }
-        const top = all.slice(0, 3);
-        body.innerHTML = top.map((p, i) =>
-            '<div class="grade-podium-row">' +
-                '<span class="grade-podium-medal">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
-                '<span class="grade-podium-name">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-podium-pts">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</span>' +
-            '</div>'
-        ).join('');
-    });
-
     if (strip)  strip.classList.add('visible');
-    if (panel)  panel.style.display = 'flex';
     if (mainEl) mainEl.classList.add('results-mode');
 }
 
