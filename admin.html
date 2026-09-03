@@ -375,6 +375,19 @@
         while broken). This card runs the same test from your browser right now.</p>
     </div>
     <div class="card">
+        <h2>Golf Leaderboard Health</h2>
+        <div id="lb-health-summary" style="font-size:0.9em;color:#7f8c8d;margin-bottom:8px;">Loading...</div>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
+            <tbody id="lb-health-rows"><tr><td colspan="3">Loading...</td></tr></tbody>
+        </table></div>
+        <p class="note">The Leaderboard Watchdog workflow runs every 15 min during play: it
+        verifies the TV board is fresh and matches MiScore, checks the results PDF / NTP /
+        Longest Drive parsing, restarts a dead poll chain itself, and emails on persistent
+        problems, recoveries, and each comp's results-parse confirmation. Its emails appear
+        in the Send Log like every other WWCC send.</p>
+    </div>
+    <div class="card">
         <h2>Workflow Health - Last 14 Days</h2>
         <div id="wf-strips">Loading...</div>
     </div>
@@ -1272,8 +1285,38 @@ function enterApp() {
     recTryStored();
     secPopulate();
     wxPathCheck();
+    lbHealthCheck();
     if (!window._healthTimer) window._healthTimer = setInterval(loadHealth, 5 * 60000);
     if (!window._wxPathTimer) window._wxPathTimer = setInterval(wxPathCheck, 5 * 60000);
+    if (!window._lbHealthTimer) window._lbHealthTimer = setInterval(lbHealthCheck, 5 * 60000);
+}
+
+// ── Golf leaderboard health card (out/lb-health.json from Leaderboard Watchdog) ──
+async function lbHealthCheck() {
+    const sum = $('lb-health-summary'), body = $('lb-health-rows');
+    if (!sum || !body) return;
+    const COL = { ok: '#2ecc71', warn: '#f39c12', crit: '#e74c3c', idle: '#7f8c8d' };
+    const LBL = { ok: 'OK', warn: 'WARN', crit: 'FAULT', idle: 'idle' };
+    const esc = s => String(s ?? '').replace(/[&<>"]/g,
+        c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    try {
+        const h = await fetch('out/lb-health.json?cb=' + Date.now()).then(r => r.json());
+        const age = Math.round((Date.now() - new Date(h.updatedAt)) / 60000);
+        const alerts = (h.alertsActive || []).length;
+        sum.innerHTML =
+            `<b style="color:${alerts ? '#e74c3c' : '#2ecc71'}">${alerts ? alerts + ' active alert(s)' : 'Healthy'}</b>`
+            + ` &middot; ${esc(h.competition || 'no comp')} ${esc(h.compDate || '')}`
+            + ` &middot; ${h.playerCount ?? 0} players`
+            + ` &middot; prizes: ${h.prizes?.ntp ?? 0} NTP / ${h.prizes?.ld ?? 0} LD / ${h.prizes?.balls ?? 0} balls`
+            + ` &middot; checked ${age} min ago${h.window === 'night' ? ' (overnight idle)' : ''}`;
+        body.innerHTML = (h.checks || []).map(c =>
+            `<tr><td>${esc(c.label)}</td>`
+            + `<td><span class="pill" style="background:${COL[c.status]}22;color:${COL[c.status]}">${LBL[c.status] || c.status}</span></td>`
+            + `<td style="color:#7f8c8d">${esc(c.detail || '')}</td></tr>`).join('');
+    } catch {
+        sum.textContent = 'No health data yet - the Leaderboard Watchdog workflow has not run.';
+        body.innerHTML = '<tr><td colspan="3">-</td></tr>';
+    }
 }
 
 // ── Live weather path check (same route the greenkeeper/lake pages use) ──────

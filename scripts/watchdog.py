@@ -32,7 +32,7 @@ WORKFLOW_ID = os.environ.get("WF_WORKFLOW_ID", "")
 MAX_ATTEMPTS = 3
 
 # Data-only workflow: a re-run can never send anything, always safe to retry
-ALWAYS_SAFE = {"FarmBot Tank Poll"}
+ALWAYS_SAFE = {"FarmBot Tank Poll", "Live Golf Leaderboard Poll"}
 
 
 def gh(path, method="GET", body=None):

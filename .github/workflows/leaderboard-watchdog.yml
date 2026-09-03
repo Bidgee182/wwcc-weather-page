@@ -1,0 +1,56 @@
+name: Leaderboard Watchdog
+
+# Every 15 min during the polling window: verifies the published leaderboard is
+# fresh and matches MiScore, checks PDF results / NTP / Longest Drive parsing,
+# re-dispatches a dead poll chain, and emails Andrew on persistent problems,
+# recoveries, and each comp's results-parse confirmation.
+# Logic lives in scripts/lb_watchdog.py; window gating is inside the script.
+
+on:
+  schedule:
+    - cron: '*/15 17-23,0-11 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: leaderboard-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run leaderboard checks
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python scripts/lb_watchdog.py
+
+      - name: Commit state and health card
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add out/lb-watchdog-state.json out/lb-health.json data/email_log.csv
+          if git diff --staged --quiet; then
+            echo "No watchdog state changes"
+            exit 0
+          fi
+          git commit -m "Leaderboard watchdog $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for j in 1 2 3 4 5; do
+            if git pull --rebase -X theirs origin main && git push; then exit 0; fi
+            echo "Push attempt $j failed, retrying in $((j*5))s..."
+            sleep $((j * 5))
+          done
+          echo "WARNING: could not push watchdog state"

@@ -12,6 +12,8 @@ on:
       - "Lake Albert Email Reports"
       - "Board Lake Update Email"
       - "FarmBot Tank Poll"
+      - "Live Golf Leaderboard Poll"
+      - "Leaderboard Watchdog"
     types: [completed]
   schedule:
     - cron: '18 * * * *'   # hourly: live weather path check (wx_path_check.py)
