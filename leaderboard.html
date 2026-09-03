@@ -482,7 +482,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -639,6 +639,10 @@ function _applyPending() {
             const ptsHdr = document.getElementById('col-hdr-pts');
             if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
             renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
+            // Companions don't carry the primary's grade winners - hide the bar
+            // (renderLeaderboard reads primary globals, so force it off here).
+            document.getElementById('grade-strip')?.classList.remove('visible');
+            document.querySelector('.main')?.classList.remove('results-mode');
             setHeader('⛳ ' + (c.competition || 'Leaderboard') + ' - Leaderboard', meta.join(' - '));
             // Show companion stories immediately; hide blue ball (men's-only feature)
             const cStories = c.stories || [];
