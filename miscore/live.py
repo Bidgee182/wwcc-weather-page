@@ -2554,14 +2554,10 @@ def _finalize_stories(cands, tier_rank, limit=55):
     for key in order:
         c = folded[key]
         players = [p for p in c["_players"] if p]
-        if not players:
-            c["player"] = ""
-        elif len(players) == 1:
-            c["player"] = players[0]
-        elif len(players) == 2:
-            c["player"] = f"{players[0]} & {players[1]}"
-        else:
-            c["player"] = f"{players[0]}, {players[1]} & {len(players) - 2} others"
+        # One name per story: when several players share the same stat, credit
+        # only the top-ranked one (candidates arrive in rank order). A single
+        # candidate that is itself a 4BBB pair ("A & B") is left as-is.
+        c["player"] = players[0] if players else ""
         ranked_c.append(c)
     ranked_c.sort(key=lambda c: -c.get("_score", 0))
 
