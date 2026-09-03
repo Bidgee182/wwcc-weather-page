@@ -56,9 +56,15 @@ def main():
             if path == "/":
                 # queue same-host links that smell like golf/comp/score pages
                 for href in set(re.findall(r'href="([^"]+)"', page)):
-                    if re.search(r"golf|comp|result|score|leader|event|fixture", href, re.I) \
-                            and not href.startswith(("http", "#", "mailto")):
-                        crawl_queue.append(href if href.startswith("/") else "/" + href)
+                    if not re.search(r"golf|comp|result|score|leader|event|fixture", href, re.I):
+                        continue
+                    if href.startswith("#") or href.startswith("mailto"):
+                        continue
+                    if href.startswith("http"):
+                        if _WWCC_BASE not in href:
+                            continue
+                        href = href[len(_WWCC_BASE):]
+                    crawl_queue.append(href if href.startswith("/") else "/" + href)
         except Exception as e:
             print(f"fetch {path} failed: {e}")
 
