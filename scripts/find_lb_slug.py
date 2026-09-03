@@ -46,14 +46,31 @@ def main():
     jar = _wwcc_login()
     print("login:", "OK" if jar else "FAILED (checking public pages only)")
     found = set()
+    crawl_queue = []
     for path in PAGES:
         url = _WWCC_BASE + path
         try:
             page = _wwcc_get(url, jar)
             print(f"fetched {path} ({len(page)} bytes)")
             found |= scan(page, path)
+            if path == "/":
+                # queue same-host links that smell like golf/comp/score pages
+                for href in set(re.findall(r'href="([^"]+)"', page)):
+                    if re.search(r"golf|comp|result|score|leader|event|fixture", href, re.I) \
+                            and not href.startswith(("http", "#", "mailto")):
+                        crawl_queue.append(href if href.startswith("/") else "/" + href)
         except Exception as e:
             print(f"fetch {path} failed: {e}")
+
+    for path in sorted(set(crawl_queue))[:20]:
+        try:
+            page = _wwcc_get(_WWCC_BASE + path, jar)
+            hits = scan(page, path)
+            if hits:
+                print(f"crawled {path} ({len(page)} bytes) - {len(hits)} hit(s)")
+            found |= hits
+        except Exception as e:
+            print(f"crawl {path} failed: {type(e).__name__}")
 
     # Also probe the leaderboard host with any club= values we discovered
     import urllib.request
