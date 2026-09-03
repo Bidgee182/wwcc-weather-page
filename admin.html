@@ -1574,6 +1574,36 @@ async function loadHealth() {
         cards.push({ title: 'Pump Station (CIM 500)', state: worst(pCls) || 'warn', html: pParts.join('') });
     } catch { cards.push({ title: 'Pump Station (CIM 500)', state: 'warn', html: 'Could not load pump data.' }); }
 
+    // ── Golf Leaderboard card (out/lb-health.json from the Leaderboard Watchdog) ──
+    try {
+        const lb = await fetch('out/lb-health.json' + cb).then(r => r.json());
+        const night = lb.window === 'night';
+        const ageMin = Math.round((Date.now() - new Date(lb.updatedAt)) / 60000);
+        const map = { ok: 'lg', warn: 'ly', crit: 'lr', idle: 'lgrey' };
+        const parts = [], cls = [];
+        // Watchdog's own heartbeat first - a stalled watchdog hides everything else
+        const hb = night ? 'lgrey' : ageMin > 25 ? 'lr' : 'lg';
+        if (hb === 'lr') issues.push('Leaderboard watchdog stalled');
+        cls.push(hb === 'lgrey' ? 'lg' : hb);
+        parts.push(rowHtml('Watchdog check', hb,
+            night ? 'overnight idle' : ago(lb.updatedAt) || 'never'));
+        parts.push(rowHtml('Competition', lb.competition ? 'lg' : 'lgrey',
+            lb.competition
+                ? `${lb.competition} - ${lb.playerCount ?? 0} players`
+                : 'no comp today'));
+        for (const c of lb.checks || []) {
+            const lc = night ? 'lgrey' : (map[c.status] || 'lgrey');
+            cls.push(lc === 'lgrey' ? 'lg' : lc);
+            if (lc === 'lr') issues.push('Leaderboard: ' + c.label.toLowerCase());
+            parts.push(rowHtml(c.label, lc, c.detail || ''));
+        }
+        if (lb.officialResultsReady) {
+            parts.push(rowHtml('Prizes parsed', 'lg',
+                `${lb.prizes?.ntp ?? 0} NTP / ${lb.prizes?.ld ?? 0} LD / ${lb.prizes?.balls ?? 0} balls`));
+        }
+        cards.push({ title: 'Golf Leaderboard (TV)', state: night ? 'ok' : worst(cls), html: parts.join('') });
+    } catch { cards.push({ title: 'Golf Leaderboard (TV)', state: 'warn', html: 'No watchdog data yet.' }); }
+
     // ── Emails card ──
     try {
         const txt = await fetch('data/email_log.csv' + cb).then(r => r.text());
