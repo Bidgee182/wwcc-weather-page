@@ -2632,6 +2632,14 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
     # MiClub individual scorecards for ambrose show only subtotals (no per-hole data), so
     # scorecard-derived thru/points are ignored in favour of the board page columns.
     is_ambrose = "ambrose" in board["name"].lower()
+    # Four-ball Aggregate (e.g. WWCC "Wednesday 4BBB Stableford"): each row is a
+    # 2-player pair and the board's Total column is the COMBINED points of both
+    # players (Scroope 40 + Wright 39 = 79). Individual scorecards can't be summed
+    # to that, so - like ambrose - trust the board Total column, not the cards.
+    _bl = board["name"].lower()
+    _fmt = (guest.get("format", "") if guest else "").lower()
+    is_fourball = ("4bbb" in _bl or "four-ball" in _bl or "fourball" in _bl
+                   or "four ball" in _bl or "aggregate" in _fmt or "four-ball" in _fmt)
     field_ = guest["field"] if guest else _board_players(page)
 
     if guest:
@@ -2692,6 +2700,18 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             else:
                 log.info("ambrose allowance not found playerNo=%s page_len=%d",
                          base_.get("playerNo"), len(page_c) if page_c else 0)
+        elif is_fourball:
+            # Four-ball aggregate: the board Total column already holds the
+            # combined points of both players - use it directly (higher = better,
+            # stays stableford). Scorecards would only give one player's card.
+            if board_thru_raw == "F":
+                thru = hole_count or 18
+            elif board_thru is not None:
+                thru = board_thru
+            else:
+                thru = 0
+            points = board_total if board_total is not None else 0
+            birdies = 0
         elif guest:
             # Guest API: no scorecards, so board columns are authoritative -
             # thru straight from the feed, points/net from the nett column.
