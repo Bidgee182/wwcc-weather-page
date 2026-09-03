@@ -2564,12 +2564,29 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
          prev_story: dict | None = None, prev_found_at: str | None = None) -> dict:
     """One full read of a board -> kiosk JSON."""
     board_id = board["leaderboardId"]
-    page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
+    # Primary: public leaderboard host HTML. Fallback: MiScore guest JSON API
+    # on the club's own host (no per-hole data, board-level scores only) -
+    # added 3 Sep 2026 when the public host lost the wwcc organisation.
+    try:
+        page = _get(f"{BASE}/display-leaderboard?club={club}&leaderboardId={board_id}")
+    except Exception:
+        page = ""
+    guest = None
+    if not page or "Organisation doesn" in page or "doesn&#039;t exist" in page:
+        from .guestapi import guest_board
+        guest = guest_board(club, board_id)
+        page = ""
+        if guest:
+            log.info("public leaderboard host unavailable - using guest API for board %s", board_id)
+        else:
+            log.warning("board %s unavailable on both public host and guest API", board_id)
     # Monthly Medal is ALWAYS stroke regardless of what the scrape says.
     if "medal" in board["name"].lower():
         comp_type = "Stroke"
     elif "stableford" in board["name"].lower():
         comp_type = "Stableford"
+    elif guest and guest.get("format"):
+        comp_type = guest["format"]
     else:
         type_m = re.search(r"-?\s*(Stableford|Stroke|Par|Gross|Nett)\b", page, re.IGNORECASE)
         comp_type = (type_m.group(1) if type_m else "").strip()
@@ -2578,15 +2595,21 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
     # MiClub individual scorecards for ambrose show only subtotals (no per-hole data), so
     # scorecard-derived thru/points are ignored in favour of the board page columns.
     is_ambrose = "ambrose" in board["name"].lower()
-    field_ = _board_players(page)
+    field_ = guest["field"] if guest else _board_players(page)
 
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        pages = list(ex.map(lambda p: _fetch_card(club, board_id, p["playerNo"]), field_))
+    if guest:
+        pages = ["" for _ in field_]   # guest API has no per-hole scorecards
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            pages = list(ex.map(lambda p: _fetch_card(club, board_id, p["playerNo"]), field_))
 
     # Pre-pass: establish course shape before the player loop so _thru() has the
     # correct hole_count for sandwiched-NR detection.
     hole_count = 0
     par_total = 0
+    if guest:
+        hole_count = guest["holeCount"]
+        par_total = guest["par"]
     for page_c in pages:
         if page_c:
             sh, sp = _course_shape(page_c)
@@ -2632,6 +2655,17 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             else:
                 log.info("ambrose allowance not found playerNo=%s page_len=%d",
                          base_.get("playerNo"), len(page_c) if page_c else 0)
+        elif guest:
+            # Guest API: no scorecards, so board columns are authoritative -
+            # thru straight from the feed, points/net from the nett column.
+            if board_thru_raw == "F":
+                thru = hole_count or 18
+            elif board_thru is not None:
+                thru = board_thru
+            else:
+                thru = 0
+            points = board_total if board_total is not None else 0
+            birdies = 0
         else:
             # Standard comp: use scorecard-derived data.
             # Board's Thru column override (fires when the board page has a numeric Thru column)

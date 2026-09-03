@@ -18,8 +18,19 @@ def _get(url: str) -> str:
 
 
 def list_competitions(club: str, days: int = 3) -> list[dict]:
-    """Return [{leaderboardId, name, date}] in page order (newest first)."""
-    page = _get(f"{BASE}/show-leaderboards?club={club}&days={days}")
+    """Return [{leaderboardId, name, date}] in page order (newest first).
+
+    Primary source is the public leaderboard host; when that host doesn't know
+    the club (the 3 Sep 2026 "Organisation doesn't exist" outage) or lists
+    nothing, fall back to the MiScore guest JSON API on the club's own host.
+    """
+    try:
+        page = _get(f"{BASE}/show-leaderboards?club={club}&days={days}")
+    except Exception:
+        page = ""
+    if not page or "Organisation doesn" in page or "doesn&#039;t exist" in page:
+        from .guestapi import guest_list_competitions
+        return guest_list_competitions(club, days)
     comps = []
     for m in re.finditer(r"(?s)<tr[^>]*>(.*?)</tr>", page):
         row = m.group(1)
@@ -46,6 +57,9 @@ def list_competitions(club: str, days: int = 3) -> list[dict]:
             except ValueError:
                 pass
         comps.append({"leaderboardId": lb_id, "name": name, "date": date_str})
+    if not comps:
+        from .guestapi import guest_list_competitions
+        return guest_list_competitions(club, days)
     return comps
 
 

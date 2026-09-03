@@ -113,17 +113,23 @@ def dispatch_poll_workflow():
 
 
 def fresh_board_top10(board_id):
-    """Independent cross-check: fetch the public MiScore board page now and
-    return its top-10 (name, points/score) rows. None on any failure."""
+    """Independent cross-check: fetch the MiScore board now (public host,
+    guest API fallback) and return top-10 (name, points) rows. None on failure."""
     try:
         from miscore.live import _board_players
         from miscore.webscrape import BASE, _get
         page = _get(f"{BASE}/display-leaderboard?club=wwcc&leaderboardId={board_id}")
-        players = _board_players(page) or []
-        out = []
-        for p in players[:10]:
-            out.append((_norm(p.get("player")), p.get("points")))
-        return out
+        if "Organisation doesn" not in page and "doesn&#039;t exist" not in page:
+            players = _board_players(page) or []
+            return [(_norm(p.get("player")), p.get("points")) for p in players[:10]]
+    except Exception:
+        pass
+    try:
+        from miscore.guestapi import guest_board
+        gb = guest_board("wwcc", str(board_id))
+        if not gb:
+            return None
+        return [(_norm(p.get("player")), p.get("boardTotal")) for p in gb["field"][:10]]
     except Exception as e:
         print(f"cross-check fetch failed (non-fatal): {e}")
         return None
@@ -135,16 +141,29 @@ def _norm(name):
 
 def fetch_board_list():
     """What does MiScore itself list for the club today?
-    Returns (status, board_ids): status is 'ok', 'org-missing' (the club slug
-    no longer resolves - a MiClub-side rename/outage) or 'error: ...'."""
+    Returns (status, board_ids). status: 'ok' (public host fine),
+    'guest' (public host lost the org but the guest JSON API works - the
+    poller's fallback source since 3 Sep 2026), 'org-missing' (both dead)
+    or 'error: ...'."""
+    public_dead = False
     try:
         from miscore.webscrape import BASE, _get
         page = _get(f"{BASE}/show-leaderboards?club=wwcc&days=1")
         if "Organisation doesn" in page or "doesn&#039;t exist" in page:
-            return "org-missing", []
-        return "ok", sorted(set(re.findall(r"leaderboardId=(\d+)", page)))
+            public_dead = True
+        else:
+            return "ok", sorted(set(re.findall(r"leaderboardId=(\d+)", page)))
+    except Exception:
+        public_dead = True
+    try:
+        from miscore.guestapi import guest_list_competitions
+        from datetime import date
+        comps = guest_list_competitions("wwcc", 1)
+        today = date.today().isoformat()
+        ids = sorted(c["leaderboardId"] for c in comps if c.get("date") == today)
+        return ("guest", ids)
     except Exception as e:
-        return f"error: {e}", []
+        return ("org-missing" if public_dead else f"error: {e}"), []
 
 
 # ── the checks ────────────────────────────────────────────────────────────────
@@ -167,15 +186,19 @@ def run_checks(live, state, within):
     if within:
         src_status, src_ids = fetch_board_list()
         if src_status == "org-missing":
-            issues["orgmissing"] = ("MiScore no longer recognises the club: "
-                                    "leaderboard.miclub.com.au returns \"Organisation doesn't exist\" "
-                                    "for club=wwcc. Nothing can be scraped until MiClub restores or "
-                                    "renames the organisation - contact MiClub support.")
-            row("source", "MiScore club page", "crit", "Organisation doesn't exist")
-        elif src_status == "ok" and src_ids and not live.get("competition"):
+            issues["orgmissing"] = ("MiScore is unreachable on BOTH sources: the public host says "
+                                    "\"Organisation doesn't exist\" for club=wwcc AND the guest JSON "
+                                    "API on wwcc.miclub.com.au is not answering. Nothing can be "
+                                    "scraped - contact MiClub support.")
+            row("source", "MiScore club page", "crit", "Public host and guest API both dead")
+        elif src_status in ("ok", "guest") and src_ids and not live.get("competition"):
             issues["nocomp"] = (f"MiScore lists {len(src_ids)} board(s) for today but the published "
                                 f"leaderboard has no competition - the poller is not picking them up.")
             row("source", "MiScore club page", "crit", f"{len(src_ids)} boards listed, none published")
+        elif src_status == "guest":
+            row("source", "MiScore club page", "warn",
+                (f"{len(src_ids)} board(s) via guest API" if src_ids else "No comps today (guest API)")
+                + " - public host still missing the org")
         elif src_status == "ok":
             row("source", "MiScore club page", "ok",
                 f"{len(src_ids)} board(s) listed" if src_ids else "No comps listed today")
