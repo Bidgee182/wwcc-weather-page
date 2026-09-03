@@ -266,11 +266,11 @@ html, body {
     font-size: 0.82em; font-weight: bold; letter-spacing: 1px;
     color: #8fb8cc; flex-shrink: 0; text-transform: uppercase;
 }
-.grade-leaders-list { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5em; min-width: 0; overflow: hidden; align-items: center; }
-.grade-item { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
-.grade-medal-sm { font-size: 1.25em; flex-shrink: 0; }
-.grade-name-sm  { font-size: 1.15em; color: #ecf0f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.grade-pts-sm   { font-size: 1.15em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; }
+.grade-leaders-list { flex: 1; display: flex; gap: 1.1em; min-width: 0; overflow: hidden; align-items: center; }
+.grade-item { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; flex: 1; }
+.grade-medal-sm { font-size: 1.3em; flex-shrink: 0; }
+.grade-name-sm  { font-size: 1.2em; color: #ecf0f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.grade-pts-sm   { font-size: 1.2em; font-weight: bold; color: #27ae60; flex-shrink: 0; white-space: nowrap; margin-left: auto; }
 
 /* Grade badge in scrolling rows */
 .grade-badge { display: inline-block; font-size: 0.52em; vertical-align: middle; margin-right: 4px; }
@@ -481,7 +481,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -668,7 +668,7 @@ function _applyPending() {
     // updateHeader() on each fetch; stories via their own loop.)
     if (_companions.length > 0) {
         const hcP = d.holeCount || 18;
-        const metaP = ['Wagga Wagga Country Club', 'Men'];
+        const metaP = ['Wagga Wagga Country Club', genderLabel(d.competition)];
         if (d.type) metaP.push(d.type);
         if (hcP)    metaP.push(hcP + ' holes');
         if (d.par)  metaP.push('Par ' + d.par);
@@ -872,7 +872,8 @@ function updateHeader(d) {
     const hc      = d.holeCount || 18;
 
     const meta = ['Wagga Wagga Country Club'];
-    if (_companions.length > 0) meta.push('Men');   // gender label only when multi-board mode is active
+    // Gender label only in multi-board mode, derived from THIS comp's name
+    if (_companions.length > 0) meta.push(genderLabel(d.competition));
     // Type label: use explicit type, or infer from competition name
     const typeLabel = d.type || ((d.competition || '').toLowerCase().includes('stableford') ? 'Stableford' : '');
     if (typeLabel) meta.push(typeLabel);
@@ -1021,6 +1022,15 @@ function fmtHcp(hcp) {
     return hcp % 1 === 0 ? hcp.toString() : hcp.toFixed(1);
 }
 
+// Gender label for the header, derived from the competition name (the primary
+// board is not always the men's comp - e.g. Ladies days).
+function genderLabel(comp) {
+    const c = (comp || '').toLowerCase();
+    if (/women|ladies|women's|ladie/.test(c)) return 'Women';
+    if (/\bmen\b|mens|men's|blokes/.test(c)) return 'Men';
+    return 'Open';
+}
+
 function fmtScore(pts) {
     if (!_isStableford) {
         if (_isAmbrose) {
@@ -1117,12 +1127,13 @@ function renderGradeStrip(activeSorted, grades, holeCount, competition, roundCom
         if (!el) return;
         const all = gradeAll[gk];
         if (!all.length) { el.innerHTML = '<span style="color:#4a6a84;font-size:0.7em">-</span>'; return; }
-        const top = all.slice(0, 3);
+        // Top 2 per grade (winner + runner-up) so names stay legible on the bar
+        const top = all.slice(0, 2);
         el.innerHTML = top.map((p, i) =>
             '<div class="grade-item">' +
                 '<span class="grade-medal-sm">' + medals[i] + cbHtml(all, top, i, holeCount) + '</span>' +
                 '<span class="grade-name-sm">' + esc(p.player.trim()) + '</span>' +
-                '<span class="grade-pts-sm">&nbsp;' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</span>' +
+                '<span class="grade-pts-sm">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</span>' +
             '</div>'
         ).join('');
     });
