@@ -121,7 +121,8 @@ def fresh_board_top10(board_id):
         page = _get(f"{BASE}/display-leaderboard?club=wwcc&leaderboardId={board_id}")
         if "Organisation doesn" not in page and "doesn&#039;t exist" not in page:
             players = _board_players(page) or []
-            return [(_norm(p.get("player")), p.get("points")) for p in players[:10]]
+            # boardTotal is the board page's Total column (points / net score)
+            return [(_norm(p.get("player")), p.get("boardTotal")) for p in players[:10]]
     except Exception:
         pass
     try:
@@ -253,7 +254,17 @@ def run_checks(live, state, within):
             pub = {}
             for p in (live.get("players") or [])[:15]:
                 pub[_norm(p.get("player"))] = p.get("points")
-            diffs = [n for n, pts in fresh if n and (n not in pub or pub[n] != pts)]
+
+            def _differs(name, pts):
+                if name not in pub:
+                    return True
+                if pts is None or pub[name] is None:
+                    return False   # source didn't carry a score - can't compare
+                try:
+                    return abs(float(pts) - float(pub[name])) > 0.01
+                except (TypeError, ValueError):
+                    return False
+            diffs = [n for n, pts in fresh if n and _differs(n, pts)]
             if len(diffs) > MISMATCH_ALLOWED:
                 issues["mismatch"] = (f"Published board disagrees with a fresh MiScore scrape on "
                                       f"{len(diffs)} of the top 10 (e.g. {diffs[:3]}).")
