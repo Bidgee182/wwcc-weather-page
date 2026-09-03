@@ -12,9 +12,9 @@ html, body {
     background: #0a1628; color: #ecf0f1;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     /* Scale with screen height so any TV resolution shows the same layout.
-       1.85vh ≈ 20px on a 1080p screen — a touch denser than the original 22px so
+       2.15vh — sized big for the clubhouse TV (HP E201, viewed from across the room)
        more rows fit. Override with ?fs= (e.g. ?fs=1.2 bigger, ?fs=0.85 smaller) */
-    font-size: clamp(11px, 1.85vh, 32px);
+    font-size: clamp(11px, 2.15vh, 36px);
 }
 
 #root {
@@ -481,7 +481,7 @@ const LB_URL      = new URLSearchParams(location.search).get('lb') || './out/liv
     const params = new URLSearchParams(location.search);
     const fs = parseFloat(params.get('fs'));
     if (fs > 0) {
-        const size = fs < 4 ? `calc(clamp(11px, 1.85vh, 32px) * ${fs})` : `${fs}px`;
+        const size = fs < 4 ? `calc(clamp(11px, 2.15vh, 36px) * ${fs})` : `${fs}px`;
         document.documentElement.style.fontSize = size;
         document.body.style.fontSize = size;
     }
@@ -516,7 +516,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '7.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '7.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
