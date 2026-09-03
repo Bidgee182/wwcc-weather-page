@@ -345,6 +345,15 @@ def email_results_confirmation(live):
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    # Piggyback runs (triggered by each poll-chain completion) only do real
+    # work when the last check has gone stale; cron/manual runs always run.
+    if os.environ.get("GH_EVENT") == "workflow_run":
+        last = parse_iso((load_json(HEALTH_PATH) or {}).get("updatedAt"))
+        if last and (utcnow() - last) < timedelta(minutes=10):
+            print("skip: checked "
+                  f"{(utcnow() - last).total_seconds() / 60:.0f} min ago (piggyback run)")
+            return 0
+
     live  = load_json(LIVE_PATH)
     state = load_json(STATE_PATH)
     if not live:

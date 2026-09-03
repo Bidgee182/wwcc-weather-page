@@ -1308,7 +1308,9 @@ async function lbHealthCheck() {
             + ` &middot; ${esc(h.competition || 'no comp')} ${esc(h.compDate || '')}`
             + ` &middot; ${h.playerCount ?? 0} players`
             + ` &middot; prizes: ${h.prizes?.ntp ?? 0} NTP / ${h.prizes?.ld ?? 0} LD / ${h.prizes?.balls ?? 0} balls`
-            + ` &middot; checked ${age} min ago${h.window === 'night' ? ' (overnight idle)' : ''}`;
+            + ` &middot; ` + (age > 25 && h.window !== 'night'
+                ? `<b style="color:#f39c12">&#9888; checked ${age} min ago - watchdog may be stalled</b>`
+                : `checked ${age} min ago${h.window === 'night' ? ' (overnight idle)' : ''}`);
         body.innerHTML = (h.checks || []).map(c =>
             `<tr><td>${esc(c.label)}</td>`
             + `<td><span class="pill" style="background:${COL[c.status]}22;color:${COL[c.status]}">${LBL[c.status] || c.status}</span></td>`
