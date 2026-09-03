@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-03T09:22:32.845375+00:00",
- "window": "day",
+ "updatedAt": "2026-09-03T13:33:41.838023+00:00",
+ "window": "night",
  "alertsActive": [],
  "competition": "Ladies 18 Hole Stableford Womens",
  "compDate": "2026-09-03",
  "playerCount": 43,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "pollAgeMin": 0.9,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 3,
+  "ntp": 0,
   "ld": 0,
-  "balls": 19
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414343",
    "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "ok",
-   "detail": "3 grades, 75 players, 3 NTP, 0 LD, 19 balls"
+   "status": "idle",
+   "detail": "Awaiting official results"
   },
   {
    "key": "pdf:10414344",
