@@ -413,6 +413,7 @@
             <button class="tab-btn" data-l="kiosk" onclick="showLog('kiosk')">Kiosk</button>
             <button class="tab-btn" data-l="admin" onclick="showLog('admin')">Admin Actions</button>
             <button class="tab-btn" data-l="pump" onclick="showLog('pump')">Pump Control</button>
+            <button class="tab-btn" data-l="results" onclick="showLog('results')">Golf Results</button>
         </div>
         <div class="flexrow" style="margin-bottom:10px;">
             <input type="text" id="log-filter" placeholder="Filter rows..." style="width:100%;max-width:340px;" oninput="renderCurrentLog()">
@@ -1311,10 +1312,17 @@ async function lbHealthCheck() {
             + ` &middot; ` + (age > 25 && h.window !== 'night'
                 ? `<b style="color:#f39c12">&#9888; checked ${age} min ago - watchdog may be stalled</b>`
                 : `checked ${age} min ago${h.window === 'night' ? ' (overnight idle)' : ''}`);
+        const ymap = { success: 'ok', partial: 'warn' };
         body.innerHTML = (h.checks || []).map(c =>
             `<tr><td>${esc(c.label)}</td>`
             + `<td><span class="pill" style="background:${COL[c.status]}22;color:${COL[c.status]}">${LBL[c.status] || c.status}</span></td>`
-            + `<td style="color:#7f8c8d">${esc(c.detail || '')}</td></tr>`).join('');
+            + `<td style="color:#7f8c8d">${esc(c.detail || '')}</td></tr>`).join('')
+            + (h.yesterday || []).map(y => {
+                const s = ymap[y.status] || 'crit';
+                return `<tr><td>Yesterday: ${esc(y.competition || '?')}</td>`
+                    + `<td><span class="pill" style="background:${COL[s]}22;color:${COL[s]}">${esc(y.status)}</span></td>`
+                    + `<td style="color:#7f8c8d">${esc(y.summary || '')}</td></tr>`;
+            }).join('');
     } catch {
         sum.textContent = 'No health data yet - the Leaderboard Watchdog workflow has not run.';
         body.innerHTML = '<tr><td colspan="3">-</td></tr>';
@@ -1601,6 +1609,12 @@ async function loadHealth() {
             parts.push(rowHtml('Prizes parsed', 'lg',
                 `${lb.prizes?.ntp ?? 0} NTP / ${lb.prizes?.ld ?? 0} LD / ${lb.prizes?.balls ?? 0} balls`));
         }
+        // Yesterday's results outcomes (informational - never colours today's pill)
+        for (const y of lb.yesterday || []) {
+            const yc = y.status === 'success' ? 'lg' : y.status === 'partial' ? 'ly' : 'lr';
+            parts.push(rowHtml('Y\'day: ' + (y.competition || '?'), yc,
+                `${y.status}${y.summary ? ' - ' + y.summary : ''}`));
+        }
         cards.push({ title: 'Golf Leaderboard (TV)', state: night ? 'ok' : worst(cls), html: parts.join('') });
     } catch { cards.push({ title: 'Golf Leaderboard (TV)', state: 'warn', html: 'No watchdog data yet.' }); }
 
@@ -1772,11 +1786,13 @@ async function loadAllLogs() {
         const t = await r.text();
         _rawLogs[u.split('/').pop().split('.')[0].replace('lake_zone_history', 'zone').replace('email_log', 'email')
             .replace('water_rate_log', 'rate').replace('tank_fill_source', 'fill')
+            .replace('results_log', 'results')
             .replace('kiosk_message_log', 'kiosk').replace('admin_actions_log', 'admin')
             .replace('pump_ctrl_log', 'pump')] = t;
         return kind === 'csv' ? csvRows(t) : JSON.parse(t);
     };
     _logs.email = await get('data/email_log.csv', 'csv');
+    _logs.results = await get('data/results_log.csv', 'csv');
     _logs.zone  = await get('data/lake_zone_history.csv', 'csv');
     _logs.rate  = await get('data/water_rate_log.json', 'json');
     _logs.fill  = await get('data/tank_fill_source.json', 'json');

@@ -140,8 +140,7 @@ _WWCC_USERNAME: str = os.getenv("WWCC_USERNAME", "")
 _WWCC_PASSWORD: str = os.getenv("WWCC_PASSWORD", "")
 
 # Cache: once official results are found for a board, stop re-checking.
-_official_cache: dict = {}
-_official_cache_board: str | None = None
+_official_caches: dict[str, dict] = {}  # per-board results cache (one process = one poll run)
 _wwcc_jar: "http.cookiejar.CookieJar | None" = None
 
 
@@ -1864,6 +1863,48 @@ def _is_depriority(name: str) -> bool:
     low = name.lower()
     return any(pat in low for pat in _DEPRIORITY_COMP_PATTERNS)
 
+def _hidden_comp_patterns() -> list[str]:
+    """Comp-name substrings the club has chosen to keep off the TV.
+
+    data/lb_config.json {"hideComps": ["4bbb", ...]} - case-insensitive,
+    editable in the repo (or via the admin page later). Missing file = none.
+    """
+    try:
+        cfg_path = Path(__file__).resolve().parent.parent / "data" / "lb_config.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        return [str(p).lower() for p in (cfg.get("hideComps") or []) if p]
+    except Exception:
+        return []
+
+
+def find_all_companions(club: str, primary: dict, days: int) -> tuple[list[dict], list[dict]]:
+    """Every OTHER comp running on the primary board's day.
+
+    Replaces the old special-case rules (women's on Medal days, 4BBB) with:
+    all same-day boards become companions, minus hard-excluded sub-comps
+    (Secret 6 etc.) and anything matching data/lb_config.json hideComps.
+    Returns (companions, skipped) where skipped carries {name, id, reason}
+    for the daily report email.
+    """
+    comps = list_competitions(club, days)
+    today = primary.get("date")
+    hidden = _hidden_comp_patterns()
+    out, skipped = [], []
+    for c in comps:
+        if c.get("date") != today or c["leaderboardId"] == primary["leaderboardId"]:
+            continue
+        low = c["name"].lower()
+        if _is_sub_comp(c["name"]):
+            skipped.append({"name": c["name"], "leaderboardId": c["leaderboardId"],
+                            "reason": "sub-competition (always excluded)"})
+        elif any(p in low for p in hidden):
+            skipped.append({"name": c["name"], "leaderboardId": c["leaderboardId"],
+                            "reason": "hidden by lb_config.json hideComps"})
+        else:
+            out.append(c)
+    return out, skipped
+
+
 def find_companion_board(club: str, primary: dict, days: int) -> dict | None:
     """On Monthly Medal days, return the women's companion board if one exists."""
     if not primary or "medal" not in primary["name"].lower():
@@ -2783,15 +2824,16 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
     finished_count = sum(1 for p in active_players if p["thru"] >= (hole_count or 18))
     round_complete = bool(active_players) and (finished_count / len(active_players) >= 0.95)
 
-    # Official results gate: poll WWCC API after round complete; cache per board.
-    global _official_cache, _official_cache_board
-    if board_id != _official_cache_board:
-        _official_cache = {"published": False, "reportLinks": [], "eventId": None, "ballWinners": None}
-        _official_cache_board = board_id
+    # Official results gate: poll WWCC API after round complete. Cached PER
+    # BOARD so primary and companion boards each get their own results check
+    # (was a single-board cache that thrashed when companions polled).
+    global _official_caches
+    _official_cache = _official_caches.setdefault(
+        board_id, {"published": False, "reportLinks": [], "eventId": None, "ballWinners": None})
     if round_complete and not _official_cache.get("published"):
         result = _wwcc_check_results(board["name"], board.get("date"))
         result.setdefault("ballWinners", None)
-        _official_cache = result
+        _official_cache = _official_caches[board_id] = result
     # Fetch and parse ball winners + NTP/LD from all PDFs once results are confirmed.
     # Always include the competition report PDF for the current board ID directly — the WWCC
     # API may match a companion comp's PDFs instead of the main leaderboard's report.
@@ -2870,6 +2912,29 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             log.info("Ball winners: %d  NTP/LD: %d  PDF grades: %s  PDF players: %d",
                      len(_official_cache["ballWinners"]), len(_official_cache["ntpLd"]),
                      pdf_grades_found, len(pdf_players_all))
+
+            # Content guard: title/date matching can attach another comp's PDFs
+            # (seen 3 Sep 2026: the ladies board matched a men's report - empty
+            # standings + foreign NTP winners would have hit the TV). If the
+            # parsed players don't belong to this board's field, reject the lot
+            # and keep re-checking. Skipped for team comps (paired names never
+            # match the parser's individual format).
+            if not _team_comp:
+                def _name_key(n):
+                    return frozenset(w for w in re.sub(r"[^a-z ]", "", str(n or "").lower()).split() if w)
+                field_keys = {_name_key(p["player"]) for p in players}
+                pdf_keys = [k for k in (_name_key(p.get("player") or p.get("name"))
+                                        for p in pdf_players_all) if k]
+                overlap = sum(1 for k in pdf_keys if k in field_keys)
+                if pdf_keys and overlap < max(3, int(len(pdf_keys) * 0.3)):
+                    log.warning(
+                        "Results PDFs REJECTED for %s: only %d/%d parsed players are in this "
+                        "board's field - wrong comp's PDFs; will keep re-checking",
+                        board["name"], overlap, len(pdf_keys))
+                    _official_cache = _official_caches[board_id] = {
+                        "published": False, "reportLinks": [], "eventId": None,
+                        "ballWinners": None,
+                        "rejectedNote": f"{overlap}/{len(pdf_keys)} players matched the board"}
 
     now = datetime.now(timezone.utc)
 
@@ -3112,22 +3177,32 @@ def main(argv=None) -> int:
                         "par":           cb.get("par"),
                         "type":          comp_type_out,
                         "stories":       cb.get("stories", []),
+                        # Results PDF fields - every comp gets a results check,
+                        # not just the primary board (logged by the watchdog).
+                        "officialResultsReady": cb.get("officialResultsReady", False),
+                        "officialResultsLink":  cb.get("officialResultsLink"),
+                        "pdfStandings":  cb.get("pdfStandings"),
+                        "ntpLd":         cb.get("ntpLd", []),
+                        "ballWinners":   cb.get("ballWinners"),
                     }
+                # Every other same-day comp is a companion (minus sub-comps and
+                # the hideComps list in data/lb_config.json)
                 companions = []
-                for label, finder, force_stroke in (
-                    ("women's", find_companion_board, False),
-                    ("4BBB",    find_4bbb_board, is_medal_day),
-                ):
-                    cboard = finder(args.club, board, args.days)
-                    if cboard:
-                        try:
-                            cd = _poll_companion(cboard, force_stroke=force_stroke)
-                            companions.append(cd)
-                            log.info("%s companion %s: %d players", label, cd["competition"], len(cd["players"]))
-                        except Exception as ce:  # noqa: BLE001
-                            log.warning("%s companion poll failed: %s", label, ce)
+                c_boards, c_skipped = find_all_companions(args.club, board, args.days)
+                for cboard in c_boards:
+                    force_stroke = is_medal_day and "4bbb" in cboard["name"].lower()
+                    try:
+                        cd = _poll_companion(cboard, force_stroke=force_stroke)
+                        companions.append(cd)
+                        log.info("companion %s: %d players", cd["competition"], len(cd["players"]))
+                    except Exception as ce:  # noqa: BLE001
+                        log.warning("companion %s poll failed: %s", cboard.get("name"), ce)
                 if companions:
                     blob["companions"] = companions
+                if c_skipped:
+                    blob["companionsSkipped"] = c_skipped
+                    log.info("companions skipped: %s",
+                             ", ".join(f"{s['name']} ({s['reason']})" for s in c_skipped))
         except Exception as e:  # noqa: BLE001
             log.warning("poll failed: %s", e)
             blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat()}

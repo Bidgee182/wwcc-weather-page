@@ -50,7 +50,7 @@ jobs:
         run: |
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
-          git add out/lb-watchdog-state.json out/lb-health.json data/email_log.csv
+          git add out/lb-watchdog-state.json out/lb-health.json data/email_log.csv data/results_log.csv
           if git diff --staged --quiet; then
             echo "No watchdog state changes"
             exit 0
