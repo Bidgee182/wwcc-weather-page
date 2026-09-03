@@ -1,0 +1,25 @@
+name: Leaderboard Slug Hunt
+
+# Maintenance tool: manual-only. Logs into the club site with the poller's
+# credentials and scans for the current MiScore leaderboard club= slug.
+# See scripts/find_lb_slug.py. Read the answer in the run log.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Find leaderboard slug
+        env:
+          WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+          WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
+        run: python scripts/find_lb_slug.py
