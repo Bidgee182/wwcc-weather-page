@@ -133,6 +133,20 @@ def _norm(name):
     return re.sub(r"[^a-z]", "", str(name or "").lower())
 
 
+def fetch_board_list():
+    """What does MiScore itself list for the club today?
+    Returns (status, board_ids): status is 'ok', 'org-missing' (the club slug
+    no longer resolves - a MiClub-side rename/outage) or 'error: ...'."""
+    try:
+        from miscore.webscrape import BASE, _get
+        page = _get(f"{BASE}/show-leaderboards?club=wwcc&days=1")
+        if "Organisation doesn" in page or "doesn&#039;t exist" in page:
+            return "org-missing", []
+        return "ok", sorted(set(re.findall(r"leaderboardId=(\d+)", page)))
+    except Exception as e:
+        return f"error: {e}", []
+
+
 # ── the checks ────────────────────────────────────────────────────────────────
 
 def run_checks(live, state, within):
@@ -145,6 +159,30 @@ def run_checks(live, state, within):
     gen = parse_iso(live.get("generatedAt"))
     age_min = (utcnow() - gen).total_seconds() / 60 if gen else 9999
     state["pollAgeMin"] = round(age_min, 1)
+
+    # 0. Source check: what does MiScore itself say? This runs even when the
+    # published JSON is empty - the blind spot that hid the 3 Sep 2026 outage,
+    # where the wwcc organisation vanished from leaderboard.miclub.com.au and
+    # the board silently showed "no comps" while two ladies comps were on.
+    if within:
+        src_status, src_ids = fetch_board_list()
+        if src_status == "org-missing":
+            issues["orgmissing"] = ("MiScore no longer recognises the club: "
+                                    "leaderboard.miclub.com.au returns \"Organisation doesn't exist\" "
+                                    "for club=wwcc. Nothing can be scraped until MiClub restores or "
+                                    "renames the organisation - contact MiClub support.")
+            row("source", "MiScore club page", "crit", "Organisation doesn't exist")
+        elif src_status == "ok" and src_ids and not live.get("competition"):
+            issues["nocomp"] = (f"MiScore lists {len(src_ids)} board(s) for today but the published "
+                                f"leaderboard has no competition - the poller is not picking them up.")
+            row("source", "MiScore club page", "crit", f"{len(src_ids)} boards listed, none published")
+        elif src_status == "ok":
+            row("source", "MiScore club page", "ok",
+                f"{len(src_ids)} board(s) listed" if src_ids else "No comps listed today")
+        else:
+            row("source", "MiScore club page", "idle", f"Unreachable this check ({src_status[:60]})")
+    else:
+        row("source", "MiScore club page", "idle", "Outside daylight window")
 
     # 1. Freshness / chain alive
     if not within:
@@ -307,7 +345,12 @@ def main():
     # email, and re-notifies at most every REALERT_MIN while it lasts.
     pending = state.get("pending") or {}
     to_mail = {}
+    IMMEDIATE = {"orgmissing", "nocomp"}   # unambiguous hard failures: no 2-check wait
     for k, msg in issues.items():
+        if k in IMMEDIATE and k not in active:
+            to_mail[k] = msg
+            active[k] = {"since": now_iso, "lastMail": now_iso, "msg": msg}
+            continue
         if k in active:
             last = parse_iso(active[k].get("lastMail"))
             if last and (utcnow() - last) > timedelta(minutes=REALERT_MIN):
