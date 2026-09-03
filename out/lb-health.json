@@ -1,11 +1,13 @@
 {
- "updatedAt": "2026-09-03T13:33:41.838023+00:00",
- "window": "night",
- "alertsActive": [],
- "competition": "Ladies 18 Hole Stableford Womens",
- "compDate": "2026-09-03",
- "playerCount": 43,
- "pollAgeMin": 0.9,
+ "updatedAt": "2026-09-03T19:31:22.855776+00:00",
+ "window": "day",
+ "alertsActive": [
+  "nocomp"
+ ],
+ "competition": null,
+ "compDate": null,
+ "playerCount": 0,
+ "pollAgeMin": 80.4,
  "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
@@ -16,14 +18,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "2 boards listed, none published"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "80 min old"
   },
   {
    "key": "creds",
@@ -35,26 +37,27 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "43 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
    "status": "idle",
    "detail": "Checked while comp is live"
-  },
-  {
-   "key": "pdf:10414343",
-   "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "idle",
-   "detail": "Awaiting official results"
-  },
-  {
-   "key": "pdf:10414344",
-   "label": "Results: Ladies 9 Hole Stableford B\u2026",
-   "status": "idle",
-   "detail": "Awaiting official results"
   }
  ],
- "yesterday": []
+ "yesterday": [
+  {
+   "competition": "Ladies 9 Hole Stableford Back 9 Womens",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Ladies 18 Hole Stableford Womens",
+   "status": "success",
+   "summary": "3 grades, 75 players, 3 NTP, 0 LD, 19 balls",
+   "role": "primary"
+  }
+ ]
 }

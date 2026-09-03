@@ -1,18 +1,31 @@
 {
- "pollAgeMin": 0.9,
- "day": "2026-09-03",
- "maxPlayers": 43,
+ "pollAgeMin": 80.4,
+ "day": "",
+ "maxPlayers": 0,
  "resultsEmailed": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00"
  },
- "pending": {},
- "active": {},
- "lastRun": "2026-09-03T13:33:41.838023+00:00",
+ "pending": {
+  "stale": "Leaderboard JSON is 80 min old (expected ~1 min during the day). The poll chain looks dead."
+ },
+ "active": {
+  "nocomp": {
+   "since": "2026-09-03T19:31:22.855776+00:00",
+   "lastMail": "2026-09-03T19:31:22.855776+00:00",
+   "msg": "MiScore lists 2 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
+  }
+ },
+ "lastRun": "2026-09-03T19:31:22.855776+00:00",
  "resultsLogged": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00",
   "2026-09-03:10414344": "2026-09-03T13:33:41.838023+00:00"
  },
  "dailyEmailed": {
   "2026-09-03": "2026-09-03T13:33:41.838023+00:00"
+ },
+ "dayAlerts": {
+  "2026-09-03": [
+   "nocomp: MiScore lists 2 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
+  ]
  }
 }
