@@ -1,11 +1,13 @@
 {
- "updatedAt": "2026-09-03T04:26:18.340219+00:00",
+ "updatedAt": "2026-09-03T04:27:25.916157+00:00",
  "window": "day",
- "alertsActive": [],
+ "alertsActive": [
+  "orgmissing"
+ ],
  "competition": null,
  "compDate": null,
  "playerCount": null,
- "pollAgeMin": 0.7,
+ "pollAgeMin": 0.5,
  "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
@@ -14,10 +16,16 @@
  },
  "checks": [
   {
+   "key": "source",
+   "label": "MiScore club page",
+   "status": "crit",
+   "detail": "Organisation doesn't exist"
+  },
+  {
    "key": "stale",
    "label": "Poller freshness",
    "status": "ok",
-   "detail": "Updated 1 min ago"
+   "detail": "Updated 0 min ago"
   },
   {
    "key": "creds",
