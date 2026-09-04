@@ -56,7 +56,7 @@ html, body {
 
 /* ── Leaderboard panel ───────────────────────────────────────────── */
 .lb-panel {
-    flex: 1.45; display: flex; flex-direction: column; min-height: 0; min-width: 0; font-size: 1.44em;
+    flex: 1.45; display: flex; flex-direction: column; min-height: 0; min-width: 0; font-size: 1.30em;
     background: #1e2f3e; border: 2px solid #4a6a84; border-top: 4px solid #27ae60;
     border-radius: 12px; overflow: hidden;
 }
@@ -114,7 +114,7 @@ html, body {
 .lb-row {
     display: grid;
     grid-template-columns: 2.6em 1fr 3.6em 2.3em;
-    gap: 0.27em; padding: 0.45em 0.73em;
+    gap: 0.27em; padding: 0.22em 0.73em;
     align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.04);
 }
@@ -488,7 +488,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
