@@ -488,7 +488,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1330,9 +1330,10 @@ function renderLeaderboard(players, holeCount, started, competition) {
 
         if (scrollCount && inner.scrollHeight > clipH) {
             // single copy — translateY(-100%) scrolls full content off; animationend fires once
-            // Speed: 50px/s, minimum 20s - proportional to scroll distance so all fields
-            // feel similar pace regardless of field size.
-            const dur = Math.max(20, Math.ceil(inner.scrollHeight / 50));
+            // Speed: ~33px/s, minimum 30s - proportional to scroll distance so all
+            // fields feel similar pace regardless of field size. (Slowed from 50px/s
+            // so older viewers can read each row as it passes.)
+            const dur = Math.max(30, Math.ceil(inner.scrollHeight / 33));
             const scrollDelay = 3;
             inner.style.animationDuration = dur + 's';
             inner.style.animationDelay = scrollDelay + 's';
@@ -1385,7 +1386,7 @@ function renderSidePanel(containerId, rows, emptyMsg, minForScroll, preDelayMs) 
         // clip even below the row count, and those must scroll rather than clip.
         const overflows = inner.scrollHeight > el.clientHeight + 4;
         if (rows.length >= minForScroll || overflows) {
-            const dur = Math.max(15, rows.length * 2.5);
+            const dur = Math.max(22, rows.length * 3.7);
             // preDelayMs holds the list static (people read the pinned headlines)
             // before the scroll begins; animationend then fires after delay + scroll.
             inner.style.animationDelay = (preDelayMs ? preDelayMs / 1000 : 0) + 's';
