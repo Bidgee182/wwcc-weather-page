@@ -1,0 +1,6 @@
+[Unit]
+Description=Network watchdog check (reboot pump Pi after 15 min offline)
+
+[Service]
+Type=oneshot
+ExecStart=/home/andrew/pump_poller/pi_net_watchdog.sh
