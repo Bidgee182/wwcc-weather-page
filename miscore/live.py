@@ -2011,6 +2011,46 @@ def _rr(*opts: str) -> str:
     return random.choice(opts)
 
 
+# ── Phrase bank (data/story_phrases.json) ────────────────────────────────────
+# Hundreds of alternative phrasings for the flavour stories, kept out of the
+# code. Picks are SEEDED by day + story key so a story keeps one phrasing all
+# day instead of re-rolling every 30-second poll. Any failure (file missing,
+# bad template, unknown category) falls back to the built-in wording.
+_PHRASE_BANK: dict | None = None
+
+
+def _phrase_bank() -> dict:
+    global _PHRASE_BANK
+    if _PHRASE_BANK is None:
+        try:
+            with open("data/story_phrases.json", encoding="utf-8") as f:
+                _PHRASE_BANK = json.load(f)
+        except Exception:
+            _PHRASE_BANK = {}
+    return _PHRASE_BANK
+
+
+def _pick_phrase(cat: str, seed: str, *fallbacks: str, **fmt) -> str | None:
+    """Deterministic pick from bank[cat] + fallbacks, formatted with fmt.
+    Returns None only when there is nothing to pick from."""
+    opts = list(_phrase_bank().get(cat) or []) + list(fallbacks)
+    if not opts:
+        return None
+    rnd = random.Random(f"{seed}|{cat}")
+    for _ in range(3):                      # a bad template skips to another
+        t = rnd.choice(opts)
+        try:
+            return t.format(**fmt)
+        except Exception:
+            continue
+    for t in fallbacks:                     # last resort: first clean fallback
+        try:
+            return t.format(**fmt)
+        except Exception:
+            continue
+    return None
+
+
 def _fmt_score(pts, is_stableford: bool) -> str:
     try:
         v = int(pts) if float(pts).is_integer() else round(float(pts), 1)
@@ -2073,7 +2113,7 @@ def _played_holes(p: dict, course_holes: int = 0) -> list:
     return _play_order(holes, course_holes)
 
 
-def _context_story(p, leader_pts, is_stableford, hole_count):
+def _context_story(p, leader_pts, is_stableford, hole_count, board_date=None):
     """Where the player sits in the comp: leader / hcp-buster / charging / in the hunt."""
     thru = p.get("thru") or 0
     rank = p.get("liveRank") or 999
@@ -2091,9 +2131,11 @@ def _context_story(p, leader_pts, is_stableford, hole_count):
                 _rr(f"{_fmt_score(pts, is_stableford)} and in - the mark to beat",
                     f"In with {_fmt_score(pts, is_stableford)} - top of the tree"),
                 "gold", "\U0001F451", 96, pts, thru, "ctx")
-        return _mk_story(p["player"], "Leading the Way",
-            _rr(f"Out in front on {_fmt_score(pts, is_stableford)} through {thru}",
-                f"Top of the board - {_fmt_score(pts, is_stableford)} so far"),
+        d = _pick_phrase("footy_leader", f"{board_date}|lead|{p['player']}",
+            "Out in front on {score} through {thru}",
+            "Top of the board - {score} so far",
+            player=p["player"], score=_fmt_score(pts, is_stableford), thru=thru)
+        return _mk_story(p["player"], "Leading the Way", d,
             "orange", "\U0001F51D", 82, pts, thru, "ctx")
 
     if is_stableford and finished:
@@ -2394,43 +2436,47 @@ def _ticker_weather():
         return None
 
 
-def _weather_story(wx):
+def _weather_story(wx, board_date=None):
     if not wx:
         return None
     wind = wx.get("windMax") or 0
     rain = wx.get("rain") or 0
     tmax = wx.get("tMax")
+    seed = f"{board_date}|wx"
     if wind >= 40:
-        return _mk_story("Today", "Into the Breeze",
-            f"gusts to {round(wind)} km/h - anyone scoring well earned every point",
-            "blue", "\U0001F4A8", 48, src="wx")
+        d = _pick_phrase("wx_wind", seed,
+            "gusts to {wind} km/h - anyone scoring well earned every point",
+            wind=round(wind))
+        return _mk_story("Today", "Into the Breeze", d, "blue", "\U0001F4A8", 48, src="wx")
     if rain >= 2:
-        return _mk_story("Today", "In the Wet",
-            f"{rain} mm on the card - proper grinding conditions",
-            "blue", "\U0001F327", 47, src="wx")
+        d = _pick_phrase("wx_rain", seed,
+            "{rain} mm on the card - proper grinding conditions", rain=rain)
+        return _mk_story("Today", "In the Wet", d, "blue", "\U0001F327", 47, src="wx")
     if tmax is not None and tmax >= 35:
-        return _mk_story("Today", "Scorcher",
-            f"{round(tmax)}°C out there - hydration as vital as the short game",
-            "blue", "\U0001F975", 45, src="wx")
+        d = _pick_phrase("wx_heat", seed,
+            "{tmax}°C out there - hydration as vital as the short game",
+            tmax=round(tmax))
+        return _mk_story("Today", "Scorcher", d, "blue", "\U0001F975", 45, src="wx")
     if tmax is not None and tmax <= 10:
-        return _mk_story("Today", "Rug-Up Golf",
-            f"topped out at {round(tmax)}°C - beanies-on scoring",
-            "blue", "\U0001F976", 45, src="wx")
+        d = _pick_phrase("wx_cold", seed,
+            "topped out at {tmax}°C - beanies-on scoring", tmax=round(tmax))
+        return _mk_story("Today", "Rug-Up Golf", d, "blue", "\U0001F976", 45, src="wx")
     return None
 
 
-def _social_stories(ranked):
+def _social_stories(ranked, board_date=None, hole_count=0):
     """Club-flavoured one-offs: a visitor leading, and same-surname players up
-    the board together."""
+    the board together. Wordings come from the phrase bank, day-seeded."""
     out = []
     if not ranked:
         return out
     top = ranked[0]
     if _is_visitor(top.get("homeClub")) and (top.get("thru") or 0) >= 1:
         club = (top.get("homeClub") or "").replace(" Golf Club", " GC")
-        out.append(_mk_story(top["player"], "Travelling Trophy",
-            _rr(f"a visitor from {club} leading the locals - awkward at the bar",
-                f"{club} raiding the silverware - top of the board"),
+        d = _pick_phrase("visitor_leading", f"{board_date}|visitor",
+            "a visitor from {club} leading the locals - awkward at the bar",
+            "{club} raiding the silverware - top of the board", club=club)
+        out.append(_mk_story(top["player"], "Travelling Trophy", d,
             "orange", "\U0001F9F3", 58, top.get("points"), top.get("thru"), "social"))
     surname = {}
     for pp in ranked[:24]:
@@ -2444,9 +2490,28 @@ def _social_stories(ranked):
     for sn, firsts in surname.items():
         if len(firsts) >= 2 and sn.lower() not in _common:
             who = f"{firsts[0]} and {firsts[1]}" if len(firsts) == 2 else f"{firsts[0]}, {firsts[1]} & co"
-            out.append(_mk_story(f"The {sn}s", "Family Affair",
-                f"{who} {sn} - the family's having a day out", "blue", "\U0001F46A", 62, src="social"))
+            seed = f"{board_date}|family|{sn}"
+            sns = sn + ("es" if sn[-1:].lower() in "sxz" else "s")   # Jenkins -> Jenkinses
+            title = _pick_phrase("family_affair_title", seed, "Family Affair")
+            cat = "family_affair_three" if len(firsts) >= 3 else "family_affair"
+            d = _pick_phrase(cat, seed,
+                "{who} {sn} - the family's having a day out",
+                who=who, sn=sn, sns=sns, n=len(firsts))
+            out.append(_mk_story(f"The {sns}", title, d,
+                "blue", "\U0001F46A", 62, src="social"))
             break
+
+    # Wooden spoon watch: a light-hearted nod to whoever anchors a decent-sized
+    # field once their round is done. Kept warm - it shows on the club TV.
+    hc = hole_count or 18
+    if len(ranked) >= 12:
+        tail = ranked[-1]
+        tn = tail.get("player") or ""
+        if tn and " & " not in tn and (tail.get("thru") or 0) >= hc:
+            d = _pick_phrase("footy_spoon", f"{board_date}|spoon|{tn}", player=tn)
+            if d:
+                out.append(_mk_story(tn, "Wooden Spoon Watch", d,
+                    "blue", "\U0001F944", 40, tail.get("points"), tail.get("thru"), "social"))
     return out
 
 
@@ -2482,14 +2547,18 @@ def _rank_history_stories(ranked, prev_story, board_id, hole_count):
             climbed = start - rank
             dropped = rank - best
             if climbed >= 8 and rank <= 15:
-                stories.append(_mk_story(name, "The Bolter",
-                    _rr(f"Up {climbed} spots since early on - flying up the board",
-                        f"Climbed {climbed} places - the mover of the day"),
+                d = _pick_phrase("footy_charge", f"{board_id}|bolt|{name}",
+                    "Up {climbed} spots since early on - flying up the board",
+                    "Climbed {climbed} places - the mover of the day",
+                    player=name, climbed=climbed)
+                stories.append(_mk_story(name, "The Bolter", d,
                     "orange", "\U0001F4C8", 60, p.get("points"), thru, "hist"))
             elif dropped >= 8 and best <= 10:
-                stories.append(_mk_story(name, "Slipping Away",
-                    _rr(f"Was up at {_ordinal(best)}, now {_ordinal(rank)} - wheels wobbling",
-                        f"Slid {dropped} from {_ordinal(best)} - it's getting away"),
+                d = _pick_phrase("footy_slump", f"{board_id}|slip|{name}",
+                    "Was up at {best_ord}, now {rank_ord} - wheels wobbling",
+                    "Slid from {best_ord} to {rank_ord} - it's getting away",
+                    player=name, best_ord=_ordinal(best), rank_ord=_ordinal(rank))
+                stories.append(_mk_story(name, "Slipping Away", d,
                     "blue", "\U0001F4C9", 48, p.get("points"), thru, "hist"))
         _start = meta[name][0]
         if finished and _start == 1 and rank == 1:
@@ -2514,7 +2583,7 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
         out += _bbb_stories(ranked)
     else:
         for p in ranked:
-            c = _context_story(p, leader_pts, is_stableford, hole_count)
+            c = _context_story(p, leader_pts, is_stableford, hole_count, board_date)
             if c:
                 out.append(c)
             if (p.get("thru") or 0) < (hole_count or 18):
@@ -2525,11 +2594,78 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
             if v:
                 out.append(v)
         out += _field_superlatives(ranked, hole_count, is_stableford)
-        out += _social_stories(ranked)
-    wx = _weather_story(_load_weather_flavour(board_date))
+        out += _social_stories(ranked, board_date, hole_count)
+    wxd = _load_weather_flavour(board_date)
+    wx = _weather_story(wxd, board_date)
     if wx:
         out.append(wx)
+    hero = _conditions_performance_story(ranked, wxd, is_stableford, board_date)
+    if hero:
+        out.append(hero)
+    ft = _footy_today_story(board_date)
+    if ft:
+        out.append(ft)
     return out
+
+
+def _footy_today_story(board_date):
+    """One footy-finals flavour line a day through September and October -
+    the 2026 AFL/NRL lines in the phrase bank. Gated by month so the jokes
+    retire themselves when the season does."""
+    try:
+        month = int(str(board_date)[5:7])
+    except (TypeError, ValueError):
+        return None
+    if month not in (9, 10):
+        return None
+    d = _pick_phrase("footy_today", f"{board_date}|footy")
+    if not d:
+        return None
+    return _mk_story("Today", "Finals Fever", d, "blue", "\U0001F3C9", 41, src="social")
+
+
+def _conditions_performance_story(ranked, wx, is_stableford, board_date=None):
+    """Conditions vs how the leader actually played - the 'earned it in this
+    weather' angle. Fires only when the weather is notable AND the leader is
+    genuinely scoring: 2 pts/hole pace in stableford, level or better in
+    stroke. One story per board, phrase-bank worded, day-seeded."""
+    if not ranked or not wx:
+        return None
+    top = ranked[0]
+    pts, thru = top.get("points"), top.get("thru") or 0
+    name = top.get("player") or ""
+    if pts is None or thru < 6 or not name:
+        return None
+    good = (pts >= 2 * thru + 1) if is_stableford else (pts <= 0)
+    if not good:
+        return None
+    score = _fmt_score(pts, is_stableford)
+    wind = wx.get("windMax") or 0
+    rain = wx.get("rain") or 0
+    tmax = wx.get("tMax")
+    seed = f"{board_date}|hero|{name}"
+    if wind >= 32:
+        cat, emoji, fmt = "hero_wind", "\U0001F4A8", {"wind": round(wind)}
+        fallback = "{player} has {score} in gusts of {wind} km/h - earned in the teeth of it"
+    elif rain >= 2:
+        cat, emoji, fmt = "hero_rain", "\U0001F327", {"rain": rain}
+        fallback = "{player} has {score} through {rain} mm of rain - proper wet-weather golf"
+    elif tmax is not None and tmax >= 33:
+        cat, emoji, fmt = "hero_heat", "\U0001F975", {"tmax": round(tmax)}
+        fallback = "{player} has {score} in {tmax}°C heat - cool head, hot card"
+    elif tmax is not None and tmax <= 11:
+        cat, emoji, fmt = "hero_cold", "\U0001F976", {"tmax": round(tmax)}
+        fallback = "{player} has {score} on a {tmax}°C day - cold hands, warm putter"
+    elif wind <= 14 and rain < 0.2 and tmax is not None and 17 <= tmax <= 27:
+        cat, emoji, fmt = "calm_day", "\U0001F60E", {}
+        fallback = "{player} has {score} in perfect conditions - no-excuses weather, no excuses needed"
+    else:
+        return None
+    title = _pick_phrase(cat + "_title", seed, "Earned the Hard Way")
+    d = _pick_phrase(cat, seed, fallback, player=name, score=score, **fmt)
+    if not d:
+        return None
+    return _mk_story(name, title, d, "orange", emoji, 57, pts, thru, "wx")
 
 
 def _finalize_stories(cands, tier_rank, limit=55):
