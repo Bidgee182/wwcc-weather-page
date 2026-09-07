@@ -152,20 +152,32 @@ def all_boards(live):
 
 
 def classify_results(b):
-    """(status, summary) for a board with officialResultsReady=True."""
+    """(status, summary) for a board with officialResultsReady=True.
+
+    Rules (rewritten 7 Sep 2026 after a false alarm on the Veterans 9 Hole):
+    - failed  : no rows with actual player NAMES. Raw row count is worthless -
+                a broken parse can emit positions with empty names.
+    - partial : named players parsed but neither balls nor NTP/LD came out
+                (standings-only parse - something in the PDF was missed).
+    - success : otherwise. An empty grades list is NOT a gap: single-field
+                comps (e.g. Veterans 9 Hole, "Overall Winners" heading) have
+                no A/B/C grades by design - the summary says "single field".
+    """
     ps = b.get("pdfStandings") or {}
     grades, players = ps.get("grades") or [], ps.get("players") or []
+    named = [p for p in players if (p.get("name") or "").strip()]
     ntp_ld = b.get("ntpLd") or []
     n_ntp = sum(1 for e in ntp_ld if e.get("type") == "ntp")
     n_ld = len(ntp_ld) - n_ntp
     balls = b.get("ballWinners") or []
-    if not grades and not players:
+    if not named:
         status = "failed"
-    elif not ntp_ld or not balls or not grades:
+    elif not balls and not ntp_ld:
         status = "partial"
     else:
         status = "success"
-    summary = f"{len(grades)} grades, {len(players)} players, {n_ntp} NTP, {n_ld} LD, {len(balls)} balls"
+    gtxt = f"{len(grades)} grades" if grades else "single field"
+    summary = f"{gtxt}, {len(named)} players, {n_ntp} NTP, {n_ld} LD, {len(balls)} balls"
     return status, summary
 
 
