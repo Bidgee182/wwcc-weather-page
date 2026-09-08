@@ -1135,7 +1135,26 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.2';
+const PUMP_VERSION = '3.3';
+// Remote refresh: raise min_version in monitor_state (key pump_page) and every
+// open copy of this page shows a banner and reloads itself within a minute.
+// Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
+async function checkPageVersion() {
+    try {
+        const rows = await supaFetch('monitor_state', 'key=eq.pump_page&select=value');
+        const min = parseFloat(rows && rows[0] && rows[0].value && rows[0].value.min_version);
+        if (min && parseFloat(PUMP_VERSION) < min && !window._reloadPending) {
+            window._reloadPending = true;
+            const b = document.createElement('div');
+            b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;'
+                + 'color:#fff;text-align:center;padding:10px 14px;font-weight:bold;'
+                + 'font-family:Arial,sans-serif;font-size:14px;';
+            b.textContent = 'A new version of this page is available - refreshing in 8 seconds to get current data...';
+            document.body.appendChild(b);
+            setTimeout(() => location.replace(location.pathname + '?v=' + Date.now() + location.hash), 8000);
+        }
+    } catch (e) {}
+}
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -1168,7 +1187,7 @@ async function supaFetchAll(table, baseQuery, maxRows = 55000) {
     return all;
 }
 
-// Convert a pump_minute_stats row to the chart reading shape used by all charts
+// Convert a pump_stats_v2 row to the chart reading shape used by all charts
 function statsRowToReading(r) {
     // Count a pump as running this minute if it ran a meaningful few seconds -
     // the jockey cycles in short bursts (often 5-30s) and a near-full-minute
@@ -1651,7 +1670,7 @@ async function loadData() {
     if (_now - _dailyFetchedAt > CACHE_TTL_MS) dailyData = null;
     try {
         const [statsRows, eventsRows] = await Promise.all([
-            supaFetch('pump_minute_stats', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
+            supaFetch('pump_stats_v2', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
             supaFetch('pump_events_hires', 'order=ts.desc&limit=200'),
         ]);
         statsRows.reverse();  // oldest-first for chart rendering
@@ -1685,7 +1704,7 @@ async function ensureHistory() {
         if (historyData !== null && historyData.readings.length) {
             // Incremental top-up: only rows newer than the last cached one
             const lastTs = historyData.readings[historyData.readings.length - 1].ts;
-            const fresh = await supaFetchAll('pump_minute_stats',
+            const fresh = await supaFetchAll('pump_stats_v2',
                 `${STATS_COLS}&order=ts.asc&ts=gt.${encodeURIComponent(lastTs)}`, 5000);
             historyData.readings.push(...fresh.map(statsRowToReading));
             while (historyData.readings.length
@@ -1701,7 +1720,7 @@ async function ensureHistory() {
         const PAGE = 1000;
         let allRows = [], offset = 0;
         while (true) {
-            const page = await supaFetch('pump_minute_stats',
+            const page = await supaFetch('pump_stats_v2',
                 `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${offset}`);
             allRows.push(...page);
             if (page.length < PAGE) break;
@@ -1747,7 +1766,7 @@ async function ensureDaily() {
         // Last 35 days, lean columns - paged past the 1000-row cap so recent
         // days aren't dropped (ascending + cap = only the oldest 1000 otherwise).
         const sinceIso = new Date(Date.now() - 35 * 86400000).toISOString();
-        const rows = await supaFetchAll('pump_minute_stats',
+        const rows = await supaFetchAll('pump_stats_v2',
             'select=ts,p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,' +
             'p1_power_kw,p2_power_kw,p3_power_kw,jockey_power_kw,samples,' +
             'pressure_avg,pressure_min,pressure_max,flow_avg,setpoint_bar' +
@@ -2323,7 +2342,7 @@ async function applyCustomRange() {
 
     document.getElementById('hist-loading').style.display = 'block';
     try {
-        const rows = await supaFetch('pump_minute_stats',
+        const rows = await supaFetch('pump_stats_v2',
             `order=ts.asc&ts=gte.${fromIso}&ts=lte.${toIso}&limit=150000`);
         customRangeReadings = bucketReadings(rows.map(statsRowToReading), perfRangeH);
     } catch(e) { customRangeReadings = []; }
@@ -2607,7 +2626,7 @@ async function render24hTrend() {
     const sinceMs = Date.now() - 24 * 3600 * 1000;
     let rows = [];
     try {
-        rows = await supaFetchAll('pump_minute_stats',
+        rows = await supaFetchAll('pump_stats_v2',
             'select=ts,pressure_avg,flow_avg&ts=gte.' + new Date(sinceMs).toISOString() +
             '&order=ts.asc', 3000);
     } catch (e) {}
@@ -4085,6 +4104,8 @@ function renderLogEntries() {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadData();
 setInterval(loadData, 60000);
+checkPageVersion();
+setInterval(checkPageVersion, 60000);
 document.getElementById('alarm-info-popup').addEventListener('click', function(e) {
     if (e.target === this) closeAlarmPopup();
 });

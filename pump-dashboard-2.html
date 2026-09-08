@@ -1284,7 +1284,7 @@ async function loadData() {
     hwConfigData     = {};  // no hardware config from Pi data
     try {
         // Fetch last 1440 minutes (24h) of minute stats, newest first, then reverse
-        const rows = await supaFetch('pump_minute_stats', 'order=ts.desc&limit=1440');
+        const rows = await supaFetch('pump_stats_v2', 'order=ts.desc&limit=1440');
         minuteStatsRows = rows.reverse();
         // Fetch last 200 events newest-first (keep newest-first for event log display)
         eventsHiresRows = await supaFetch('pump_events_hires', 'order=ts.desc&limit=200');
@@ -1318,7 +1318,7 @@ async function ensureHistory() {
             })) };
         } else {
             // Fetch up to 90 days of data (limit 8640 = 6 days at 1-min, or longer if older data exists)
-            const rows = await supaFetch('pump_minute_stats', 'order=ts.asc&limit=8640');
+            const rows = await supaFetch('pump_stats_v2', 'order=ts.asc&limit=8640');
             historyData = { readings: rows.map(r => ({
                 ts: r.ts, pa: r.pressure_avg, ps: null, pi: r.pressure_inlet,
                 fl: r.flow_avg, nr: 0, pk: r.power_avg_kw,
