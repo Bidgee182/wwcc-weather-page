@@ -49,7 +49,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "2.5"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
+POLLER_VERSION = "2.6"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -304,6 +304,12 @@ def flush_supabase_queue(con, session):
     for row_id, table, payload_str, prefer in rows:
         try:
             url = f"{SUPABASE_URL}/rest/v1/{table}"
+            # 9 Sep 2026: anon SELECT on pump_minute_stats was revoked (browser
+            # egress cutover) and PostgREST upserts need it, so merge-duplicates
+            # started 401ing. Plain INSERT works with INSERT-only privilege; a
+            # 409 just means the row is already there (re-flush after a crash) -
+            # treat it as delivered.
+            prefer = (prefer or "").replace("resolution=merge-duplicates", "").strip(",") or "return=minimal"
             headers = {
                 "apikey":        SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -311,7 +317,7 @@ def flush_supabase_queue(con, session):
                 "Prefer":        prefer,
             }
             r = session.post(url, data=payload_str, headers=headers, timeout=10)
-            if r.status_code in (200, 201, 204):
+            if r.status_code in (200, 201, 204, 409):
                 con.execute("DELETE FROM supabase_queue WHERE id=?", (row_id,))
             else:
                 con.execute(
@@ -1018,6 +1024,13 @@ def main():
     print(f"Supabase: {SUPABASE_URL}")
 
     con        = init_db(DB_PATH)
+    # Revive rows parked by the 9 Sep 2026 401 storm (attempts cap reached
+    # while the upsert privilege was broken) so no minutes are lost.
+    try:
+        con.execute("UPDATE supabase_queue SET attempts=0 WHERE attempts >= 20")
+        con.commit()
+    except Exception:
+        pass
     session    = requests.Session() if HAVE_REQUESTS else None
     if DDNS_GUARD_ENABLED:
         import threading
