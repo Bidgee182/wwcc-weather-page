@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-08T11:16:58.525372+00:00",
- "window": "day",
+ "updatedAt": "2026-09-08T14:12:23.300959+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Ladies 18 Hole Stableford Womens",
- "compDate": "2026-09-08",
- "playerCount": 33,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "competition": "Mens Wednesday Stableford",
+ "compDate": "2026-09-09",
+ "playerCount": 111,
+ "pollAgeMin": 0.7,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 3,
+  "ntp": 0,
   "ld": 0,
-  "balls": 14
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,32 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "33 players"
+   "detail": "111 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
-  },
-  {
-   "key": "pdf:10414348",
-   "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "ok",
-   "detail": "2 grades, 20 players, 3 NTP, 0 LD, 14 balls"
-  },
-  {
-   "key": "pdf:10414349",
-   "label": "Results: Ladies 9 Hole Stableford F\u2026",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf:10414242",
+   "label": "Results PDF",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Veterans 9 Hole Stableford Front 9",
-   "status": "partial",
-   "summary": "0 grades, 71 players, 1 NTP, 0 LD, 23 balls",
+   "competition": "Ladies 9 Hole Stableford Front 9 Womens",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Ladies 18 Hole Stableford Womens",
+   "status": "success",
+   "summary": "2 grades, 20 players, 3 NTP, 0 LD, 14 balls",
    "role": "primary"
   }
  ]
