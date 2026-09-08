@@ -1658,7 +1658,8 @@ function openControlAction(act, val) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 let _histFetchedAt = 0, _dailyFetchedAt = 0, _alarmFetchedAt = 0;
-const CACHE_TTL_MS = 10 * 60000;   // daily/alarm caches refresh at most every 10 min
+const CACHE_TTL_MS   = 10 * 60000;   // alarm cache refreshes at most every 10 min
+const DAILY_TTL_MS   = 60 * 60000;   // daily aggregates change once a day - hourly is plenty
 
 async function loadData() {
     // Never null historyData here: ensureHistory tops it up incrementally.
@@ -1667,7 +1668,7 @@ async function loadData() {
     // Fair Use warning on 9 Sep 2026.
     const _now = Date.now();
     if (_now - _alarmFetchedAt > CACHE_TTL_MS) alarmHistoryData = null;
-    if (_now - _dailyFetchedAt > CACHE_TTL_MS) dailyData = null;
+    if (_now - _dailyFetchedAt > DAILY_TTL_MS) dailyData = null;
     try {
         const [statsRows, eventsRows] = await Promise.all([
             supaFetch('pump_stats_v2', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
