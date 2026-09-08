@@ -969,7 +969,7 @@ def _hole_note(h: dict) -> str | None:
     return None
 
 
-def _story_stroke(played: list[dict], player: str = "") -> dict | None:
+def _story_stroke(played: list[dict], player: str = "", course_holes: int = 0) -> dict | None:
     """Scoreboard stories for stroke play (net vs par). Same structure as stableford
     stories - tweak thresholds and text here without touching the stableford version.
 
@@ -1013,9 +1013,11 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
     def story(title, detail, tier, emoji):
         return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
 
-    def _var(*opts): return random.choice(opts)
+    _rnd = random.Random(f"story|{player}|{len(played)}")
+
+    def _var(*opts): return _rnd.choice(opts)
     def _pick(combos, tier, emoji):
-        t, d = random.choice(combos)
+        t, d = _rnd.choice(combos)
         return story(t, d, tier, emoji)
 
     # ── Per-hole priority stories ────────────────────────────────────────────
@@ -1367,7 +1369,7 @@ def _story_stroke(played: list[dict], player: str = "") -> dict | None:
     return None
 
 
-def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> dict | None:
+def _story(played: list[dict], is_stableford: bool = True, player: str = "", course_holes: int = 0) -> dict | None:
     """Generate a Scoreboard Story from a player's played holes (in PLAY order,
     tee-off hole first - see _play_order; front/back nines are still split by hole
     number where "out"/"coming home" is meant geographically).
@@ -1376,7 +1378,7 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
                    False = delegates to _story_stroke().
     """
     if not is_stableford:
-        return _story_stroke(played, player)
+        return _story_stroke(played, player, course_holes)
     n = len(played)
     if n < 2:
         return None
@@ -1424,11 +1426,13 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
     def story(title, detail, tier, emoji):
         return {"title": title, "detail": detail, "tier": tier, "emoji": emoji}
 
+    _rnd = random.Random(f"story|{player}|{n}")   # per-player, stable per state
+
     def _var(*opts: str) -> str:
-        return random.choice(opts)
+        return _rnd.choice(opts)
 
     def _pick(combos, tier, emoji):
-        t, d = random.choice(combos)
+        t, d = _rnd.choice(combos)
         return story(t, d, tier, emoji)
 
     # ── Per-hole priority stories ────────────────────────────────────────────
@@ -1654,9 +1658,11 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "") -> 
     par3_birdies = [h for h in played if h.get("par") == 3 and is_birdie(h)]
     par5_birdies = [h for h in played if h.get("par") == 5 and is_birdie(h)]
 
-    if total_pts >= (40 if n >= 15 else 20):
+    hc_known = course_holes or 18
+    round_done = n >= hc_known
+    if round_done and total_pts >= (40 if hc_known >= 15 else 20):
         return _pick([
-            ("Forty Club" if n >= 15 else "Big Nine", f"{total_pts} points on the card - a round to remember"),
+            ("Forty Club" if hc_known >= 15 else "Big Nine", f"{total_pts} points on the card - a round to remember"),
             ("A Round to Frame", f"{total_pts} points - the sort of day you tell people about"),
         ], "gold", "🏅")
     if len(par3_birdies) >= 2:
@@ -2690,7 +2696,7 @@ def _finalize_stories(cands, tier_rank, limit=55):
             continue
         if per_tier.get(t, 0) >= caps.get(t, 15):
             continue
-        if title_count.get(c["title"], 0) >= 2:   # at most 2 of any one title in the pool
+        if title_count.get(c["title"], 0) >= 1:   # one of each title per pool - no twin cards side by side
             continue
         per_tier[t] = per_tier.get(t, 0) + 1
         title_count[c["title"]] = title_count.get(c["title"], 0) + 1
@@ -2860,7 +2866,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             "birdies": birdies,
             "holes": holes,
             "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points"), "pointsSum": h.get("pointsSum")} for h in last],
-            "_story": _story(played, is_stableford, base_["player"]),
+            "_story": _story(played, is_stableford, base_["player"], hole_count),
         }
         players.append(p)
 
