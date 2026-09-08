@@ -19,10 +19,9 @@
    "footy_leader": "{player} {score}",
    "footy_charge": "{player} {climbed}",
    "footy_slump": "{player} {best_ord} {rank_ord}",
-   "footy_spoon": "{player}",
-   "footy_today": "(none)"
+   "footy_spoon": "{player}"
   },
-  "footy_note": "footy_* categories reference the REAL 2026 AFL and NRL seasons (written 8 Sep 2026, finals time). Refresh them each September or the jokes go stale. footy_today lines only show in September and October (gated in live.py)."
+  "footy_note": "footy_* categories reference the REAL 2026 AFL and NRL seasons, past tense - the games have been played (written 8 Sep 2026, AFL week-1 finals done, NRL finals from 11 Sep). Every line hangs the footy reference on the GOLFER via {player} - no standalone footy trivia cards. Refresh each September."
  },
  "family_affair_title": [
   "Family Affair",
@@ -667,7 +666,12 @@
   "{player} clear on {score} - the double chance is theirs to lose",
   "{player} leading with {score} - a 19-and-4 season squeezed into one round",
   "{player} at {score} - the bookies have suspended betting",
-  "{player} on {score} - leading the comp the way Penrith lead Septembers: on principle"
+  "{player} on {score} - leading the comp the way Penrith lead Septembers: on principle",
+  "{player} on {score} - went top early and stayed there, Penrith's old ladder habit in golf form",
+  "{player} leads with {score} - piling on points like Sydney did to Brisbane, 141 to 88 and no mercy",
+  "{player} at {score} - a Curnow season of a round, 69 goals worth of scoreboard",
+  "{player} out front on {score} - the Warriors finished second this year, career-best form looks like this",
+  "{player} on {score} - the Dolphins cracked the top four in year three, new blood leads just fine"
  ],
  "footy_charge": [
   "{player} up {climbed} spots - a Warriors 2026 of a run, from nowhere to knocking on the door",
@@ -714,7 +718,12 @@
   "{player} climbed {climbed} places - the handicapper calls it an anomaly, the bar calls it form",
   "{player} up {climbed} spots - like the Crows: quiet all day, lethal late",
   "{player} charged {climbed} places - the field's rear-view mirror just got busy",
-  "{player} up {climbed} - proper eight-point-game stuff"
+  "{player} up {climbed} - proper eight-point-game stuff",
+  "{player} up {climbed} spots - the Cowboys grabbed eighth on the final weekend, late runs are real",
+  "{player} climbed {climbed} places - Carlton stormed the wildcard round by 19, that kind of afternoon",
+  "{player} up {climbed} - the Bulldogs won their wildcard by three, every place matters",
+  "{player} surged {climbed} spots - Dangerfield kicked five in game 378, form has no age limit",
+  "{player} up {climbed} places - the Knights made the eight when nobody rated them, keep going"
  ],
  "footy_slump": [
   "{player} was {best_ord}, now {rank_ord} - a Fremantle week one, minor premiers to major worries",
@@ -751,7 +760,12 @@
   "{player} from {best_ord} to {rank_ord} - September doesn't do sentiment",
   "{player} at {rank_ord} from {best_ord} - a mid-season slump arriving fashionably late",
   "{player} slipping to {rank_ord} - held {best_ord} longer than Melbourne held eighth",
-  "{player} down from {best_ord} to {rank_ord} - the great escape starts on the next tee"
+  "{player} down from {best_ord} to {rank_ord} - the great escape starts on the next tee",
+  "{player} from {best_ord} to {rank_ord} - even the Storm missed the finals this year, form spares nobody",
+  "{player} down to {rank_ord} from {best_ord} - the Broncos went premiers to 14th, it happens to the best",
+  "{player} slid from {best_ord} to {rank_ord} - Collingwood scraped into tenth and still went out by three",
+  "{player} from {best_ord} to {rank_ord} - Freo topped the ladder all year and lost week one, no lead is safe",
+  "{player} down at {rank_ord} - was {best_ord}, now doing a Melbourne: one bad week in September"
  ],
  "footy_spoon": [
   "{player} propping up the board - even the Dragons won their first spoon this year, history beckons",
@@ -793,38 +807,9 @@
   "{player} at the tail of the field - every champion team needs a bottom age year",
   "{player} on the spoon - the scoreboard forgets, the group chat never does",
   "{player} bringing up the rear - carrying the drinks and the field's countback hopes",
-  "{player} at the bottom - the spoon rotates, the friendships don't"
- ],
- "footy_today": [
-  "finals time in both codes - Freo topped the ladder all year and lost week one, golf leads are safe with nobody",
-  "September footy weather - the Hawks torched the minor premiers, upsets are in season",
-  "finals fortnight - Sydney put 141 on Brisbane, big scores are contagious",
-  "the Dragons finally won a wooden spoon after 108 years - every streak ends, even yours",
-  "Broncos went premiers to 14th in a year - defend your handicap like they didn't",
-  "the Storm missed the NRL eight for the first time in memory - no reputation survives September",
-  "Penrith top of the ladder again - some leaderboards never change, unlike this one",
-  "the Warriors finished second and half the club is booking flights - underdog years are the best years",
-  "wildcard round came to the AFL this year - the ninth and tenth placed golfers here remain, sadly, out of luck",
-  "Melbourne made the wildcard round and lasted one week - make your finals count",
-  "Dangerfield kicked five in game 378 - experience is a club in the bag",
-  "Curnow kicked 69 for the Coleman - somebody on this board is having his kind of year",
-  "AFL prelims loom and the NRL eight is set - spring golf and finals footy, the great double",
-  "the Dolphins made the top four in year three - new members take note",
-  "Essendon went 2 and 21 - whatever happens out there today, it wasn't that",
-  "Collingwood snuck into tenth and went out by three points - margins matter, count your putts",
-  "finals week - the Cowboys grabbed eighth on the last weekend, never stop grinding",
-  "Souths ground into the six - September rewards the stubborn",
-  "the Sharks are top-five again - consistency is a superpower, on turf and grass",
-  "Manly finished ninth by a whisker - one more good round is all anyone needs",
-  "footy finals and golf comps agree: ladders are just leaderboards with ads",
-  "the Knights made the eight and their fans made the noise - bring that energy to the 18th",
-  "qualifying finals upset the order in both codes - hold your lead like it's a one-point prelim",
-  "the Roosters finished fourth without fuss - quiet achievers win Septembers",
-  "two codes deep in finals - the only ladder that matters right now is this one",
-  "Carlton won a wildcard then met Geelong in the wet - momentum has a bedtime",
-  "spring finals footy is here - play the percentages like a top-four coach",
-  "the Bulldogs won a three-point wildcard thriller - every shot out there is worth the grind",
-  "Adelaide rallied past the Dogs in week one - steady beats spectacular in September",
-  "finals month: the minor premiers are 0-1 and the golf course doesn't care about seedings either"
+  "{player} at the bottom - the spoon rotates, the friendships don't",
+  "{player} at the bottom - the Dragons took their first-ever spoon this year, welcome to a very old club",
+  "{player} last today - Essendon finished 2 and 21, one bad day is nothing",
+  "{player} on the spoon - Manly missed the whole finals by one spot, margins are cruel everywhere"
  ]
 }
