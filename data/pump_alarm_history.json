@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-08T19:40:32.729612+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-08T19:21:37.287745+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1829,16 +1838,6 @@
       "type_name": "Alarm appeared",
       "code": 214,
       "description": "Water shortage",
-      "pump_label": "System",
-      "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-22T02:27:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 210,
-      "description": "Pressure high",
       "pump_label": "System",
       "source_name": "System",
       "imported": true
