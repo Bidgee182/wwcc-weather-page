@@ -1135,7 +1135,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.1';
+const PUMP_VERSION = '3.2';
 (function(){ const v = document.getElementById('app-version'); if (v) v.textContent = 'v' + PUMP_VERSION; })();
 
 // The setpoint register is stored as a % of the 16-bar sensor and can't hold
@@ -1638,10 +1638,17 @@ function openControlAction(act, val) {
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
+let _histFetchedAt = 0, _dailyFetchedAt = 0, _alarmFetchedAt = 0;
+const CACHE_TTL_MS = 10 * 60000;   // daily/alarm caches refresh at most every 10 min
+
 async function loadData() {
-    alarmHistoryData = null;
-    dailyData        = null;
-    historyData      = null;
+    // Never null historyData here: ensureHistory tops it up incrementally.
+    // Nulling these every 60 s cycle made an open History tab re-download the
+    // full 90-day archive each minute - 2.6 GB/day of Supabase egress and a
+    // Fair Use warning on 9 Sep 2026.
+    const _now = Date.now();
+    if (_now - _alarmFetchedAt > CACHE_TTL_MS) alarmHistoryData = null;
+    if (_now - _dailyFetchedAt > CACHE_TTL_MS) dailyData = null;
     try {
         const [statsRows, eventsRows] = await Promise.all([
             supaFetch('pump_minute_stats', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
@@ -1660,23 +1667,52 @@ async function loadData() {
     readHash();
 }
 
+// Only the columns statsRowToReading actually maps - halves the wire size
+const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,'
+    + 'power_avg_kw,spec_energy_avg,'
+    + 'p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,'
+    + 'p1_speed_pct,p2_speed_pct,p3_speed_pct,jockey_speed_pct,'
+    + 'p1_power_kw,p2_power_kw,p3_power_kw,jockey_power_kw,'
+    + 'p1_run_hours,p2_run_hours,p3_run_hours,jockey_run_hours,'
+    + 'p1_starts,p2_starts,p3_starts,jockey_starts,'
+    + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c';
+
 async function ensureHistory() {
-    if (historyData !== null) return;
-    document.getElementById('hist-loading').style.display = 'block';
+    const nowMs = Date.now();
+    if (historyData !== null && nowMs - _histFetchedAt < 55000) return;
+    const cutoffMs = nowMs - 90 * 24 * 3600000;
     try {
+        if (historyData !== null && historyData.readings.length) {
+            // Incremental top-up: only rows newer than the last cached one
+            const lastTs = historyData.readings[historyData.readings.length - 1].ts;
+            const fresh = await supaFetchAll('pump_minute_stats',
+                `${STATS_COLS}&order=ts.asc&ts=gt.${encodeURIComponent(lastTs)}`, 5000);
+            historyData.readings.push(...fresh.map(statsRowToReading));
+            while (historyData.readings.length
+                   && new Date(historyData.readings[0].ts).getTime() < cutoffMs) {
+                historyData.readings.shift();   // keep the window at 90 days
+            }
+            _histFetchedAt = nowMs;
+            return;
+        }
+        document.getElementById('hist-loading').style.display = 'block';
         // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate.
-        const cutoff = new Date(Date.now() - 90 * 24 * 3600000).toISOString().slice(0, 19) + 'Z';
+        const cutoff = new Date(cutoffMs).toISOString().slice(0, 19) + 'Z';
         const PAGE = 1000;
         let allRows = [], offset = 0;
         while (true) {
             const page = await supaFetch('pump_minute_stats',
-                `order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${offset}`);
+                `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${offset}`);
             allRows.push(...page);
             if (page.length < PAGE) break;
             offset += PAGE;
         }
         historyData = { readings: allRows.map(statsRowToReading) };
-    } catch(e) { historyData = { readings:[] }; }
+        _histFetchedAt = nowMs;
+    } catch(e) {
+        if (historyData === null) historyData = { readings:[] };
+        _histFetchedAt = 0;   // retry on the next cycle
+    }
     document.getElementById('hist-loading').style.display = 'none';
 }
 
@@ -1717,6 +1753,7 @@ async function ensureDaily() {
             'pressure_avg,pressure_min,pressure_max,flow_avg,setpoint_bar' +
             '&ts=gte.' + sinceIso + '&order=ts.asc');
         dailyData = { days: buildDailyStats(rows) };
+        _dailyFetchedAt = Date.now();
     } catch(e) { dailyData = { days:[] }; }
 }
 
@@ -1739,6 +1776,7 @@ async function ensureAlarmHistory() {
         const rows = await supaFetch('pump_events_hires',
             'order=ts.desc&limit=2000&event_type=not.in.('+exclude+')');
         alarmHistoryData = { events: rows.map(eventRowToLegacy) };
+        _alarmFetchedAt = Date.now();
     } catch(e) { alarmHistoryData = { events:[] }; }
 }
 
