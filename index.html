@@ -6207,6 +6207,11 @@ async function fetchHistoricalWeather() {
         sydney.setUTCDate(sydney.getUTCDate() - daysAgo);
         sydney.setUTCHours(0, 0, 0, 0);
         const dateStr = sydney.toISOString().slice(0, 10);
+        // Cached days are FINAL (whole past days) - refetching them cost
+        // ~1.5 MB per page load through the relay (found in the 9 Sep 2026
+        // Supabase egress audit). Only fetch what the store doesn't hold.
+        const c = store[dateStr];
+        if (c && c.et != null && c.meanTemp != null && c.tempMax != null) continue;
         const startTs = Math.floor(sydney.getTime() / 1000) - offsetSecs;
         const endTs   = startTs + 86399;
         dayPromises.push(
@@ -6886,9 +6891,11 @@ async function checkForUpdates() {
             method: 'HEAD',
             cache: 'no-store'
         });
-        const etag    = res.headers.get('etag');
-        const lastMod = res.headers.get('last-modified');
-        const token   = etag || lastMod;
+        // ETag/Last-Modified on GitHub Pages are deploy-time based and the
+        // site deploys every minute or two on comp days, which made every
+        // open page reload itself constantly (9 Sep 2026 egress audit).
+        // Content-Length only moves when this file actually changes.
+        const token = res.headers.get('content-length');
         if (!token) return; // server not sending headers - skip
 
         if (_pageETag === null) {
