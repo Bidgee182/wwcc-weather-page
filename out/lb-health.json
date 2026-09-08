@@ -1,11 +1,13 @@
 {
- "updatedAt": "2026-09-08T15:10:34.352172+00:00",
- "window": "night",
- "alertsActive": [],
- "competition": "Mens Wednesday Stableford",
- "compDate": "2026-09-09",
- "playerCount": 111,
- "pollAgeMin": 0.4,
+ "updatedAt": "2026-09-08T19:40:39.020714+00:00",
+ "window": "day",
+ "alertsActive": [
+  "nocomp"
+ ],
+ "competition": null,
+ "compDate": null,
+ "playerCount": 0,
+ "pollAgeMin": 90.6,
  "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
@@ -16,14 +18,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "2 boards listed, none published"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "91 min old"
   },
   {
    "key": "creds",
@@ -35,19 +37,13 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "111 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
    "status": "idle",
    "detail": "Checked while comp is live"
-  },
-  {
-   "key": "pdf:10414242",
-   "label": "Results PDF",
-   "status": "idle",
-   "detail": "Comp not started"
   }
  ],
  "yesterday": [
