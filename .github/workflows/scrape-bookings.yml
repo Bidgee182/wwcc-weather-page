@@ -19,6 +19,10 @@ on:
         description: 'Probe for the event-list endpoint (yes/no)'
         required: false
         default: 'no'
+      eventlist:
+        description: 'Attempt the JSF event-list AJAX (yes/no)'
+        required: false
+        default: 'no'
 
 jobs:
   scrape:
@@ -39,6 +43,7 @@ jobs:
           [ -n "${{ github.event.inputs.url }}" ]  && ARGS="$ARGS --url '${{ github.event.inputs.url }}'"
           [ -n "${{ github.event.inputs.date }}" ] && ARGS="$ARGS --date '${{ github.event.inputs.date }}'"
           [ "${{ github.event.inputs.probe }}" = "yes" ] && ARGS="$ARGS --probe"
+          [ "${{ github.event.inputs.eventlist }}" = "yes" ] && ARGS="$ARGS --eventlist"
           eval python scripts/scrape_bookings.py $ARGS
       - name: Upload the scraped pages (race-proof)
         uses: actions/upload-artifact@v4
@@ -47,6 +52,7 @@ jobs:
           path: |
             out/bookings*.html
             out/probe_*.html
+            out/eventlist_*.html
           if-no-files-found: warn
 
       - name: Commit the scraped sheet

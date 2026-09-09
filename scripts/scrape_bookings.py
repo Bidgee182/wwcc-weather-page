@@ -150,12 +150,51 @@ def main():
     ap.add_argument("--url", help="exact timesheet URL (from the browser address bar)")
     ap.add_argument("--date", default=date.today().isoformat())
     ap.add_argument("--probe", action="store_true", help="probe for the event-list endpoint")
+    ap.add_argument("--eventlist", action="store_true", help="attempt the JSF event-list AJAX")
     args = ap.parse_args()
 
     opener = login()
     if not opener:
         sys.exit(1)
     os.makedirs(OUT, exist_ok=True)
+
+    if args.eventlist:
+        el = BASE + "/views/members/booking/eventList.xhtml?booking_resource_id=3000000"
+        body, real, st = get(opener, el)
+        vs = re.search(r'name="javax\.faces\.ViewState"[^>]*value="([^"]+)"', body)
+        vs = vs.group(1) if vs else ""
+        print("GET eventList [%s] ViewState=%s" % (st, vs[:24]))
+        attempts = [
+            {"javax.faces.partial.ajax": "true", "javax.faces.source": "eventListForm:j_idt23",
+             "javax.faces.partial.execute": "eventListForm:j_idt23",
+             "javax.faces.partial.render": "eventListForm",
+             "javax.faces.behavior.event": "itemSelect", "javax.faces.partial.event": "itemSelect",
+             "eventListForm:j_idt23": "daily", "eventListForm": "eventListForm",
+             "javax.faces.ViewState": vs},
+            {"javax.faces.partial.ajax": "true", "javax.faces.source": "eventListForm:j_idt23",
+             "javax.faces.partial.execute": "@all", "javax.faces.partial.render": "@all",
+             "javax.faces.behavior.event": "change", "eventListForm:j_idt23": "daily",
+             "eventListForm": "eventListForm", "javax.faces.ViewState": vs},
+            {"eventListForm": "eventListForm", "eventListForm:j_idt23": "daily",
+             "javax.faces.ViewState": vs},
+        ]
+        for i, params in enumerate(attempts):
+            data = urllib.parse.urlencode(params).encode()
+            req = urllib.request.Request(el, data=data, headers={
+                "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded",
+                "Faces-Request": "partial/ajax", "X-Requested-With": "XMLHttpRequest"})
+            try:
+                with opener.open(req, timeout=20) as r:
+                    resp = r.read().decode("utf-8", "replace"); code = r.status
+            except Exception as e:
+                resp, code = "(err %s)" % e, 0
+            ids = sorted(set(re.findall(r"booking_event_id=(\d+)", resp)))
+            dates = re.findall(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*)\b", resp)
+            print("attempt %d [%s] len=%d event_ids=%s dates=%s" % (
+                i, code, len(resp), ids[:8], dates[:5]))
+            with open(os.path.join(OUT, "eventlist_%d.html" % i), "w", encoding="utf-8") as f:
+                f.write(resp)
+        return
 
     if args.probe:
         today = args.date
