@@ -184,7 +184,7 @@ html, body {
 .last-pts   { font-size: 1.43em; font-weight: bold; color: #f39c12; }
 .last-right { flex-shrink: 0; padding-left: 8px; text-align: right; }
 .last-right .last-thru { margin-top: 1px; }
-.last-roast { font-size: 0.98em; color: #95a5a6; margin-top: 2px; line-height: 1.28; }
+.last-roast { font-size: 0.88em; color: #7f8c8d; margin-top: 2px; line-height: 1.28; }   /* matches .story-detail */
 
 .empty-note {
     color: #4a6a84; font-size: 1.2em; text-align: center;
@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
