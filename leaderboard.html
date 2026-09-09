@@ -181,7 +181,10 @@ html, body {
 .last-name  { font-size: 1.32em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .last-thru  { font-size: 1.02em; color: #7f8c8d; margin-top: 2px; }
 .last-thru.fin { color: #27ae60; font-weight: bold; }
-.last-pts   { font-size: 1.43em; font-weight: bold; color: #f39c12; flex-shrink: 0; padding-left: 8px; }
+.last-pts   { font-size: 1.43em; font-weight: bold; color: #f39c12; }
+.last-right { flex-shrink: 0; padding-left: 8px; text-align: right; }
+.last-right .last-thru { margin-top: 1px; }
+.last-roast { font-size: 0.98em; color: #95a5a6; margin-top: 2px; line-height: 1.28; }
 
 .empty-note {
     color: #4a6a84; font-size: 1.2em; text-align: center;
@@ -488,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1503,6 +1506,10 @@ function renderStories(stories, skipExpiry) {
     _storyAnimDurMs = renderSidePanel('heater-list', rows, 'Watching the field...', 6, STORY_PAUSE_MS);
 }
 
+// Blue ball rows hold static for 5 s before scrolling - the current holder
+// sits at the top and was gone before anyone could read it.
+const BB_PAUSE_MS = 5000;
+
 function _doRenderComingLast(comingLast, holeCount) {
     _lastComingLastArgs = { comingLast, holeCount };
     const hc = holeCount || 18;
@@ -1510,15 +1517,19 @@ function _doRenderComingLast(comingLast, holeCount) {
         const fin = p.thru >= hc;
         const thruTxt = fin ? 'Finished' : 'thru ' + p.thru;
         const thruCls = fin ? 'last-thru fin' : 'last-thru';
+        const roast = p.roast ? '<div class="last-roast">' + esc(p.roast) + '</div>' : '';
         return '<div class="last-row">' +
             '<div class="last-left">' +
                 '<div class="last-name">' + esc(p.player) + '</div>' +
+                roast +
+            '</div>' +
+            '<div class="last-right">' +
+                '<div class="last-pts">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</div>' +
                 '<div class="' + thruCls + '">' + thruTxt + '</div>' +
             '</div>' +
-            '<div class="last-pts">' + fmtScore(p.points) + (_isStableford ? 'pts' : '') + '</div>' +
         '</div>';
     });
-    _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5);
+    _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5, BB_PAUSE_MS);
 }
 
 // First-load call (not buffered)

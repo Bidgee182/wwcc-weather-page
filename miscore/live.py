@@ -2522,6 +2522,51 @@ def _social_stories(ranked, board_date=None, hole_count=0):
     return out
 
 
+def _blueball_roast(i, cl, hc, board_date):
+    """One short, score-aware roast line for the Blue Ball Contenders pill.
+
+    cl is the contenders list WORST FIRST (index 0 = current holder of the
+    two blue balls: lowest score in the clubhouse at presentation). Stableford
+    only - the maths assumes points accumulate. Day-seeded per player so the
+    line holds steady between polls; any failure returns None and the pill
+    renders its plain row.
+    """
+    try:
+        p = cl[i]
+        pts, thru = p.get("points") or 0, p.get("thru") or 0
+        name = p.get("player") or ""
+        if not name or thru <= 0:
+            return None
+        left = max(0, (hc or 18) - thru)
+        fin = left == 0
+        avg = round(pts / thru, 1)
+        seed = f"{board_date}|bb|{name}"
+
+        def surname(n):
+            n = re.sub(r"\s*\[[^\]]*\]", "", n or "").strip()
+            parts = n.split()
+            return parts[-1] if len(parts) > 1 else (n or "the next bloke")
+
+        if i == 0:
+            if len(cl) > 1 and (cl[1].get("points") or 0) == pts:
+                return _pick_phrase("bb_tied", seed, leader=surname(cl[1].get("player")))
+            if fin:
+                return _pick_phrase("bb_holder_fin", seed, pts=pts, avg=avg)
+            above = surname(cl[1].get("player")) if len(cl) > 1 else "the field"
+            need = ((cl[1].get("points") or 0) - pts + 1) if len(cl) > 1 else 1
+            return _pick_phrase("bb_holder_out", seed, pts=pts, avg=avg,
+                                left=left, need=max(1, need), above=above)
+        cushion = pts - (cl[0].get("points") or 0)
+        leader = surname(cl[0].get("player"))
+        if cushion == 0:
+            return _pick_phrase("bb_tied", seed, leader=leader)
+        cat = "bb_contender_fin" if fin else "bb_contender"
+        return _pick_phrase(cat, seed, cushion=cushion, leader=leader,
+                            avg=avg, pts=pts, left=left)
+    except Exception:
+        return None
+
+
 def _is_team_comp(ranked, comp_name):
     n = (comp_name or "").lower()
     if any(k in n for k in ("4bbb", "ambrose", "4 person", "four ball", "4ball")):
@@ -3139,8 +3184,10 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         "storyRanks": {"boardId": board_id, "meta": story_meta},
         "weather": _ticker_weather(),
         "comingLast": [
-            {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"]}
-            for p in coming_last[:10]
+            {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"],
+             "roast": (_blueball_roast(i, coming_last[:10], hole_count, board.get("date"))
+                       if is_stableford else None)}
+            for i, p in enumerate(coming_last[:10])
         ],
         "events": events,
     }
