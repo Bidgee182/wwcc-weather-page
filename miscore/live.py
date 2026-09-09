@@ -2542,6 +2542,11 @@ def _blueball_roast(i, cl, hc, board_date):
         avg = round(pts / thru, 1)
         seed = f"{board_date}|bb|{name}"
 
+        def pick(cat, **fmt):
+            d = _pick_phrase(cat, seed, **fmt)
+            # singular grammar when a computed value lands on 1 ("1 points")
+            return re.sub(r"(?<![0-9])1 points\b", "1 point", d) if d else None
+
         def surname(n):
             n = re.sub(r"\s*\[[^\]]*\]", "", n or "").strip()
             parts = n.split()
@@ -2557,27 +2562,27 @@ def _blueball_roast(i, cl, hc, board_date):
                               if (c.get("thru") or 0) >= hcv
                               and (c.get("points") or 0) == pts), None)
                 if other:
-                    return _pick_phrase("bb_tied", seed, leader=surname(other.get("player")))
-                return _pick_phrase("bb_holder_fin", seed, pts=pts, avg=avg)
+                    return pick("bb_tied", leader=surname(other.get("player")))
+                return pick("bb_holder_fin", pts=pts, avg=avg)
             # nobody home yet - provisional holder, still out, chased by cl[1]
             above = surname(cl[1].get("player")) if len(cl) > 1 else "the field"
             need = max(1, ((cl[1].get("points") or 0) - pts + 1) if len(cl) > 1 else 1)
-            return _pick_phrase("bb_holder_out", seed, pts=pts, avg=avg,
+            return pick("bb_holder_out", pts=pts, avg=avg,
                                 left=left, need=need, above=above)
         leader = surname(holder.get("player"))
         if h_fin and not fin and pts <= h_pts:
             # still on the course at or below the clubhouse low: must FINISH
             # above it or the blue balls change hands to him
             need = max(1, h_pts - pts + 1)
-            return _pick_phrase("bb_holder_out", seed, pts=pts, avg=avg,
+            return pick("bb_holder_out", pts=pts, avg=avg,
                                 left=left, need=need, above=leader)
         cushion = pts - h_pts
         if cushion < 0:
             return None          # finished below the holder cannot happen; bail safe
         if cushion == 0:
-            return _pick_phrase("bb_tied", seed, leader=leader)
+            return pick("bb_tied", leader=leader)
         cat = "bb_contender_fin" if fin else "bb_contender"
-        return _pick_phrase(cat, seed, cushion=cushion, leader=leader,
+        return pick(cat, cushion=cushion, leader=leader,
                             avg=avg, pts=pts, left=left)
     except Exception:
         return None
@@ -3010,19 +3015,29 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
     stories = _finalize_stories(base_stories + enriched + hist_stories, _tier_rank)
 
     if is_stableford:
-        coming_last = sorted(
-            [p for p in players if p["thru"] >= 12 and p["points"] / p["thru"] < 1.5],
-            key=lambda p: (p["points"], -p["thru"], p["player"]),
-        )
         # The blue balls go to the lowest FINISHED score in the clubhouse at
-        # presentation - that player tops the pill, and everyone still out on
-        # the course is trying to FINISH above his number (stableford points
-        # only accumulate, so an unfinished lower score is not the holder yet).
-        _hcv = hole_count or 18
-        _fin = [p for p in coming_last if (p["thru"] or 0) >= _hcv]
-        if _fin and coming_last[0] is not _fin[0]:
-            coming_last.remove(_fin[0])
-            coming_last.insert(0, _fin[0])
+        # presentation. The pill therefore shows: (1) that player on top,
+        # (2) the ENDANGERED - still out at/below the clubhouse low, ranked by
+        # how hard escape is (points needed per hole remaining: the closer to
+        # 18 holes played, the fewer chances left to clear the number), then
+        # (3) the rest, lowest first, as context.
+        _elig = [p for p in players if p["thru"] >= 12 and p["points"] / p["thru"] < 1.5]
+        _hcv  = hole_count or 18
+        _fin  = sorted([p for p in _elig if (p["thru"] or 0) >= _hcv],
+                       key=lambda p: (p["points"], p["player"]))
+        _out  = [p for p in _elig if (p["thru"] or 0) < _hcv]
+        if _fin:
+            _low = _fin[0]["points"]
+            _danger = [p for p in _out if p["points"] <= _low]
+            _danger.sort(key=lambda p: (
+                -((_low - p["points"] + 1) / max(1, _hcv - p["thru"])),  # needed per hole left
+                _hcv - p["thru"],                                        # fewer holes = hotter
+                p["points"], p["player"]))
+            _rest = sorted([p for p in _out if p["points"] > _low] + _fin[1:],
+                           key=lambda p: (p["points"], -p["thru"], p["player"]))
+            coming_last = [_fin[0]] + _danger + _rest
+        else:
+            coming_last = sorted(_elig, key=lambda p: (p["points"], -p["thru"], p["player"]))
     else:
         coming_last = sorted(
             [p for p in players if p["thru"] >= 12 and p["points"] > 9],
