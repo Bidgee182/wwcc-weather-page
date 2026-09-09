@@ -15,6 +15,10 @@ on:
         description: 'Date YYYY-MM-DD (default today)'
         required: false
         default: ''
+      probe:
+        description: 'Probe for the event-list endpoint (yes/no)'
+        required: false
+        default: 'no'
 
 jobs:
   scrape:
@@ -34,12 +38,15 @@ jobs:
           ARGS=""
           [ -n "${{ github.event.inputs.url }}" ]  && ARGS="$ARGS --url '${{ github.event.inputs.url }}'"
           [ -n "${{ github.event.inputs.date }}" ] && ARGS="$ARGS --date '${{ github.event.inputs.date }}'"
+          [ "${{ github.event.inputs.probe }}" = "yes" ] && ARGS="$ARGS --probe"
           eval python scripts/scrape_bookings.py $ARGS
       - name: Upload the scraped pages (race-proof)
         uses: actions/upload-artifact@v4
         with:
           name: bookings
-          path: out/bookings*.html
+          path: |
+            out/bookings*.html
+            out/probe_*.html
           if-no-files-found: warn
 
       - name: Commit the scraped sheet
