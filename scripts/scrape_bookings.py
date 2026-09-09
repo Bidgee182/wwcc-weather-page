@@ -145,12 +145,31 @@ def render_html(slots, title, source_url):
             rows or "<tr><td>No tee times parsed - see out/bookings_raw.html for the raw page.</td></tr>"))
 
 
+RESOURCE_ID = os.getenv("BOOKING_RESOURCE_ID", "3000000")
+
+
+def fetch_events(opener, date_iso):
+    """The day's events from the Spring JSON API (found via headless capture
+    9 Sep 2026): /spring/bookings/events/between/DD-MM-YYYY/DD-MM-YYYY/RESID.
+    Returns the list for date_iso (comp events carry a tee-sheet redirectUrl)."""
+    dmy = "%s-%s-%s" % tuple(reversed(date_iso.split("-")))     # yyyy-mm-dd -> dd-mm-yyyy
+    for host in (BASE, BASE.replace("://", "://www.")):
+        u = "%s/spring/bookings/events/between/%s/%s/%s" % (host, dmy, dmy, RESOURCE_ID)
+        body, real, st = get(opener, u)
+        try:
+            data = json.loads(body)
+        except Exception:
+            continue
+        if isinstance(data, list):
+            return [e for e in data if e.get("eventDate") == date_iso]
+    return []
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", help="exact timesheet URL (from the browser address bar)")
+    ap.add_argument("--url", help="scrape ONE explicit tee-sheet URL instead of resolving the day")
     ap.add_argument("--date", default=date.today().isoformat())
-    ap.add_argument("--probe", action="store_true", help="probe for the event-list endpoint")
-    ap.add_argument("--eventlist", action="store_true", help="attempt the JSF event-list AJAX")
+    ap.add_argument("--all", action="store_true", help="include non-competition events too")
     args = ap.parse_args()
 
     opener = login()
@@ -158,86 +177,55 @@ def main():
         sys.exit(1)
     os.makedirs(OUT, exist_ok=True)
 
-    if args.eventlist:
-        el = BASE + "/views/members/booking/eventList.xhtml?booking_resource_id=3000000"
-        body, real, st = get(opener, el)
-        vs = re.search(r'name="javax\.faces\.ViewState"[^>]*value="([^"]+)"', body)
-        vs = vs.group(1) if vs else ""
-        print("GET eventList [%s] ViewState=%s" % (st, vs[:24]))
-        attempts = [
-            {"javax.faces.partial.ajax": "true", "javax.faces.source": "eventListForm:j_idt23",
-             "javax.faces.partial.execute": "eventListForm:j_idt23",
-             "javax.faces.partial.render": "eventListForm",
-             "javax.faces.behavior.event": "itemSelect", "javax.faces.partial.event": "itemSelect",
-             "eventListForm:j_idt23": "daily", "eventListForm": "eventListForm",
-             "javax.faces.ViewState": vs},
-            {"javax.faces.partial.ajax": "true", "javax.faces.source": "eventListForm:j_idt23",
-             "javax.faces.partial.execute": "@all", "javax.faces.partial.render": "@all",
-             "javax.faces.behavior.event": "change", "eventListForm:j_idt23": "daily",
-             "eventListForm": "eventListForm", "javax.faces.ViewState": vs},
-            {"eventListForm": "eventListForm", "eventListForm:j_idt23": "daily",
-             "javax.faces.ViewState": vs},
-        ]
-        for i, params in enumerate(attempts):
-            data = urllib.parse.urlencode(params).encode()
-            req = urllib.request.Request(el, data=data, headers={
-                "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded",
-                "Faces-Request": "partial/ajax", "X-Requested-With": "XMLHttpRequest"})
-            try:
-                with opener.open(req, timeout=20) as r:
-                    resp = r.read().decode("utf-8", "replace"); code = r.status
-            except Exception as e:
-                resp, code = "(err %s)" % e, 0
-            ids = sorted(set(re.findall(r"booking_event_id=(\d+)", resp)))
-            dates = re.findall(r"\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*)\b", resp)
-            print("attempt %d [%s] len=%d event_ids=%s dates=%s" % (
-                i, code, len(resp), ids[:8], dates[:5]))
-            with open(os.path.join(OUT, "eventlist_%d.html" % i), "w", encoding="utf-8") as f:
-                f.write(resp)
+    # single-URL mode (manual / debugging)
+    if args.url:
+        body, real, status = get(opener, args.url)
+        with open(os.path.join(OUT, "bookings_raw.html"), "w", encoding="utf-8") as f:
+            f.write("<!-- %s [%s] -->\n" % (args.url, status) + body)
+        slots = parse_timesheet(body)
+        with open(os.path.join(OUT, "bookings.html"), "w", encoding="utf-8") as f:
+            f.write(render_html(slots, "WWCC Tee Sheet - %s" % args.date, real))
+        json.dump({"date": args.date, "events": [{"source": real, "slots": slots}]},
+                  open(os.path.join(OUT, "bookings.json"), "w", encoding="utf-8"), indent=1)
+        print("[%s] %d tee times, %d players" % (status, len(slots),
+              sum(len(x["players"]) for x in slots)))
         return
 
-    if args.probe:
-        today = args.date
-        d_slash = "%s/%s/%s" % tuple(reversed(today.split("-")))   # dd/mm/yyyy
-        cands = [
-            BASE + "/members/bookings/open/eventList.msp?booking_resource_id=3000000",
-            BASE + "/members/bookings/eventList.msp?booking_resource_id=3000000",
-            BASE + "/members/bookings/open/eventList.msp?booking_resource_id=3000000&date=" + today,
-            BASE + "/common/Ajax?doAction=getBookingEvents&booking_resource_id=3000000&date=" + today,
-            BASE + "/common/Ajax?doAction=getEvents&booking_resource_id=3000000&date=" + today,
-            BASE + "/members/bookings/open/day.msp?booking_resource_id=3000000&date=" + today,
-            BASE + "/members/bookings/open/events.msp?booking_resource_id=3000000",
-            BASE + "/common/Ajax?doAction=getResults&date=" + today,
-        ]
-        for i, u in enumerate(cands):
-            body, real, st = get(opener, u)
-            ids = sorted(set(re.findall(r"booking_event_id=?[\"'>: ]*(\d{6,})", body)))
-            emsp = len(re.findall(r"event\.msp", body))
-            print("[%s] len=%-7d event_ids=%-3d event.msp=%-3d  %s" % (
-                st, len(body), len(ids), emsp, u))
-            if ids:
-                print("     ids:", ids[:10])
-            with open(os.path.join(OUT, "probe_%02d.html" % i), "w", encoding="utf-8") as f:
-                f.write("<!-- %s [%s] -->\n" % (u, st) + body)
-        return
+    # resolve the day automatically
+    events = fetch_events(opener, args.date)
+    print("events on %s: %d" % (args.date, len(events)))
+    out_events = []
+    for e in events:
+        title = e.get("title", "?")
+        has_comp = bool(e.get("hasCompetition"))
+        if not (has_comp or args.all):
+            print("  skip (no comp): %s" % title)
+            continue
+        rel = e.get("redirectUrl") or ""
+        url = rel if rel.startswith("http") else BASE + rel
+        body, real, status = get(opener, url)
+        slots = parse_timesheet(body)
+        print("  %-34s id=%s  %d groups, %d players" % (
+            title[:34], e.get("bookingEventId"), len(slots),
+            sum(len(s["players"]) for s in slots)))
+        out_events.append({
+            "bookingEventId": e.get("bookingEventId"),
+            "title": title, "gender": e.get("eventGenderCodeFriendly"),
+            "status": e.get("eventStatusCodeFriendly"), "source": real,
+            "slots": slots,
+        })
 
-
-    url = args.url or (BASE + "/members/bookings/ViewPublishedEvent.msp")
-    body, real, status = get(opener, url)
-    with open(os.path.join(OUT, "bookings_raw.html"), "w", encoding="utf-8") as f:
-        f.write("<!-- %s -> %s [%s] -->\n" % (url, real, status) + body)
-    slots = parse_timesheet(body)
-    title = "WWCC Tee Sheet - %s" % args.date
-    with open(os.path.join(OUT, "bookings.html"), "w", encoding="utf-8") as f:
-        f.write(render_html(slots, title, real))
     with open(os.path.join(OUT, "bookings.json"), "w", encoding="utf-8") as f:
-        json.dump({"date": args.date, "source": real, "status": status, "slots": slots}, f, indent=1)
-
-    print("[%s] %s -> %s" % (status, url, real))
-    print("parsed %d tee times, %d players" % (len(slots), sum(len(x["players"]) for x in slots)))
-    print("wrote out/bookings.html, out/bookings.json, out/bookings_raw.html")
-    for x in slots[:8]:
-        print("  %8s  %s" % (x["time"], ", ".join(pl["name"] for pl in x["players"])))
+        json.dump({"date": args.date, "scrapedAt": datetime.now().isoformat(),
+                   "events": out_events}, f, indent=1)
+    # combined viewable page (first comp event, or all stacked)
+    html_parts = []
+    for ev in out_events:
+        html_parts.append(render_html(ev["slots"],
+            "%s - %s (%s)" % (ev["title"], args.date, ev.get("status") or ""), ev["source"]))
+    with open(os.path.join(OUT, "bookings.html"), "w", encoding="utf-8") as f:
+        f.write("\n<hr>\n".join(html_parts) or "<p>No competition tee sheets today.</p>")
+    print("wrote out/bookings.json + out/bookings.html (%d comp event(s))" % len(out_events))
 
 
 if __name__ == "__main__":
