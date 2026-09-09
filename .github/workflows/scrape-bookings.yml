@@ -1,0 +1,44 @@
+name: Scrape Bookings (tee sheet)
+
+# Manual only. Logs in with the WWCC member creds, saves the tee sheet to
+# out/bookings.html (clean view) + out/bookings_raw.html (raw page), and
+# commits them so they can be viewed at
+#   https://bidgee182.github.io/wwcc-weather-page/out/bookings.html
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Optional exact timesheet URL (leave blank to auto-discover)'
+        required: false
+        default: ''
+      date:
+        description: 'Date YYYY-MM-DD (default today)'
+        required: false
+        default: ''
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Scrape tee sheet
+        env:
+          WWCC_USERNAME: ${{ secrets.WWCC_USERNAME }}
+          WWCC_PASSWORD: ${{ secrets.WWCC_PASSWORD }}
+        run: |
+          ARGS=""
+          [ -n "${{ github.event.inputs.url }}" ]  && ARGS="$ARGS --url '${{ github.event.inputs.url }}'"
+          [ -n "${{ github.event.inputs.date }}" ] && ARGS="$ARGS --date '${{ github.event.inputs.date }}'"
+          eval python scripts/scrape_bookings.py $ARGS
+      - name: Commit the scraped sheet
+        run: |
+          git config user.name  "wwcc-bot"
+          git config user.email "bot@wwcc.local"
+          git add out/bookings.html out/bookings.json out/bookings_raw.html out/bookings_landing_raw.html 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Bookings tee sheet scrape"
+          git push || echo "nothing to push"
