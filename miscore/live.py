@@ -2802,7 +2802,147 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     cal = _calendar_story(board_date)
     if cal:
         out.append(cal)
+    grp = _group_rivalry_story(ranked, is_stableford, hole_count, board_date)
+    if grp:
+        out.append(grp)
+    wave = _wave_story(ranked, is_stableford, hole_count, board_date)
+    if wave:
+        out.append(wave)
     return out
+
+
+_BOOKINGS = None
+
+
+def _load_bookings(board_date):
+    """data/bookings.json for board_date (published by the bookings scraper):
+    tee groups with players, times and morning/afternoon tee labels. Returns
+    an index {namekey: {group, wave, tee, partners[]}} or {}."""
+    global _BOOKINGS
+    if _BOOKINGS is not None and _BOOKINGS.get("_date") == board_date:
+        return _BOOKINGS
+    idx = {"_date": board_date}
+    try:
+        with open("data/bookings.json", encoding="utf-8") as f:
+            b = json.load(f)
+        if b.get("date") != board_date:
+            _BOOKINGS = idx
+            return idx
+        gid = 0
+        for ev in b.get("events", []):
+            for slot in ev.get("slots", []):
+                gid += 1
+                label = (slot.get("tee") or "").lower()
+                tm = (slot.get("time") or "").lower()
+                if "afternoon" in label or "pm" in tm:
+                    wave = "afternoon"
+                elif "morning" in label or "am" in tm:
+                    wave = "morning"
+                else:
+                    wave = None
+                names = [p.get("name") for p in slot.get("players", []) if p.get("name")]
+                for nm in names:
+                    k = _book_key(nm)
+                    if k:
+                        idx[k] = {"group": gid, "wave": wave,
+                                  "tee": "10th" if "10th" in label else "1st",
+                                  "partners": [n for n in names if n != nm]}
+    except Exception:
+        pass
+    _BOOKINGS = idx
+    return idx
+
+
+def _book_key(name):
+    """Match key from either 'Surname, First' (bookings) or 'First Surname'
+    (leaderboard): surname-lower + first-initial. Tolerant of nicknames."""
+    n = re.sub(r"\s*\[[^\]]*\]", "", name or "").strip()
+    if not n:
+        return None
+    if "," in n:
+        sur, first = n.split(",", 1)
+        sur, first = sur.strip(), first.strip()
+    else:
+        parts = n.split()
+        if len(parts) < 2:
+            return None
+        sur, first = parts[-1], parts[0]
+    return (sur.lower() + "|" + first[:1].lower()) if sur and first else None
+
+
+def _group_rivalry_story(ranked, is_stableford, hole_count, board_date=None):
+    """Two+ players from the same booking group, both finished - the head to
+    head that decides the drive home. One per board: the group with the best
+    combined placing. Names printed as the leaderboard shows them."""
+    idx = _load_bookings(board_date)
+    if not is_stableford or len(idx) <= 1:
+        return None
+    hc = hole_count or 18
+    by_group = {}
+    for p in ranked:
+        if (p.get("thru") or 0) < hc:
+            continue
+        k = _book_key(p.get("player"))
+        info = idx.get(k)
+        if info:
+            by_group.setdefault(info["group"], []).append(p)
+    best = None
+    for g, members in by_group.items():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda p: -(p.get("points") or 0))
+        w, l = members[0], members[1]
+        if (w.get("points") or 0) == (l.get("points") or 0):
+            continue                                   # a tie is not a rivalry win
+        rank = min(m.get("liveRank") or 999 for m in members)
+        if best is None or rank < best[0]:
+            best = (rank, w, l)
+    if not best:
+        return None
+    _, w, l = best
+    wp, lp = w.get("points") or 0, l.get("points") or 0
+    cat = "group_rivalry_tight" if (wp - lp) == 1 else "group_rivalry"
+    d = _pick_phrase(cat, f"{board_date}|grp|{w.get('player')}",
+        "{winner} won the group - {wp} to {loser}'s {lp}",
+        winner=stripped(w.get("player")), loser=stripped(l.get("player")), wp=wp, lp=lp)
+    if not d:
+        return None
+    return _mk_story(w.get("player"), "Group Honours", d, "orange", "🤝",
+                     63, wp, w.get("thru"), "book")
+
+
+def _wave_story(ranked, is_stableford, hole_count, board_date=None):
+    """Morning vs afternoon wave scoring, from the tee-sheet waves. One field
+    card when both waves have a decent sample and a real gap."""
+    idx = _load_bookings(board_date)
+    if not is_stableford or len(idx) <= 1:
+        return None
+    hc = hole_count or 18
+    m, a = [], []
+    for p in ranked:
+        if (p.get("thru") or 0) < hc:
+            continue
+        info = idx.get(_book_key(p.get("player")))
+        if not info or not info.get("wave"):
+            continue
+        (m if info["wave"] == "morning" else a).append(p.get("points") or 0)
+    if len(m) < 5 or len(a) < 5:
+        return None
+    mavg = round(sum(m) / len(m) / hc, 2)
+    aavg = round(sum(a) / len(a) / hc, 2)
+    if abs(mavg - aavg) < 0.12:                        # not a meaningful gap
+        return None
+    cat = "wave_morning" if mavg > aavg else "wave_afternoon"
+    d = _pick_phrase(cat, f"{board_date}|wave",
+        "the {which} wave scored better today", which=("morning" if mavg > aavg else "afternoon"),
+        mavg=mavg, aavg=aavg)
+    if not d:
+        return None
+    return _mk_story("Today", "Wave Watch", d, "blue", "🌅", 44, src="book")
+
+
+def stripped(name):
+    return re.sub(r"\s*\[[^\]]*\]", "", name or "").strip()
 
 
 def _calendar_story(board_date):
