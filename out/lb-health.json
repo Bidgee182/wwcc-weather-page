@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-09T09:54:33.289189+00:00",
- "window": "day",
+ "updatedAt": "2026-09-09T13:41:40.941614+00:00",
+ "window": "night",
  "alertsActive": [],
  "competition": "Mens Wednesday Stableford",
  "compDate": "2026-09-09",
  "playerCount": 109,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "pollAgeMin": 0.9,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 11,
-  "ld": 4,
-  "balls": 36
+  "ntp": 0,
+  "ld": 0,
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "3 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414242",
    "label": "Results: Mens Wednesday Stableford",
-   "status": "ok",
-   "detail": "3 grades, 55 players, 11 NTP, 4 LD, 36 balls"
+   "status": "idle",
+   "detail": "Awaiting official results"
   },
   {
    "key": "pdf:10414244",
