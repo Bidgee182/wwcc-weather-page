@@ -149,12 +149,39 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", help="exact timesheet URL (from the browser address bar)")
     ap.add_argument("--date", default=date.today().isoformat())
+    ap.add_argument("--probe", action="store_true", help="probe for the event-list endpoint")
     args = ap.parse_args()
 
     opener = login()
     if not opener:
         sys.exit(1)
     os.makedirs(OUT, exist_ok=True)
+
+    if args.probe:
+        today = args.date
+        d_slash = "%s/%s/%s" % tuple(reversed(today.split("-")))   # dd/mm/yyyy
+        cands = [
+            BASE + "/members/bookings/open/eventList.msp?booking_resource_id=3000000",
+            BASE + "/members/bookings/eventList.msp?booking_resource_id=3000000",
+            BASE + "/members/bookings/open/eventList.msp?booking_resource_id=3000000&date=" + today,
+            BASE + "/common/Ajax?doAction=getBookingEvents&booking_resource_id=3000000&date=" + today,
+            BASE + "/common/Ajax?doAction=getEvents&booking_resource_id=3000000&date=" + today,
+            BASE + "/members/bookings/open/day.msp?booking_resource_id=3000000&date=" + today,
+            BASE + "/members/bookings/open/events.msp?booking_resource_id=3000000",
+            BASE + "/common/Ajax?doAction=getResults&date=" + today,
+        ]
+        for i, u in enumerate(cands):
+            body, real, st = get(opener, u)
+            ids = sorted(set(re.findall(r"booking_event_id=?[\"'>: ]*(\d{6,})", body)))
+            emsp = len(re.findall(r"event\.msp", body))
+            print("[%s] len=%-7d event_ids=%-3d event.msp=%-3d  %s" % (
+                st, len(body), len(ids), emsp, u))
+            if ids:
+                print("     ids:", ids[:10])
+            with open(os.path.join(OUT, "probe_%02d.html" % i), "w", encoding="utf-8") as f:
+                f.write("<!-- %s [%s] -->\n" % (u, st) + body)
+        return
+
 
     url = args.url or (BASE + "/members/bookings/ViewPublishedEvent.msp")
     body, real, status = get(opener, url)
