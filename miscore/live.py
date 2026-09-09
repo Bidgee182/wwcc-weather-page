@@ -1354,7 +1354,7 @@ def _story_stroke(played: list[dict], player: str = "", course_holes: int = 0) -
     if total_wipes > 0 and total_bogeys > 0 and total_pars > 0 and total_birdies > 0:
         return _pick([
             ("The Complete Package", f"{wipes_word()}, bogeys, pars AND {birdies_word()} - a round that covers all four food groups"),
-            ("The Full Experience", f"Hit every outcome on the card - the golf round as a grab bag"),
+            ("The Full Experience", f"Hit every outcome on the card - the golf round as a show bag"),
             ("Variety Pack", f"{wipes_word()}, bogeys, pars, {birdies_word()} - something for everyone on this card"),
         ], "blue", "🎰")
 
@@ -1823,7 +1823,7 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "", cou
     if total_wipes > 0 and total_bogeys > 0 and total_pars > 0 and total_birdies > 0:
         return _pick([
             ("The Complete Package", f"Wipes, 1s, 2s AND 3s - a round that covers all four food groups"),
-            ("The Full Experience", f"Hit every outcome on the card - the golf round as a grab bag"),
+            ("The Full Experience", f"Hit every outcome on the card - the golf round as a show bag"),
             ("Variety Pack", f"Wipes, 1s, 2s, 3s - something for everyone on this card"),
         ], "blue", "🎰")
 
