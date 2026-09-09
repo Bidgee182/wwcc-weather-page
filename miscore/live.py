@@ -2132,15 +2132,21 @@ def _context_story(p, leader_pts, is_stableford, hole_count, board_date=None):
     hp = [h.get("points") or 0 for h in holes_ip]
 
     if rank == 1 and thru >= max(6, hc // 2):
+        # The leader is the most-watched line on any board - carry a footy
+        # reference here (finished or mid-round) so the AFL/NRL pack actually
+        # shows. footy_leader phrasings read naturally either way.
+        _sc = _fmt_score(pts, is_stableford)
         if finished:
-            return _mk_story(p["player"], "Clubhouse Leader",
-                _rr(f"{_fmt_score(pts, is_stableford)} and in - the mark to beat",
-                    f"In with {_fmt_score(pts, is_stableford)} - top of the tree"),
+            d = _pick_phrase("footy_leader", f"{board_date}|clublead|{p['player']}",
+                "{score} and in - the mark to beat",
+                "In with {score} - top of the tree",
+                player=p["player"], score=_sc, thru=thru)
+            return _mk_story(p["player"], "Clubhouse Leader", d,
                 "gold", "\U0001F451", 96, pts, thru, "ctx")
         d = _pick_phrase("footy_leader", f"{board_date}|lead|{p['player']}",
             "Out in front on {score} through {thru}",
             "Top of the board - {score} so far",
-            player=p["player"], score=_fmt_score(pts, is_stableford), thru=thru)
+            player=p["player"], score=_sc, thru=thru)
         return _mk_story(p["player"], "Leading the Way", d,
             "orange", "\U0001F51D", 82, pts, thru, "ctx")
 
