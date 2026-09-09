@@ -2528,7 +2528,7 @@ def _social_stories(ranked, board_date=None, hole_count=0):
     return out
 
 
-def _blueball_roast(i, cl, hc, board_date):
+def _blueball_roast(i, cl, hc, board_date, wx=None, field_in=0.0):
     """One short, score-aware roast line for the Blue Ball Contenders pill.
 
     cl is the contenders list WORST FIRST (index 0 = current holder of the
@@ -2569,6 +2569,25 @@ def _blueball_roast(i, cl, hc, board_date):
                               and (c.get("points") or 0) == pts), None)
                 if other:
                     return pick("bb_tied", leader=surname(other.get("player")))
+                # Rotate the finished holder through flavour angles for variety:
+                # handicap ribbing, a weather alibi on rough days, and a
+                # presentation-clock line once most of the field is in. The
+                # per-day seed keeps whichever fires stable through the day.
+                hcp = p.get("hcp")
+                bucket = random.Random(seed + "|flavour").random()
+                wx_word = _bb_wx_word(wx)
+                if field_in >= 0.8 and bucket < 0.30:
+                    r = pick("bb_locked", pts=pts)
+                    if r: return r
+                if wx_word and bucket < 0.55:
+                    r = pick("bb_weather", pts=pts, wx=wx_word)
+                    if r: return r
+                if hcp is not None and hcp <= 12 and bucket < 0.75:
+                    r = pick("bb_lowmarker", pts=pts, hcp=int(hcp), avg=avg)
+                    if r: return r
+                if hcp is not None and hcp >= 27 and bucket < 0.75:
+                    r = pick("bb_highmarker", pts=pts, hcp=int(hcp), avg=avg)
+                    if r: return r
                 return pick("bb_holder_fin", pts=pts, avg=avg)
             # nobody home yet - provisional holder, still out, chased by cl[1]
             above = surname(cl[1].get("player")) if len(cl) > 1 else "the field"
@@ -2592,6 +2611,96 @@ def _blueball_roast(i, cl, hc, board_date):
                             avg=avg, pts=pts, left=left)
     except Exception:
         return None
+
+
+def _bb_wx_word(wx):
+    """Short conditions phrase for the blue ball weather-alibi lines, or None
+    when the day was benign (no alibi to offer)."""
+    if not wx:
+        return None
+    wind = wx.get("windMax") or 0
+    rain = wx.get("rain") or 0
+    tmax = wx.get("tMax")
+    if wind >= 32:
+        return f"{round(wind)} km/h wind"
+    if rain >= 2:
+        return f"{rain} mm of rain"
+    if tmax is not None and tmax >= 33:
+        return f"{round(tmax)} degree heat"
+    if tmax is not None and tmax <= 8:
+        return f"{round(tmax)} degree chill"
+    return None
+
+
+def _career_day_story(ranked, is_stableford, hole_count, board_date=None):
+    """Gold 'Career Day' for a finished round of 40+ (42+ on 18 holes) - a
+    once-in-a-while personal-everest celebration above the normal leader line."""
+    if not ranked or not is_stableford:
+        return None
+    hc = hole_count or 18
+    thresh = 42 if hc >= 15 else 22
+    best = None
+    for p in ranked:
+        if (p.get("thru") or 0) >= hc and (p.get("points") or 0) >= thresh:
+            if best is None or (p.get("points") or 0) > (best.get("points") or 0):
+                best = p
+    if not best:
+        return None
+    name = best.get("player") or ""
+    pts = best.get("points") or 0
+    d = _pick_phrase("career_day", f"{board_date}|career|{name}",
+                     "{player} signed for {score} - a career day",
+                     player=name, score=_fmt_score(pts, True))
+    if not d:
+        return None
+    return _mk_story(name, "Career Day", d, "gold", "🌟", 90, pts, best.get("thru"), "ctx")
+
+
+def _great_escape_story(ranked, is_stableford, hole_count, board_date=None):
+    """A finished player who was in genuine blue-ball danger and climbed clear
+    late - the crowd's favourite redemption beat. Fires when the second-lowest
+    finisher sits just above the clubhouse low and lifted on the closing holes."""
+    if not ranked or not is_stableford:
+        return None
+    hc = hole_count or 18
+    fin = [p for p in ranked
+           if (p.get("thru") or 0) >= hc and (p.get("player") or "")
+           and " & " not in (p.get("player") or "")]
+    if len(fin) < 3:
+        return None
+    fin.sort(key=lambda p: (p.get("points") or 0))
+    low = fin[0].get("points") or 0
+    cand = fin[1]                                   # the one who just avoided last
+    cpts = cand.get("points") or 0
+    if not (0 < cpts - low <= 3):                   # only a genuine near-miss
+        return None
+    holes = _played_holes(cand, hc)
+    if len(holes) < hc:
+        return None
+    close = holes[-3:]
+    if sum(h.get("points") or 0 for h in close) < 5:  # needed a real closing lift
+        return None
+    name = cand.get("player") or ""
+    d = _pick_phrase("great_escape", f"{board_date}|escape|{name}",
+                     "{player} home on {score} - dodged the blue balls late",
+                     player=name, score=_fmt_score(cpts, True))
+    if not d:
+        return None
+    return _mk_story(name, "The Great Escape", d, "orange", "🏃", 64,
+                     cpts, cand.get("thru"), "ctx")
+
+
+def _coming_last_payload(cl, players, hole_count, board_date, is_stableford):
+    hc = hole_count or 18
+    started = [p for p in players if (p.get("thru") or 0) > 0]
+    field_in = (sum(1 for p in started if (p.get("thru") or 0) >= hc) / len(started)) if started else 0.0
+    wx = _load_weather_flavour(board_date) if is_stableford else None
+    return [
+        {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"],
+         "roast": (_blueball_roast(i, cl, hole_count, board_date, wx, field_in)
+                   if is_stableford else None)}
+        for i, p in enumerate(cl)
+    ]
 
 
 def _is_team_comp(ranked, comp_name):
@@ -2684,7 +2793,54 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     rough = _footy_rough_story(ranked, is_stableford, hole_count, board_date)
     if rough:
         out.append(rough)
+    cd = _career_day_story(ranked, is_stableford, hole_count, board_date)
+    if cd:
+        out.append(cd)
+    esc = _great_escape_story(ranked, is_stableford, hole_count, board_date)
+    if esc:
+        out.append(esc)
+    cal = _calendar_story(board_date)
+    if cal:
+        out.append(cal)
     return out
+
+
+def _calendar_story(board_date):
+    """A light occasion-flavour card on notable Australian dates (Melbourne
+    Cup, Australia Day, Christmas week, AFL/NRL grand final weekend). Gated by
+    date so it only shows when it is topical, and rare otherwise."""
+    try:
+        y, m, d = (int(x) for x in str(board_date)[:10].split("-"))
+    except Exception:
+        return None
+    import datetime as _dt
+    occ = None
+    if m == 1 and d == 26:
+        occ = ("Australia Day", "🇦🇺",
+               ["snags on the barbie, points on the card - the most Australian day to play",
+                "Australia Day golf - thongs in the bag, cold ones on ice, good scoring weather",
+                "a public holiday hit-out - the only green and gold that matters is on this board"])
+    elif m == 12 and 20 <= d <= 27:
+        occ = ("Chrissy Golf", "🎄",
+               ["Chrissy-week golf - the turkey can wait, the tee time cannot",
+                "festive-season hit-out - ham, prawns, and a hard-earned round",
+                "silly-season golf - the only wrapping today is around the grips"])
+    elif m == 11 and d in (1, 2, 3, 4, 5, 6, 7) and _dt.date(y, m, d).weekday() == 1:
+        occ = ("Cup Day", "🏇",
+               ["the race that stops a nation, the comp that stops the club - Cup Day golf",
+                "Melbourne Cup day - a sweep in the clubhouse and a punt on the leaderboard",
+                "Cup Day out here - fascinators optional, a hot round compulsory"])
+    elif ((m == 9 and d >= 24) or (m == 10 and d <= 7)) and _dt.date(y, m, d).weekday() in (5, 6):
+        # real GF window only: AFL late Sep, NRL first weekend of Oct
+        occ = ("Grand Final Weekend", "🏉",
+               ["grand final weekend - footy tonight, golf now, the perfect double",
+                "GF weekend golf - settle the round early, the big game waits for no one",
+                "grand final fever - a premiership quarter on the course before the real thing"])
+    if not occ:
+        return None
+    title, emoji, lines = occ
+    d2 = _pick_phrase(f"cal_{title}".replace(" ", "_"), f"{board_date}|cal", *lines)
+    return _mk_story("Today", title, d2, "blue", emoji, 42, src="cal")
 
 
 def _footy_rough_story(ranked, is_stableford, hole_count, board_date=None):
@@ -3268,12 +3424,8 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         "storiesArchive": archive_list,
         "storyRanks": {"boardId": board_id, "meta": story_meta},
         "weather": _ticker_weather(),
-        "comingLast": [
-            {"player": p["player"], "hcp": p["hcp"], "points": p["points"], "thru": p["thru"],
-             "roast": (_blueball_roast(i, coming_last[:10], hole_count, board.get("date"))
-                       if is_stableford else None)}
-            for i, p in enumerate(coming_last[:10])
-        ],
+        "comingLast": _coming_last_payload(coming_last[:10], players, hole_count,
+                                            board.get("date"), is_stableford),
         "events": events,
     }
 
