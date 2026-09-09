@@ -2681,7 +2681,46 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     hero = _conditions_performance_story(ranked, wxd, is_stableford, board_date)
     if hero:
         out.append(hero)
+    rough = _footy_rough_story(ranked, is_stableford, hole_count, board_date)
+    if rough:
+        out.append(rough)
     return out
+
+
+def _footy_rough_story(ranked, is_stableford, hole_count, board_date=None):
+    """A footy-flavoured rough-round line for a FINISHED player who had a poor
+    day - ties the golfer's round to AFL/NRL ladder/spoon/no-show angles so the
+    footy pack shows on the negative side too, not just the leader. One per
+    board: the worst finisher whose round was genuinely rough. footy_noshow
+    when they started badly (front holes low), else footy_rough. Day-seeded."""
+    if not ranked or not is_stableford:
+        return None
+    hc = hole_count or 18
+    fin = [p for p in ranked
+           if (p.get("thru") or 0) >= hc and (p.get("player") or "")
+           and " & " not in (p.get("player") or "")]
+    if not fin:
+        return None
+    # worst finished score, and only if it is genuinely a rough card
+    worst = min(fin, key=lambda p: (p.get("points") or 0))
+    pts, thru = worst.get("points") or 0, worst.get("thru") or hc
+    avg = round(pts / thru, 1) if thru else 0
+    if avg >= 1.5:                       # not rough enough to roast
+        return None
+    name = worst.get("player") or ""
+    score = _fmt_score(pts, is_stableford)
+    seed = f"{board_date}|rough|{name}"
+    # no-show if the opening third was especially poor
+    holes = _played_holes(worst, hc)
+    opener = holes[:max(3, hc // 3)]
+    slow = opener and (sum(h.get("points") or 0 for h in opener) / len(opener)) < 1.0
+    cat = "footy_noshow" if slow else "footy_rough"
+    d = _pick_phrase(cat, seed, "{player} home on {score} - a rough day at the office",
+                     player=name, score=score, avg=avg)
+    if not d:
+        return None
+    return _mk_story(name, "Footy Form Guide", d, "blue", "🏉", 43,
+                     pts, thru, "footy")
 
 
 def _conditions_performance_story(ranked, wx, is_stableford, board_date=None):
