@@ -70,41 +70,66 @@ def get(opener, url):
 
 
 def parse_timesheet(body):
-    """Best-effort: pull (time, [names]) rows from a MiClub timesheet.
+    """Parse a WWCC MiClub 'Booking Event' tee sheet.
 
-    Looks for a time token (h:mm, optional am/pm) in each table row and the
-    name-shaped cells alongside it. Returns [{time, players[]}]; empty when the
-    markup does not match - then the raw dump is used to refine this.
+    Structure (confirmed 9 Sep 2026): each slot is a block starting at
+    id="heading-N" with <h3>08:00 am</h3> (time) and <h4>1st Tee Morning...</h4>
+    (tee label); the players in that slot are <div class="booking-name">Surname,
+    First [handicap]</div> entries until the next heading. Returns
+    [{time, tee, players:[{name, hcp}]}].
     """
     slots = []
-    rows = re.split(r"<tr\b", body, flags=re.I)
-    time_re = re.compile(r"\b(\d{1,2}[:.]\d{2}\s*(?:am|pm)?)\b", re.I)
-    junk = ("available", "book", "cart", "buggy", "competition", "resource",
-            "member", "guest", "total", "hole", "tee")
-    for row in rows:
-        tm = time_re.search(re.sub(r"<[^>]+>", " ", row))
-        if not tm:
+    parts = re.split(r'id="heading-\d+"', body)
+    name_re = re.compile(r'class="booking-name"[^>]*>(.*?)</', re.S)
+    for chunk in parts[1:]:                       # parts[0] is the pre-first-slot preamble
+        h3 = re.search(r"<h3>\s*(.*?)\s*</h3>", chunk, re.S)
+        if not h3:
             continue
-        names = []
-        for cm in re.finditer(r"<td[^>]*>(.*?)</td>", row, re.I | re.S):
-            txt = html.unescape(re.sub(r"<[^>]+>", " ", cm.group(1))).strip()
-            txt = re.sub(r"\s+", " ", txt)
-            if not txt or time_re.search(txt) or len(txt) > 40:
+        time = re.sub(r"<[^>]+>", " ", h3.group(1))
+        time = re.sub(r"\s+", " ", time).strip()
+        if not re.match(r"\d{1,2}[:.]\d{2}", time):
+            continue
+        h4 = re.search(r"<h4>\s*(.*?)\s*<", chunk, re.S)
+        tee = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h4.group(1))).strip() if h4 else ""
+        players = []
+        # only look at THIS slot: cut the chunk at the next slot's row container
+        cut = re.search(r'id="row-\d+"', chunk)
+        block = chunk  # heading and its row share the split; names follow in-chunk
+        for nm in name_re.finditer(block):
+            raw = re.sub(r"<[^>]+>", " ", nm.group(1))
+            raw = re.sub(r"\s+", " ", raw).strip()
+            if not raw:
                 continue
-            looks_name = re.search(r"[A-Za-z]{2,},\s*[A-Za-z]", txt) or (
-                2 <= len(txt.split()) <= 4 and txt[0].isalpha())
-            if looks_name and not any(w in txt.lower() for w in junk):
-                names.append(txt)
-        if names:
-            slots.append({"time": tm.group(1).strip(), "players": names})
+            hcp = None
+            hm = re.search(r"\[([-\d.]+)\]\s*$", raw)
+            if hm:
+                try:
+                    hcp = float(hm.group(1))
+                except ValueError:
+                    pass
+                raw = raw[:hm.start()].strip()
+            if raw:
+                players.append({"name": raw, "hcp": hcp})
+        if players:
+            slots.append({"time": time, "tee": tee, "players": players})
     return slots
 
 
+def _flip(name):
+    """\"Surname, First\" -> \"First Surname\" for display."""
+    if "," in name:
+        sur, first = name.split(",", 1)
+        return "%s %s" % (first.strip(), sur.strip())
+    return name
+
+
 def render_html(slots, title, source_url):
-    rows = "".join(
-        "<tr><td class='t'>%s</td><td>%s</td></tr>" % (
-            html.escape(s["time"]), html.escape(", ".join(s["players"])))
-        for s in slots)
+    def cell(s):
+        who = " &middot; ".join(html.escape(_flip(pl["name"])) for pl in s["players"])
+        tee = html.escape(s.get("tee", ""))
+        return ("<tr><td class='t'>%s<div class='tee'>%s</div></td><td>%s</td></tr>"
+                % (html.escape(s["time"]), tee, who))
+    rows = "".join(cell(s) for s in slots)
     n = sum(len(s["players"]) for s in slots)
     return (
         '<!doctype html><html><head><meta charset="utf-8"><title>%s</title>'
@@ -112,7 +137,7 @@ def render_html(slots, title, source_url):
         'h1{font-size:1.3em}.sub{color:#7f8c8d;font-size:.85em;margin-bottom:16px}'
         'table{border-collapse:collapse;width:100%%;max-width:720px}'
         'td{padding:7px 10px;border-bottom:1px solid #2c3e50;vertical-align:top}'
-        '.t{color:#5dade2;font-weight:bold;white-space:nowrap;width:90px}</style></head><body>'
+        '.t{color:#5dade2;font-weight:bold;white-space:nowrap;width:150px}.tee{color:#566573;font-size:.8em;font-weight:normal}</style></head><body>'
         '<h1>%s</h1><div class="sub">%d tee times &bull; %d players &bull; scraped %s &bull; source: %s</div>'
         '<table>%s</table></body></html>' % (
             html.escape(title), html.escape(title), len(slots), n,
@@ -146,7 +171,7 @@ def main():
     print("parsed %d tee times, %d players" % (len(slots), sum(len(x["players"]) for x in slots)))
     print("wrote out/bookings.html, out/bookings.json, out/bookings_raw.html")
     for x in slots[:8]:
-        print("  %8s  %s" % (x["time"], ", ".join(x["players"])))
+        print("  %8s  %s" % (x["time"], ", ".join(pl["name"] for pl in x["players"])))
 
 
 if __name__ == "__main__":
