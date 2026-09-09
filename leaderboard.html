@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -575,6 +575,26 @@ async function fetchData() {
         const show4bbb = new URLSearchParams(location.search).get('4bbb') === '1';
         _companions = (data.companions || (data.companion ? [data.companion] : []))
             .filter(c => show4bbb || !((c.competition || '').toLowerCase().includes('4bbb')));
+
+        // Pre-comp holding view takes over when a comp is published today but
+        // nobody has scored yet - overrides both first-load and buffered paths.
+        if (_isPreComp(data)) {
+            _hasData = true;
+            _loadedHash = data.gitHash || null;
+            if (data.frontendVersion && data.frontendVersion !== FRONTEND_VERSION) { location.reload(); return; }
+            _enterPreComp(data);
+            setFooter(data.generatedAt, '');
+            return;
+        }
+        if (_preComp) {
+            // A score has appeared - leave the holding view and render live.
+            _exitPreComp();
+            _hasData = true;
+            _loadedHash = data.gitHash || null;
+            render(data);
+            setFooter(data.generatedAt, '');
+            return;
+        }
 
         if (!_hasData) {
             // First successful load - render everything immediately
@@ -763,6 +783,140 @@ function _pickStories(d) {
     return { stories: allDone ? (d.storiesArchive || d.stories || []) : (d.stories || []), skipExpiry: allDone };
 }
 
+// ── Pre-comp holding view ─────────────────────────────────────────
+// A new comp is published for today with a field, but no one has scored yet.
+// Instead of yesterday's results, show today's board(s) with a "waiting for the
+// first golfers to score" message, rotating every 10s through the day's
+// available boards and finishing on yesterday's official results. Snaps to the
+// live board the moment any player scores (started === true on the next poll).
+let _preComp = false;
+let _preCompTimer = null;
+let _preCompScreens = [];
+let _preCompIdx = 0;
+const PRECOMP_ROTATE_MS = 10000;
+
+function _isPreComp(d) {
+    return !!(d && d.status !== 'no board' && d.status !== 'error' &&
+              !d.started && d.competition && d.players && d.players.length > 0);
+}
+
+function _buildPreCompScreens(d) {
+    const screens = [{ kind: 'wait', board: d }];
+    for (const c of _companions) screens.push({ kind: 'wait', board: c });
+    if (d.lastResults && d.lastResults.officialResultsReady) {
+        screens.push({ kind: 'results', lr: d.lastResults, next: d.competition });
+    }
+    return screens;
+}
+
+function _renderWaitingCard(board) {
+    const comp = board.competition || 'Today\'s Competition';
+    const field = (board.players || []).length;
+    const isStab = board.isStableford !== false;
+    const isAmb  = board.isAmbrose === true;
+    const meta = ['Wagga Wagga Country Club'];
+    if (_companions.length > 0) meta.push(genderLabel(comp));
+    const typeLabel = board.type || (comp.toLowerCase().includes('stableford') ? 'Stableford' : '');
+    if (typeLabel) meta.push(typeLabel);
+    if (board.holeCount) meta.push(board.holeCount + ' holes');
+    if (board.par) meta.push('Par ' + board.par);
+    _isStableford = isStab; _isAmbrose = isAmb;
+    const ptsHdr = document.getElementById('col-hdr-pts');
+    if (ptsHdr) ptsHdr.textContent = isStab ? 'Pts' : (isAmb ? 'Net' : 'Score');
+    setBadge('waiting', 'Not started');
+    setHeader('\u26f3 ' + comp + ' - Ready to Tee Off', meta.join(' - '));
+    const el = document.getElementById('lb-inner');
+    if (el) {
+        el.classList.remove('scrolling');
+        _animRunning = false;
+        const t3 = document.getElementById('lb-top3'); if (t3) t3.innerHTML = '';
+        const sub = field ? (field + (field === 1 ? ' player' : ' players') + ' in the field')
+                          : 'Field to be confirmed';
+        const extra = _companions.length > 0
+            ? '<div class="no-data-sub">' + (_preCompIdx + 1) + ' of ' + _preCompScreens.length + ' boards today</div>'
+            : '';
+        el.innerHTML =
+            '<div class="no-data-msg">' +
+              '<div class="no-data-icon">\u26f3</div>' +
+              '<div class="no-data-title">' + esc(comp) + '</div>' +
+              '<div class="no-data-sub" style="font-size:1.15em;color:#e8c15a;margin-top:6px;">' +
+                  'Waiting for the first golfers to score</div>' +
+              '<div class="no-data-sub" style="margin-top:10px;">' + esc(sub) + '</div>' +
+              extra +
+            '</div>';
+    }
+    document.getElementById('grade-strip')?.classList.remove('visible');
+    document.querySelector('.main')?.classList.remove('results-mode');
+    const bb = document.getElementById('blue-ball-card'); if (bb) bb.style.display = 'none';
+    const nt = document.getElementById('ntpld-bar'); if (nt) nt.style.display = 'none';
+    showSideEmpty('heater-list', 'Waiting for scoring to begin...');
+    showSideEmpty('last-list', field ? 'Tee sheet loaded' : '-');
+}
+
+function _renderPreCompScreen() {
+    if (!_preCompScreens.length) return;
+    const scr = _preCompScreens[_preCompIdx % _preCompScreens.length];
+    if (scr.kind === 'results') {
+        _renderLastResults(scr.lr, scr.next);
+    } else {
+        _renderWaitingCard(scr.board);
+    }
+}
+
+function _enterPreComp(d) {
+    // (re)build screens each poll so companions/lastResults stay current; keep
+    // the rotation running smoothly rather than resetting the index every 15s.
+    if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
+    _pendingData = null;
+    _preCompScreens = _buildPreCompScreens(d);
+    if (_preCompIdx >= _preCompScreens.length) _preCompIdx = 0;
+    if (!_preComp) { _preComp = true; _preCompIdx = 0; }
+    _renderPreCompScreen();
+    if (!_preCompTimer) {
+        _preCompTimer = setInterval(() => {
+            _preCompIdx = (_preCompIdx + 1) % Math.max(1, _preCompScreens.length);
+            _renderPreCompScreen();
+        }, PRECOMP_ROTATE_MS);
+    }
+}
+
+function _exitPreComp() {
+    _preComp = false;
+    if (_preCompTimer) { clearInterval(_preCompTimer); _preCompTimer = null; }
+    _preCompScreens = []; _preCompIdx = 0;
+}
+
+// Render a saved comp's official results (yesterday's, or the previous comp).
+function _renderLastResults(lr, nextComp) {
+    _isStableford        = lr.isStableford !== false;
+    _isAmbrose           = lr.isAmbrose === true;
+    _officialResultsReady = true;
+    _ballWinners         = new Set(lr.ballWinners || []);
+    _pdfStandings        = lr.pdfStandings || { grades: [], players: [] };
+    _pdfGradeMap = {};
+    _pdfPosMap   = {};
+    for (const pp of (_pdfStandings.players || [])) {
+        if (pp.name && pp.grade) _pdfGradeMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
+        if (pp.name && !pp.name.includes(',') && pp.pos) _pdfPosMap[pp.name.toLowerCase()] = pp.pos;
+    }
+    const ptsHdrLr = document.getElementById('col-hdr-pts');
+    if (ptsHdrLr) ptsHdrLr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+    const nt = document.getElementById('ntpld-bar');
+    setBadge('results', 'Results');
+    setHeader('\u26f3 ' + lr.competition + ' - Official Results',
+              'Wagga Wagga Country Club - ' + (nextComp || 'next comp') + ' not yet started');
+    setBlueBallVisible(lr.date);
+    renderLeaderboard(lr.players || [], lr.holeCount || 18, true, lr.competition || '');
+    renderInfoTicker(lr);
+    // Stories column must show YESTERDAY's stories (from the saved results),
+    // not today's not-yet-started comp. Poller saves storiesArchive into
+    // lastResults; hold them all (skipExpiry) since the comp is done.
+    const yStories = lr.storiesArchive || lr.stories || [];
+    renderStories(yStories, true);
+    _pendingStories = yStories; _pendingStoriesSkipExpiry = true;
+    showSideEmpty('last-list', '-');
+}
+
 // ── Full render (first load) ──────────────────────────────────────
 function render(d) {
     if (d.status === 'no board') {
@@ -784,29 +938,13 @@ function render(d) {
 
     _lastRenderData = d;
 
-    // When today's competition hasn't started yet and official results from the previous
-    // comp are available (saved by the poller), show those results while we wait.
-    const lr = (!d.started && d.lastResults && d.lastResults.officialResultsReady) ? d.lastResults : null;
+    // No comp today, but the previous comp's official results are saved: show
+    // them (the pre-comp holding view handles the case where a comp IS on today
+    // but has not started - that is decided in fetchData before render()).
+    const lr = (!d.started && !(d.players && d.players.length) &&
+                d.lastResults && d.lastResults.officialResultsReady) ? d.lastResults : null;
     if (lr) {
-        _isStableford        = lr.isStableford !== false;
-        _isAmbrose           = lr.isAmbrose === true;
-        _officialResultsReady = true;
-        _ballWinners         = new Set(lr.ballWinners || []);
-        _pdfStandings        = lr.pdfStandings || { grades: [], players: [] };
-        _pdfGradeMap = {};
-        _pdfPosMap   = {};
-        for (const pp of (_pdfStandings.players || [])) {
-            if (pp.name && pp.grade) _pdfGradeMap[pp.name.toLowerCase()] = pp.grade.toUpperCase();
-            if (pp.name && !pp.name.includes(',') && pp.pos) _pdfPosMap[pp.name.toLowerCase()] = pp.pos;
-        }
-        const ptsHdrLr = document.getElementById('col-hdr-pts');
-        if (ptsHdrLr) ptsHdrLr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
-        setBadge('results', 'Results');
-        setHeader('⛳ ' + lr.competition + ' - Official Results',
-                  'Wagga Wagga Country Club - ' + (d.competition || 'next comp') + ' not yet started');
-        setBlueBallVisible(lr.date);
-        renderLeaderboard(lr.players || [], lr.holeCount || 18, true, lr.competition || '');
-        renderInfoTicker(lr);
+        _renderLastResults(lr, d.competition);
         setFooter(d.generatedAt, '');
         return;
     }

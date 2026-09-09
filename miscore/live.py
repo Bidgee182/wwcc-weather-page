@@ -3690,6 +3690,10 @@ def main(argv=None) -> int:
                             "ballWinners":        blob.get("ballWinners", []),
                             "ntpLd":              blob.get("ntpLd", []),
                             "pdfStandings":       blob.get("pdfStandings", {}),
+                            # Keep the day's stories with the snapshot so the TV's
+                            # pre-comp holding view can show YESTERDAY's stories on
+                            # the results screen, not today's not-started comp.
+                            "storiesArchive":     blob.get("storiesArchive") or blob.get("stories", []),
                             "snapshotAt":         datetime.now(timezone.utc).isoformat(),
                         }
                         args.last_results.write_text(json.dumps(snapshot, indent=1), encoding="utf-8")
