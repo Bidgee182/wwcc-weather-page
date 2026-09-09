@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -970,11 +970,18 @@ function renderInfoTicker(d) {
     const hc = d.holeCount || 18;
     const active = players.filter(p => p.thru > 0);
 
-    if (active.length) {
+    const total = players.length;
+    if (total) {
         const fin = active.filter(p => p.thru >= hc).length;
-        items.push({ t: 'Field', v: fin >= active.length
-            ? ('All ' + active.length + ' finished')
-            : (fin + ' of ' + active.length + ' finished') });
+        // Denominator is the whole field, not just those who have teed off.
+        items.push({ t: 'Field', v: (fin >= total && total > 0)
+            ? ('All ' + total + ' finished')
+            : (fin + ' of ' + total + ' finished') });
+        // Separate "started" count while some of the field is still out.
+        if (active.length && fin < total) {
+            items.push({ t: 'Started',
+                v: active.length + ' of ' + total + ' started their round' });
+        }
     }
     const lead = (d.leaders && d.leaders[0]) || players[0];
     if (lead && lead.points != null && lead.thru > 0) {
