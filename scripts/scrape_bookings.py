@@ -2,28 +2,18 @@
 """
 WWCC bookings / tee-sheet scraper (MiClub member portal).
 
-Purpose: pull the day's tee sheet - times, groups, player names - which the
-live leaderboard scrape does NOT capture. Unlocks playing-group and
-morning/afternoon story angles, and is useful on its own as a viewable sheet.
+Pulls the day's tee sheet - times, groups, player names - which the live
+leaderboard scrape does NOT capture. Logs in with the same member creds as
+miscore/live.py (WWCC_USERNAME / WWCC_PASSWORD), fetches the timesheet URL,
+always saves the raw logged-in page (out/bookings_raw.html) so it can be
+eyeballed, and makes a best-effort parse into out/bookings.html + .json.
 
-Because the exact MiClub timesheet markup for WWCC has not been seen yet, this
-runs in two halves:
-  1. Always saves the RAW logged-in page to out/bookings_raw.html so it can be
-     eyeballed (open it, or view it on the Pages site after the workflow
-     commits it). This is the "so you can see it" part.
-  2. Makes a best-effort parse of time-slots + names into a clean
-     out/bookings.html and out/bookings.json. If the parse comes back thin,
-     the raw dump is there to refine the parser against real markup.
-
-Login reuses the same member creds as miscore/live.py (WWCC_USERNAME /
-WWCC_PASSWORD). Discovery: with no --url given, it logs in, opens the bookings
-landing page and lists the timesheet links it finds so the right one can be
-picked.
+Pass the exact tee-sheet URL from the browser address bar with --url; the
+default is the bare ViewPublishedEvent endpoint, which usually needs a
+resource/date query string to show a real sheet.
 
 Usage:
-    WWCC_USERNAME=.. WWCC_PASSWORD=.. python scripts/scrape_bookings.py
-    python scripts/scrape_bookings.py --url "https://wwcc.com.au/members/bookings/ViewPublishedEvent.msp?..."
-    python scripts/scrape_bookings.py --date 2026-09-16
+    WWCC_USERNAME=.. WWCC_PASSWORD=.. python scripts/scrape_bookings.py --url "<tee sheet URL>"
 """
 
 import argparse
@@ -33,6 +23,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, date
@@ -56,61 +47,54 @@ def login():
     with opener.open(req, timeout=20) as r:
         body = r.read().decode("utf-8", "replace")
         if r.status == 200 and "pageName=login" not in r.url and "formLogin" not in body:
-            print(f"login OK (cookies: {[c.name for c in jar]})")
+            print("login OK (cookies: %s)" % [c.name for c in jar])
             return opener
     print("ERROR: login failed - check credentials", file=sys.stderr)
     return None
 
 
 def get(opener, url):
+    """GET returning (body, final_url, status). Never raises on HTTP errors."""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with opener.open(req, timeout=20) as r:
-        return r.read().decode("utf-8", "replace"), r.url
-
-
-def find_timesheet_links(body):
-    """Timesheet / published-event links on the bookings landing page."""
-    links = []
-    for m in re.finditer(r'href="([^"]*(?:ViewPublishedEvent|timesheet|TimeSheet|booking)[^"]*)"',
-                         body, re.I):
-        href = html.unescape(m.group(1))
-        if not href.startswith("http"):
-            href = BASE + ("" if href.startswith("/") else "/") + href.lstrip("/")
-        if href not in links:
-            links.append(href)
-    return links
+    try:
+        with opener.open(req, timeout=20) as r:
+            return r.read().decode("utf-8", "replace"), r.url, r.status
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", "replace")
+        except Exception:
+            body = ""
+        return body, url, e.code
+    except Exception as e:
+        return "(request failed: %s)" % e, url, 0
 
 
 def parse_timesheet(body):
     """Best-effort: pull (time, [names]) rows from a MiClub timesheet.
 
-    MiClub timesheets vary; this looks for time tokens (h:mm am/pm or 24h) and
-    the player-name cells that follow within the same row/table block. Returns
-    a list of {time, players[]}. When the markup does not match, returns [] and
-    the caller falls back to the raw dump.
+    Looks for a time token (h:mm, optional am/pm) in each table row and the
+    name-shaped cells alongside it. Returns [{time, players[]}]; empty when the
+    markup does not match - then the raw dump is used to refine this.
     """
     slots = []
-    # split into row-ish blocks on <tr>; MiClub uses table rows per time slot
     rows = re.split(r"<tr\b", body, flags=re.I)
     time_re = re.compile(r"\b(\d{1,2}[:.]\d{2}\s*(?:am|pm)?)\b", re.I)
+    junk = ("available", "book", "cart", "buggy", "competition", "resource",
+            "member", "guest", "total", "hole", "tee")
     for row in rows:
         tm = time_re.search(re.sub(r"<[^>]+>", " ", row))
         if not tm:
             continue
-        # player names: cells with a member-ish anchor or a "Surname, First" pattern
         names = []
         for cm in re.finditer(r"<td[^>]*>(.*?)</td>", row, re.I | re.S):
             txt = html.unescape(re.sub(r"<[^>]+>", " ", cm.group(1))).strip()
             txt = re.sub(r"\s+", " ", txt)
-            if not txt or time_re.search(txt):
+            if not txt or time_re.search(txt) or len(txt) > 40:
                 continue
-            # a name looks like "Surname, First" or "First Surname", not a header
-            if re.search(r"[A-Za-z]{2,},\s*[A-Za-z]", txt) or (
-                    2 <= len(txt.split()) <= 4 and txt[0].isalpha()
-                    and txt.lower() not in ("available", "booking", "book now", "member")):
-                if len(txt) <= 40 and not any(w in txt.lower() for w in
-                        ("available", "book", "cart", "buggy", "competition", "resource")):
-                    names.append(txt)
+            looks_name = re.search(r"[A-Za-z]{2,},\s*[A-Za-z]", txt) or (
+                2 <= len(txt.split()) <= 4 and txt[0].isalpha())
+            if looks_name and not any(w in txt.lower() for w in junk):
+                names.append(txt)
         if names:
             slots.append({"time": tm.group(1).strip(), "players": names})
     return slots
@@ -118,32 +102,28 @@ def parse_timesheet(body):
 
 def render_html(slots, title, source_url):
     rows = "".join(
-        f"<tr><td class='t'>{html.escape(s['time'])}</td>"
-        f"<td>{html.escape(', '.join(s['players']))}</td></tr>"
+        "<tr><td class='t'>%s</td><td>%s</td></tr>" % (
+            html.escape(s["time"]), html.escape(", ".join(s["players"])))
         for s in slots)
-    n_players = sum(len(s["players"]) for s in slots)
-    return f"""<!doctype html><html><head><meta charset="utf-8">
-<title>{html.escape(title)}</title>
-<style>body{{font-family:Arial,sans-serif;background:#1a252f;color:#ecf0f1;padding:20px}}
-h1{{font-size:1.3em}} .sub{{color:#7f8c8d;font-size:.85em;margin-bottom:16px}}
-table{{border-collapse:collapse;width:100%;max-width:720px}}
-td{{padding:7px 10px;border-bottom:1px solid #2c3e50;vertical-align:top}}
-.t{{color:#5dade2;font-weight:bold;white-space:nowrap;width:90px}}
-</style></head><body>
-<h1>{html.escape(title)}</h1>
-<div class="sub">{len(slots)} tee times &bull; {n_players} players &bull;
-scraped {datetime.now().strftime('%d %b %Y %H:%M')} &bull;
-source: {html.escape(source_url)}</div>
-<table>{rows or '<tr><td>No tee times parsed - see out/bookings_raw.html for the raw page.</td></tr>'}</table>
-</body></html>"""
+    n = sum(len(s["players"]) for s in slots)
+    return (
+        '<!doctype html><html><head><meta charset="utf-8"><title>%s</title>'
+        '<style>body{font-family:Arial,sans-serif;background:#1a252f;color:#ecf0f1;padding:20px}'
+        'h1{font-size:1.3em}.sub{color:#7f8c8d;font-size:.85em;margin-bottom:16px}'
+        'table{border-collapse:collapse;width:100%%;max-width:720px}'
+        'td{padding:7px 10px;border-bottom:1px solid #2c3e50;vertical-align:top}'
+        '.t{color:#5dade2;font-weight:bold;white-space:nowrap;width:90px}</style></head><body>'
+        '<h1>%s</h1><div class="sub">%d tee times &bull; %d players &bull; scraped %s &bull; source: %s</div>'
+        '<table>%s</table></body></html>' % (
+            html.escape(title), html.escape(title), len(slots), n,
+            datetime.now().strftime("%d %b %Y %H:%M"), html.escape(source_url),
+            rows or "<tr><td>No tee times parsed - see out/bookings_raw.html for the raw page.</td></tr>"))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", help="explicit timesheet URL to scrape")
-    ap.add_argument("--date", default=date.today().isoformat(), help="YYYY-MM-DD")
-    ap.add_argument("--landing", default=f"{BASE}/members/bookings/",
-                    help="bookings landing page to discover timesheet links")
+    ap.add_argument("--url", help="exact timesheet URL (from the browser address bar)")
+    ap.add_argument("--date", default=date.today().isoformat())
     args = ap.parse_args()
 
     opener = login()
@@ -151,39 +131,22 @@ def main():
         sys.exit(1)
     os.makedirs(OUT, exist_ok=True)
 
-    url = args.url
-    if not url:
-        body, real = get(opener, args.landing)
-        with open(os.path.join(OUT, "bookings_landing_raw.html"), "w", encoding="utf-8") as f:
-            f.write(body)
-        links = find_timesheet_links(body)
-        print(f"bookings landing: {real}")
-        print(f"timesheet links found ({len(links)}):")
-        for l in links[:30]:
-            print("  ", l)
-        if not links:
-            print("No timesheet links auto-found. Open out/bookings_landing_raw.html to "
-                  "find the tee-sheet URL, then re-run with --url '<that URL>'.")
-            return
-        url = links[0]
-        print(f"\nusing first link: {url}")
-
-    body, real = get(opener, url)
+    url = args.url or (BASE + "/members/bookings/ViewPublishedEvent.msp")
+    body, real, status = get(opener, url)
     with open(os.path.join(OUT, "bookings_raw.html"), "w", encoding="utf-8") as f:
-        f.write(body)
+        f.write("<!-- %s -> %s [%s] -->\n" % (url, real, status) + body)
     slots = parse_timesheet(body)
-    title = f"WWCC Tee Sheet - {args.date}"
+    title = "WWCC Tee Sheet - %s" % args.date
     with open(os.path.join(OUT, "bookings.html"), "w", encoding="utf-8") as f:
         f.write(render_html(slots, title, real))
     with open(os.path.join(OUT, "bookings.json"), "w", encoding="utf-8") as f:
-        json.dump({"date": args.date, "source": real, "slots": slots}, f, indent=1)
+        json.dump({"date": args.date, "source": real, "status": status, "slots": slots}, f, indent=1)
 
-    print(f"\nparsed {len(slots)} tee times, "
-          f"{sum(len(s['players']) for s in slots)} players")
-    print("wrote out/bookings.html (clean view), out/bookings.json, "
-          "out/bookings_raw.html (raw page to refine the parser)")
-    for s in slots[:6]:
-        print(f"  {s['time']:>8}  {', '.join(s['players'])}")
+    print("[%s] %s -> %s" % (status, url, real))
+    print("parsed %d tee times, %d players" % (len(slots), sum(len(x["players"]) for x in slots)))
+    print("wrote out/bookings.html, out/bookings.json, out/bookings_raw.html")
+    for x in slots[:8]:
+        print("  %8s  %s" % (x["time"], ", ".join(x["players"])))
 
 
 if __name__ == "__main__":
