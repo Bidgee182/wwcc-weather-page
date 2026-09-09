@@ -5,6 +5,8 @@ name: Scrape Bookings (tee sheet)
 # commits them so they can be viewed at
 #   https://bidgee182.github.io/wwcc-weather-page/out/bookings.html
 on:
+  schedule:
+    - cron: '5 20-23,0-7 * * *'   # hourly through golf hours (AEST); groups change up to tee time
   workflow_dispatch:
     inputs:
       url:
@@ -59,7 +61,8 @@ jobs:
         run: |
           git config user.name  "wwcc-bot"
           git config user.email "bot@wwcc.local"
-          git add out/bookings.html out/bookings.json out/bookings_raw.html 2>/dev/null || true
+          cp out/bookings.json data/bookings.json 2>/dev/null || true
+          git add out/bookings.html out/bookings.json data/bookings.json 2>/dev/null || true
           git diff --staged --quiet && { echo "no changes"; exit 0; }
           git commit -m "Bookings tee sheet scrape"
           for a in 1 2 3 4 5; do
