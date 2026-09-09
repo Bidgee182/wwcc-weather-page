@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -575,6 +575,7 @@ async function fetchData() {
         const show4bbb = new URLSearchParams(location.search).get('4bbb') === '1';
         _companions = (data.companions || (data.companion ? [data.companion] : []))
             .filter(c => show4bbb || !((c.competition || '').toLowerCase().includes('4bbb')));
+        if (data.date && _bkDate !== data.date) loadBookings();
 
         // Pre-comp holding view takes over when a comp is published today but
         // nobody has scored yet - overrides both first-load and buffered paths.
@@ -960,6 +961,46 @@ function render(d) {
 // Top info marquee - live items: field progress, leader (+margin), today's
 // weather, and the day's headline story. NTP/LD is deliberately NOT here (it's
 // PDF-only / post-comp; it lives on the Past Results page).
+// Match key shared with the tee-sheet data: surname-lower + first initial.
+function _bkKey(name) {
+    var n = String(name || '').replace(/\s*\[[^\]]*\]/g, '').trim();
+    if (!n) return null;
+    var sur, first;
+    if (n.indexOf(',') >= 0) { var pp = n.split(','); sur = pp[0].trim(); first = (pp[1] || '').trim(); }
+    else { var q = n.split(/\s+/); if (q.length < 2) return null; sur = q[q.length - 1]; first = q[0]; }
+    return (sur && first) ? (sur.toLowerCase() + '|' + first[0].toLowerCase()) : null;
+}
+function _mins(t) {
+    var m = String(t || '').match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
+    if (!m) return -1;
+    var h = (+m[1]) % 12, mm = +m[2];
+    if (m[3] && m[3].toLowerCase() === 'pm') h += 12;
+    return h * 60 + mm;
+}
+// Today's tee sheet (times, groups, waves) from the hourly bookings scrape.
+let _bkIdx = null, _bkDate = null, _bkGroups = null;
+async function loadBookings() {
+    try {
+        const r = await fetch('data/bookings.json?_t=' + Math.floor(Date.now() / 3600000), { cache: 'no-store' });
+        if (!r.ok) { _bkIdx = null; return; }
+        const b = await r.json();
+        _bkDate = b.date; const idx = {}; const groups = []; let gid = 0;
+        (b.events || []).forEach(ev => (ev.slots || []).forEach(slot => {
+            gid++;
+            const label = (slot.tee || '').toLowerCase(), tm = (slot.time || '').toLowerCase();
+            const wave = (label.indexOf('afternoon') >= 0 || tm.indexOf('pm') >= 0) ? 'afternoon'
+                       : (label.indexOf('morning') >= 0 || tm.indexOf('am') >= 0) ? 'morning' : null;
+            const g = { time: slot.time || '', wave: wave, keys: [] };
+            (slot.players || []).forEach(pl => {
+                const k = _bkKey(pl.name);
+                if (k) { idx[k] = { wave: wave, time: slot.time || '' }; g.keys.push(k); }
+            });
+            groups.push(g);
+        }));
+        _bkIdx = idx; _bkGroups = groups;
+    } catch (e) { _bkIdx = null; }
+}
+
 function renderInfoTicker(d) {
     const bar   = document.getElementById('ntpld-bar');
     const inner = document.getElementById('ntpld-inner');
@@ -1006,6 +1047,75 @@ function renderInfoTicker(d) {
         ['Today', 'The Board', 'The Field'].indexOf(s.player) === -1);
     if (gold) items.push({ t: gold.title, v: stripHcp(gold.player) });
 
+    // Scoring pace across everyone currently out (comparable through the round)
+    if (active.length >= 5) {
+        let sp = 0, sh = 0;
+        active.forEach(p => { sp += (p.points || 0); sh += (p.thru || 0); });
+        if (sh > 0) items.push({ t: 'Scoring pace', v: (sp / sh).toFixed(1) + ' pts/hole' });
+    }
+    // Biggest mover, from the rank history the stories already track
+    const meta = (d.storyRanks && d.storyRanks.meta) || {};
+    let bestMove = null;
+    players.forEach(p => {
+        const m = meta[p.player]; if (!m) return;
+        const climbed = (m[0] || 0) - (p.liveRank || 999);
+        if (climbed >= 3 && (p.liveRank || 999) <= 15 && (!bestMove || climbed > bestMove.c))
+            bestMove = { n: p.player, c: climbed };
+    });
+    if (bestMove) items.push({ t: 'On the charge', v: stripHcp(bestMove.n) + ', up ' + bestMove.c });
+    // Eagles / aces across the field
+    let eagles = 0; const aces = [];
+    players.forEach(p => (p.holes || []).forEach(h => {
+        if (h.par != null && typeof h.strokes === 'number') {
+            if (h.strokes === 1 && h.par === 3) aces.push({ n: p.player, h: h.hole });
+            else if (h.strokes - h.par <= -2) eagles++;
+        }
+    }));
+    if (aces.length) items.push({ t: 'ACE!', v: stripHcp(aces[0].n) + ' on hole ' + aces[0].h });
+    if (eagles > 0) items.push({ t: 'Eagles', v: eagles + ' across the field' });
+    // Tie at the top
+    if (lead && lead.points != null && lead.thru > 0) {
+        const nt = players.filter(p => p.points === lead.points && (p.thru || 0) > 0).length;
+        if (nt >= 2) items.push({ t: 'Tied lead', v: nt + ' on ' + fmtScore(lead.points) + (_isStableford ? 'pts' : '') });
+    }
+    // Blue ball watch - Wed/Sat men's stableford, current lowest finished score
+    const _day = d.date ? new Date(d.date + 'T12:00:00').getDay() : -1;
+    if ((_day === 3 || _day === 6) && _isStableford) {
+        const cl = (d.comingLast || []).filter(p => (p.thru || 0) >= hc);
+        if (cl.length) {
+            const low = cl.reduce((a, b) => (b.points < a.points ? b : a));
+            items.push({ t: 'Blue balls', v: stripHcp(low.player) + ' on ' + fmtScore(low.points) + (_isStableford ? 'pts' : '') });
+        }
+    }
+    // Tee-sheet derived: groups still out, last group out, wave leading
+    if (_bkIdx && _bkDate === d.date && _bkGroups && active.length) {
+        const thruByKey = {};
+        players.forEach(p => { const k = _bkKey(p.player); if (k) thruByKey[k] = Math.max(thruByKey[k] || 0, (p.thru || 0)); });
+        let out = 0, lastOutMin = -1, lastOutTxt = '';
+        _bkGroups.forEach(g => {
+            if (!g.keys.length) return;
+            const allDone = g.keys.every(k => (thruByKey[k] || 0) >= hc);
+            if (!allDone) { out++; const mn = _mins(g.time); if (mn > lastOutMin) { lastOutMin = mn; lastOutTxt = g.time; } }
+        });
+        if (out > 0) {
+            items.push({ t: 'Groups out', v: out + (out === 1 ? ' group' : ' groups') + ' still on the course' });
+            if (lastOutTxt) items.push({ t: 'Last group', v: 'out at ' + lastOutTxt.trim() });
+        }
+        let mw = { p: 0, h: 0 }, aw = { p: 0, h: 0 };
+        players.forEach(p => {
+            if ((p.thru || 0) <= 0) return;
+            const info = _bkIdx[_bkKey(p.player)]; if (!info || !info.wave) return;
+            const w = info.wave === 'morning' ? mw : aw; w.p += (p.points || 0); w.h += (p.thru || 0);
+        });
+        if (mw.h > 0 && aw.h > 0) {
+            const ma = mw.p / mw.h, aa = aw.p / aw.h;
+            if (Math.abs(ma - aa) >= 0.12) {
+                const ldw = ma > aa ? 'Morning' : 'Afternoon';
+                items.push({ t: 'Wave', v: ldw + ' wave ahead (' + ma.toFixed(1) + ' vs ' + aa.toFixed(1) + '/hole)' });
+            }
+        }
+    }
+
     // NTP / Longest Drive prizes - only present once official results reveal, so
     // the ticker naturally switches to the prize winners after a comp.
     (d.ntpLd || []).forEach(e => {
@@ -1023,6 +1133,10 @@ function renderInfoTicker(d) {
     const sep = '<span class="ntpld-sep">|</span>';
     inner.innerHTML = html + sep + html;   // double for seamless looping scroll
     bar.style.display = 'flex';
+    // Constant reading speed regardless of how many items: duration scales with
+    // content width (one content copy = scrollWidth/2). ~46 px/s ≈ 25% faster.
+    const oneCopy = inner.scrollWidth / 2;
+    if (oneCopy > 0) inner.style.animationDuration = Math.max(20, Math.round(oneCopy / 46)) + 's';
 }
 
 function updateHeader(d) {
@@ -1777,6 +1891,8 @@ function esc(s) {
 // ── Boot ──────────────────────────────────────────────────────────
 updateClock();
 setInterval(updateClock, 1000);
+loadBookings();
+setInterval(loadBookings, 3600000);
 setInterval(tickCountdown, 1000);
 fetchData();
 </script>
