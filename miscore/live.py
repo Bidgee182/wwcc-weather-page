@@ -2547,17 +2547,33 @@ def _blueball_roast(i, cl, hc, board_date):
             parts = n.split()
             return parts[-1] if len(parts) > 1 else (n or "the next bloke")
 
+        hcv = hc or 18
+        holder = cl[0]
+        h_pts = holder.get("points") or 0
+        h_fin = (holder.get("thru") or 0) >= hcv
         if i == 0:
-            if len(cl) > 1 and (cl[1].get("points") or 0) == pts:
-                return _pick_phrase("bb_tied", seed, leader=surname(cl[1].get("player")))
-            if fin:
+            if h_fin:
+                other = next((c for c in cl[1:]
+                              if (c.get("thru") or 0) >= hcv
+                              and (c.get("points") or 0) == pts), None)
+                if other:
+                    return _pick_phrase("bb_tied", seed, leader=surname(other.get("player")))
                 return _pick_phrase("bb_holder_fin", seed, pts=pts, avg=avg)
+            # nobody home yet - provisional holder, still out, chased by cl[1]
             above = surname(cl[1].get("player")) if len(cl) > 1 else "the field"
-            need = ((cl[1].get("points") or 0) - pts + 1) if len(cl) > 1 else 1
+            need = max(1, ((cl[1].get("points") or 0) - pts + 1) if len(cl) > 1 else 1)
             return _pick_phrase("bb_holder_out", seed, pts=pts, avg=avg,
-                                left=left, need=max(1, need), above=above)
-        cushion = pts - (cl[0].get("points") or 0)
-        leader = surname(cl[0].get("player"))
+                                left=left, need=need, above=above)
+        leader = surname(holder.get("player"))
+        if h_fin and not fin and pts <= h_pts:
+            # still on the course at or below the clubhouse low: must FINISH
+            # above it or the blue balls change hands to him
+            need = max(1, h_pts - pts + 1)
+            return _pick_phrase("bb_holder_out", seed, pts=pts, avg=avg,
+                                left=left, need=need, above=leader)
+        cushion = pts - h_pts
+        if cushion < 0:
+            return None          # finished below the holder cannot happen; bail safe
         if cushion == 0:
             return _pick_phrase("bb_tied", seed, leader=leader)
         cat = "bb_contender_fin" if fin else "bb_contender"
@@ -2998,6 +3014,15 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             [p for p in players if p["thru"] >= 12 and p["points"] / p["thru"] < 1.5],
             key=lambda p: (p["points"], -p["thru"], p["player"]),
         )
+        # The blue balls go to the lowest FINISHED score in the clubhouse at
+        # presentation - that player tops the pill, and everyone still out on
+        # the course is trying to FINISH above his number (stableford points
+        # only accumulate, so an unfinished lower score is not the holder yet).
+        _hcv = hole_count or 18
+        _fin = [p for p in coming_last if (p["thru"] or 0) >= _hcv]
+        if _fin and coming_last[0] is not _fin[0]:
+            coming_last.remove(_fin[0])
+            coming_last.insert(0, _fin[0])
     else:
         coming_last = sorted(
             [p for p in players if p["thru"] >= 12 and p["points"] > 9],
