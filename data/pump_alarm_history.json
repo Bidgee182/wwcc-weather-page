@@ -1,6 +1,24 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-10T02:21:31.101821+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Boost activated",
+      "code": 11,
+      "description": "Low-flow boost active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
+      "timestamp_iso": "2026-09-10T02:21:31.101821+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-08T21:45:03.528004+00:00",
       "type_code": 3,
       "type_name": "Low-Flow Stop activated",
@@ -1812,26 +1830,6 @@
       "description": "Water shortage",
       "pump_label": "System",
       "source_name": "System",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-24T20:45:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 4,
-      "description": "Too many restarts",
-      "pump_label": "P1 - CRNE45",
-      "source_name": "Pump",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-24T03:16:00+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
-      "code": 4,
-      "description": "Too many restarts",
-      "pump_label": "P1 - CRNE45",
-      "source_name": "Pump",
       "imported": true
     }
   ]
