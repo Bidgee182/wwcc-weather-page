@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '8.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '8.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1073,8 +1073,12 @@ function renderInfoTicker(d) {
     players.forEach(p => (p.holes || []).forEach(h => {
         if (!h.played || h.par == null || typeof h.strokes !== 'number' || h.strokes < 1) return;
         if (h.strokes === 1) aces.push({ n: p.player, h: h.hole });
-        const grossEagle = (h.strokes - h.par) <= -2;
-        if ((h.strokes - h.par) <= -3) albatross.push({ n: p.player, h: h.hole });
+        // A gross eagle/albatross is only believable from a low marker; a 6-point
+        // hole is a "net condor" that cannot happen. Both are MiClub live-edit
+        // glitches off higher handicaps, so gate them the same way live.py does.
+        const grossEagle = (h.strokes - h.par) <= -2 &&
+            (typeof p.hcp !== 'number' || p.hcp <= 18);
+        if ((h.strokes - h.par) <= -3 && grossEagle) albatross.push({ n: p.player, h: h.hole });
         else if (grossEagle) eagles.push({ n: p.player, h: h.hole });
         if (_isStableford && !grossEagle) {           // handicap eagle territory
             if (h.points === 5) fivePt.push({ n: p.player, h: h.hole });
@@ -1092,8 +1096,13 @@ function renderInfoTicker(d) {
     if (eagles.length)    items.push({ t: eagles.length > 1 ? 'Eagles' : 'Eagle', v: nameList(eagles) });
     if (fivePt.length)    items.push({ t: '5-pointer!', v: nameList(fivePt) });
     if (fourPt > 0) {
-        let v = fourPt + ' today';
-        if (fourBest && fourBest.hcp >= 0) v += ' (best: ' + stripHcp(fourBest.n) + ', ' + fmtHcp(fourBest.hcp) + ')';
+        // "N across the field" so the count can't be misread as one player's;
+        // name a single exemplar with "incl." (the higher markers' moment).
+        let v = fourPt + ' across the field';
+        if (fourPt > 1 && fourBest && fourBest.hcp >= 0)
+            v += ' (incl. ' + stripHcp(fourBest.n) + ' off ' + fmtHcp(fourBest.hcp) + ')';
+        else if (fourPt === 1 && fourBest)
+            v = stripHcp(fourBest.n) + (fourBest.hcp >= 0 ? ' off ' + fmtHcp(fourBest.hcp) : '');
         items.push({ t: fourPt === 1 ? '4-pointer' : '4-pointers', v: v });
     }
     // Tie at the top

@@ -969,6 +969,31 @@ def _hole_note(h: dict) -> str | None:
     return None
 
 
+# Ceiling handicap for a believable gross eagle. A player receiving roughly a
+# stroke a hole (hcp >= this) making a gross 2 is almost always a mis-keyed or
+# mid-edit MiClub card, not a real shot - real gross eagles come from low markers.
+_EAGLE_HCP_CEILING = 18
+
+
+def _believable_hole(h: dict, hcp, is_stableford: bool = True) -> bool:
+    """Guard against MiClub live-scoring glitches spawning fake SPECTACULAR
+    stories (ace / eagle / albatross / net-condor). Ordinary birdie/par/wipe
+    logic never calls this - it only gates the once-in-a-lifetime claims, so a
+    corrupt hole (e.g. gross 2 / 6 points off a 27 handicap) is ignored rather
+    than celebrated. Returns True when the standout score is plausible.
+    """
+    if is_stableford:
+        pts = h.get("points")
+        if isinstance(pts, int) and pts >= 6:      # net condor - impossible on one hole
+            return False
+    par, st = h.get("par"), h.get("strokes")
+    # A gross eagle or better (2+ under) is believable only from a low marker.
+    # A gross 1 (hole in one / drive-in) is unambiguous and trusted from anyone.
+    if isinstance(st, int) and st >= 2 and par and (st - par) <= -2:
+        return hcp is None or hcp <= _EAGLE_HCP_CEILING
+    return True
+
+
 def _story_stroke(played: list[dict], player: str = "", course_holes: int = 0) -> dict | None:
     """Scoreboard stories for stroke play (net vs par). Same structure as stableford
     stories - tweak thresholds and text here without touching the stableford version.
@@ -1369,7 +1394,7 @@ def _story_stroke(played: list[dict], player: str = "", course_holes: int = 0) -
     return None
 
 
-def _story(played: list[dict], is_stableford: bool = True, player: str = "", course_holes: int = 0) -> dict | None:
+def _story(played: list[dict], is_stableford: bool = True, player: str = "", course_holes: int = 0, hcp=None) -> dict | None:
     """Generate a Scoreboard Story from a player's played holes (in PLAY order,
     tee-off hole first - see _play_order; front/back nines are still split by hole
     number where "out"/"coming home" is meant geographically).
@@ -1388,7 +1413,9 @@ def _story(played: list[dict], is_stableford: bool = True, player: str = "", cou
     def is_bogey(h):  return gpts(h) == 1
     def is_par(h):    return gpts(h) == 2
     def is_birdie(h): return gpts(h) is not None and gpts(h) >= 3
-    def is_eagle(h):  return gpts(h) is not None and gpts(h) >= 4
+    # An "eagle" (big stableford hole) must also be believable for the handicap -
+    # a mis-keyed 6-point / gross-2 hole is not celebrated as the real thing.
+    def is_eagle(h):  return gpts(h) is not None and gpts(h) >= 4 and _believable_hole(h, hcp, True)
 
     def hnum(h):      return h.get("hole", "?")
 
@@ -2274,6 +2301,10 @@ def _field_superlatives(ranked, hole_count, is_stableford):
             elif to_par == -2:
                 cand = (2, p, h.get("hole"), "eagle")
             else:
+                continue
+            # Skip cards too good to be true for the handicap (MiClub live-edit
+            # glitch), so a mis-keyed hole never becomes Shot of the Day.
+            if not _believable_hole(h, p.get("hcp"), is_stableford):
                 continue
             if best is None or cand[0] > best[0]:
                 best = cand
@@ -3273,7 +3304,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
             "birdies": birdies,
             "holes": holes,
             "last": [{"hole": h["hole"], "par": h.get("par"), "strokes": h.get("strokes"), "strokes2": h.get("strokes2"), "points": h.get("points"), "pointsSum": h.get("pointsSum")} for h in last],
-            "_story": _story(played, is_stableford, base_["player"], hole_count),
+            "_story": _story(played, is_stableford, base_["player"], hole_count, base_.get("hcp")),
         }
         players.append(p)
 
