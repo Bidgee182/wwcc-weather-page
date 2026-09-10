@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-10T08:16:53.368173+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-10T07:48:08.745550+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1817,16 +1826,6 @@
       "description": "Limit 1 exceeded",
       "pump_label": "P1 - CRNE45",
       "source_name": "Pump",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-04-26T19:40:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 214,
-      "description": "Water shortage",
-      "pump_label": "System",
-      "source_name": "System",
       "imported": true
     }
   ]
