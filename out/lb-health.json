@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-10T09:43:41.883712+00:00",
- "window": "day",
+ "updatedAt": "2026-09-10T12:17:54.377941+00:00",
+ "window": "night",
  "alertsActive": [],
  "competition": "PSC Pro Am Rd 1",
  "compDate": "2026-09-10",
  "playerCount": 123,
- "pollAgeMin": 0.7,
- "officialResultsReady": false,
+ "pollAgeMin": 1.2,
+ "officialResultsReady": true,
  "prizes": {
-  "ntp": 0,
+  "ntp": 5,
   "ld": 0,
-  "balls": 0
+  "balls": 66
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "3 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 1 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414350",
    "label": "Results: PSC Pro Am Rd 1",
-   "status": "idle",
-   "detail": "Awaiting official results"
+   "status": "ok",
+   "detail": "single field, 186 players, 5 NTP, 0 LD, 66 balls"
   },
   {
    "key": "pdf:10414357",
