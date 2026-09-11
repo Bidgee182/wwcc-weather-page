@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -517,6 +517,7 @@ let _pdfStandings = { grades: [], players: [] };
 // Cached surname→grade map built from pdfStandings; used in both renderLeaderboard and renderGradeStrip
 let _pdfGradeMap = {};  // lower-case pdf name → "A"|"B"|"C"
 let _pdfPosMap   = {};  // lower-case player name → official pdf position number
+let _tickerSig   = '';  // signature of the current info-ticker items - only rebuild (restart scroll) on change
 
 // Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
 let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
@@ -622,6 +623,12 @@ async function fetchData() {
                 _forceTimer = setTimeout(_applyPending, 10000);
             }
             updateHeader(data);
+            // Refresh the info ticker every poll so it switches over the moment
+            // results land (NTP/Longest Drive, grade winners) - the leaderboard
+            // itself is buffered to the scroll boundary, but the ticker is not.
+            // renderInfoTicker no-ops when its content is unchanged, so this does
+            // NOT restart the marquee every 60s.
+            renderInfoTicker(data);
             setBlueBallVisible(data.date);
             const _ps = _pickStories(data); queueStories(_ps.stories, _ps.skipExpiry);
             queueComingLast(data.comingLast || [], data.holeCount || 18);
@@ -1158,7 +1165,12 @@ function renderInfoTicker(d) {
         items.push({ t: label, v: nm + (e.distance ? ' - ' + e.distance : '') });
     });
 
-    if (!items.length) { bar.style.display = 'none'; return; }
+    if (!items.length) { bar.style.display = 'none'; _tickerSig = ''; return; }
+    // Only rebuild when the content actually changed - otherwise re-rendering on
+    // every 60s poll would restart the marquee scroll mid-way each time.
+    const sig = items.map(it => it.t + '=' + it.v).join('|');
+    if (sig === _tickerSig && bar.style.display !== 'none') return;
+    _tickerSig = sig;
     const html = items.map(it =>
         '<span class="ntpld-entry"><span class="ntpld-type">' + esc(it.t) + '</span>' + esc(it.v) + '</span>'
     ).join('<span class="ntpld-sep">|</span>');
