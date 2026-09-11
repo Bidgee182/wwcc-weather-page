@@ -1,5 +1,5 @@
 {
- "pollAgeMin": 0.7,
+ "pollAgeMin": 0.2,
  "day": "2026-09-12",
  "maxPlayers": 187,
  "resultsEmailed": {
@@ -12,11 +12,15 @@
   "2026-09-10:10414350": "2026-09-10T12:17:54.377941+00:00",
   "2026-09-11:10414351": "2026-09-11T09:13:18.478798+00:00"
  },
- "pending": {
-  "mismatch": "Published board disagrees with a fresh MiScore scrape on 3 of the top 10 (e.g. ['artyboyle', 'altairzolio', 'timharris'])."
+ "pending": {},
+ "active": {
+  "mismatch": {
+   "since": "2026-09-11T22:00:28.403757+00:00",
+   "lastMail": "2026-09-11T22:00:28.403757+00:00",
+   "msg": "Published board disagrees with a fresh MiScore scrape on 3 of the top 10 (e.g. ['deanhawkins', 'michaelskinner', 'charlesking'])."
+  }
  },
- "active": {},
- "lastRun": "2026-09-11T21:48:31.299312+00:00",
+ "lastRun": "2026-09-11T22:00:28.403757+00:00",
  "resultsLogged": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00",
   "2026-09-03:10414344": "2026-09-03T13:33:41.838023+00:00",
@@ -77,6 +81,9 @@
   ],
   "2026-09-11": [
    "nocomp: MiScore lists 3 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
+  ],
+  "2026-09-12": [
+   "mismatch: Published board disagrees with a fresh MiScore scrape on 3 of the top 10 (e.g. ['deanhawkins', 'michaelskinner', 'charle"
   ]
  }
 }
