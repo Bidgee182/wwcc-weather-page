@@ -1,29 +1,31 @@
 {
- "updatedAt": "2026-09-11T15:11:37.527506+00:00",
- "window": "night",
- "alertsActive": [],
- "competition": "PSC Pro Am Rd 2",
- "compDate": "2026-09-11",
- "playerCount": 134,
- "pollAgeMin": 96.9,
- "officialResultsReady": true,
+ "updatedAt": "2026-09-11T19:22:07.585854+00:00",
+ "window": "day",
+ "alertsActive": [
+  "nocomp"
+ ],
+ "competition": null,
+ "compDate": null,
+ "playerCount": 0,
+ "pollAgeMin": 83.8,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 5,
+  "ntp": 0,
   "ld": 0,
-  "balls": 66
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "3 boards listed, none published"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "84 min old"
   },
   {
    "key": "creds",
@@ -35,19 +37,13 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "134 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
    "status": "idle",
    "detail": "Checked while comp is live"
-  },
-  {
-   "key": "pdf:10414351",
-   "label": "Results PDF",
-   "status": "ok",
-   "detail": "single field, 186 players, 5 NTP, 0 LD, 66 balls"
   }
  ],
  "yesterday": [
