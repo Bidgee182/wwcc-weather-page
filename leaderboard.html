@@ -491,7 +491,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1044,10 +1044,16 @@ function _resultsTickerItems(d, items, players, hc) {
     } else if ((d.ballWinners || []).length) {
         items.push({ t: 'Ball comp', v: d.ballWinners.length + ' winners' });
     }
-    // Scoring average across the official field.
+    // Scoring average across the official field. Only trust it when the standings
+    // actually cover the field: a winners/ball-only PDF (few rows vs the live
+    // field) would average a high-scoring subset and badly overstate it, and a
+    // stableford field can't average above a net-par card - guard both so a bad
+    // standings set can never show a misleading number.
     if (scores.length && _isStableford) {
         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-        items.push({ t: 'Field', v: 'averaged ' + avg.toFixed(1) + ' pts' });
+        const enough = scores.length >= Math.max(12, (players.length || 0) * 0.5);
+        if (enough && avg <= hc * 2)
+            items.push({ t: 'Field', v: 'averaged ' + avg.toFixed(1) + ' pts' });
     }
     // Players who bettered their handicap (nett par is 36 pts; 37+ beats the card).
     if (_isStableford && scores.length) {
@@ -1057,13 +1063,14 @@ function _resultsTickerItems(d, items, players, hc) {
     }
     // Per-hole tallies across the field - only our scraped scorecards carry the
     // hole detail, so these come from the live data (the PDF has no per-hole).
-    let aces = 0, eagles = 0, threeP = 0, fourP = 0, wipes = 0;
+    const aceHoles = [], eagleHoles = [];
+    let threeP = 0, fourP = 0, wipes = 0;
     players.forEach(p => (p.holes || []).forEach(h => {
         if (!h.played || h.par == null) return;
         const s = h.strokes, pts = h.points;
         if (typeof s === 'number' && s >= 1) {
-            if (s === 1) aces++;
-            else if ((s - h.par) <= -2 && (typeof p.hcp !== 'number' || p.hcp <= 18)) eagles++;
+            if (s === 1) aceHoles.push(h.hole);
+            else if ((s - h.par) <= -2 && (typeof p.hcp !== 'number' || p.hcp <= 18)) eagleHoles.push(h.hole);
         }
         if (_isStableford) {
             if (pts === 0) wipes++;
@@ -1072,11 +1079,17 @@ function _resultsTickerItems(d, items, players, hc) {
         }
     }));
     // Rare feats (gross eagles / aces) - low markers only so a MiClub live-edit
-    // glitch off a high handicap can't fake one.
+    // glitch off a high handicap can't fake one. Name the hole(s) so it reads as
+    // a real event, not just a tally.
+    const holesPhrase = hs => {
+        const u = Array.from(new Set(hs)).sort((a, b) => a - b);
+        if (u.length === 1) return 'hole ' + u[0];
+        return 'holes ' + u.slice(0, -1).join(', ') + ' & ' + u[u.length - 1];
+    };
     const feats = [];
-    if (aces)   feats.push(aces + (aces === 1 ? ' ace' : ' aces'));
-    if (eagles) feats.push(eagles + (eagles === 1 ? ' eagle' : ' eagles'));
-    if (feats.length) items.push({ t: 'Standout holes', v: feats.join(' · ') + ' across the field' });
+    if (aceHoles.length)   feats.push((aceHoles.length === 1 ? 'an ace on ' : aceHoles.length + ' aces on ') + holesPhrase(aceHoles));
+    if (eagleHoles.length) feats.push((eagleHoles.length === 1 ? 'an eagle on ' : eagleHoles.length + ' eagles on ') + holesPhrase(eagleHoles));
+    if (feats.length) items.push({ t: 'Standout holes', v: feats.join(' · ') });
     // Scoring across the field: three-pointers / four-pointers / wipes.
     if (_isStableford && (threeP || fourP || wipes)) {
         const parts = [];
