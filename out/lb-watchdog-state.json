@@ -1,7 +1,7 @@
 {
- "pollAgeMin": 81.3,
- "day": "2026-09-12",
- "maxPlayers": 188,
+ "pollAgeMin": 82.9,
+ "day": "",
+ "maxPlayers": 0,
  "resultsEmailed": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00",
   "2026-09-04:10414330": "2026-09-04T09:03:41.916544+00:00",
@@ -13,9 +13,17 @@
   "2026-09-11:10414351": "2026-09-11T09:13:18.478798+00:00",
   "2026-09-12:10414286": "2026-09-12T09:01:58.950452+00:00"
  },
- "pending": {},
- "active": {},
- "lastRun": "2026-09-12T14:09:48.157888+00:00",
+ "pending": {
+  "stale": "Leaderboard JSON is 83 min old (expected ~1 min during the day). The poll chain looks dead."
+ },
+ "active": {
+  "nocomp": {
+   "since": "2026-09-12T18:53:03.534831+00:00",
+   "lastMail": "2026-09-12T18:53:03.534831+00:00",
+   "msg": "MiScore lists 3 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
+  }
+ },
+ "lastRun": "2026-09-12T18:53:03.534831+00:00",
  "resultsLogged": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00",
   "2026-09-03:10414344": "2026-09-03T13:33:41.838023+00:00",
@@ -81,7 +89,8 @@
   ],
   "2026-09-12": [
    "mismatch: Published board disagrees with a fresh MiScore scrape on 3 of the top 10 (e.g. ['deanhawkins', 'michaelskinner', 'charle",
-   "mismatch: Published board disagrees with a fresh MiScore scrape on 6 of the top 10 (e.g. ['johnholle', 'kademacdonald', 'deanhawki"
+   "mismatch: Published board disagrees with a fresh MiScore scrape on 6 of the top 10 (e.g. ['johnholle', 'kademacdonald', 'deanhawki",
+   "nocomp: MiScore lists 3 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
   ]
  }
 }
