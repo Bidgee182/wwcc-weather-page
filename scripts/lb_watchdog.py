@@ -501,9 +501,17 @@ def main():
     # Persistence + cooldown: a problem must survive 2 consecutive checks to
     # email, and re-notifies at most every REALERT_MIN while it lasts.
     pending = state.get("pending") or {}
+    first_seen = state.get("firstSeen") or {}   # key -> iso of first continuous sighting
     to_mail = {}
-    IMMEDIATE = {"orgmissing", "nocomp"}   # unambiguous hard failures: no 2-check wait
+    IMMEDIATE = {"orgmissing"}     # both MiScore sources dead: never ambiguous, alert at once
+    # Issues that are usually transient (the morning startup lag, where MiScore has
+    # listed the day's boards but the poller has not yet published today's comp) get
+    # a time grace instead: only email if STILL unresolved this many minutes after
+    # first sighting. The self-heal below still kicks the poll each check meanwhile,
+    # so the board recovers silently; a genuine sustained outage persists and alerts.
+    GRACE_MIN = {"nocomp": 30}
     for k, msg in issues.items():
+        first_seen.setdefault(k, now_iso)       # start (or keep) this issue's grace clock
         if k in IMMEDIATE and k not in active:
             to_mail[k] = msg
             active[k] = {"since": now_iso, "lastMail": now_iso, "msg": msg}
@@ -514,11 +522,20 @@ def main():
                 to_mail[k] = msg + " (still broken)"
                 active[k]["lastMail"] = now_iso
             active[k]["msg"] = msg
+        elif k in GRACE_MIN:
+            seen = parse_iso(first_seen.get(k))
+            if seen and (utcnow() - seen) >= timedelta(minutes=GRACE_MIN[k]):
+                to_mail[k] = msg
+                active[k] = {"since": now_iso, "lastMail": now_iso, "msg": msg}
+            # else: still within grace - stay quiet (poll is likely just catching up)
         elif k in pending:
             to_mail[k] = msg
             active[k] = {"since": now_iso, "lastMail": now_iso, "msg": msg}
         # first sighting -> goes to pending, no email yet
     state["pending"] = {k: v for k, v in issues.items() if k not in active}
+    # Keep grace clocks only for issues still present, so a cleared issue that
+    # recurs later starts its grace window fresh rather than firing instantly.
+    state["firstSeen"] = {k: first_seen[k] for k in issues if k in first_seen}
 
     cleared = [active[k]["msg"] for k in list(active) if k not in issues]
     for k in list(active):
