@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-09-13T21:58:01.041176+00:00",
-  "last_seen": "2026-09-13T21:58:01.041176+00:00",
-  "last_connected": "2026-09-13T21:58:01.041176+00:00",
+  "timestamp": "2026-09-13T22:02:52.302762+00:00",
+  "last_seen": "2026-09-13T22:02:52.302762+00:00",
+  "last_connected": "2026-09-13T22:02:52.302762+00:00",
   "system": {
-    "pressure_actual_bar": 8.63,
+    "pressure_actual_bar": 8.062,
     "pressure_suction_bar": -0.812,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "power_kw": 4.5,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 83.1,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 199582,
+    "energy_kwh": 199584,
     "run_hours": 41442,
     "powered_hours": null,
     "power_ons": 82,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 79.9,
+      "power_kw": 4.1,
+      "current_a": 12.0,
       "run_hours": 5164.0,
-      "starts_today": 2,
+      "starts_today": 3,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -69,7 +69,7 @@
       "standby": true,
       "speed_pct": 0.0,
       "power_kw": 0.0,
-      "current_a": 0.0,
+      "current_a": 1.6,
       "run_hours": 5162.0,
       "starts_today": 3,
       "temp_c": null,
@@ -100,14 +100,14 @@
       "rated_kw": 5.5,
       "block": 460,
       "bit": 6,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 68.5,
+      "power_kw": 0.5,
+      "current_a": 2.4,
       "run_hours": 1398.0,
-      "starts_today": 3,
+      "starts_today": 4,
       "temp_c": null,
       "alarm_code": 0
     }
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 8637,
+      "raw": 8107,
       "temp_c": null
     },
     {
@@ -10597,9 +10597,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-09-13T22:02:52.302762+00:00",
+      "pa": 8.062,
+      "ps": 7.8,
+      "pi": -0.812,
+      "fl": 0.0,
+      "nr": 2,
+      "pk": 4.5,
+      "sp": [
+        79.9,
+        0.0,
+        0.0,
+        68.5
+      ],
+      "pw": [
+        4.1,
+        0.0,
+        0.0,
+        0.5
+      ],
+      "rh": [
+        5164.0,
+        5162.0,
+        5164.0,
+        1398.0
+      ],
+      "st": [
+        3,
+        3,
+        2,
+        4
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-09-13T22:02:52.302762+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-09-13T21:58:01.041176+00:00",
       "type_code": 3,
@@ -10950,22 +10999,13 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-09-01T15:18:52.181580+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ],
   "pump_energy_kwh": [
     912,
     60878,
     2990,
-    3808
+    3810
   ],
   "mge_temps": [
     null,
