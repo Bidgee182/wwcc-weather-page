@@ -1,29 +1,31 @@
 {
- "updatedAt": "2026-09-13T14:40:27.275677+00:00",
- "window": "night",
- "alertsActive": [],
- "competition": "Sunday Medley Stableford",
- "compDate": "2026-09-13",
- "playerCount": 100,
- "pollAgeMin": 154.0,
- "officialResultsReady": true,
+ "updatedAt": "2026-09-13T19:08:24.980023+00:00",
+ "window": "day",
+ "alertsActive": [
+  "nocomp"
+ ],
+ "competition": null,
+ "compDate": null,
+ "playerCount": 0,
+ "pollAgeMin": 82.5,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 11,
+  "ntp": 0,
   "ld": 0,
-  "balls": 113
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "2 boards listed, none published"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "82 min old"
   },
   {
    "key": "creds",
@@ -35,25 +37,13 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "100 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
    "status": "idle",
    "detail": "Checked while comp is live"
-  },
-  {
-   "key": "pdf:10414346",
-   "label": "Results: Sunday Medley Stableford",
-   "status": "ok",
-   "detail": "3 grades, 205 players, 11 NTP, 0 LD, 113 balls"
-  },
-  {
-   "key": "pdf:10414359",
-   "label": "Results: GolfNSW 2 Person Ambrose",
-   "status": "idle",
-   "detail": "Awaiting official results"
   }
  ],
  "yesterday": [
