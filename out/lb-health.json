@@ -1,16 +1,16 @@
 {
- "updatedAt": "2026-09-13T06:14:29.220922+00:00",
+ "updatedAt": "2026-09-13T10:36:52.270110+00:00",
  "window": "day",
  "alertsActive": [],
  "competition": "Sunday Medley Stableford",
  "compDate": "2026-09-13",
  "playerCount": 100,
- "pollAgeMin": 0.3,
- "officialResultsReady": false,
+ "pollAgeMin": 104.8,
+ "officialResultsReady": true,
  "prizes": {
-  "ntp": 0,
+  "ntp": 11,
   "ld": 0,
-  "balls": 0
+  "balls": 113
  },
  "checks": [
   {
@@ -22,8 +22,8 @@
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "crit",
+   "detail": "105 min old"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414346",
    "label": "Results: Sunday Medley Stableford",
-   "status": "idle",
-   "detail": "Awaiting official results"
+   "status": "ok",
+   "detail": "3 grades, 205 players, 11 NTP, 0 LD, 113 balls"
   },
   {
    "key": "pdf:10414359",
