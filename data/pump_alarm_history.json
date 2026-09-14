@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-14T20:39:04.830679+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-14T20:34:19.736060+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1795,16 +1804,6 @@
       "description": "Undervoltage",
       "pump_label": "CU352",
       "source_name": "CU352",
-      "imported": true
-    },
-    {
-      "timestamp_iso": "2026-07-28T02:14:00+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 210,
-      "description": "Pressure high",
-      "pump_label": "System",
-      "source_name": "System",
       "imported": true
     }
   ]
