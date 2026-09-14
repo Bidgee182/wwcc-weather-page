@@ -137,6 +137,16 @@ html, body {
 .r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
 .r-thru.fin { color: #27ae60; font-weight: bold; font-size: 1.32em; }
 
+/* Ambrose score column: HCP (grey, left) - GROSS (big, standout) - net (grey).
+   Wider score cell so the three parts never squash against the THRU column.
+   Scoped to .main.ambrose so no other board type is affected. */
+.main.ambrose .lb-row { grid-template-columns: 2.6em 1fr 7.2em 2.3em; }
+.r-pts.amb { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 0.35em; white-space: nowrap; }
+.r-pts.amb .amb-hcp   { font-size: 0.5em; color: #7f93a3; font-weight: normal; }
+.r-pts.amb .amb-gross { font-size: 1em; color: #27ae60; font-weight: bold; }
+.r-pts.amb .amb-net   { font-size: 0.5em; color: #7f93a3; font-weight: normal; }
+.r-pts.amb.dim { color: #4a6a84; }
+
 /* ── Side panels ─────────────────────────────────────────────────── */
 .side-panels {
     flex: 1.1; display: flex; flex-direction: column; gap: 0.55em; min-height: 0; min-width: 0; font-size: 1.44em;
@@ -491,7 +501,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -501,6 +511,16 @@ let _stoppedTick     = 0;      // counts 1-s ticks while stopped (for periodic d
 let _isStableford    = true;   // false for stroke/gross comps (lower score = better)
 let _isAmbrose       = false;  // true for ambrose team events (board Total = absolute net strokes)
 let _coursePar       = 72;    // course par from JSON; used to compute net total for display
+
+// Ambrose detection that does not rely on the isAmbrose flag alone (it does not
+// reach every ambrose board reliably): the team allowance the server parses is
+// present on 2- and 4-person ambrose, and the comp name is the backstop.
+function detectAmbrose(o) {
+    if (!o) return false;
+    if (o.isAmbrose === true) return true;
+    if ((o.players || []).some(p => p && p.ambroseTeamHcp != null)) return true;
+    return /ambrose/i.test(o.competition || '');
+}
 
 // Last-render snapshots: used to keep panels scrolling after refresh stops
 let _lastRenderData        = null;
@@ -671,10 +691,10 @@ function _applyPending() {
             if (c.par)  meta.push('Par ' + c.par);
             if ((c.players || []).length) meta.push(c.players.length + ' players');
             _isStableford = c.isStableford !== false;
-            _isAmbrose    = c.isAmbrose   === true;
+            _isAmbrose    = detectAmbrose(c);
             if (c.par) _coursePar = c.par;
             const ptsHdr = document.getElementById('col-hdr-pts');
-            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+            if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Gross' : 'Score');
             renderLeaderboard(c.players || [], hc, c.started || false, c.competition || '');
             // Companions don't carry the primary's grade winners - hide the bar
             // (renderLeaderboard reads primary globals, so force it off here).
@@ -699,10 +719,10 @@ function _applyPending() {
     if (!d) return;
     if (_pendingData) { _lastRenderData = d; _pendingData = null; }
     _isStableford = d.isStableford !== false;
-    _isAmbrose    = d.isAmbrose   === true;
+    _isAmbrose    = detectAmbrose(d);
     if (d.par) _coursePar = d.par;
     const ptsHdr2 = document.getElementById('col-hdr-pts');
-    if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+    if (ptsHdr2) ptsHdr2.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Gross' : 'Score');
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     // Header/stories/blue-ball only need "restoring" when we're rotating back from a
     // companion board. With no companions the leaderboard refresh must NOT re-render
@@ -821,7 +841,7 @@ function _renderWaitingCard(board) {
     const comp = board.competition || 'Today\'s Competition';
     const field = (board.players || []).length;
     const isStab = board.isStableford !== false;
-    const isAmb  = board.isAmbrose === true;
+    const isAmb  = detectAmbrose(board);
     const meta = ['Wagga Wagga Country Club'];
     if (_companions.length > 0) meta.push(genderLabel(comp));
     const typeLabel = board.type || (comp.toLowerCase().includes('stableford') ? 'Stableford' : '');
@@ -830,7 +850,7 @@ function _renderWaitingCard(board) {
     if (board.par) meta.push('Par ' + board.par);
     _isStableford = isStab; _isAmbrose = isAmb;
     const ptsHdr = document.getElementById('col-hdr-pts');
-    if (ptsHdr) ptsHdr.textContent = isStab ? 'Pts' : (isAmb ? 'Net' : 'Score');
+    if (ptsHdr) ptsHdr.textContent = isStab ? 'Pts' : (isAmb ? 'Gross' : 'Score');
     setBadge('waiting', 'Not started');
     setHeader('\u26f3 ' + comp + ' - Ready to Tee Off', meta.join(' - '));
     const el = document.getElementById('lb-inner');
@@ -897,7 +917,7 @@ function _exitPreComp() {
 // Render a saved comp's official results (yesterday's, or the previous comp).
 function _renderLastResults(lr, nextComp) {
     _isStableford        = lr.isStableford !== false;
-    _isAmbrose           = lr.isAmbrose === true;
+    _isAmbrose           = detectAmbrose(lr);
     _officialResultsReady = true;
     _ballWinners         = new Set(lr.ballWinners || []);
     _pdfStandings        = lr.pdfStandings || { grades: [], players: [] };
@@ -908,7 +928,7 @@ function _renderLastResults(lr, nextComp) {
         if (pp.name && !pp.name.includes(',') && pp.pos) _pdfPosMap[pp.name.toLowerCase()] = pp.pos;
     }
     const ptsHdrLr = document.getElementById('col-hdr-pts');
-    if (ptsHdrLr) ptsHdrLr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+    if (ptsHdrLr) ptsHdrLr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Gross' : 'Score');
     const nt = document.getElementById('ntpld-bar');
     setBadge('results', 'Results');
     setHeader('\u26f3 ' + lr.competition + ' - Official Results',
@@ -1316,10 +1336,10 @@ function updateHeader(d) {
         _countdown      = REFRESH_SEC;
     }
     _isStableford = d.isStableford !== false;  // default true; false only for stroke/gross
-    _isAmbrose    = d.isAmbrose   === true;
+    _isAmbrose    = detectAmbrose(d);
     if (d.par) _coursePar = d.par;
     const ptsHdr = document.getElementById('col-hdr-pts');
-    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Net' : 'Score');
+    if (ptsHdr) ptsHdr.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Gross' : 'Score');
     _awaitingOfficial = false;
     if (!started || !players.length) {
         setBadge('waiting', 'Not started');
@@ -1446,6 +1466,12 @@ function genderLabel(comp) {
     return 'Open';
 }
 
+// Trim trailing zeros for ambrose handicaps/nets (quarters for 2-man, eighths
+// for 4-man), keeping up to 3 decimals: 2.25, 13.875, 59.125 (not 59.12500).
+function trimNum(n) {
+    return (Math.round(n * 1000) / 1000).toString();
+}
+
 function fmtScore(pts) {
     if (!_isStableford) {
         if (_isAmbrose) {
@@ -1568,6 +1594,13 @@ function renderLeaderboard(players, holeCount, started, competition) {
     // Only show players who have actually teed off
     const active = players.filter(p => p.thru > 0);
 
+    // Ambrose board? Detect off the team allowance the server parses (present on
+    // 2- and 4-person ambrose alike), backed up by the comp name - independent of
+    // the isAmbrose flag, which does not reach every ambrose reliably. Drives the
+    // gross-standout score column and nothing on any other board type.
+    const isAmb = players.some(p => p.ambroseTeamHcp != null) || /ambrose/i.test(competition || '');
+    document.querySelector('.main')?.classList.toggle('ambrose', isAmb);
+
     // Round is "complete" when 95%+ of active players have finished (tolerates NR/WD),
     // OR when official results are published (PDF gate = the true source of truth).
     const finishedCount = active.filter(p => p.thru >= holeCount).length;
@@ -1651,31 +1684,39 @@ function renderLeaderboard(players, holeCount, started, competition) {
         else                                { rankHtml = rank + cbMark; }
         const thruTxt = p.thru === 0 ? '-' : p.thru >= holeCount ? 'F' : p.thru;
         const thruCls = p.thru >= holeCount ? 'r-thru fin' : 'r-thru';
-        // Ambrose scores are absolute net strokes - no vs-par gross tag needed
-        const grossTag = (!_isStableford && !_isAmbrose && p.thru >= holeCount && _coursePar)
-            ? '<span class="r-gross">(' + (_coursePar + p.points) + ')</span> ' : '';
-        const ptsTxt  = (p.thru > 0 && started) ? grossTag + fmtScore(p.points) : '-';
-        const ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
+        // Ambrose (2- or 4-person, 9 or 18 holes): show the team's GROSS as the
+        // standout, with the team handicap on its left and the net (the official
+        // placing score) small in grey. Gross = net + team allowance, rounded to a
+        // whole stroke (4-person allowances run in eighths). teamHcp comes straight
+        // from MiClub's own allowance, so 2-man (/4) and 4-man (/8) are both correct.
+        let ptsTxt, ptsCls;
+        if (isAmb) {
+            const scored = (p.thru > 0 && started && p.points);
+            if (scored && p.ambroseTeamHcp != null) {
+                const gross = Math.round(p.points + p.ambroseTeamHcp);
+                ptsTxt = '<span class="amb-hcp">' + trimNum(p.ambroseTeamHcp) + '</span>' +
+                         '<span class="amb-gross">' + gross + '</span>' +
+                         '<span class="amb-net">' + trimNum(p.points) + '</span>';
+                ptsCls = 'r-pts amb';
+            } else {
+                ptsTxt = '-';
+                ptsCls = 'r-pts amb dim';
+            }
+        } else {
+            // vs-par gross tag for stroke play (stableford/ambrose skip it)
+            const grossTag = (!_isStableford && p.thru >= holeCount && _coursePar)
+                ? '<span class="r-gross">(' + (_coursePar + p.points) + ')</span> ' : '';
+            ptsTxt  = (p.thru > 0 && started) ? grossTag + fmtScore(p.points) : '-';
+            ptsCls  = (p.thru > 0 && started) ? 'r-pts' : 'r-pts dim';
+        }
         const rowCls  = rank <= 3 ? 'lb-row top3' : 'lb-row';
         const isTeam  = p.player && p.player.indexOf(' & ') !== -1;
-        // For ambrose: strip the embedded handicap token from the name and show it on a
-        // separate line as "Combined Handicap [X]" so the player list reads cleanly.
+        // Ambrose: the team handicap now sits in the score column, so the name row
+        // just shows the clean team name (strip the embedded [allowance] token).
+        // Works for 2- and 4-person names alike ("A & B", "A & B & C & D").
         let escapedName;
-        if (_isAmbrose && isTeam) {
-            const raw = p.player || '';
-            const cleanName = esc(raw.replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
-            // Prefer server-computed allowance (sum of all indiv hcps / n*2).
-            // Fall back to the single bracket MiClub shows on the board (captain's hcp).
-            let hcpVal = null;
-            if (p.ambroseTeamHcp != null) {
-                hcpVal = parseFloat(p.ambroseTeamHcp).toFixed(2);
-            } else {
-                const m = raw.match(/\[(\+?\d+(?:\.\d+)?)\]/);
-                if (m) hcpVal = parseFloat(m[1]).toFixed(2);
-            }
-            escapedName = cleanName + (hcpVal
-                ? '<span class="r-hcp-team">Combined Handicap [' + hcpVal + ']</span>'
-                : '');
+        if (isAmb && isTeam) {
+            escapedName = esc((p.player || '').replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
         } else {
             // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
             escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,

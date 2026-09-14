@@ -2453,6 +2453,123 @@ def _bbb_stories(ranked):
     return out
 
 
+def _trim_num(n):
+    """'2.25', '13.875', '34' - trim trailing zeros, keep up to 3 dp. Matches the
+    board's ambrose handicap/net precision (quarters for 2-man, eighths for 4-man)."""
+    try:
+        v = round(float(n), 3)
+    except (TypeError, ValueError):
+        return str(n)
+    return str(int(v)) if v == int(v) else ("%.3f" % v).rstrip("0").rstrip(".")
+
+
+def _ambrose_stories(ranked, hole_count, board_date=None):
+    """Ambrose partnership stories (2- or 4-person, 9 or 18 holes). Team scoring
+    only - no per-hole data - so these are standings/pairing based, anchored to
+    real teams and day-seeded so several rotate. Stroke-net language only.
+
+    Gross = net + team allowance (rounded to a whole stroke); the allowance comes
+    straight from MiClub (sum of handicaps / (players * 2)), so 2-man (/4) and
+    4-man (/8) are both correct with no man-count maths here."""
+    out = []
+    hc = hole_count or 18
+    # Scored teams only (points = net; 0/None = not yet parsed). Lower net = better.
+    teams = sorted((p for p in ranked if p.get("points")), key=lambda p: p["points"])
+    if not teams:
+        return out
+    seed0 = f"{board_date}|amb"
+
+    def gross_of(p):
+        h = p.get("ambroseTeamHcp")
+        return round(p["points"] + h) if h is not None else None
+
+    def surnames(name):
+        got = []
+        for m in re.split(r"\s*&\s*", stripped(name)):
+            toks = m.strip().split()
+            if len(toks) >= 2:
+                got.append(toks[-1].lower())
+        return got
+
+    used = set()   # feature each team at most once so the reel does not repeat
+
+    def add(p, cat, title, emoji, tier, score, **extra):
+        if not p or p.get("player") in used:
+            return False
+        g = gross_of(p)
+        kw = dict(team=stripped(p.get("player")),
+                  gross=(g if g is not None else "-"),
+                  net=_trim_num(p.get("points")),
+                  hcp=(_trim_num(p.get("ambroseTeamHcp")) if p.get("ambroseTeamHcp") is not None else "-"),
+                  margin="", second="", sn="", other="")
+        kw.update(extra)
+        d = _pick_phrase(cat, f"{seed0}|{cat}|{p.get('player')}", **kw)
+        if not d:
+            return False
+        used.add(p.get("player"))
+        out.append(_mk_story(p.get("player"), title, d, tier, emoji, score,
+                             p.get("points"), p.get("thru"), "amb"))
+        return True
+
+    def first_unused(pred):
+        return next((p for p in teams if p.get("player") not in used and pred(p)), None)
+
+    leader = teams[0]
+    if len(teams) >= 2:
+        m = teams[1]["points"] - leader["points"]
+        m = int(m) if float(m).is_integer() else round(m, 2)
+        if m == 0:
+            add(leader, "ambrose_leader", "Front Runners", "\U0001F3C6", "gold", 92)
+        elif m <= 2:
+            add(leader, "ambrose_leader_tight", "Leading the Way", "\U0001F3C6", "gold", 92,
+                margin=m, second=stripped(teams[1].get("player")))
+        else:
+            add(leader, "ambrose_leader_clear", "Front Runners", "\U0001F3C6", "gold", 92, margin=m)
+    else:
+        add(leader, "ambrose_leader", "Front Runners", "\U0001F3C6", "gold", 92)
+
+    # Family affair: best-placed team (not already featured) whose members share
+    # a surname - works for 2- and 4-person teams.
+    for p in teams:
+        if p.get("player") in used:
+            continue
+        sns = surnames(p.get("player"))
+        dup = next((s for s in sns if sns.count(s) >= 2), None)
+        if dup:
+            add(p, "ambrose_family", "Family Affair", "\U0001F46A", "orange", 66, sn=dup.title())
+            break
+
+    # Low combined-handicap standout (best-placed sharp team)
+    add(first_unused(lambda p: (p.get("ambroseTeamHcp") or 99) <= 3.5),
+        "ambrose_lowhcp", "Off the Stick", "\U0001F3AF", "orange", 58)
+
+    # High combined-handicap team doing well (top half of the field)
+    half = set(id(p) for p in teams[: max(1, len(teams) // 2)])
+    add(first_unused(lambda p: id(p) in half and (p.get("ambroseTeamHcp") or 0) >= 9.0),
+        "ambrose_highhcp", "Strokes in the Bank", "\U0001F4C8", "blue", 52)
+
+    # Countback tie: two teams sharing a net (feature the unused one)
+    for i in range(len(teams) - 1):
+        if teams[i]["points"] == teams[i + 1]["points"]:
+            a, b = teams[i], teams[i + 1]
+            featured = a if a.get("player") not in used else b
+            other = b if featured is a else a
+            if add(featured, "ambrose_countback", "Countback Territory", "\U0001F522",
+                   "orange", 60, other=stripped(other.get("player"))):
+                break
+
+    # Mid-pack + back markers + a teamwork line, only once a real field is in
+    if len(teams) >= 6:
+        add(first_unused(lambda p: p is teams[len(teams) // 2]) or
+            first_unused(lambda p: teams.index(p) not in (0, len(teams) - 1)),
+            "ambrose_midpack", "In the Mix", "⛳", "blue", 46)
+        add(teams[-1], "ambrose_backmarker", "Bringing Up the Rear", "\U0001F37A", "blue", 43)
+    if len(teams) >= 3:
+        add(first_unused(lambda p: True), "ambrose_flavour", "Best-Ball Buddies", "\U0001F91D", "blue", 45)
+
+    return out
+
+
 def _load_weather_flavour(board_date):
     try:
         hist = json.load(open("data/davis_weather_history.json"))
@@ -2799,7 +2916,10 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     # Team comps (4BBB best-ball, Ambrose) get partnership stories only - the
     # individual per-hole/context angles don't map onto best-ball scoring.
     if _is_team_comp(ranked, comp_name):
-        out += _bbb_stories(ranked)
+        if "ambrose" in (comp_name or "").lower():
+            out += _ambrose_stories(ranked, hole_count, board_date)
+        else:
+            out += _bbb_stories(ranked)
     else:
         for p in ranked:
             c = _context_story(p, leader_pts, is_stableford, hole_count, board_date)
