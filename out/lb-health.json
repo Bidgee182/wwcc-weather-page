@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-15T13:31:24.458805+00:00",
- "window": "night",
+ "updatedAt": "2026-09-15T19:55:51.496900+00:00",
+ "window": "day",
  "alertsActive": [],
- "competition": "Ladies 9 Hole Stableford Front 9 Womens",
- "compDate": "2026-09-15",
- "playerCount": 46,
- "pollAgeMin": 241.9,
- "officialResultsReady": true,
+ "competition": null,
+ "compDate": null,
+ "playerCount": 0,
+ "pollAgeMin": 82.1,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 2,
+  "ntp": 0,
   "ld": 0,
-  "balls": 17
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "1 boards listed, none published"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "crit",
+   "detail": "82 min old"
   },
   {
    "key": "creds",
@@ -35,26 +35,20 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "46 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
    "status": "idle",
    "detail": "Checked while comp is live"
-  },
-  {
-   "key": "pdf:10414361",
-   "label": "Results PDF",
-   "status": "ok",
-   "detail": "single field, 19 players, 2 NTP, 0 LD, 17 balls"
   }
  ],
  "yesterday": [
   {
-   "competition": "Veterans 9 Hole Stableford Back 9",
+   "competition": "Ladies 9 Hole Stableford Front 9 Womens",
    "status": "success",
-   "summary": "single field, 83 players, 1 NTP, 0 LD, 26 balls",
+   "summary": "single field, 19 players, 2 NTP, 0 LD, 17 balls",
    "role": "primary"
   }
  ]
