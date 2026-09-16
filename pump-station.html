@@ -280,6 +280,26 @@
         .cost-pp td, .cost-pp th { padding:7px 10px; border-bottom:1px solid #243344; text-align:right; }
         .cost-pp th { color:#7f8c8d; font-weight:600; font-size:.9em; text-transform:uppercase; letter-spacing:.5px; }
         .cost-pp td:first-child, .cost-pp th:first-child { text-align:left; color:#ecf0f1; }
+        /* Pump Activity (starts & stops) */
+        .pa-pumps { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:16px; }
+        @media (max-width:760px){ .pa-pumps { grid-template-columns:1fr; } }
+        .pa-pump { background:#1a252f; border:1px solid #2b3d4d; border-radius:10px; padding:12px 14px; }
+        .pa-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+        .pa-name { font-weight:700; color:#ecf0f1; font-size:.95em; }
+        .pa-pill { font-size:.62em; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+        .pa-pill.run  { background:rgba(46,204,113,.15); color:#2ecc71; border:1px solid rgba(46,204,113,.4); }
+        .pa-pill.idle { background:rgba(127,140,141,.12); color:#95a5a6; border:1px solid rgba(127,140,141,.3); }
+        .pa-tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .pa-tile { background:#14202b; border-radius:8px; padding:8px 6px; text-align:center; }
+        .pa-tile .pa-v { font-size:1.2em; font-weight:800; color:#ecf0f1; font-variant-numeric:tabular-nums; }
+        .pa-tile .pa-l { font-size:.56em; text-transform:uppercase; letter-spacing:.5px; color:#7f8c8d; margin-top:3px; }
+        .pa-meta { font-size:.66em; color:#7f8c8d; margin-top:9px; line-height:1.5; }
+        .pa-log { border-collapse:collapse; width:100%; font-size:.78em; }
+        .pa-log td { padding:6px 8px; border-bottom:1px solid #243344; }
+        .pa-log tr td:last-child { text-align:right; color:#95a5a6; font-variant-numeric:tabular-nums; }
+        .pa-log .pa-ev-start { color:#2ecc71; font-weight:600; }
+        .pa-log .pa-ev-stop  { color:#e67e22; font-weight:600; }
+        .pa-sub-h { font-size:.8em; color:#7f8c8d; text-transform:uppercase; letter-spacing:.5px; margin:6px 0 8px; }
         .cost-pp .cp-total td { border-top:2px solid #3d5166; font-weight:800; color:#2ecc71; }
         .cost-basis { font-size:.72em; color:#7f8c8d; line-height:1.6; background:#16212c; border:1px solid #213241; border-radius:8px; padding:11px 14px; }
         .cost-basis b { color:#bdc9d4; }
@@ -662,6 +682,11 @@
     <div class="card">
         <h2>All Pumps - Grundfos Hydro MPC CU 352</h2>
         <div class="sk-grid" id="all-pump-grid"></div>
+    </div>
+
+    <div class="card" id="pump-activity-card">
+        <h2>Pump Activity - Starts &amp; Stops</h2>
+        <div id="pump-activity"></div>
     </div>
 
     <div class="card" id="cost-card">
@@ -1135,7 +1160,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.4';
+const PUMP_VERSION = '3.5';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1217,8 +1242,9 @@ function eventRowToLegacy(e) {
     const SYSTEM_EVTS = ['online', 'offline', 'power_cycle'];
     const tc = SYSTEM_EVTS.includes(t) ? 5
              : /^func_low-flow/.test(t) ? 6                       // low-flow stop/boost = normal function, info only (not an alarm)
-             : (t.endsWith('_on')  || t === 'pump_start') ? 1
-             : (t.endsWith('_off') || t === 'pump_stop')  ? 2
+             : (t === 'pump_start' || t === 'pump_stop') ? 7      // pump run activity = NORMAL, never an alarm (see Pump Activity card)
+             : t.endsWith('_on')  ? 1
+             : t.endsWith('_off') ? 2
              : t.includes('warning') ? 3 : 4;
     return {
         timestamp_iso: e.ts,
@@ -1630,7 +1656,7 @@ function showTab(name, btn) {
     document.getElementById('tab-'+name).classList.add('active');
     if (btn) btn.classList.add('active');
     updateHash(name);
-    if (name === 'pumps')       ensureDaily().then(renderCostCard);
+    if (name === 'pumps')       ensureDaily().then(() => { renderCostCard(); renderPumpActivity(); });
     if (name === 'performance') renderPerfCharts();
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
@@ -1847,6 +1873,7 @@ function renderAll() {
     renderBanner();
     renderOverview();
     renderPumps();
+    renderPumpActivity();
     renderAlarms();
     renderSetupStatus();
     const perfActive   = document.getElementById('tab-performance').classList.contains('active');
@@ -2831,6 +2858,87 @@ function closeAlarmPopup() {
 }
 
 // ─── Alarms ──────────────────────────────────────────────────────────────────
+// Pump Activity: starts, stops and run durations (NOT alarms). Correct starts
+// come from run_secs 0->>0 transitions in dailyData (the stored *_starts columns
+// were historically inflated); lifetime run hours = controller OperationTime.
+function renderPumpActivity() {
+    const el = document.getElementById('pump-activity');
+    if (!el) return;
+    const d = latestData;
+    if (!d || !d.pumps) { el.innerHTML = '<div class="alarm-none">Waiting for pump data</div>'; return; }
+
+    const evLog   = (d.event_log || []).filter(e => e.type_code === 7);   // pump start/stop only, newest first
+    const isStart = e => /start/i.test(e.type_name || '');
+    const days    = (dailyData && dailyData.days) ? dailyData.days : [];
+    const today   = aestDateStr(Date.now());
+    const todayRow = days.find(x => x.date === today);
+    const last7   = days.slice(-7);
+
+    const durSecs = s => {
+        if (s == null || !isFinite(s)) return '-';
+        s = Math.max(0, Math.round(s));
+        const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+        if (h > 0) return h + 'h ' + m + 'm';
+        const sec = s % 60; return m > 0 ? m + 'm ' + sec + 's' : sec + 's';
+    };
+    const durHrs = h => (h == null || !isFinite(h)) ? '-' : (h >= 10 ? h.toFixed(1) + 'h' : durSecs(h*3600));
+    const sum7   = (key, i) => last7.reduce((a, x) => a + ((x[key] && x[key][i]) || 0), 0);
+    const tile   = (v, l) => '<div class="pa-tile"><div class="pa-v">'+v+'</div><div class="pa-l">'+l+'</div></div>';
+
+    const pumpsHtml = d.pumps.map((p, i) => {
+        const stToday = todayRow ? (todayRow.sts[i] || 0) : (p.starts_today || 0);
+        const hrToday = todayRow ? (todayRow.hrs[i] || 0) : 0;
+        const st7  = days.length ? sum7('sts', i) : 0;
+        const hr7  = days.length ? sum7('hrs', i) : 0;
+        const avgMin = stToday > 0 ? (hrToday * 60 / stToday) : null;
+        const mine = evLog.filter(e => (e.pump_label || '') === p.label);
+        const lastStart = mine.find(isStart);
+        const lastStop  = mine.find(e => !isStart(e));
+        let runTxt = '';
+        if (p.running && lastStart) {
+            runTxt = ' ' + durSecs((Date.now() - new Date(lastStart.timestamp_iso).getTime())/1000);
+        }
+        const pill = p.running
+            ? '<span class="pa-pill run">Running'+runTxt+'</span>'
+            : '<span class="pa-pill idle">Idle</span>';
+        const meta = 'Last start: ' + (lastStart ? fmtDate(lastStart.timestamp_iso) : '-') +
+                     '<br>Last stop: '  + (lastStop  ? fmtDate(lastStop.timestamp_iso)  : '-');
+        return '<div class="pa-pump">' +
+            '<div class="pa-head"><span class="pa-name">'+p.label+'</span>'+pill+'</div>' +
+            '<div class="pa-tiles">' +
+                tile(stToday, 'Starts today') +
+                tile(durHrs(hrToday), 'Run today') +
+                tile(avgMin != null ? Math.round(avgMin)+'m' : '-', 'Avg run') +
+                tile(st7, 'Starts 7d') +
+                tile(durHrs(hr7), 'Run 7d') +
+                tile(durHrs(p.run_hours), 'Total on-time') +
+            '</div>' +
+            '<div class="pa-meta">'+meta+'</div>' +
+        '</div>';
+    }).join('');
+
+    const recent = evLog.slice(0, 20);
+    const logRows = recent.map(e => {
+        const start = isStart(e);
+        let dur = '';
+        if (!start) {
+            const t = new Date(e.timestamp_iso).getTime();
+            const prior = evLog.find(x => (x.pump_label||'')===(e.pump_label||'') && isStart(x) &&
+                                          new Date(x.timestamp_iso).getTime() < t);
+            if (prior) dur = durSecs((t - new Date(prior.timestamp_iso).getTime())/1000);
+        }
+        return '<tr><td>'+fmtDate(e.timestamp_iso)+'</td>' +
+               '<td>'+(e.pump_label || 'Pump')+'</td>' +
+               '<td class="'+(start?'pa-ev-start':'pa-ev-stop')+'">'+(start?'Started':'Stopped')+'</td>' +
+               '<td>'+dur+'</td></tr>';
+    }).join('');
+
+    el.innerHTML = '<div class="pa-pumps">' + pumpsHtml + '</div>' +
+        '<div class="pa-sub-h">Recent starts &amp; stops</div>' +
+        (logRows ? '<table class="pa-log">'+logRows+'</table>'
+                 : '<div class="alarm-none">No recent starts or stops recorded</div>');
+}
+
 async function renderAlarms() {
     const d         = latestData;
     const liveAlarms = d && d.alarms ? d.alarms.filter(a=>a.active) : [];
@@ -2954,8 +3062,9 @@ function alarmRow(a, emailedCodes) {
 }
 
 function pairAlarmEvents(events) {
-    // Exclude normal system-function info events (low-flow stop/boost) - not alarms
-    const sorted = [...events].filter(e => e.type_code !== 6).sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso));
+    // Exclude normal system-function info events (low-flow stop/boost = 6) and
+    // pump run activity (start/stop = 7) - neither is an alarm.
+    const sorted = [...events].filter(e => e.type_code !== 6 && e.type_code !== 7).sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso));
     const paired = [];
     const pending = {};
     for (const e of sorted) {
@@ -3983,6 +4092,18 @@ async function loadLogTab() {
                 ts: e.timestamp_iso, filter: 'alarm',
                 badgeClass: 'log-badge-audit', badgeText: 'Function',
                 barColor: '#5dade2', title: t || 'System function',
+                detail: 'Normal operation', sub: null
+            });
+            return;
+        }
+        // Pump run activity (start/stop) - normal operation, not an alarm
+        if (e.type_code === 7) {
+            const started = /start/i.test(e.type_name || '');
+            logAllEntries.push({
+                ts: e.timestamp_iso, filter: 'alarm',
+                badgeClass: 'log-badge-audit', badgeText: 'Pump',
+                barColor: '#5dade2',
+                title: (e.pump_label || 'Pump') + (started ? ' started' : ' stopped'),
                 detail: 'Normal operation', sub: null
             });
             return;
