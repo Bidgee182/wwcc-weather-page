@@ -49,11 +49,17 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "2.7"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
+POLLER_VERSION = "2.8"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
 POLL_INTERVAL_S   = 1.0
+# This poller reads the CU352 over the cellular link (GRUNDFOS_HOST is the site's
+# public DuckDNS address), so every 1s Modbus poll costs SIM data (~90 MB/day at
+# 1s). Back off to a slower cadence when the station is fully idle - no pumps
+# running, no alarm/warning, no comms fault - and snap straight back to 1s the
+# moment anything happens. Set IDLE_POLL_INTERVAL_S=1 to disable the back-off.
+IDLE_POLL_INTERVAL_S = float(os.environ.get("IDLE_POLL_INTERVAL_S", "5"))
 RECONNECT_WAIT    = 5
 SLOW_POLL_EVERY   = 60    # polls: CIM + analog inputs + MGE motor temps
 CONFIG_SNAP_EVERY = 3600  # polls: hourly config snapshot to Supabase
@@ -579,6 +585,17 @@ def scan_mge_temperatures(client, pump_count=4):
 
 
 # ── Fast poll (every second) ───────────────────────────────────────────────────
+
+def _is_active(state):
+    """True when something is happening that warrants 1s polling: any pump
+    running, or any alarm / warning / comms fault. When everything is idle we
+    can poll slower to save SIM data (see IDLE_POLL_INTERVAL_S)."""
+    if not state:
+        return True                       # unknown - poll fast to be safe
+    if state.get("alarm_code") or state.get("warning_code") or state.get("pumps_comm_fault"):
+        return True
+    return any(p.get("running") for p in state.get("pumps", []))
+
 
 def poll_once(client):
     """Read all fast registers. Returns state dict or None on error."""
@@ -1253,9 +1270,12 @@ def main():
                   f"pump_kw={pkw[:3]} running={n_run} alarm={alm} "
                   f"vol={state.get('volume_m3')} m3 polls={poll_count}")
 
-        # ── Pace to 1-second interval ──────────────────────────────────────────
-        elapsed = time.monotonic() - loop_start
-        sleep   = max(0.0, POLL_INTERVAL_S - elapsed)
+        # ── Pace the loop: 1s when active, slower when the station is idle ──────
+        # Cuts cellular data on the remote Modbus link during long idle stretches;
+        # snaps back to 1s the instant a pump runs or an alarm/warning appears.
+        interval = POLL_INTERVAL_S if _is_active(state) else IDLE_POLL_INTERVAL_S
+        elapsed  = time.monotonic() - loop_start
+        sleep    = max(0.0, interval - elapsed)
         if sleep > 0:
             time.sleep(sleep)
 
