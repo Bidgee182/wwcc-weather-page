@@ -297,6 +297,7 @@
         .pa-log { border-collapse:collapse; width:100%; font-size:.78em; }
         .pa-log td { padding:6px 8px; border-bottom:1px solid #243344; }
         .pa-log tr td:last-child { text-align:right; color:#95a5a6; font-variant-numeric:tabular-nums; }
+        .pa-log .pa-log-h td { color:#566573; text-transform:uppercase; font-size:.82em; letter-spacing:.5px; font-weight:600; }
         .pa-log .pa-ev-start { color:#2ecc71; font-weight:600; }
         .pa-log .pa-ev-stop  { color:#e67e22; font-weight:600; }
         .pa-sub-h { font-size:.8em; color:#7f8c8d; text-transform:uppercase; letter-spacing:.5px; margin:6px 0 8px; }
@@ -1160,7 +1161,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.5';
+const PUMP_VERSION = '3.6';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1949,7 +1950,10 @@ function renderBanner() {
         return (a.description||'ALARM').split(' - ')[0].split('(')[0].trim().toUpperCase();
     }
 
-    const running    = (d.pumps||[]).filter(p => p.running).length;
+    // Pumps actually turning in the latest minute (speed or power > 0), not just
+    // those that ran a near-full minute - so brief/cycling runs still show on the
+    // status pill. The CRNE45s often run in short demand bursts under 55s.
+    const running    = (d.pumps||[]).filter(p => (p.speed_pct||0) > 0 || (p.power_kw||0) > 0.2 || p.running).length;
     const hasFault   = sys.fault;
     const hardAlarms = combined.filter(a => !a.type_code || a.type_code===1);
     const warnings   = combined.filter(a => a.type_code===3);
@@ -2917,26 +2921,36 @@ function renderPumpActivity() {
         '</div>';
     }).join('');
 
-    const recent = evLog.slice(0, 20);
-    const logRows = recent.map(e => {
-        const start = isStart(e);
-        let dur = '';
-        if (!start) {
-            const t = new Date(e.timestamp_iso).getTime();
-            const prior = evLog.find(x => (x.pump_label||'')===(e.pump_label||'') && isStart(x) &&
-                                          new Date(x.timestamp_iso).getTime() < t);
-            if (prior) dur = durSecs((t - new Date(prior.timestamp_iso).getTime())/1000);
+    // Pair each start with its stop into one run per line (start -> stop, duration).
+    const hms = iso => new Date(iso).toLocaleTimeString('en-AU',
+        { timeZone:'Australia/Sydney', hourCycle:'h23', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    const chron = [...evLog].sort((a,b) => new Date(a.timestamp_iso) - new Date(b.timestamp_iso));
+    const open = {}, runs = [];
+    for (const e of chron) {
+        const pl = e.pump_label || 'Pump';
+        if (isStart(e)) { open[pl] = e.timestamp_iso; }         // new run opens (a missed stop just resets it)
+        else {
+            const s = open[pl];
+            runs.push({ pump: pl, start: s || null, stop: e.timestamp_iso,
+                        dur: s ? (new Date(e.timestamp_iso) - new Date(s)) / 1000 : null });
+            open[pl] = null;
         }
-        return '<tr><td>'+fmtDate(e.timestamp_iso)+'</td>' +
-               '<td>'+(e.pump_label || 'Pump')+'</td>' +
-               '<td class="'+(start?'pa-ev-start':'pa-ev-stop')+'">'+(start?'Started':'Stopped')+'</td>' +
-               '<td>'+dur+'</td></tr>';
-    }).join('');
+    }
+    for (const pl in open) if (open[pl])                        // still running (no stop yet)
+        runs.push({ pump: pl, start: open[pl], stop: null, running: true,
+                    dur: (Date.now() - new Date(open[pl])) / 1000 });
+    runs.sort((a,b) => new Date(b.start || b.stop) - new Date(a.start || a.stop));
+    const logRows = runs.slice(0, 15).map(r =>
+        '<tr><td>'+r.pump+'</td>' +
+        '<td>'+(r.start ? fmtDate(r.start) : '-')+'</td>' +
+        '<td>'+(r.running ? '<span class="pa-ev-start">running</span>' : (r.stop ? hms(r.stop) : '-'))+'</td>' +
+        '<td>'+durSecs(r.dur)+'</td></tr>').join('');
+    const logHead = '<tr class="pa-log-h"><td>Pump</td><td>Started</td><td>Ended</td><td>Duration</td></tr>';
 
     el.innerHTML = '<div class="pa-pumps">' + pumpsHtml + '</div>' +
-        '<div class="pa-sub-h">Recent starts &amp; stops</div>' +
-        (logRows ? '<table class="pa-log">'+logRows+'</table>'
-                 : '<div class="alarm-none">No recent starts or stops recorded</div>');
+        '<div class="pa-sub-h">Recent runs</div>' +
+        (logRows ? '<table class="pa-log">'+logHead+logRows+'</table>'
+                 : '<div class="alarm-none">No recent runs recorded</div>');
 }
 
 async function renderAlarms() {
