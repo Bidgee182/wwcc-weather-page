@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-09-16T20:24:00.422883+00:00",
-  "last_seen": "2026-09-16T20:24:00.422883+00:00",
-  "last_connected": "2026-09-16T20:24:00.422883+00:00",
+  "timestamp": "2026-09-16T20:29:17.641757+00:00",
+  "last_seen": "2026-09-16T20:29:17.641757+00:00",
+  "last_connected": "2026-09-16T20:29:17.641757+00:00",
   "system": {
     "pressure_actual_bar": 7.811,
-    "pressure_suction_bar": -0.812,
+    "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 30.6,
-    "power_kw": 7.1,
+    "power_kw": 7.2,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 91.7,
+    "relative_performance_pct": 91.3,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 199948,
@@ -50,8 +50,8 @@
       "fault": false,
       "standby": false,
       "speed_pct": 91.7,
-      "power_kw": 7.1,
-      "current_a": 15.8,
+      "power_kw": 7.2,
+      "current_a": 16.0,
       "run_hours": 5174.0,
       "starts_today": 1,
       "temp_c": null,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7808,
+      "raw": 7785,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-09-15T21:43:08.570852+00:00",
-      "pa": 8.0,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 35.3,
-      "nr": 1,
-      "pk": 11.5,
-      "sp": [
-        0.0,
-        0.0,
-        94.1,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        11.9,
-        0.0
-      ],
-      "rh": [
-        5174.0,
-        5170.0,
-        5172.0,
-        1400.0
-      ],
-      "st": [
-        1,
-        0,
-        1,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-09-15T21:47:54.469724+00:00",
       "pa": 7.811,
@@ -11654,6 +11614,46 @@
       ],
       "pw": [
         7.1,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5174.0,
+        5172.0,
+        5172.0,
+        1400.0
+      ],
+      "st": [
+        1,
+        0,
+        1,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-09-16T20:29:17.641757+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 30.6,
+      "nr": 1,
+      "pk": 7.2,
+      "sp": [
+        91.7,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        7.2,
         0.0,
         0.0,
         0.0
