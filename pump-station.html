@@ -1161,7 +1161,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.6';
+const PUMP_VERSION = '3.7';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1592,6 +1592,8 @@ const PRES_LOW_LIMIT  = 4.5; // bar - low pressure event threshold
 let latestData     = null;
 let historyData    = null;
 let dailyData      = null;
+let _statsWindow   = null;   // live 24h stats rows (oldest-first), topped up incrementally
+let _eventsWindow  = null;   // recent events (newest-first), topped up incrementally
 let farmbotTankData   = null;
 let farmbotLatestData = null;
 let hwConfigData   = null;
@@ -1697,12 +1699,32 @@ async function loadData() {
     if (_now - _alarmFetchedAt > CACHE_TTL_MS) alarmHistoryData = null;
     if (_now - _dailyFetchedAt > DAILY_TTL_MS) dailyData = null;
     try {
-        const [statsRows, eventsRows] = await Promise.all([
-            supaFetch('pump_stats_v2', 'order=ts.desc&limit=1440'),  // 24h at 1-min resolution
-            supaFetch('pump_events_hires', 'order=ts.desc&limit=200'),
-        ]);
-        statsRows.reverse();  // oldest-first for chart rendering
-        latestData = buildLatestData(statsRows, eventsRows);
+        // Live data is topped up INCREMENTALLY, not re-fetched whole each cycle.
+        // The full 24h stats window (1000 rows ~= 1.16 MB, uncompressed, uncached)
+        // was being re-downloaded every 60 s = ~2 GB/day per open page. Now only
+        // the new minute row moves. Same for the 200 recent events.
+        const cutoffMs = _now - 24 * 3600000;
+        if (_statsWindow && _statsWindow.length) {
+            const lastTs = _statsWindow[_statsWindow.length - 1].ts;
+            const fresh  = await supaFetch('pump_stats_v2',
+                `order=ts.asc&ts=gt.${encodeURIComponent(lastTs)}&limit=1440`);
+            if (fresh.length) _statsWindow.push(...fresh);
+            while (_statsWindow.length && new Date(_statsWindow[0].ts).getTime() < cutoffMs)
+                _statsWindow.shift();                       // keep the window at 24h
+        } else {
+            const rows = await supaFetch('pump_stats_v2', 'order=ts.desc&limit=1440');
+            rows.reverse();                                 // oldest-first
+            _statsWindow = rows;
+        }
+        if (_eventsWindow && _eventsWindow.length) {
+            const lastTs = _eventsWindow[0].ts;             // newest-first
+            const fresh  = await supaFetch('pump_events_hires',
+                `order=ts.desc&ts=gt.${encodeURIComponent(lastTs)}&limit=200`);
+            if (fresh.length) _eventsWindow = [...fresh, ..._eventsWindow].slice(0, 200);
+        } else {
+            _eventsWindow = await supaFetch('pump_events_hires', 'order=ts.desc&limit=200');
+        }
+        latestData = buildLatestData(_statsWindow, _eventsWindow);
     } catch(e) { latestData = null; }
     if (hwConfigData === null) {
         try {
