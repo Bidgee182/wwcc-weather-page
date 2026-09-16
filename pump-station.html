@@ -1161,7 +1161,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.7';
+const PUMP_VERSION = '3.8';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1704,6 +1704,13 @@ async function loadData() {
         // was being re-downloaded every 60 s = ~2 GB/day per open page. Now only
         // the new minute row moves. Same for the 200 recent events.
         const cutoffMs = _now - 24 * 3600000;
+        // If the cached window is badly stale (tab hidden/asleep a long time), an
+        // incremental ts=gt fetch would only backfill the OLDEST rows after it and
+        // miss the recent data - so drop the cache and do a fresh 24h load.
+        if (_statsWindow && _statsWindow.length &&
+            _now - new Date(_statsWindow[_statsWindow.length - 1].ts).getTime() > 2 * 3600000) {
+            _statsWindow = null; _eventsWindow = null;
+        }
         if (_statsWindow && _statsWindow.length) {
             const lastTs = _statsWindow[_statsWindow.length - 1].ts;
             const fresh  = await supaFetch('pump_stats_v2',
@@ -4257,11 +4264,66 @@ function renderLogEntries() {
         </div>`).join('');
 }
 
-// ─── Boot ─────────────────────────────────────────────────────────────────────
-loadData();
-setInterval(loadData, 60000);
+// ─── Boot: visibility-aware live polling ──────────────────────────────────────
+// Poll only while the tab is VISIBLE. A backgrounded / forgotten tab stops
+// pulling data entirely (that idle pull was the main egress source); it resumes
+// and catches up the instant it is looked at again, adding onto the cached data.
+// The version check keeps running regardless, so a stale tab can always be
+// force-reloaded from the database.
+let _liveTimer = null;
+let _lastLoadOkMs = 0;
+
+async function _liveTick() {
+    await loadData();
+    _lastLoadOkMs = Date.now();
+}
+function startLive() {
+    if (_liveTimer) return Promise.resolve();
+    const p = _liveTick();
+    _liveTimer = setInterval(_liveTick, 60000);
+    return p;
+}
+function stopLive() {
+    if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+}
+function showCatchUp(on) {
+    let o = document.getElementById('catchup-overlay');
+    if (on) {
+        if (!o) {
+            o = document.createElement('div');
+            o.id = 'catchup-overlay';
+            o.style.cssText = 'position:fixed;inset:0;z-index:9998;display:flex;align-items:center;'
+                + 'justify-content:center;background:rgba(20,32,43,.55);backdrop-filter:blur(2px);'
+                + '-webkit-backdrop-filter:blur(2px);color:#ecf0f1;font-family:Arial,sans-serif;';
+            o.innerHTML = '<div style="background:#1a252f;border:1px solid #2b3d4d;border-radius:12px;'
+                + 'padding:20px 26px;text-align:center;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.4);">'
+                + '<div style="font-size:1.6em;margin-bottom:8px;">\u{1F504}</div>'
+                + 'Reconnecting - catching up on the latest data...</div>';
+            document.body.appendChild(o);
+        }
+        o.style.display = 'flex';
+    } else if (o) {
+        o.style.display = 'none';
+    }
+}
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) {
+        stopLive();                       // paused - no data pulls while hidden
+    } else {
+        // Been away a while? veil the (still-visible) cached data while it refreshes.
+        const stale = _lastLoadOkMs && (Date.now() - _lastLoadOkMs > 120000);
+        if (stale) showCatchUp(true);
+        await startLive();                // immediate top-up (fresh load if very stale)
+        showCatchUp(false);
+    }
+});
+
+// First paint; then poll only if visible (a tab opened in the background waits
+// for the visibilitychange handler to start it).
+if (document.hidden) _liveTick(); else startLive();
 checkPageVersion();
-setInterval(checkPageVersion, 60000);
+setInterval(checkPageVersion, 60000);   // always on - the force-reload lever
 document.getElementById('alarm-info-popup').addEventListener('click', function(e) {
     if (e.target === this) closeAlarmPopup();
 });
