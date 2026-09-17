@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-17T11:57:12.380721+00:00",
- "window": "day",
+ "updatedAt": "2026-09-17T15:07:32.060225+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Ladies 18 Hole Stableford Womens",
- "compDate": "2026-09-17",
- "playerCount": 47,
- "pollAgeMin": 0.3,
- "officialResultsReady": true,
+ "competition": "Friday Medley Stableford",
+ "compDate": "2026-09-18",
+ "playerCount": 75,
+ "pollAgeMin": 0.4,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 2,
+  "ntp": 0,
   "ld": 0,
-  "balls": 17
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,32 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "47 players"
+   "detail": "75 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
-  },
-  {
-   "key": "pdf:10414362",
-   "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "ok",
-   "detail": "single field, 19 players, 2 NTP, 0 LD, 17 balls"
-  },
-  {
-   "key": "pdf:10414363",
-   "label": "Results: Ladies 9 Hole Stableford B\u2026",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf:10414353",
+   "label": "Results PDF",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Mens Wednesday Stableford",
+   "competition": "Ladies 9 Hole Stableford Back 9 Womens",
    "status": "none-published",
    "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Ladies 18 Hole Stableford Womens",
+   "status": "success",
+   "summary": "single field, 19 players, 2 NTP, 0 LD, 17 balls",
    "role": "primary"
   }
  ]
