@@ -1,14 +1,12 @@
 {
- "updatedAt": "2026-09-18T11:17:37.554605+00:00",
- "window": "day",
- "alertsActive": [
-  "pdf:10414353"
- ],
- "competition": "Friday Medley Stableford",
- "compDate": "2026-09-18",
- "playerCount": 80,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "updatedAt": "2026-09-18T14:02:53.505092+00:00",
+ "window": "night",
+ "alertsActive": [],
+ "competition": "Saturday Medley Stableford",
+ "compDate": "2026-09-19",
+ "playerCount": 161,
+ "pollAgeMin": 0.9,
+ "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
   "ld": 0,
@@ -18,14 +16,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -37,38 +35,38 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "80 players"
+   "detail": "161 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
-  },
-  {
-   "key": "pdf:10414353",
-   "label": "Results: Friday Medley Stableford",
-   "status": "warn",
-   "detail": "single field, 79 players, 0 NTP, 0 LD, 0 balls"
-  },
-  {
-   "key": "pdf:10414354",
-   "label": "Results: 9 Hole Chook Run Stableford",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf:10414289",
+   "label": "Results: Saturday Medley Stableford",
+   "status": "idle",
+   "detail": "Comp not started"
+  },
+  {
+   "key": "pdf:10414365",
+   "label": "Results: Irish Team Stableford",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Ladies 9 Hole Stableford Back 9 Womens",
+   "competition": "9 Hole Chook Run Stableford",
    "status": "none-published",
    "summary": "no official results by 7:30pm",
    "role": "companion"
   },
   {
-   "competition": "Ladies 18 Hole Stableford Womens",
-   "status": "success",
-   "summary": "single field, 19 players, 2 NTP, 0 LD, 17 balls",
+   "competition": "Friday Medley Stableford",
+   "status": "partial",
+   "summary": "single field, 79 players, 0 NTP, 0 LD, 0 balls",
    "role": "primary"
   }
  ]
