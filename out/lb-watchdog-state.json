@@ -1,5 +1,5 @@
 {
- "pollAgeMin": 26.2,
+ "pollAgeMin": 0.4,
  "day": "2026-09-18",
  "maxPlayers": 81,
  "resultsEmailed": {
@@ -18,12 +18,15 @@
   "2026-09-17:10414362": "2026-09-17T05:37:23.050139+00:00",
   "2026-09-18:10414353": "2026-09-18T09:56:22.912392+00:00"
  },
- "pending": {
-  "stale": "Leaderboard JSON is 26 min old (expected ~1 min during the day). The poll chain looks dead.",
-  "pdf:10414353": "Friday Medley Stableford: results parsed with gaps (single field, 79 players, 0 NTP, 0 LD, 0 balls)."
+ "pending": {},
+ "active": {
+  "pdf:10414353": {
+   "since": "2026-09-18T11:17:37.554605+00:00",
+   "lastMail": "2026-09-18T11:17:37.554605+00:00",
+   "msg": "Friday Medley Stableford: results parsed with gaps (single field, 79 players, 0 NTP, 0 LD, 0 balls)."
+  }
  },
- "active": {},
- "lastRun": "2026-09-18T09:56:22.912392+00:00",
+ "lastRun": "2026-09-18T11:17:37.554605+00:00",
  "resultsLogged": {
   "2026-09-03:10414343": "2026-09-03T05:44:53.914643+00:00",
   "2026-09-03:10414344": "2026-09-03T13:33:41.838023+00:00",
@@ -109,10 +112,12 @@
   ],
   "2026-09-13": [
    "nocomp: MiScore lists 2 board(s) for today but the published leaderboard has no competition - the poller is not picking them up."
+  ],
+  "2026-09-18": [
+   "pdf:10414353: Friday Medley Stableford: results parsed with gaps (single field, 79 players, 0 NTP, 0 LD, 0 balls)."
   ]
  },
  "firstSeen": {
-  "stale": "2026-09-18T09:56:22.912392+00:00",
   "pdf:10414353": "2026-09-18T09:56:22.912392+00:00"
  }
 }
