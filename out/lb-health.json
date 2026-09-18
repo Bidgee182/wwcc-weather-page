@@ -1,12 +1,12 @@
 {
- "updatedAt": "2026-09-18T06:09:29.165923+00:00",
+ "updatedAt": "2026-09-18T09:56:22.912392+00:00",
  "window": "day",
  "alertsActive": [],
  "competition": "Friday Medley Stableford",
  "compDate": "2026-09-18",
  "playerCount": 80,
- "pollAgeMin": 0.2,
- "officialResultsReady": false,
+ "pollAgeMin": 26.2,
+ "officialResultsReady": true,
  "prizes": {
   "ntp": 0,
   "ld": 0,
@@ -22,8 +22,8 @@
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "crit",
+   "detail": "26 min old"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414353",
    "label": "Results: Friday Medley Stableford",
-   "status": "idle",
-   "detail": "Awaiting official results"
+   "status": "warn",
+   "detail": "single field, 79 players, 0 NTP, 0 LD, 0 balls"
   },
   {
    "key": "pdf:10414354",
