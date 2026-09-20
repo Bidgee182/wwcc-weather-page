@@ -3806,14 +3806,38 @@ def _save_report_pdfs(comp: dict, board_id: str) -> None:
             continue
 
 
+def _archive_completeness(comp: dict) -> int:
+    """How complete a comp's data is, for deciding whether to (re)write its
+    archive. The FULL live-scraped field is what we keep - the PDF is only a
+    prize/countback overlay on top. Higher = more complete:
+      + number of players who have finished (the live full-field scores)
+      + a big bonus once the official PDF is in (prizes/grades/balls)."""
+    players = comp.get("players") or []
+    hc = comp.get("holeCount") or 18
+    finished = sum(1 for p in players if (p.get("thru") or 0) >= hc)
+    pdf = 1_000_000 if (comp.get("pdfStandings") or {}).get("players") else 0
+    return pdf + finished
+
+
 def _archive_comp_to_history(comp: dict) -> None:
-    """Archive a comp to out/history the moment it has confirmed PDF results.
-    Never archives a pre-round/empty comp; idempotent once a PDF-backed archive
-    exists. Fully guarded - a failure here must not disturb the live poll."""
+    """Archive a comp to out/history once its round is COMPLETE, storing the full
+    live-scraped field (everyone's scores) - so Past Results never depends on the
+    PDF for the field. Re-writes as more players finish and again when the PDF
+    lands (prizes overlay), keeping the most-complete version. Never archives a
+    pre-round/empty comp. Fully guarded - must not disturb the live poll."""
     try:
-        if not comp or not comp.get("officialResultsReady"):
+        if not comp:
             return
-        if not (comp.get("pdfStandings") or {}).get("players"):
+        players = comp.get("players") or []
+        if not players:
+            return
+        hc = comp.get("holeCount") or 18
+        active = [p for p in players if (p.get("thru") or 0) > 0]
+        finished = [p for p in active if (p.get("thru") or 0) >= hc]
+        official = bool(comp.get("officialResultsReady") and (comp.get("pdfStandings") or {}).get("players"))
+        # Complete = official results in, OR ~all who teed off have holed out.
+        round_complete = official or (len(active) >= 1 and len(finished) >= max(1, int(len(active) * 0.9)))
+        if not round_complete:
             return
         board_id = str(comp.get("leaderboardId") or "")
         date = comp.get("date")
@@ -3822,16 +3846,18 @@ def _archive_comp_to_history(comp: dict) -> None:
         _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         archive_name = f"{date}-{board_id}.json"
         archive_path = _HISTORY_DIR / archive_name
+        new_score = _archive_completeness(comp)
         if archive_path.exists():
             try:
-                if (json.loads(archive_path.read_text()).get("pdfStandings") or {}).get("players"):
-                    _save_report_pdfs(comp, board_id)   # ensure the PDF is saved even if json already done
-                    return
+                if _archive_completeness(json.loads(archive_path.read_text())) >= new_score:
+                    if official:
+                        _save_report_pdfs(comp, board_id)   # keep the PDF even if json is current
+                    return                                   # existing archive is as/more complete
             except Exception:
                 pass
         slim = {k: v for k, v in comp.items()
                 if k not in ("events", "companions", "companionsSkipped", "lastResults")}
-        slim["players"] = [_hist_slim_player(p) for p in comp.get("players", [])]
+        slim["players"] = [_hist_slim_player(p) for p in players]
         slim["leaders"] = [_hist_slim_player(p) for p in comp.get("leaders", [])]
         archive_path.write_text(json.dumps(slim, separators=(",", ":")))
         ip = _HISTORY_DIR / "index.json"
@@ -3842,9 +3868,10 @@ def _archive_comp_to_history(comp: dict) -> None:
         index = [e for e in index if str(e.get("leaderboardId")) != board_id]
         index.insert(0, _hist_index_entry(comp, board_id, archive_name))
         ip.write_text(json.dumps(index, indent=2))
-        _save_report_pdfs(comp, board_id)
-        log.info("Archived results to history: %s (%s) [%s]",
-                 comp.get("competition"), date, board_id)
+        if official:
+            _save_report_pdfs(comp, board_id)
+        log.info("Archived to history: %s (%s) [%s] finished=%d official=%s",
+                 comp.get("competition"), date, board_id, len(finished), official)
     except Exception as e:  # noqa: BLE001
         log.warning("history archive failed for %s: %s", comp.get("leaderboardId"), e)
 
