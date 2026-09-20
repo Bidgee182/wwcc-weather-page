@@ -100,7 +100,7 @@ jobs:
             echo "=== Poll $i/8 at $(date -u +%H:%M:%S) ==="
             python -m miscore.live --once
 
-            git add out/live-leaderboard.json out/last-results.json
+            git add out/live-leaderboard.json out/last-results.json out/history/
             if git diff --staged --quiet; then
               echo "No score changes in poll $i"
             else

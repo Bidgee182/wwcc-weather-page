@@ -34,8 +34,20 @@ jobs:
           with open(live_path) as f:
               data = json.load(f)
 
-          # Only archive if there was a real competition today
-          if data.get("competition") and data.get("players"):
+          # Safety-net archive only. The live poller now archives each comp to
+          # out/history the moment its official PDF is confirmed (never a
+          # pre-round snapshot), so this 1am pass must NOT freeze a comp that has
+          # no scores yet - that was the bug that showed past results on 0. Only
+          # archive a genuinely-played comp (started + has points, or official
+          # results in), and the per-lb_id guard below skips anything already
+          # archived during the day.
+          def _played(d):
+              ps = d.get("players") or []
+              return bool(d.get("started") and ps
+                          and (any((p.get("points") or 0) for p in ps)
+                               or d.get("officialResultsReady")))
+
+          if data.get("competition") and _played(data):
               history_dir.mkdir(exist_ok=True)
 
               date_str = data.get("date") or datetime.date.today().isoformat()
@@ -104,6 +116,8 @@ jobs:
                   c_lb_id = companion.get("leaderboardId")
                   if not c_lb_id:
                       continue
+                  if not _played(companion):
+                      continue                       # don't freeze a pre-round companion on 0
                   c_archive_name = f"{date_str}-{c_lb_id}.json"
                   c_archive_path = history_dir / c_archive_name
                   c_slim = {k: v for k, v in companion.items() if k not in ("events", "stories")}

@@ -54,6 +54,19 @@ def flip_name(name):
     return name
 
 
+def fetch_local(date, board_id):
+    """A manually-uploaded PDF placed at out/history/pdf/<date>-<board>.pdf takes
+    priority - this is how comps whose report has aged out of MiClub's index get
+    recovered: drop the PDF in and re-run."""
+    p = HIST / "pdf" / f"{date}-{board_id}.pdf"
+    if p.exists():
+        b = p.read_bytes()
+        if b[:4] == b"%PDF":
+            print(f"      using uploaded PDF {p}")
+            return b
+    return None
+
+
 def fetch_direct(board_id):
     url = f"{BASE}/upload/reportOutput/Golf_Competition_Report_{board_id}.pdf"
     try:
@@ -125,7 +138,9 @@ def rebuild(path, apply):
         return None
 
     blob_keys = {normkey(p.get("player")) for p in players if normkey(p.get("player"))}
-    pdf = fetch_direct(board_id) or fetch_api(comp, d.get("date"), blob_keys)
+    pdf = (fetch_local(d.get("date"), board_id)
+           or fetch_direct(board_id)
+           or fetch_api(comp, d.get("date"), blob_keys))
     if not pdf:
         print(f"  NOPDF {tag}  (direct 404 and no authed result)")
         return None
@@ -183,6 +198,11 @@ def rebuild(path, apply):
           + ("" if matched >= len(players) * 0.6 else "  <-- LOW MATCH, review"))
     if apply:
         json.dump(d, open(path, "w", encoding="utf-8"), separators=(",", ":"))
+        # keep a permanent copy of the source PDF
+        pdfdir = HIST / "pdf"; pdfdir.mkdir(parents=True, exist_ok=True)
+        dest = pdfdir / f"{d.get('date')}-{board_id}.pdf"
+        if not dest.exists():
+            dest.write_bytes(pdf)
     return {"board_id": board_id, "leader": (scored[0]["player"] if scored else ""),
             "leaderPts": (scored[0].get("points") if scored else 0)}
 

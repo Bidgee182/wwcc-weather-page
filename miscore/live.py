@@ -3706,6 +3706,7 @@ def poll(club: str, board: dict, workers: int, prev: dict[str, dict],
         "officialFoundAt": official_found_at,
         "wwccCredSet": bool(_WWCC_USERNAME and _WWCC_PASSWORD),
         "officialResultsLink": ((_official_cache.get("reportLinks") or [None])[0]) if reveal else None,
+        "officialReportLinks": (_official_cache.get("reportLinks") or []) if reveal else [],
         "ballWinners": (_official_cache.get("ballWinners") or []) if reveal else [],
         "ntpLd": (_official_cache.get("ntpLd") or []) if reveal else [],
         "pdfStandings": (_official_cache.get("pdfStandings") or _empty_std) if reveal else _empty_std,
@@ -3738,6 +3739,114 @@ class _State:
     def get(self) -> dict:
         with self.lock:
             return self.blob
+
+
+# ── Reveal-time history archive ─────────────────────────────────────────────
+# Write the per-comp Past Results archive (out/history) the MOMENT the official
+# PDF is confirmed - not at the 1am reset, which could freeze a pre-round comp on
+# 0. Also saves the raw PDF to out/history/pdf so the source is never lost (the
+# report link ages out of MiClub's index after ~a week). Everything here is
+# guarded and must never raise into the poll loop.
+_HISTORY_DIR     = Path(__file__).parent.parent / "out" / "history"
+_HISTORY_PDF_DIR = _HISTORY_DIR / "pdf"
+
+
+def _hist_slim_player(p: dict) -> dict:
+    d = {k: v for k, v in p.items() if k not in ("holes", "last")}
+    if p.get("holes"):
+        d["holePoints"]  = [h.get("points")  for h in p["holes"]]
+        d["holePars"]    = [h.get("par")     for h in p["holes"]]
+        d["holeStrokes"] = [h.get("strokes") for h in p["holes"]]
+        s2 = [h.get("strokes2") for h in p["holes"]]
+        if any(s is not None for s in s2):
+            d["holeStrokes2"] = s2
+    return d
+
+
+def _hist_index_entry(comp: dict, board_id: str, archive_name: str) -> dict:
+    is_sf   = comp.get("isStableford", True)
+    players = comp.get("players", [])
+    leaders = comp.get("leaders", [])
+    if leaders:
+        leader, pts = leaders[0].get("player", ""), leaders[0].get("points", 0)
+    elif players:
+        sp = sorted(players, key=lambda p: -(p.get("points") or 0) if is_sf else (p.get("points") or 0))
+        leader, pts = sp[0].get("player", ""), sp[0].get("points", 0)
+    else:
+        leader, pts = "", 0
+    return {
+        "date": comp.get("date"), "competition": comp.get("competition", ""),
+        "type": comp.get("type"), "playerCount": comp.get("playerCount", len(players)),
+        "holeCount": comp.get("holeCount", 0),
+        "courseHoles": comp.get("courseHoles") or comp.get("holeCount", 0),
+        "leader": leader, "leaderPts": pts, "leaderboardId": board_id,
+        "file": f"out/history/{archive_name}",
+    }
+
+
+def _save_report_pdfs(comp: dict, board_id: str) -> None:
+    date = comp.get("date")
+    links = list(comp.get("officialReportLinks") or [])
+    if not links:
+        links = [f"{_WWCC_BASE}/upload/reportOutput/Golf_Competition_Report_{board_id}.pdf"]
+    try:
+        _HISTORY_PDF_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+    for i, link in enumerate(links):
+        name = f"{date}-{board_id}.pdf" if i == 0 else f"{date}-{board_id}-{i+1}.pdf"
+        dest = _HISTORY_PDF_DIR / name
+        if dest.exists():
+            continue
+        try:
+            b = _wwcc_get_bytes(link if link.startswith("http") else _WWCC_BASE + link)
+            if b[:4] == b"%PDF":
+                dest.write_bytes(b)
+        except Exception:
+            continue
+
+
+def _archive_comp_to_history(comp: dict) -> None:
+    """Archive a comp to out/history the moment it has confirmed PDF results.
+    Never archives a pre-round/empty comp; idempotent once a PDF-backed archive
+    exists. Fully guarded - a failure here must not disturb the live poll."""
+    try:
+        if not comp or not comp.get("officialResultsReady"):
+            return
+        if not (comp.get("pdfStandings") or {}).get("players"):
+            return
+        board_id = str(comp.get("leaderboardId") or "")
+        date = comp.get("date")
+        if not board_id or not date:
+            return
+        _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+        archive_name = f"{date}-{board_id}.json"
+        archive_path = _HISTORY_DIR / archive_name
+        if archive_path.exists():
+            try:
+                if (json.loads(archive_path.read_text()).get("pdfStandings") or {}).get("players"):
+                    _save_report_pdfs(comp, board_id)   # ensure the PDF is saved even if json already done
+                    return
+            except Exception:
+                pass
+        slim = {k: v for k, v in comp.items()
+                if k not in ("events", "companions", "companionsSkipped", "lastResults")}
+        slim["players"] = [_hist_slim_player(p) for p in comp.get("players", [])]
+        slim["leaders"] = [_hist_slim_player(p) for p in comp.get("leaders", [])]
+        archive_path.write_text(json.dumps(slim, separators=(",", ":")))
+        ip = _HISTORY_DIR / "index.json"
+        try:
+            index = json.loads(ip.read_text()) if ip.exists() else []
+        except Exception:
+            index = []
+        index = [e for e in index if str(e.get("leaderboardId")) != board_id]
+        index.insert(0, _hist_index_entry(comp, board_id, archive_name))
+        ip.write_text(json.dumps(index, indent=2))
+        _save_report_pdfs(comp, board_id)
+        log.info("Archived results to history: %s (%s) [%s]",
+                 comp.get("competition"), date, board_id)
+    except Exception as e:  # noqa: BLE001
+        log.warning("history archive failed for %s: %s", comp.get("leaderboardId"), e)
 
 
 def _serve(port: int, state: _State) -> None:
@@ -3900,6 +4009,7 @@ def main(argv=None) -> int:
                         # not just the primary board (logged by the watchdog).
                         "officialResultsReady": cb.get("officialResultsReady", False),
                         "officialResultsLink":  cb.get("officialResultsLink"),
+                        "officialReportLinks":  cb.get("officialReportLinks", []),
                         "pdfStandings":  cb.get("pdfStandings"),
                         "ntpLd":         cb.get("ntpLd", []),
                         "ballWinners":   cb.get("ballWinners"),
@@ -3925,6 +4035,13 @@ def main(argv=None) -> int:
         except Exception as e:  # noqa: BLE001
             log.warning("poll failed: %s", e)
             blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat()}
+
+        # Archive confirmed official results to per-comp history the moment the
+        # PDF is in, so Past Results is correct immediately and never depends on
+        # the 1am snapshot. Guarded internally; runs for the primary + companions.
+        _archive_comp_to_history(blob)
+        for _comp in blob.get("companions", []):
+            _archive_comp_to_history(_comp)
 
         state.set(blob)
         args.out.write_text(json.dumps(blob, indent=1), encoding="utf-8")
