@@ -41,6 +41,27 @@ def normkey(name):
     return " ".join(sorted(toks))
 
 
+def _surnames_blob(name):
+    """Team member surnames from a board team name 'First Last [hcp] & First Last...'."""
+    out = set()
+    for m in re.split(r"\s*&\s*", re.sub(r"\s*\[[^\]]*\]", "", name or "")):
+        toks = m.strip().split()
+        if len(toks) >= 2:
+            out.add(toks[-1].lower())
+    return out
+
+
+def _surnames_pdf(name):
+    """Team member surnames from a PDF team row 'Lastname Firstname & Lastname...'
+    (competition report lists Lastname first; the last member is often truncated)."""
+    out = set()
+    for m in re.split(r"\s*&\s*", name or ""):
+        toks = [t for t in re.split(r"[\s,]+", m.strip()) if t and t != "-"]
+        if toks:
+            out.add(toks[0].lower())
+    return out
+
+
 def flip_name(name):
     """PDF 'Lastname Firstname' -> 'Firstname Lastname' for display."""
     if "," in name:
@@ -133,10 +154,6 @@ def rebuild(path, apply):
     is_team = any(" & " in (p.get("player") or "") for p in players[:5])
     tag = f"{d.get('date')}  {comp[:34]:34s} [{board_id}]"
 
-    if is_team:
-        print(f"  SKIP  {tag}  (team comp - needs team-PDF handling)")
-        return None
-
     blob_keys = {normkey(p.get("player")) for p in players if normkey(p.get("player"))}
     pdf = (fetch_local(d.get("date"), board_id)
            or fetch_direct(board_id)
@@ -154,28 +171,47 @@ def rebuild(path, apply):
     is_sf = d.get("isStableford", True)
     hc = d.get("holeCount") or 18
 
-    # PDF entry per normalised name (keep the best/first pos per name)
-    by_key = {}
-    for r in prows:
-        k = normkey(r.get("name"))
-        if k and k not in by_key:
-            by_key[k] = r
-
     matched, ball_winners = 0, []
-    for p in players:
-        k = normkey(p.get("player"))
-        r = by_key.get(k)
-        if not r:
-            continue
-        sv = score_val(r.get("score"), is_sf)
-        if sv is None:
-            continue
-        p["points"] = sv
-        p["thru"] = hc
-        matched += 1
-        b = str(r.get("balls") or "").strip()
-        if b and b not in ("0", "-"):
-            ball_winners.append(p["player"])
+    if is_team:
+        # Team comps (Irish / 4BBB / ambrose): match a board team to a PDF team row
+        # by surname set - the report lists 'Lastname Firstname' and often truncates
+        # the last member, so accept when the PDF row's surnames are a subset of the
+        # board team's surnames, and the match is unique (no ambiguity).
+        prow_sn = [(_surnames_pdf(r.get("name")), r) for r in prows]
+        prow_sn = [(sn, r) for sn, r in prow_sn if sn]
+        for p in players:
+            bs = _surnames_blob(p.get("player"))
+            if not bs:
+                continue
+            cands = [r for sn, r in prow_sn if sn <= bs]
+            if len(cands) != 1:
+                continue
+            sv = score_val(cands[0].get("score"), is_sf)
+            if sv is None:
+                continue
+            p["points"] = sv
+            p["thru"] = hc
+            matched += 1
+    else:
+        # Individual comps: order-independent name key.
+        by_key = {}
+        for r in prows:
+            k = normkey(r.get("name"))
+            if k and k not in by_key:
+                by_key[k] = r
+        for p in players:
+            r = by_key.get(normkey(p.get("player")))
+            if not r:
+                continue
+            sv = score_val(r.get("score"), is_sf)
+            if sv is None:
+                continue
+            p["points"] = sv
+            p["thru"] = hc
+            matched += 1
+            b = str(r.get("balls") or "").strip()
+            if b and b not in ("0", "-"):
+                ball_winners.append(p["player"])
 
     # pdfStandings with names flipped to First Last for the results page's grade lookup
     std_players = [{
