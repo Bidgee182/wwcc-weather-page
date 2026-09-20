@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-20T12:20:47.799003+00:00",
- "window": "night",
+ "updatedAt": "2026-09-20T19:11:36.638580+00:00",
+ "window": "day",
  "alertsActive": [],
- "competition": "Sunday Medley Stableford",
- "compDate": "2026-09-20",
- "playerCount": 77,
+ "competition": "Veterans 9 Hole Stableford Front 9",
+ "compDate": "2026-09-21",
+ "playerCount": 60,
  "pollAgeMin": 0.3,
- "officialResultsReady": true,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 5,
+  "ntp": 0,
   "ld": 0,
-  "balls": 35
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "ok",
+   "detail": "2 board(s) listed"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "idle",
-   "detail": "Outside daylight window"
+   "status": "ok",
+   "detail": "Updated 0 min ago"
   },
   {
    "key": "creds",
@@ -35,7 +35,7 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "77 players"
+   "detail": "60 players"
   },
   {
    "key": "accuracy",
@@ -44,29 +44,23 @@
    "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414355",
-   "label": "Results: Sunday Medley Stableford",
-   "status": "ok",
-   "detail": "3 grades, 118 players, 5 NTP, 0 LD, 35 balls"
-  },
-  {
-   "key": "pdf:10414356",
-   "label": "Results: 9 Hole Medley Stableford B\u2026",
+   "key": "pdf:10414368",
+   "label": "Results PDF",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Irish Team Stableford",
+   "competition": "9 Hole Medley Stableford Back 9",
    "status": "none-published",
    "summary": "no official results by 7:30pm",
    "role": "companion"
   },
   {
-   "competition": "Saturday Medley Stableford",
-   "status": "none-published",
-   "summary": "no official results by 7:30pm",
+   "competition": "Sunday Medley Stableford",
+   "status": "success",
+   "summary": "3 grades, 118 players, 5 NTP, 0 LD, 35 balls",
    "role": "primary"
   }
  ]
