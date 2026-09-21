@@ -405,26 +405,39 @@ def email_resolved(cleared):
 
 def email_results_confirmation(live):
     ps      = live.get("pdfStandings") or {}
+    named   = [p for p in (ps.get("players") or []) if (p.get("name") or "").strip()]
     ntp_ld  = live.get("ntpLd") or []
     n_ntp   = sum(1 for e in ntp_ld if e.get("type") == "ntp")
     n_ld    = len(ntp_ld) - n_ntp
     balls   = live.get("ballWinners") or []
     grades  = ps.get("grades") or []
-    warn    = []
-    if not grades:            warn.append("No grades parsed from the PDF")
-    if not ntp_ld:            warn.append("No NTP / Longest Drive entries parsed")
-    if not balls:             warn.append("No ball winners parsed")
+    # Use the SAME rules as classify_results / the audit log so the email matches:
+    # empty grades = "single field" (normal), missing NTP/LD on its own is normal.
+    # A genuine gap is only a failed parse (no named players) or a standings-only
+    # parse (named players but NO balls AND NO NTP/LD - the prize section missed).
+    status, _summary = classify_results(live)
+    warn = []
+    if status == "failed":
+        warn.append("no named players parsed - the results PDF may not have loaded")
+    elif status == "partial":
+        warn.append("standings parsed but no ball winners or NTP / Longest Drive - "
+                    "the prize section of the PDF may have been missed")
+    gtxt = (f"{len(grades)} grades ({', '.join(map(str, grades))})"
+            if grades else "single field (no grade split)")
+    ntp_txt = f"{n_ntp} NTP · {n_ld} Longest Drive" if ntp_ld else "no NTP / Longest Drive prizes"
     ntp_rows = "".join(f"<li>{'NTP' if e.get('type') == 'ntp' else 'Long Drive'} hole {e.get('hole')}: "
                        f"{e.get('winner')} ({e.get('distance')})</li>" for e in ntp_ld)
-    warn_html = ("<p style='color:#c0392b'><b>Gaps:</b> " + "; ".join(warn) + "</p>") if warn else ""
-    return _send(f"📄 Results read OK - {live.get('competition', 'comp')} {live.get('date', '')}",
+    warn_html = ("<p style='color:#c0392b'><b>Gap:</b> " + "; ".join(warn) + "</p>") if warn else ""
+    ok = not warn
+    subject = ("📄 Results read OK - " if ok else "⚠️ Results parse gap - ") \
+        + f"{live.get('competition', 'comp')} {live.get('date', '')}"
+    return _send(subject,
           f"<h3>Official results parsed for {live.get('competition')}</h3>"
-          f"<p>{len(grades)} grades ({', '.join(map(str, grades))}) · "
-          f"{len(ps.get('players') or [])} players in PDF standings · "
-          f"{n_ntp} NTP · {n_ld} Longest Drive · {len(balls)} ball winners.</p>"
+          f"<p>{gtxt} · {len(named)} players in PDF standings · "
+          f"{ntp_txt} · {len(balls)} ball winners.</p>"
           f"<ul>{ntp_rows}</ul>{warn_html}",
-          f"Results parsed: {len(grades)} grades, {n_ntp} NTP, {n_ld} LD, {len(balls)} balls. "
-          + ("Gaps: " + "; ".join(warn) if warn else "No gaps."))
+          f"Results parsed: {gtxt}, {n_ntp} NTP, {n_ld} LD, {len(balls)} balls. "
+          + ("Gap: " + "; ".join(warn) if warn else "No gaps."))
 
 
 def email_daily_report(live, state):
