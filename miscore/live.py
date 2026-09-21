@@ -2944,6 +2944,7 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     rough = _footy_rough_story(ranked, is_stableford, hole_count, board_date)
     if rough:
         out.append(rough)
+    out += _finals_week_story(ranked, is_stableford, hole_count, board_date)   # this-week-only footy finals
     cd = _career_day_story(ranked, is_stableford, hole_count, board_date)
     if cd:
         out.append(cd)
@@ -3168,6 +3169,66 @@ def _footy_rough_story(ranked, is_stableford, hole_count, board_date=None):
         return None
     return _mk_story(name, "Footy Form Guide", d, "blue", "🏉", 43,
                      pts, thru, "footy")
+
+
+def _finals_week_story(ranked, is_stableford, hole_count, board_date=None):
+    """THIS-WEEK-ONLY footy-finals flavour: AFL Grand Final + NRL preliminary
+    finals, week of 21-28 Sep 2026. Date-fenced so it auto-expires after GF
+    weekend. Team-agnostic (no specific results) - ties each golfer's round to a
+    finals angle. Emits the leader + a general card + one rotating angle
+    (bolter/fade/spoon), day-seeded. Anchored to real golfers, points language."""
+    if not ranked or not is_stableford or not board_date:
+        return []
+    ds = str(board_date)[:10]
+    if not ("2026-09-21" <= ds <= "2026-09-28"):
+        return []
+    hc = hole_count or 18
+    solo = [p for p in ranked if p.get("player") and " & " not in p["player"]]
+    teed = [p for p in solo if (p.get("thru") or 0) > 0]
+    if not teed:
+        return []
+    out = []
+
+    def add(p, cat, seed, fallback, score_val=0):
+        d = _pick_phrase(cat, f"{board_date}|{seed}|{p['player']}", fallback,
+                         player=p["player"], score=_fmt_score(score_val, True), pts=score_val)
+        if d:
+            out.append(_mk_story(p["player"], "Finals Fever", d, "blue", "\U0001F3C9", 44,
+                                 p.get("points"), p.get("thru"), "footy"))
+
+    # Leader - Grand Final form
+    lead = max(teed, key=lambda p: (p.get("points") or 0))
+    if (lead.get("points") or 0) > 0:
+        add(lead, "footy_finals_leader", "finlead",
+            "{player} is in Grand Final form", lead.get("points") or 0)
+
+    # Rotating third angle: bolter (the chaser) / fade (worst finished) / spoon (last finished)
+    fin = [p for p in solo if (p.get("thru") or 0) >= hc]
+    fin_sorted = sorted(fin, key=lambda p: (p.get("points") or 0))
+    angle = (hash(f"{board_date}|finangle") % 3) if fin_sorted else 3
+    if angle == 0 and len(teed) >= 3:
+        chaser = sorted(teed, key=lambda p: -(p.get("points") or 0))[1]
+        if chaser is not lead:
+            add(chaser, "footy_finals_bolter", "finbolt",
+                "{player} storming home like a September bolter", chaser.get("points") or 0)
+    elif angle == 1 and fin_sorted:
+        worst = fin_sorted[0]
+        if worst is not lead and (worst.get("points") or 0) / (worst.get("thru") or hc) < 1.5:
+            add(worst, "footy_finals_fade", "finfade",
+                "{player} faded like a beaten prelim side", worst.get("points") or 0)
+    elif angle == 2 and fin_sorted:
+        last = fin_sorted[0]
+        if last is not lead:
+            add(last, "footy_finals_spoon", "finspoon",
+                "{player} collecting the wooden spoon while the good sides play finals",
+                last.get("points") or 0)
+
+    # General GF-week card - a mid-field player so it is not always the same name
+    mid = teed[len(teed) // 2] if len(teed) >= 3 else lead
+    if mid is not lead:
+        add(mid, "footy_finals_general", "fingen",
+            "{player} - footy finals fever out on the course", mid.get("points") or 0)
+    return out
 
 
 def _conditions_performance_story(ranked, wx, is_stableford, board_date=None):
