@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-09-21T07:22:26.589414+00:00",
- "window": "day",
+ "updatedAt": "2026-09-21T14:04:11.992525+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Veterans 9 Hole Stableford Front 9",
- "compDate": "2026-09-21",
- "playerCount": 57,
- "pollAgeMin": 0.2,
- "officialResultsReady": true,
+ "competition": "Ladies 18 Hole Stableford Womens",
+ "compDate": "2026-09-22",
+ "playerCount": 52,
+ "pollAgeMin": 0.5,
+ "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
   "ld": 0,
-  "balls": 25
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "1 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,32 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "57 players"
+   "detail": "52 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "Top 10 verified against MiScore"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414368",
-   "label": "Results PDF",
-   "status": "ok",
-   "detail": "single field, 82 players, 0 NTP, 0 LD, 25 balls"
+   "key": "pdf:10414369",
+   "label": "Results: Ladies 18 Hole Stableford \u2026",
+   "status": "idle",
+   "detail": "Comp not started"
+  },
+  {
+   "key": "pdf:10414370",
+   "label": "Results: Ladies 9 Hole Stableford F\u2026",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "9 Hole Medley Stableford Back 9",
-   "status": "none-published",
-   "summary": "no official results by 7:30pm",
-   "role": "companion"
-  },
-  {
-   "competition": "Sunday Medley Stableford",
+   "competition": "Veterans 9 Hole Stableford Front 9",
    "status": "success",
-   "summary": "3 grades, 118 players, 5 NTP, 0 LD, 35 balls",
+   "summary": "single field, 82 players, 0 NTP, 0 LD, 25 balls",
    "role": "primary"
   }
  ]
