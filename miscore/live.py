@@ -2945,6 +2945,7 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     if rough:
         out.append(rough)
     out += _finals_week_story(ranked, is_stableford, hole_count, board_date)   # this-week-only footy finals
+    out += _movie_story(ranked, is_stableford, hole_count, board_date)         # golf-movie one-liners
     cd = _career_day_story(ranked, is_stableford, hole_count, board_date)
     if cd:
         out.append(cd)
@@ -3228,6 +3229,53 @@ def _finals_week_story(ranked, is_stableford, hole_count, board_date=None):
     if mid is not lead:
         add(mid, "footy_finals_general", "fingen",
             "{player} - footy finals fever out on the course", mid.get("points") or 0)
+    return out
+
+
+def _movie_story(ranked, is_stableford, hole_count, board_date=None):
+    """Golf-movie one-liners (Caddyshack, Happy Gilmore 1 & 2, Tin Cup, The Hawk)
+    anchored to a golfer by situation - a permanent, day-seeded, PG bit of fun.
+    Emits a leader line + one rotating angle (rough / spoon / general). Stableford
+    only (points language), low priority so real stories always outrank it."""
+    if not ranked or not is_stableford or not board_date:
+        return []
+    hc = hole_count or 18
+    solo = [p for p in ranked if p.get("player") and " & " not in p["player"]]
+    teed = [p for p in solo if (p.get("thru") or 0) > 0]
+    if not teed:
+        return []
+    out = []
+
+    def add(p, cat, seed, fallback, sv=0):
+        d = _pick_phrase(cat, f"{board_date}|{seed}|{p['player']}", fallback,
+                         player=p["player"], score=_fmt_score(sv, True), pts=sv)
+        if d:
+            out.append(_mk_story(p["player"], "From the Movies", d, "blue", "\U0001F3AC", 40,
+                                 p.get("points"), p.get("thru"), "movie"))
+
+    lead = max(teed, key=lambda p: (p.get("points") or 0))
+    if (lead.get("points") or 0) > 0:
+        add(lead, "movie_leader", "movlead", "{player} - a Cinderella story on {score}",
+            lead.get("points") or 0)
+
+    fin = sorted((p for p in solo if (p.get("thru") or 0) >= hc),
+                 key=lambda p: (p.get("points") or 0))
+    angle = hash(f"{board_date}|movangle") % 3
+    if angle == 0 and fin:
+        worst = fin[0]
+        if worst is not lead and (worst.get("points") or 0) / (worst.get("thru") or hc) < 1.5:
+            add(worst, "movie_rough", "movrough",
+                "{player} - terrible, terrible, terrible on {score}", worst.get("points") or 0)
+    elif angle == 1 and fin:
+        last = fin[0]
+        if last is not lead:
+            add(last, "movie_spoon", "movspoon",
+                "{player} - you will get a wooden spoon and like it", last.get("points") or 0)
+    else:
+        mid = teed[len(teed) // 2] if len(teed) >= 3 else lead
+        if mid is not lead:
+            add(mid, "movie_general", "movgen",
+                "{player} - this is golf, not a rock concert", mid.get("points") or 0)
     return out
 
 
