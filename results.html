@@ -561,8 +561,23 @@ function renderDetail(data) {
         return pts + 'pts';
     };
 
+    // Unscored players must sink to the bottom, never float to the top. On a STROKE
+    // comp (lower = better) a glitched thru=0 / null net would otherwise sort to rank
+    // 1 and steal the medal (seen on 1 Sep Ladies Stroke - Kim Van Der Rijt showed
+    // thru=0 despite a full card and the PDF's 73 gross). Scoped to stroke/ambrose so
+    // stableford ranking is untouched; a genuine net-even (thru complete, points 0)
+    // on an individual stroke comp is still a valid score and is NOT treated unscored.
+    const isUnscored = p => {
+        if (!isStroke) return false;             // stableford: unchanged
+        if (p.points == null) return true;       // no net at all
+        if (isAmbrose) return p.points === 0;    // ambrose team net is never a real 0
+        return (p.thru || 0) < holeCount;        // individual stroke: DNF / no card last
+    };
+
     // Sort helper
     const sortPlayers = (a, b) => {
+        const ua = isUnscored(a), ub = isUnscored(b);
+        if (ua !== ub) return ua ? 1 : -1;       // scored before unscored
         if (a.points !== b.points) return isStroke ? a.points - b.points : b.points - a.points;
         const cb = countbackCompare(a, b, holeCount, isStroke);
         return cb !== 0 ? cb : a.player.localeCompare(b.player);
