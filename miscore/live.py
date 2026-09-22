@@ -3908,6 +3908,18 @@ def _save_report_pdfs(comp: dict, board_id: str) -> None:
     links = list(comp.get("officialReportLinks") or [])
     if not links:
         links = [f"{_WWCC_BASE}/upload/reportOutput/Golf_Competition_Report_{board_id}.pdf"]
+
+    # Order so the PRIMARY file (<date>-<board>.pdf - the one the Past Results PDF
+    # link points to) is THIS comp's full Competition Report, not a prize-pres
+    # subset or a companion comp's PDF. Ranked: own-board first, then Competition
+    # Report before Prize Presentation before anything else.
+    def _pdf_rank(link: str) -> tuple:
+        fn = link.rsplit("/", 1)[-1].lower()
+        own  = 0 if board_id and board_id in fn else 1
+        kind = 0 if "competition_report" in fn else (1 if "prize" in fn else 2)
+        return (own, kind)
+    links = sorted(links, key=_pdf_rank)
+
     try:
         _HISTORY_PDF_DIR.mkdir(parents=True, exist_ok=True)
     except Exception:

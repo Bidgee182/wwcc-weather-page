@@ -81,6 +81,14 @@ html, body {
 .detail-hdr { margin-bottom: 16px; }
 .detail-comp { font-size: 1.15em; font-weight: 700; }
 .detail-info { font-size: 0.8em; color: #7f8c8d; margin-top: 4px; }
+.detail-pdf { margin-top: 7px; }
+.detail-pdf .pdf-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.8em; font-weight: 600; color: #6fb1e0; text-decoration: none;
+    padding: 4px 10px; border: 1px solid rgba(111,177,224,0.4);
+    border-radius: 6px; background: rgba(111,177,224,0.08);
+}
+.detail-pdf .pdf-link:hover { background: rgba(111,177,224,0.18); color: #9cccf0; }
 
 /* ── Grade strip ── */
 .grade-section { margin-bottom: 16px; }
@@ -188,6 +196,7 @@ html, body {
       <div>
         <div class="detail-comp" id="det-comp"></div>
         <div class="detail-info" id="det-info"></div>
+        <div id="det-pdf" class="detail-pdf"></div>
       </div>
     </div>
     <div id="det-grades" class="grade-section"></div>
@@ -508,6 +517,7 @@ async function loadDetail(idx) {
     document.getElementById('det-info').textContent = fmtDate(entry.date) + ' - ' + entry.playerCount + ' players';
     document.getElementById('det-grades').innerHTML = '<div class="loading">Loading...</div>';
     document.getElementById('det-standings').innerHTML = '';
+    document.getElementById('det-pdf').innerHTML = '';
 
     try {
         const r = await fetch('./' + entry.file + '?_=' + Date.now());
@@ -519,6 +529,25 @@ async function loadDetail(idx) {
     }
 }
 
+// Reveal the "View official results PDF" link only when the saved PDF really
+// exists (HEAD check), so comps without one never show a dead link. The archiver
+// saves the official report to out/history/pdf/<date>-<board>.pdf.
+async function showPdfLink(data) {
+    const el = document.getElementById('det-pdf');
+    if (!el) return;
+    el.innerHTML = '';
+    const date = data.date, bid = data.leaderboardId;
+    if (!date || !bid) return;
+    const url = './out/history/pdf/' + date + '-' + bid + '.pdf';
+    try {
+        const r = await fetch(url + '?_=' + Date.now(), { method: 'HEAD' });
+        if (r.ok) {
+            el.innerHTML = '<a class="pdf-link" href="' + url + '" target="_blank" rel="noopener">'
+                + '📄 View official results PDF</a>';
+        }
+    } catch (e) { /* no saved PDF - leave the link hidden */ }
+}
+
 function renderDetail(data) {
     const players    = data.players || [];
     const holeCount  = data.holeCount || 18;
@@ -528,6 +557,10 @@ function renderDetail(data) {
     const isTeamComp = /4bbb|ambrose/i.test(comp) || /4bbb|ambrose/i.test(data.type || '');
     const isWomens   = /women|ladies/i.test(comp);
     window._scIsStroke = isStroke;
+
+    // Show a link to the official results PDF when we have a saved copy in the repo
+    // (out/history/pdf/<date>-<board>.pdf). Durable, served alongside the page.
+    showPdfLink(data);
 
     // PDF grade data - single source of truth for grades
     const pdfPlayers = (data.pdfStandings || {}).players || [];
