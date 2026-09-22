@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-22T01:39:58.771895+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-22T01:35:13.250932+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1790,15 +1799,6 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-08-08T00:51:01.617274+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 210,
-      "description": "Pressure high",
-      "pump_label": "System",
-      "source_name": "System"
     }
   ]
 }
