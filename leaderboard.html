@@ -501,7 +501,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.5';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -542,6 +542,59 @@ let _tickerSig   = '';  // signature of the current info-ticker items - only reb
 // Multi-board rotation: companions array + index-based cycle (primary=0, companions=1..N)
 let _companions = [];   // companion board data objects from JSON (women's, 4BBB, etc.)
 let _boardIdx   = 0;    // 0 = primary; 1..N = companions[0..N-1]
+// Rotation dwell gate: a board must stay up until EVERY visible scrolling panel
+// (players + stories + blue-ball when shown) has scrolled fully through at least
+// once, so we never flip to the next board mid-scroll. See _applyPending.
+let _boardShownTs     = Date.now();  // when the current board was first displayed
+let _rotateCheckTimer = null;        // fallback re-check for boards whose players don't scroll
+const ROTATE_MIN_DWELL_MS = 12000;   // floor: even an all-static board holds this long
+const ROTATE_BUFFER_MS    = 2500;    // slack after the slowest panel finishes
+
+// Blue Ball Contenders empty-state lines (rotated each time the panel is empty).
+const BB_EMPTY_MSGS = [
+    'No one in the frame yet',
+    'The blue balls are still up for grabs',
+    'All safe so far - no blue ball danger yet',
+    'Waiting on the first cards to come in'
+];
+let _bbEmptyIdx = 0;
+
+// Longest of the current board's visible scrolling-panel cycles, plus buffer -
+// read fresh at each check so it reflects the panel durations set on render.
+function _boardDwellNow() {
+    const bb   = document.getElementById('blue-ball-card');
+    const bbOn = bb && bb.style.display !== 'none';
+    const cl   = bbOn ? _comingLastAnimDurMs : 0;
+    return Math.max(ROTATE_MIN_DWELL_MS, _lbAnimDurMs, _storyAnimDurMs, cl) + ROTATE_BUFFER_MS;
+}
+
+// Re-scroll the CURRENT board's players in place (natural loop) without touching
+// the header/stories/blue-ball, which run on their own independent cycles.
+function _loopCurrentBoard() {
+    const setHdr = () => {
+        const h = document.getElementById('col-hdr-pts');
+        if (h) h.textContent = _isStableford ? 'Pts' : (_isAmbrose ? 'Gross' : 'Score');
+    };
+    if (_boardIdx > 0) {
+        const c = _companions[_boardIdx - 1];
+        if (!c) return;
+        _isStableford = c.isStableford !== false;
+        _isAmbrose    = detectAmbrose(c);
+        if (c.par) _coursePar = c.par;
+        setHdr();
+        renderLeaderboard(c.players || [], c.holeCount || 18, c.started || false, c.competition || '');
+        document.getElementById('grade-strip')?.classList.remove('visible');
+    } else {
+        const d = _pendingData || _lastRenderData;
+        if (!d) return;
+        if (_pendingData) { _lastRenderData = d; _pendingData = null; }
+        _isStableford = d.isStableford !== false;
+        _isAmbrose    = detectAmbrose(d);
+        if (d.par) _coursePar = d.par;
+        setHdr();
+        renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
+    }
+}
 
 // ── Clock ─────────────────────────────────────────────────────────
 function updateClock() {
@@ -673,10 +726,27 @@ function _companionLabel(c) {
 function _applyPending() {
     _lastApplyTs = Date.now();
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
+    if (_rotateCheckTimer) { clearTimeout(_rotateCheckTimer); _rotateCheckTimer = null; }
     if (_needsReload) { location.reload(); return; }
 
-    // Rotate through primary + companion boards on each scroll cycle
+    // Rotate through primary + companion boards - but only once EVERY visible
+    // scrolling panel (players + stories + blue-ball when shown) on the current
+    // board has scrolled fully through. Until then, re-scroll this board's players
+    // in place (a natural loop) and wait for the slower panel to finish, so we
+    // never flip to the next board with stories/players still mid-scroll.
     if (_companions.length > 0) {
+        const elapsed = Date.now() - _boardShownTs;
+        const dwell   = _boardDwellNow();
+        if (elapsed < dwell) {
+            _loopCurrentBoard();
+            // Scrolling players re-trigger this via their own animationend; a board
+            // whose players don't scroll has no animationend, so arm a fallback.
+            if (!_animRunning) {
+                _rotateCheckTimer = setTimeout(_applyPending, Math.max(2000, dwell - elapsed + 500));
+            }
+            return;
+        }
+        _boardShownTs = Date.now();
         _boardIdx = (_boardIdx + 1) % (1 + _companions.length);
         if (_boardIdx > 0) {
             // Showing a companion board
@@ -896,21 +966,46 @@ function _enterPreComp(d) {
     // the rotation running smoothly rather than resetting the index every 15s.
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     _pendingData = null;
+    // Rebuild the screen list every poll so companions/lastResults stay fresh, but
+    // only RENDER on first entry - re-rendering the current screen every poll would
+    // restart a mid-scroll results board and it would never finish scrolling.
     _preCompScreens = _buildPreCompScreens(d);
     if (_preCompIdx >= _preCompScreens.length) _preCompIdx = 0;
-    if (!_preComp) { _preComp = true; _preCompIdx = 0; }
-    _renderPreCompScreen();
-    if (!_preCompTimer) {
-        _preCompTimer = setInterval(() => {
-            _preCompIdx = (_preCompIdx + 1) % Math.max(1, _preCompScreens.length);
-            _renderPreCompScreen();
-        }, PRECOMP_ROTATE_MS);
+    const firstEntry = !_preComp;
+    if (firstEntry) { _preComp = true; _preCompIdx = 0; _renderPreCompScreen(); }
+    if (!_preCompTimer) _schedulePreCompNext();
+}
+
+// Advance the pre-comp holding view. Static waiting cards hold for the fixed short
+// interval; the official-results screen scrolls its full field + stories, so hold
+// it until BOTH have scrolled fully through (same dwell rule as the live board),
+// rather than flipping away mid-scroll.
+function _schedulePreCompNext() {
+    if (!_preComp) return;
+    if (_preCompTimer) { clearTimeout(_preCompTimer); _preCompTimer = null; }
+    const scr = _preCompScreens[_preCompIdx % Math.max(1, _preCompScreens.length)];
+    const advance = () => {
+        if (!_preComp) return;
+        _preCompIdx = (_preCompIdx + 1) % Math.max(1, _preCompScreens.length);
+        _renderPreCompScreen();
+        _schedulePreCompNext();
+    };
+    if (scr && scr.kind === 'results') {
+        // Panel durations for the just-rendered results board settle ~250ms after
+        // render (players); read them after a short beat, then hold for the longest.
+        _preCompTimer = setTimeout(() => {
+            if (!_preComp) return;
+            const hold = Math.max(PRECOMP_ROTATE_MS, _lbAnimDurMs, _storyAnimDurMs) + ROTATE_BUFFER_MS;
+            _preCompTimer = setTimeout(advance, hold);
+        }, 600);
+    } else {
+        _preCompTimer = setTimeout(advance, PRECOMP_ROTATE_MS);
     }
 }
 
 function _exitPreComp() {
     _preComp = false;
-    if (_preCompTimer) { clearInterval(_preCompTimer); _preCompTimer = null; }
+    if (_preCompTimer) { clearTimeout(_preCompTimer); _preCompTimer = null; }
     _preCompScreens = []; _preCompIdx = 0;
 }
 
@@ -983,6 +1078,7 @@ function render(d) {
     renderLeaderboard(d.players || [], d.holeCount || 18, d.started || false, d.competition || '');
     const _ps0 = _pickStories(d); renderStories(_ps0.stories, _ps0.skipExpiry);
     renderComingLast(d.comingLast || [], d.holeCount || 18);
+    _boardShownTs = Date.now();   // start the rotation dwell clock for board 0
 }
 
 // Top info marquee - live items: field progress, leader (+margin), today's
@@ -1787,6 +1883,7 @@ function renderLeaderboard(players, holeCount, started, competition) {
             _lbAnimDurMs = (dur + scrollDelay) * 1000;
         } else {
             _animRunning = false;
+            _lbAnimDurMs = 0;   // no players scroll -> contributes nothing to the rotation dwell
         }
         if (clip) clip.style.opacity = '1';
         renderGradeStrip(active, grades, holeCount, competition, roundComplete, _officialResultsReady);
@@ -1971,7 +2068,11 @@ function _doRenderComingLast(comingLast, holeCount) {
             '</div>' +
         '</div>';
     });
-    _comingLastAnimDurMs = renderSidePanel('last-list', rows, 'No data yet', 5, BB_PAUSE_MS);
+    // Rotate the empty-state line through a few golf-appropriate messages so the
+    // "Blue Ball Contenders" panel never just reads a flat "No data yet".
+    const emptyMsg = BB_EMPTY_MSGS[_bbEmptyIdx % BB_EMPTY_MSGS.length];
+    if (!rows.length) _bbEmptyIdx++;
+    _comingLastAnimDurMs = renderSidePanel('last-list', rows, emptyMsg, 5, BB_PAUSE_MS);
 }
 
 // First-load call (not buffered)
