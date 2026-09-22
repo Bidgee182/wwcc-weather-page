@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-09-22T20:16:59.486898+00:00",
-  "last_seen": "2026-09-22T20:16:59.486898+00:00",
-  "last_connected": "2026-09-22T20:16:59.486898+00:00",
+  "timestamp": "2026-09-22T20:21:39.674600+00:00",
+  "last_seen": "2026-09-22T20:21:39.674600+00:00",
+  "last_connected": "2026-09-22T20:21:39.674600+00:00",
   "system": {
     "pressure_actual_bar": 7.811,
-    "pressure_suction_bar": -0.827,
+    "pressure_suction_bar": -0.815,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 97.6,
-    "power_kw": 28.4,
+    "flow_m3h": 71.6,
+    "power_kw": 18.0,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 98.8,
+    "relative_performance_pct": 92.9,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 201536,
+    "energy_kwh": 201540,
     "run_hours": 41656,
     "powered_hours": null,
     "power_ons": 82,
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 93.3,
+      "power_kw": 9.8,
+      "current_a": 18.8,
       "run_hours": 5210.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -67,9 +67,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 98.8,
-      "power_kw": 13.4,
-      "current_a": 22.8,
+      "speed_pct": 93.3,
+      "power_kw": 8.2,
+      "current_a": 16.8,
       "run_hours": 5208.0,
       "starts_today": 0,
       "temp_c": null,
@@ -82,13 +82,13 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 98.8,
-      "power_kw": 15.0,
-      "current_a": 25.2,
-      "run_hours": 5208.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 5210.0,
       "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7831,
+      "raw": 7785,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 173,
+      "raw": 182,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-09-21T21:27:51.469090+00:00",
-      "pa": 8.315,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 7.6,
-      "nr": 2,
-      "pk": 7.6,
-      "sp": [
-        82.3,
-        0.0,
-        0.0,
-        85.8
-      ],
-      "pw": [
-        4.4,
-        0.0,
-        0.0,
-        3.1
-      ],
-      "rh": [
-        5200.0,
-        5198.0,
-        5198.0,
-        1400.0
-      ],
-      "st": [
-        1,
-        0,
-        0,
-        1
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-09-21T21:32:40.206650+00:00",
       "pa": 8.566,
@@ -11677,6 +11637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-09-22T20:21:39.674600+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.815,
+      "fl": 71.6,
+      "nr": 2,
+      "pk": 18.0,
+      "sp": [
+        93.3,
+        93.3,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        9.8,
+        8.2,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5210.0,
+        5208.0,
+        5210.0,
+        1402.0
+      ],
+      "st": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -12043,8 +12043,8 @@
   ],
   "pump_energy_kwh": [
     1564,
-    61490,
-    3672,
+    61492,
+    3674,
     3816
   ],
   "mge_temps": [
