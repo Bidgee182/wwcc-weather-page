@@ -1,16 +1,16 @@
 {
- "updatedAt": "2026-09-22T12:34:41.454800+00:00",
+ "updatedAt": "2026-09-22T14:18:17.658408+00:00",
  "window": "night",
  "alertsActive": [],
- "competition": "Ladies 18 Hole Stableford Womens",
- "compDate": "2026-09-22",
- "playerCount": 50,
+ "competition": "Mens Wednesday Stableford",
+ "compDate": "2026-09-23",
+ "playerCount": 150,
  "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 3,
+  "ntp": 0,
   "ld": 0,
-  "balls": 21
+  "balls": 0
  },
  "checks": [
   {
@@ -35,7 +35,7 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "50 players"
+   "detail": "150 players"
   },
   {
    "key": "accuracy",
@@ -44,23 +44,23 @@
    "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414369",
-   "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "ok",
-   "detail": "3 grades, 82 players, 3 NTP, 0 LD, 21 balls"
-  },
-  {
-   "key": "pdf:10414370",
-   "label": "Results: Ladies 9 Hole Stableford F\u2026",
+   "key": "pdf:10414248",
+   "label": "Results PDF",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Veterans 9 Hole Stableford Front 9",
+   "competition": "Ladies 9 Hole Stableford Front 9 Womens",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Ladies 18 Hole Stableford Womens",
    "status": "success",
-   "summary": "single field, 82 players, 0 NTP, 0 LD, 25 balls",
+   "summary": "3 grades, 82 players, 3 NTP, 0 LD, 21 balls",
    "role": "primary"
   }
  ]
