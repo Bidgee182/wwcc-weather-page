@@ -261,6 +261,10 @@ def main():
     ap.add_argument("--date")
     ap.add_argument("--board")
     ap.add_argument("--apply", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="reprocess even blobs that already have points+pdfStandings "
+                         "(use to REPLACE a wrong/mismatched PDF once the date-gated "
+                         "lookup can fetch the correct one). Only sensible with --board/--date.")
     args = ap.parse_args()
 
     files = sorted(f for f in glob.glob(str(HIST / "*.json")) if "index" not in f)
@@ -277,9 +281,10 @@ def main():
         d = json.load(open(f, encoding="utf-8"))
         ps = d.get("players") or []
         # only touch blobs that look broken: no player has points, or no pdf standings
+        # (--force overrides this so a wrong PDF can be replaced with the correct one)
         p_pos = sum(1 for p in ps if (p.get("points") or 0) > 0)
         has_pdf = bool((d.get("pdfStandings") or {}).get("players"))
-        if ps and (p_pos == 0 or not has_pdf):
+        if ps and (args.force or p_pos == 0 or not has_pdf):
             r = rebuild(f, args.apply)
             if r:
                 results.append(r)

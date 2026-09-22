@@ -35,6 +35,13 @@ Individual comps showing live points but not PDF-verified (upload optional):
 | 2026-09-10 | 2026 PSC Insurance Brokers Pro Am | `2026-09-10-10414357.pdf` |
 | 2026-09-10 | 2026 Brett Bischard Trophy | `2026-09-10-10414358.pdf` |
 
+Comps whose WRONG PDF was cleared (had another comp's prizes attached; correct
+report can't be auto-fetched - upload it to restore ball/grade winners):
+
+| Date | Comp | Save as |
+|------|------|---------|
+| 2026-09-11 | PSC Pro Am Rd 2 (had Rd 1's PDF) | `2026-09-11-10414351.pdf` |
+
 Team comps (4BBB / ambrose) - show live points; uploading preserves the source
 PDF, but the rebuild tool doesn't yet re-score teams from the PDF (individual
 matching only), so the board keeps its live points for now:

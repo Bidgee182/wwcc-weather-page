@@ -723,6 +723,16 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
             report_link  = _ev_tag(ev, "FirstReportLink")
             ev_id        = _ev_tag(ev, "BookingEventId")
 
+            # HARD date gate: the official PDF for a comp on date X must come from an
+            # event dated X. The results API (getResults&date=) returns a whole week
+            # of events, and several days share an identical title (e.g. weekly
+            # "Women's 9 + 18 Hole Stableford"). Without this gate, if today's results
+            # are not published yet, the matcher falls back to LAST week's same-titled
+            # comp and attaches ITS PDF — putting the wrong prize/ball winners on
+            # today's board. Requiring the date to match means we simply wait until
+            # today's results land, rather than ever showing another comp's prizes.
+            if comp_date and (ev_date or "")[:10] != comp_date[:10]:
+                continue
             wwcc_words = _norm_title(title)
             common = our_words & wwcc_words
             if not common:
@@ -732,7 +742,7 @@ def _wwcc_check_results(comp_title: str, comp_date: str | None) -> dict:
             # our comp is "Sunday Medley Stableford" — both share 2 words but the
             # extra "Hole" in the 9-hole event inflates its union, lowering its score)
             union = our_words | wwcc_words
-            score = len(common) / len(union) * 100 + (10 if ev_date == comp_date else 0)
+            score = len(common) / len(union) * 100
             if score > best_score:
                 best_score = score
                 best = {
