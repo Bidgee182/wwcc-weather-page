@@ -318,30 +318,42 @@ def run_checks(live, state, within):
     else:
         row("players", "Field size", "ok", f"{count} players")
 
-    # 4. Accuracy: compare published top-10 against a fresh scrape of MiScore
+    # 4. Accuracy: compare the fresh MiScore scrape against the published board -
+    #    but ONLY for players the published board shows as FINISHED (thru >= holes).
+    #    A finished score is locked, so a disagreement is a real publishing/parse
+    #    error worth flagging. Mid-round players are still scoring, so comparing
+    #    them against a slightly-later re-scrape only flags normal churn (that was
+    #    the old false 'mismatch' alarm - top 10 packed with players thru 8-13).
     if within and started and count > 0 and age_min <= 6 and live.get("leaderboardId"):
         fresh = fresh_board_top10(live["leaderboardId"])
         if fresh:
-            pub = {}
-            for p in (live.get("players") or [])[:15]:
-                pub[_norm(p.get("player"))] = p.get("points")
+            hc = int(live.get("holeCount") or 18)
+            pub_fin = {}   # finished players only: norm name -> points
+            for p in (live.get("players") or []):
+                if (p.get("thru") or 0) >= hc:
+                    pub_fin[_norm(p.get("player"))] = p.get("points")
 
             def _differs(name, pts):
-                if name not in pub:
-                    return True
-                if pts is None or pub[name] is None:
+                if name not in pub_fin:
+                    return False   # not finished on the published board - skip (churn)
+                if pts is None or pub_fin[name] is None:
                     return False   # source didn't carry a score - can't compare
                 try:
-                    return abs(float(pts) - float(pub[name])) > 0.01
+                    return abs(float(pts) - float(pub_fin[name])) > 0.01
                 except (TypeError, ValueError):
                     return False
-            diffs = [n for n, pts in fresh if n and _differs(n, pts)]
+            checked = [n for n, pts in fresh if n and n in pub_fin]
+            diffs   = [n for n, pts in fresh if n and _differs(n, pts)]
             if len(diffs) > MISMATCH_ALLOWED:
                 issues["mismatch"] = (f"Published board disagrees with a fresh MiScore scrape on "
-                                      f"{len(diffs)} of the top 10 (e.g. {diffs[:3]}).")
-                row("accuracy", "Matches MiScore", "warn", f"{len(diffs)}/10 rows differ")
+                                      f"{len(diffs)} FINISHED player(s) in the top 10 (e.g. {diffs[:3]}).")
+                row("accuracy", "Matches MiScore", "warn", f"{len(diffs)} finished row(s) differ")
+            elif checked:
+                row("accuracy", "Matches MiScore", "ok",
+                    f"{len(checked)} finished top-10 row(s) verified")
             else:
-                row("accuracy", "Matches MiScore", "ok", "Top 10 verified against MiScore")
+                row("accuracy", "Matches MiScore", "idle",
+                    "No finished top-10 players to verify yet")
         else:
             row("accuracy", "Matches MiScore", "idle", "MiScore fetch unavailable this check")
     else:
@@ -522,7 +534,10 @@ def main():
     # a time grace instead: only email if STILL unresolved this many minutes after
     # first sighting. The self-heal below still kicks the poll each check meanwhile,
     # so the board recovers silently; a genuine sustained outage persists and alerts.
-    GRACE_MIN = {"nocomp": 30}
+    # 'mismatch' also gets a grace: even after (A) restricts it to finished players,
+    # a one-off blip (a score corrected seconds after we scraped) shouldn't email.
+    # A genuine parse error persists; churn clears within a poll or two.
+    GRACE_MIN = {"nocomp": 30, "mismatch": 25}
     for k, msg in issues.items():
         first_seen.setdefault(k, now_iso)       # start (or keep) this issue's grace clock
         if k in IMMEDIATE and k not in active:
