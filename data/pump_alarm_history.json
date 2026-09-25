@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-25T10:47:36.479790+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-25T09:03:31.763228+00:00",
       "type_code": 3,
       "type_name": "Low-Flow Stop activated",
@@ -1790,15 +1799,6 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-08-10T09:04:29.344904+00:00",
-      "type_code": 3,
-      "type_name": "Power cycle",
-      "code": 0,
-      "description": "System power-on count changed 81 -> 82 (controller was restarted or powered off)",
-      "pump_label": "System",
-      "source_name": "System"
     }
   ]
 }
