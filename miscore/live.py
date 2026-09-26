@@ -2954,7 +2954,10 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     rough = _footy_rough_story(ranked, is_stableford, hole_count, board_date)
     if rough:
         out.append(rough)
-    out += _finals_week_story(ranked, is_stableford, hole_count, board_date)   # this-week-only footy finals
+    # Weekly footy pack (auto-refreshed Mondays from real AFL/NRL results). Falls
+    # back to the team-agnostic finals lines only while that legacy window is live.
+    _fw = _footy_week_story(ranked, is_stableford, hole_count, board_date)
+    out += _fw if _fw else _finals_week_story(ranked, is_stableford, hole_count, board_date)
     out += _movie_story(ranked, is_stableford, hole_count, board_date)         # golf-movie one-liners
     cd = _career_day_story(ranked, is_stableford, hole_count, board_date)
     if cd:
@@ -3180,6 +3183,74 @@ def _footy_rough_story(ranked, is_stableford, hole_count, board_date=None):
         return None
     return _mk_story(name, "Footy Form Guide", d, "blue", "🏉", 43,
                      pts, thru, "footy")
+
+
+_FOOTY_CACHE: dict = {"mtime": None, "data": None}
+
+
+def _load_footy_stories() -> dict | None:
+    """Weekly AFL/NRL scoreboard-story pack, refreshed automatically every Monday
+    by the scheduled footy routine (see data/footy_stories.README.md). Content
+    lives in data/footy_stories.json so the poller code stays stable - only the
+    data file changes each week. Cached by mtime. Any failure -> None."""
+    try:
+        p = "data/footy_stories.json"
+        mt = os.path.getmtime(p)
+        if _FOOTY_CACHE["mtime"] != mt:
+            with open(p, encoding="utf-8") as f:
+                _FOOTY_CACHE["data"] = json.load(f)
+            _FOOTY_CACHE["mtime"] = mt
+        return _FOOTY_CACHE["data"]
+    except Exception:
+        return None
+
+
+def _footy_week_story(ranked, is_stableford, hole_count, board_date=None):
+    """Data-driven footy-weekend flavour. Reads data/footy_stories.json (auto-
+    refreshed each Monday from the real AFL or NRL results) and, while today falls in
+    that file's active window, ties a few golfers' rounds to the weekend's footy.
+    Team/result wording comes from the file; anchoring to real golfers + points
+    stays here. Returns [] out of season or when the file is missing/empty, so the
+    footy pack simply does not show - never a crash on the live poll."""
+    if not ranked or not is_stableford or not board_date:
+        return []
+    data = _load_footy_stories()
+    if not data:
+        return []
+    ds = str(board_date)[:10]
+    af, at = data.get("activeFrom"), data.get("activeTo")
+    if not (af and at and str(af)[:10] <= ds <= str(at)[:10]):
+        return []
+    phrases = [t for t in (data.get("phrases") or []) if isinstance(t, str) and "{player}" in t]
+    if not phrases:
+        return []
+    hc = hole_count or 18
+    solo = [p for p in ranked if p.get("player") and " & " not in p["player"]]
+    teed = [p for p in solo if (p.get("thru") or 0) > 0]
+    if not teed:
+        return []
+    by_pts = sorted(teed, key=lambda p: -(p.get("points") or 0))
+    # A few distinct golfers to feature: leader, a mid-field name, the runner-up.
+    targets, seen = [], set()
+    for cand in (by_pts[0],
+                 teed[len(teed) // 2] if len(teed) >= 3 else None,
+                 by_pts[1] if len(by_pts) >= 2 else None):
+        if cand and cand["player"] not in seen:
+            seen.add(cand["player"])
+            targets.append(cand)
+    order = list(range(len(phrases)))
+    random.Random(f"{ds}|footyweek").shuffle(order)     # stable phrase order for the day
+    title = data.get("cardTitle") or "Footy Weekend"
+    out = []
+    for i, p in enumerate(targets):
+        tmpl = phrases[order[i % len(order)]]
+        try:
+            detail = tmpl.format(player=p["player"])
+        except Exception:
+            continue
+        out.append(_mk_story(p["player"], title, detail, "blue", "\U0001F3C9", 44,
+                             p.get("points"), p.get("thru"), "footy"))
+    return out
 
 
 def _finals_week_story(ranked, is_stableford, hole_count, board_date=None):
