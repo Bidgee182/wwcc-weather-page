@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-09-26T10:44:05.035675+00:00",
-  "last_seen": "2026-09-26T10:44:05.035675+00:00",
-  "last_connected": "2026-09-26T10:44:05.035675+00:00",
+  "timestamp": "2026-09-26T10:48:44.156470+00:00",
+  "last_seen": "2026-09-26T10:48:44.156470+00:00",
+  "last_connected": "2026-09-26T10:48:44.156470+00:00",
   "system": {
-    "pressure_actual_bar": 7.749,
-    "pressure_suction_bar": -0.812,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.832,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 146.3,
+    "power_kw": 43.9,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 98.8,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 202562,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 98.8,
+      "power_kw": 14.8,
+      "current_a": 24.4,
       "run_hours": 5234.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -64,14 +64,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 98.8,
+      "power_kw": 13.5,
+      "current_a": 22.6,
       "run_hours": 5232.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 98.8,
+      "power_kw": 15.3,
+      "current_a": 25.4,
       "run_hours": 5234.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7739,
+      "raw": 7808,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 191,
+      "raw": 165,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-09-25T12:03:28.588480+00:00",
-      "pa": 6.11,
-      "ps": 7.8,
-      "pi": -0.844,
-      "fl": 191.1,
-      "nr": 3,
-      "pk": 44.5,
-      "sp": [
-        100.0,
-        100.0,
-        100.0,
-        0.0
-      ],
-      "pw": [
-        14.8,
-        14.4,
-        15.3,
-        0.0
-      ],
-      "rh": [
-        5226.0,
-        5224.0,
-        5226.0,
-        1402.0
-      ],
-      "st": [
-        2,
-        2,
-        3,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-09-25T12:08:08.882896+00:00",
       "pa": 6.362,
@@ -11677,9 +11637,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-09-26T10:48:44.156470+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.832,
+      "fl": 146.3,
+      "nr": 3,
+      "pk": 43.9,
+      "sp": [
+        98.8,
+        98.8,
+        98.8,
+        0.0
+      ],
+      "pw": [
+        14.8,
+        13.5,
+        15.3,
+        0.0
+      ],
+      "rh": [
+        5234.0,
+        5232.0,
+        5234.0,
+        1402.0
+      ],
+      "st": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-09-26T10:48:44.156470+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-09-25T21:57:54.286200+00:00",
       "type_code": 3,
@@ -12028,15 +12037,6 @@
       "type_name": "Low-Flow Stop activated",
       "code": 12,
       "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-09-21T11:28:24.428449+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
       "pump_label": "System",
       "source_name": "SystemFunction"
     }
