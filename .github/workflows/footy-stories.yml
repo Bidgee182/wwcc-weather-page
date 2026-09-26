@@ -1,0 +1,73 @@
+name: Weekly footy stories
+
+on:
+  schedule:
+    # Monday 7am Sydney year-round (dual cron handles DST; a guard drops the
+    # off-hour fire). 21:00 UTC Sun = 7am AEST Mon; 20:00 UTC Sun = 7am AEDT Mon.
+    - cron: '0 21 * * 0'
+    - cron: '0 20 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  footy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Guard - only the 7am Sydney fire (skip the other DST cron)
+        if: github.event_name == 'schedule'
+        run: |
+          echo "Sydney now: $(TZ=Australia/Sydney date)"
+          H=$(TZ=Australia/Sydney date +%H)
+          D=$(TZ=Australia/Sydney date +%u)
+          if [ "$D" != "1" ] || [ "$H" != "07" ]; then
+            echo "Not Monday 07:xx Sydney - the other DST cron covers it. Skipping."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python
+        if: env.SKIP != '1'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Anthropic SDK
+        if: env.SKIP != '1'
+        run: pip install --quiet anthropic
+
+      - name: Refresh footy stories from the weekend results
+        if: env.SKIP != '1'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional: set repo variable FOOTY_MODEL to claude-sonnet-5 to cut cost.
+          FOOTY_MODEL: ${{ vars.FOOTY_MODEL }}
+        run: python scripts/footy_stories_update.py
+
+      - name: Self-test the pack
+        if: env.SKIP != '1'
+        run: |
+          python -c "import json; d=json.load(open('data/footy_stories.json')); assert 'activeFrom' in d and 'activeTo' in d and isinstance(d.get('phrases'), list); print('pack ok:', len(d['phrases']), 'phrases,', d['activeFrom'], 'to', d['activeTo'])"
+          python -c "import sys, json; sys.path.insert(0,'.'); from miscore.live import _footy_week_story; d=json.load(open('data/footy_stories.json')); r=[{'player':'Sample One','points':40,'thru':18},{'player':'Sample Two','points':38,'thru':18},{'player':'Sample Three','points':36,'thru':18}]; print('render:', _footy_week_story(r, True, 18, d['activeFrom']))"
+
+      - name: Commit and push
+        if: env.SKIP != '1'
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/footy_stories.json
+          if git diff --staged --quiet; then
+            echo "No change to footy stories"
+          else
+            git commit -m "Footy stories: weekly auto-refresh $(TZ=Australia/Sydney date +%F)"
+            for i in 1 2 3 4 5; do
+              if git pull --rebase -X theirs origin main && git push; then break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 3
+            done
+          fi
