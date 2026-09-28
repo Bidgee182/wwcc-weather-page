@@ -53,8 +53,9 @@
     }
   ],
   "evaporation": {
-    "_note": "BOM Class A pan evaporation long-term monthly means for Wagga Wagga Airport (stn 072150), converted to mm/day. Update if BOM releases revised normals.",
+    "_note": "BOM Class A pan evaporation long-term monthly means for Wagga Wagga Airport (stn 072150), converted to mm/day. Update if BOM releases revised normals. et_open_water_factor converts the Lake Albert station's measured reference ET to open-water lake evaporation (water evaporates a little more than reference turf); self-tuned over time against the lake-level actual - see evap_variance_log.json.",
     "pan_factor": 0.7,
+    "et_open_water_factor": 1.1,
     "monthly_pan_mm_day": {
       "1": 8.97,
       "2": 7.79,

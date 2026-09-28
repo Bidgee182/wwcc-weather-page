@@ -29,6 +29,7 @@ _ROOT     = Path(__file__).parent.parent
 _DATA_DIR = _ROOT / 'data'
 sys.path.insert(0, str(Path(__file__).parent))
 import lake_utils as lu
+import pump_meter as pmeter
 
 # ── logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -81,14 +82,16 @@ def _get_last_week_projection():
     return None
 
 
-def _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m):
-    """Compare BOM-predicted weekly lake losses against the lake level sensor.
+def _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m, now_syd=None):
+    """Compare estimated vs ACTUAL weekly lake evaporation using the level sensor.
 
-    Ground truth: over 7 days, actual net losses (evaporation + seepage - any
-    catchment inflow) = rain that fell on the lake minus the measured level
-    change. Uses 24 h averaging windows at each end to smooth sensor noise;
-    returns None whenever the data is too thin or the numbers look like a
-    sensor glitch rather than weather.
+    Over 7 days, actual net loss = rain on the lake minus the measured level
+    change. Subtract the metered pumping (source of truth: the physical pump
+    meter, via pump_meter.py; NOT the Grundfos telemetry estimate) to isolate
+    actual evaporation (+ any seepage - catchment inflow). When no meter reading
+    covers the window, falls back to the config pumping estimate and flags it.
+    24 h averaging smooths sensor noise; returns None when the data is thin or
+    the numbers look like a sensor glitch rather than weather.
     """
     try:
         readings = json.loads((_DATA_DIR / 'farmbot_lake_readings.json').read_text())
@@ -119,14 +122,31 @@ def _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m):
         if area <= 0:
             return None
 
-        pump_ml_day  = (float(irrig_kl.get(str(month), 0)) / 1000.0
-                        if month in active_m else 0.0)
-        pump_mm_wk   = pump_ml_day * 7 * 1_000_000.0 / area
-        predicted_mm = pan * pf * 7 + pump_mm_wk
+        # Pumping over the SAME 7 days - metered (truth) when a reading covers
+        # the window, else the seasonal config estimate.
+        pump_source = 'estimate'
+        pump_ml = None
+        if now_syd is not None:
+            wk_end   = now_syd.date()
+            wk_start = wk_end - timedelta(days=7)
+            try:
+                if pmeter.has_reading_covering(wk_start, wk_end):
+                    pump_ml = pmeter.pumping_ml_between(wk_start, wk_end)
+                    pump_source = 'metered'
+            except Exception:
+                pump_ml = None
+        if pump_ml is None:
+            pump_ml = (float(irrig_kl.get(str(month), 0)) / 1000.0 * 7
+                       if month in active_m else 0.0)
+        pump_mm      = pump_ml * 1_000_000.0 / area
+        est_evap_mm  = pan * pf * 7                    # evaporation estimate (BOM)
+        predicted_mm = est_evap_mm + pump_mm          # predicted net loss (evap + pumping)
 
         drop_mm     = (ahd_then - ahd_now) * 1000.0   # positive = lake fell
-        actual_mm   = rain_7 + drop_mm                # net losses actually seen
+        actual_mm   = rain_7 + drop_mm                # net loss actually seen
+        actual_evap_mm = actual_mm - pump_mm          # actual evaporation (pumping removed)
         variance_mm = actual_mm - predicted_mm
+        evap_diff_mm = actual_evap_mm - est_evap_mm   # +ve = harsher week than estimate
 
         # A wildly implausible number is a sensor glitch, not weather
         if predicted_mm <= 0 or abs(variance_mm) > 50:
@@ -148,10 +168,33 @@ def _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m):
             'variance_pct': variance_mm / predicted_mm * 100.0,
             'days_shift': days_shift, 'drop_mm': drop_mm,
             'ahd_then': ahd_then, 'ahd_now': ahd_now,
+            # Evaporation estimate vs actual (pumping removed) - the good/bad-week read
+            'est_evap_mm': est_evap_mm, 'actual_evap_mm': actual_evap_mm,
+            'evap_diff_mm': evap_diff_mm,
+            'evap_diff_pct': (evap_diff_mm / est_evap_mm * 100.0) if est_evap_mm > 0 else 0.0,
+            'pump_mm': pump_mm, 'pump_ml': pump_ml, 'pump_source': pump_source,
         }
     except Exception as e:  # noqa: BLE001 - the email must never die over this
         log.warning('sensor evap check unavailable: %s', e)
         return None
+
+
+def _pump_scale_for(month, as_of):
+    """Scale factor to apply to the config pumping estimate in the forward
+    projection, so the cease-to-pump outlook and cost track ACTUAL metered draw.
+
+    = recent metered ML/day  /  config estimate ML/day for this month.
+    Returns 1.0 (no change) when there is no metered data or the config estimate
+    is zero; clamped to [0.3, 3.0] so one odd reading can't wreck the projection.
+    """
+    try:
+        recent = pmeter.recent_daily_ml(as_of)
+        cfg_kl = float(lu.get_config()['town_water']['daily_kl_by_month'].get(str(month), 0))
+        if recent is not None and cfg_kl > 0:
+            return max(0.3, min(3.0, recent / (cfg_kl / 1000.0)))
+    except Exception:
+        pass
+    return 1.0
 
 
 def _build_daily_lake_rows(wx_7):
@@ -168,6 +211,7 @@ def _build_daily_lake_rows(wx_7):
         return None
     cfg = lu.get_config()['evaporation']
     pf  = cfg['pan_factor']
+    owf = float(cfg.get('et_open_water_factor', 1.1))   # measured ET -> open-water evap
     firsts, lasts = {}, {}
     for r in readings:
         if r.get('manual'):
@@ -189,12 +233,18 @@ def _build_daily_lake_rows(wx_7):
         start = firsts.get(d)
         end   = firsts.get(nxt) or lasts.get(d)
         pan   = float(cfg['monthly_pan_mm_day'][str(int(d[5:7]))])
+        et    = w.get('et_mm')
+        try:
+            et = float(et) if et not in (None, '') else None
+        except (TypeError, ValueError):
+            et = None
         rows.append({
             'date':  d,
             'start': start[1] if start else None,
             'end':   end[1] if end else None,
             'rain':  float(w.get('rain_mm') or 0),
-            'evap':  pan * pf,
+            'evap':  pan * pf,                         # BOM seasonal-average evaporation
+            'evap_wx': (et * owf) if et is not None else None,  # measured-weather evaporation
             'chg':   (end[1] - start[1]) * 1000.0 if (start and end) else None,
         })
     return rows
@@ -523,8 +573,9 @@ def build_html(now_syd):
     lv_bg    = level['color_bg']
     lv_txt   = level['color_text']
 
+    _pump_scale = _pump_scale_for(month, now_syd.date())
     nxt     = lu.next_zone_below(ahd)
-    days, _ = lu.days_to_next_zone(ahd, now_syd.date())
+    days, _ = lu.days_to_next_zone(ahd, now_syd.date(), _pump_scale)
 
     week_change = None  # computed below from the daily table rows, so the
     # trend arrow, the chart and the table all describe the same 7 days
@@ -593,8 +644,8 @@ def build_html(now_syd):
         trend_str = ''
 
     # ── Cease-to-pump projection ───────────────────────────────────────────────
-    cease_date    = lu.project_to_cease(ahd, now_syd.date())
-    cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
+    cease_date    = lu.project_to_cease(ahd, now_syd.date(), _pump_scale)
+    cost_to_march = lu.town_water_cost_projection(cease_date, pump_scale=_pump_scale) if cease_date else None
     last_proj     = _get_last_week_projection()
 
     # Rainfall savings (two-component method - see town-water-cost-report.html)
@@ -630,7 +681,7 @@ def build_html(now_syd):
             rainfall_savings = rain_days_saved * bm_tw_day
 
     # ── Predicted vs actual lake losses (sensor check, past 7 days) ────────────
-    evap_check = _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m)
+    evap_check = _sensor_evap_check(ahd, rain_7, month, cease_date, irrig_kl, active_m, now_syd)
 
     # Weekly predicted-vs-actual log: the evidence base for recalibrating
     # pan_factor once a consistent bias shows up (needs 8-12 weeks of data)
@@ -652,6 +703,14 @@ def build_html(now_syd):
                 'ahd_start':    round(evap_check['ahd_then'], 3),
                 'ahd_end':      round(evap_check['ahd_now'], 3),
                 'pan_factor':   lu.get_config()['evaporation']['pan_factor'],
+                # evaporation estimate vs actual + the pumping basis (for tuning
+                # et_open_water_factor and pan_factor once enough weeks accrue)
+                'est_evap_mm':    round(evap_check['est_evap_mm'], 2),
+                'actual_evap_mm': round(evap_check['actual_evap_mm'], 2),
+                'evap_diff_mm':   round(evap_check['evap_diff_mm'], 2),
+                'pump_ml':        round(evap_check['pump_ml'], 3),
+                'pump_source':    evap_check['pump_source'],
+                'et_factor':      lu.get_config()['evaporation'].get('et_open_water_factor', 1.1),
             })
             _vlog_p.write_text(json.dumps(_vlog[-208:], indent=2))
         except Exception as e:
@@ -904,29 +963,49 @@ def build_html(now_syd):
                              f"{abs(_ec['actual_mm']):.1f}&nbsp;mm - catchment inflows exceeded all losses")
                 _shift_txt = ''
                 if _ec['days_shift'] is not None and abs(_ec['days_shift']) >= 0.1:
-                    _shift_txt = (f" This alone moved the projected cease date about "
+                    _shift_txt = (f" That moved the projected cease date about "
                                   f"<strong>{abs(_ec['days_shift']):.1f}&nbsp;days "
                                   f"{'later' if _ec['days_shift'] > 0 else 'earlier'}</strong>.")
+                # Estimate vs actual EVAPORATION (pumping removed) - the good/bad-week read
+                _good      = _ec['evap_diff_mm'] < 0
+                _week_word = 'a good week' if _good else 'a tougher week'
+                _diff_dir  = 'below' if _good else 'above'
+                _bg_hdr    = '#dcfce7' if _good else '#fee2e2'
+                _bd_hdr    = '#86efac' if _good else '#fca5a5'
+                _bg_body   = '#f0fdf4' if _good else '#fff5f5'
+                _txt_hdr   = '#166534' if _good else '#991b1b'
+                if _ec.get('pump_source') == 'metered':
+                    _pump_note = f"your metered pumping of {_ec['pump_ml']:.2f}&nbsp;ML was removed"
+                else:
+                    _pump_note = (f"an estimated {_ec['pump_ml']:.2f}&nbsp;ML of pumping was removed - "
+                                  f"enter this week's pump-meter reading to make this exact")
                 _sensor_row = f"""
             <tr>
-              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
-                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+              <td colspan="2" bgcolor="{_bg_hdr}" style="background-color:{_bg_hdr};
+                  padding:6px 16px;border-bottom:1px solid {_bd_hdr};">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
-                  Sensor Check - Predicted vs Actual
+                    color:{_txt_hdr};text-transform:uppercase;letter-spacing:0.5px;">
+                  This Week: Estimated vs Actual Evaporation
                 </p>
               </td>
             </tr>
             <tr>
-              <td colspan="2" style="background:#fff5f5;padding:10px 16px;
-                  border-bottom:1px solid #fca5a5;">
-                <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
+              <td colspan="2" style="background:{_bg_body};padding:10px 16px;
+                  border-bottom:1px solid {_bd_hdr};">
+                <p style="margin:0 0 6px 0;font-family:Arial,sans-serif;font-size:13px;
                     color:#1b2631;line-height:1.7;">
-                  BOM averages predicted <strong>{_ec['predicted_mm']:.1f}&nbsp;mm</strong> of lake losses
-                  over the rolling 7 days to this morning; after counting {rain_7:.1f}&nbsp;mm of rain, {_meas}.{_shift_txt}
-                  (Endpoints use 24&nbsp;h smoothing windows, so they differ slightly from the daily table.)
-                  The projection keeps using long-term BOM averages (stable planning basis) and restarts
-                  from the measured lake level each Monday, so real weather corrects it automatically.
+                  <strong>Estimated evaporation {_ec['est_evap_mm']:.1f}&nbsp;mm &nbsp;&middot;&nbsp;
+                  Actual {_ec['actual_evap_mm']:.1f}&nbsp;mm &nbsp;&middot;&nbsp;
+                  {'-' if _good else '+'}{abs(_ec['evap_diff_mm']):.1f}&nbsp;mm
+                  ({abs(_ec['evap_diff_pct']):.0f}% {_diff_dir} estimate) - {_week_word}.</strong>{_shift_txt}
+                </p>
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
+                    color:#475569;line-height:1.6;">
+                  Actual is from the lake sensor over the 7 days to this morning
+                  ({rain_7:.1f}&nbsp;mm rain counted, {_pump_note}); it also carries any seepage and
+                  catchment inflow. Endpoints use 24&nbsp;h smoothing, so they differ slightly from the
+                  daily table. The cease-to-pump projection still runs on stable BOM averages and restarts
+                  from the measured level each week, so real weather corrects it automatically.
                 </p>
               </td>
             </tr>"""
@@ -1273,6 +1352,7 @@ def build_html(now_syd):
     <td style="{_td}text-align:right;">{_f3(_r['end'])}</td>
     <td style="{_td}text-align:right;">{_r['rain']:.1f}</td>
     <td style="{_td}text-align:right;">{_r['evap']:.1f}</td>
+    <td style="{_td}text-align:right;">{(f"{_r['evap_wx']:.1f}" if _r.get('evap_wx') is not None else '-')}</td>
     <td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;
         text-align:right;">{_chg_html}</td>
   </tr>"""
@@ -1283,7 +1363,7 @@ def build_html(now_syd):
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
   <tr>
-    <td colspan="6" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+    <td colspan="7" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
         border-top:1px solid #cbd5e1;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
           color:#475569;letter-spacing:0.5px;text-transform:uppercase;">Daily Lake Movement - Past 7 Days</p>
@@ -1295,15 +1375,18 @@ def build_html(now_syd):
     <th style="{_dl_th}text-align:right;">End (m&nbsp;AHD)</th>
     <th style="{_dl_th}text-align:right;">Rain (mm)</th>
     <th style="{_dl_th}text-align:right;">Est. Evap (mm)</th>
+    <th style="{_dl_th}text-align:right;">Evap - Station (mm)</th>
     <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Change</th>
   </tr>{_dl_cells}
   <tr>
-    <td colspan="6" style="padding:6px 16px;background:#f8fafc;">
+    <td colspan="7" style="padding:6px 16px;background:#f8fafc;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#64748b;line-height:1.5;">
         Start and end levels come from the lake sensor (first reading of the day to first reading
-        of the next). Est. Evap is the BOM seasonal average; Change is what the sensor actually
-        measured, which also includes seepage and catchment inflows.
+        of the next). Est. Evap is the BOM seasonal average that drives the cease-to-pump estimate;
+        Evap - Station is calculated from the Lake Albert weather station's measured conditions
+        (evaporation, not turf ET). Change is what the sensor actually measured, which also includes
+        pumping, seepage and catchment inflows.
       </p>
     </td>
   </tr>
@@ -1884,10 +1967,11 @@ def build_monthly_html(now_syd):
     rain_vs_avg = (rain_month - rain_avg) if rain_avg is not None else None
 
     # ── Outlook ────────────────────────────────────────────────────────────────
-    cease_date    = lu.project_to_cease(ahd, today)
-    cost_to_march = lu.town_water_cost_projection(cease_date) if cease_date else None
+    _pump_scale   = _pump_scale_for(month_num, today)
+    cease_date    = lu.project_to_cease(ahd, today, _pump_scale)
+    cost_to_march = lu.town_water_cost_projection(cease_date, pump_scale=_pump_scale) if cease_date else None
     days_to_cease = (cease_date - today).days if cease_date else None
-    days_nxt, nxt_zone = lu.days_to_next_zone(ahd, today)
+    days_nxt, nxt_zone = lu.days_to_next_zone(ahd, today, _pump_scale)
 
     # ── Zone change log for this month ────────────────────────────────────────
     zone_events = []

@@ -201,7 +201,7 @@ def evap_ml_day(ahd, month):
 
 # ── Projection ────────────────────────────────────────────────────────────────
 
-def days_to_next_zone(ahd, start_date):
+def days_to_next_zone(ahd, start_date, pump_scale=1.0):
     """Estimated days until lake drops to the next lower zone threshold.
 
     Uses the SAME day-by-day no-rain simulation as project_to_cease (monthly
@@ -223,7 +223,7 @@ def days_to_next_zone(ahd, start_date):
     if ahd <= threshold:
         return 0, nxt
 
-    cross_date = project_to_level(ahd, threshold, start_date)
+    cross_date = project_to_level(ahd, threshold, start_date, pump_scale)
     if cross_date is None:
         return float('inf'), nxt
 
@@ -232,13 +232,16 @@ def days_to_next_zone(ahd, start_date):
 
 # ── Cease-to-pump projection ───────────────────────────────────────────────────
 
-def project_to_level(ahd, target_ahd, start_date):
+def project_to_level(ahd, target_ahd, start_date, pump_scale=1.0):
     """Day-by-day simulation: date AHD drops to target_ahd.
 
     No future rainfall assumed. Each day deducts:
       - Lake surface evaporation: BOM pan × pan_factor × lake_area (ML)
       - Irrigation pumping (ML): from daily_kl_by_month in lake_config.json,
-        only in active_months (no irrigation Jun/Jul/Aug).
+        only in active_months (no irrigation Jun/Jul/Aug), multiplied by
+        pump_scale. pump_scale=1.0 (default) uses the config estimate unchanged;
+        the board email passes a scale derived from actual metered pumping so the
+        outlook tracks how much water is really being drawn this season.
 
     Shared by project_to_cease and days_to_next_zone so every outlook figure
     uses identical assumptions.
@@ -269,8 +272,10 @@ def project_to_level(ahd, target_ahd, start_date):
         # BOM open-water evaporation (ML/day)
         evap_ml  = float(pan_rates[str(m)]) * pf * area / 1_000_000
 
-        # Irrigation pumped from lake (ML/day) - zero in off-season months
-        irrig_ml = float(irrig_kl.get(str(m), 0)) / 1000.0 if m in active_m else 0.0
+        # Irrigation pumped from lake (ML/day) - zero in off-season months,
+        # scaled to actual metered draw when pump_scale is supplied
+        irrig_ml = (float(irrig_kl.get(str(m), 0)) / 1000.0 * pump_scale
+                    if m in active_m else 0.0)
 
         # AHD drop: volume_m3 = ML × 1000; depth = volume_m3 / area_m2
         cur_ahd  -= (evap_ml + irrig_ml) * 1000.0 / area
@@ -282,7 +287,7 @@ def project_to_level(ahd, target_ahd, start_date):
     return None
 
 
-def project_to_cease(ahd, start_date):
+def project_to_cease(ahd, start_date, pump_scale=1.0):
     """Date AHD hits the cease-to-pump threshold (see project_to_level).
 
     The cease threshold is derived from the lowest numeric min_ahd in
@@ -294,10 +299,10 @@ def project_to_cease(ahd, start_date):
     """
     cfg       = get_config()
     cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds'] if z['min_ahd'] is not None)
-    return project_to_level(ahd, cease_ahd, start_date)
+    return project_to_level(ahd, cease_ahd, start_date, pump_scale)
 
 
-def town_water_cost_projection(cease_date, end_date=None):
+def town_water_cost_projection(cease_date, end_date=None, pump_scale=1.0):
     """Estimated town water cost from cease_date to end_date.
 
     Counts only days in active irrigation months (daily_kl_by_month from
@@ -328,7 +333,7 @@ def town_water_cost_projection(cease_date, end_date=None):
     cur   = cease_date
     while cur <= end_date:
         if cur.month in active_m:
-            total += float(irrig_kl.get(str(cur.month), 0)) * cost_kl
+            total += float(irrig_kl.get(str(cur.month), 0)) * cost_kl * pump_scale
         cur += timedelta(days=1)
 
     return total
