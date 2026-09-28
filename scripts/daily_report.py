@@ -3499,6 +3499,86 @@ def build_meter_reading_html(now_sydney):
     return html, subject
 
 
+def build_weekly_meter_reminder_html(now_sydney):
+    """Build the WEEKLY (Monday) pump-meter reading reminder for the manager.
+
+    Prompts a read of the extraction meter so the Board water report's actual
+    evaporation and cease-to-pump figures are accurate. GK style, modelled on the
+    monthly WaterNSW reminder but routine (not urgent), and it points at the admin
+    dashboard where the reading is entered.
+    """
+    today      = now_sydney.date()
+    date_str   = _fmt_d(today, '%-d %B %Y')
+    admin_url  = 'https://bidgee182.github.io/wwcc-weather-page/admin.html'
+
+    lake_data = _load_lake_data()
+    if lake_data and lake_data['latest'].get('lake_ahd'):
+        ahd = float(lake_data['latest']['lake_ahd'])
+        _, _, rate, _, _, _, _ = _lake_level_info(ahd)
+        pump_rate_line = (f'The current permitted pumping rate is <strong>{rate}</strong> '
+                          f'at the current lake level of <strong>{ahd:.3f}m AHD</strong>.')
+    else:
+        pump_rate_line = 'Please refer to the licence conditions for the current permitted pumping rate.'
+
+    body_rows = _gk_alert_banner('WEEKLY PUMP METER READING - MONDAY', '#1a4a2e')
+    body_rows += f"""<tr><td style="background:white;padding:20px 24px 16px;">
+  <p style="margin:0 0 12px 0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    Good morning. It is time for this week's pump meter reading. Please read the extraction
+    meter this morning, photograph it for the record, and enter the reading in the admin
+    dashboard so this week's Board water report shows the <strong>actual</strong> water used
+    and an accurate cease-to-pump outlook.
+  </p>
+  <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    {pump_rate_line}
+  </p>
+</td></tr>"""
+
+    body_rows += f"""
+  {sec_header('1', 'What to Do This Morning')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Date',            date_str),
+        ('Read the meter',  'Record the total cumulative reading shown on the meter display'),
+        ('Photograph it',   'Take a photo of the meter face for the logbook'),
+        ('Enter it online', f'<a href="{admin_url}" style="color:#1a4a2e;font-weight:bold;">Admin dashboard</a> &rarr; Pumps &rarr; Pump Meter Reading'),
+        ('Meter serial number', '210323056'),
+    ])}
+  </td></tr>
+
+  {sec_header('2', 'How to Enter the Reading')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('1. Open',   f'<a href="{admin_url}" style="color:#1a4a2e;font-weight:bold;">{admin_url}</a>'),
+        ('2. Go to',  'Pumps tab &rarr; "Pump Meter Reading" card'),
+        ('3. Enter',  'Today\'s date, the meter reading, and the units (kL or ML)'),
+        ('4. Save',   'Click "Add Reading" - the Board report picks it up automatically'),
+    ])}
+  </td></tr>
+
+  {sec_header('3', 'Current Pump Rate Limits')}
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    {_gk_data_table(
+        ['Lake Level (AHD)', 'Maximum Pump Rate'],
+        [
+            ('Below 189.65m AHD',           'CEASE TO PUMP - do not extract'),
+            ('189.65m to 189.85m AHD',      '0.50 ML/day'),
+            ('189.85m to 190.05m AHD',      '0.75 ML/day'),
+            ('190.05m to 190.25m AHD',      '1.00 ML/day'),
+            ('Above 190.25m AHD (to full)', '1.50 ML/day'),
+        ]
+    )}
+  </td></tr>"""
+
+    subject = f'Weekly Pump Meter Reading - Monday {date_str}'
+    html    = _gk_meter_wrap(
+        'Weekly Pump Meter Reading',
+        f'Monday {date_str} - please read and enter the meter',
+        body_rows,
+        now_sydney,
+    )
+    return html, subject
+
+
 def build_meter_submission_html(now_sydney):
     """Build the 13th-of-month WaterNSW submission reminder email (GK style)."""
     today            = now_sydney.date()
@@ -4201,6 +4281,19 @@ if __name__ == '__main__':
         send_email(subject, daily_html, EMAIL_RECIPIENTS_GK_ONLY)
         log.info('Done.')
 
+    elif '--weekly-meter-reminder' in args:
+        # Weekly (Monday) pump-meter reading reminder. Real send goes To the club
+        # manager, CC Andrew; --test sends [TEST] to Andrew only.
+        now_sydney = datetime.now(tz=TZ)
+        html, subj = build_weekly_meter_reminder_html(now_sydney)
+        if '--test' in args:
+            send_email(f'[TEST] {subj}', html, ['andrew@bidgeepumps.com.au'])
+            log.info('--weekly-meter-reminder --test: sent to Andrew only.')
+        else:
+            send_email(subj, html,
+                       (['manager@wwcc.com.au'], ['andrew@bidgeepumps.com.au'], []))
+            log.info('--weekly-meter-reminder: sent to manager (CC Andrew).')
+
     elif '--test' in args:
         # Send test email(s) to andrew@bidgeepumps.com.au with [TEST] subject prefix.
         # Usage:
@@ -4216,7 +4309,8 @@ if __name__ == '__main__':
         test_addr   = ['andrew@bidgeepumps.com.au']
         idx         = args.index('--test')
         which       = args[idx + 1] if idx + 1 < len(args) and not args[idx + 1].startswith('--') else 'all'
-        valid = ('daily', 'weekly', 'monthly', 'annual', 'meter_reading', 'meter_submission', 'all')
+        valid = ('daily', 'weekly', 'monthly', 'annual', 'meter_reading',
+                 'meter_submission', 'weekly_meter', 'all')
         if which not in valid:
             log.error(f'Unknown test report "{which}". Choose from: {", ".join(valid)}')
             sys.exit(1)
@@ -4259,6 +4353,10 @@ if __name__ == '__main__':
 
         if which in ('meter_submission', 'all'):
             html, subj = build_meter_submission_html(now_sydney)
+            _test_send(html, subj)
+
+        if which in ('weekly_meter', 'all'):
+            html, subj = build_weekly_meter_reminder_html(now_sydney)
             _test_send(html, subj)
 
         log.info('Done.')

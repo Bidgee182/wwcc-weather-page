@@ -291,6 +291,11 @@
             <button onclick="wfTrigger('pump-daily-email.yml', { test: 'true' }, 'pump weekly test email')">Send Test (to Andrew)</button>
             <button onclick="wfTrigger('pump-daily-email.yml', { force: 'true' }, 'pump weekly resend (full list)', 'This re-sends the weekly summary to the FULL pump station recipients list. Continue?')">Resend (full list)</button>
         </div>
+        <div class="flexrow">
+            <span style="font-size:.88em;color:#ecf0f1;align-self:center;">Weekly pump meter reminder (Mon 8am -&gt; manager, CC Andrew)</span>
+            <button onclick="wfTrigger('weekly-meter-reminder.yml', { test: 'true' }, 'weekly meter reminder test email')">Send Test (to Andrew)</button>
+            <button onclick="wfTrigger('weekly-meter-reminder.yml', {}, 'weekly meter reminder SEND now (manager + Andrew)', 'This sends the weekly meter reminder to the manager (CC Andrew) NOW. Continue?')">Send Now (manager)</button>
+        </div>
         <div class="status" id="wf-trigger-status"></div>
         <p class="note">Dry runs build the email HTML without sending anything - the preview appears
         in the list below a minute or two after the run finishes. Tests send a real email to Andrew

@@ -1,0 +1,62 @@
+name: Weekly Meter Reminder
+
+on:
+  schedule:
+    # Monday 8:00 AM Sydney year-round (dual DST cron; a Sydney-time guard drops
+    # the off-hour twin so it always lands at 08:00 local).
+    - cron: '0 22 * * 0'   # Mon 8am AEST (Sun 22:00 UTC)
+    - cron: '0 21 * * 0'   # Mon 8am AEDT (Sun 21:00 UTC)
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Send [TEST] to Andrew only (does not go to the manager)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Guard - only the 8am Sydney fire (skip the other DST cron)
+        if: github.event_name == 'schedule'
+        run: |
+          echo "Sydney now: $(TZ=Australia/Sydney date)"
+          H=$(TZ=Australia/Sydney date +%H)
+          D=$(TZ=Australia/Sydney date +%u)
+          if [ "$D" != "1" ] || [ "$H" != "08" ]; then
+            echo "Not Monday 08:xx Sydney - the other DST cron covers it. Skipping."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python 3.11
+        if: env.SKIP != '1'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        if: env.SKIP != '1'
+        run: pip install -r scripts/requirements.txt
+
+      - name: Send weekly pump meter reminder
+        if: env.SKIP != '1'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          ARGS="--weekly-meter-reminder"
+          if [ "${{ github.event.inputs.test }}" = "true" ]; then ARGS="$ARGS --test"; fi
+          echo "Running daily_report.py$ARGS"
+          python scripts/daily_report.py $ARGS
