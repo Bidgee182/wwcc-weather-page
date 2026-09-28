@@ -2,15 +2,17 @@ name: Board Lake Update Email
 
 on:
   schedule:
-    # Weekly — Monday 7:00 AM AEST (UTC+10): Sunday 21:00 UTC
-    - cron: '0 21 * * 0'
-    # Weekly — Monday 7:00 AM AEDT (UTC+11): Sunday 20:00 UTC
-    - cron: '0 20 * * 0'
-    # Monthly — 1st of month 7:00 PM AEST: 09:00 UTC same day
-    - cron: '0 9 1 * *'
-    # Monthly — 1st of month 7:00 PM AEDT: 08:00 UTC same day
-    - cron: '0 8 1 * *'
-    # Weekly and monthly guards prevent double-sends.
+    # Weekly report is now MANUAL (enter pump meter -> Dry Run -> Send to Board).
+    # Monday 7:00 AM Sydney -> REMINDER to Andrew only (dual DST cron).
+    - cron: '0 21 * * 0'   # Mon 7am AEST (Sun 21:00 UTC)
+    - cron: '0 20 * * 0'   # Mon 7am AEDT (Sun 20:00 UTC)
+    # Wednesday 7:00 AM Sydney -> safety-net auto-send IF not already sent (dual DST).
+    - cron: '0 21 * * 2'   # Wed 7am AEST (Tue 21:00 UTC)
+    - cron: '0 20 * * 2'   # Wed 7am AEDT (Tue 20:00 UTC)
+    # Monthly — 1st of month 7:00 PM Sydney (dual DST).
+    - cron: '0 9 1 * *'    # AEST (09:00 UTC)
+    - cron: '0 8 1 * *'    # AEDT (08:00 UTC)
+    # A Sydney-time guard picks the correct DST cron; sent-guards prevent double-sends.
 
   workflow_dispatch:
     inputs:
@@ -72,30 +74,40 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Check if board email is enabled
+      - name: Decide mode (reminder / weekly / monthly)
         id: cfg
         run: |
           python3 - <<'PY'
           import json, pathlib, os, datetime, zoneinfo
-          p = pathlib.Path("data/email_config.json")
-          cfg = json.loads(p.read_text()) if p.exists() else {}
-          enabled = cfg.get("email_enabled", {})
-          # Determine whether this is a weekly or monthly run (same logic as main script)
-          report_input = "${{ github.event.inputs.report }}"
-          if report_input:
-              is_monthly = report_input == "monthly"
+          ev  = "${{ github.event_name }}"
+          now = datetime.datetime.now(zoneinfo.ZoneInfo("Australia/Sydney"))
+          mode = "skip"
+          if ev == "workflow_dispatch":
+              rep  = "${{ github.event.inputs.report }}" or "weekly"
+              mode = "monthly" if rep == "monthly" else "weekly"
           else:
-              now = datetime.datetime.now(zoneinfo.ZoneInfo("Australia/Sydney"))
-              is_monthly = now.day == 1
-          flag = "board_monthly" if is_monthly else "board_weekly"
-          ok = enabled.get(flag, True)
-          # Manual dispatch always runs regardless of toggle
-          if "${{ github.event_name }}" == "workflow_dispatch":
+              wd, hr, day = now.weekday(), now.hour, now.day   # Mon=0 .. Sun=6
+              if day == 1 and hr == 19:
+                  mode = "monthly"
+              elif wd == 0 and hr == 7:
+                  mode = "reminder"        # Monday morning nudge
+              elif wd == 2 and hr == 7:
+                  mode = "weekly"          # Wednesday safety-net send
+              # any other firing is the off-DST twin of one of the above -> skip
+          # Enabled toggle (manual dispatch always runs)
+          cfg = {}
+          p = pathlib.Path("data/email_config.json")
+          if p.exists():
+              cfg = json.loads(p.read_text())
+          enabled = cfg.get("email_enabled", {})
+          flag = "board_monthly" if mode == "monthly" else "board_weekly"
+          ok = enabled.get(flag, True) if mode in ("weekly", "monthly", "reminder") else False
+          if ev == "workflow_dispatch":
               ok = True
-          val = "true" if ok else "false"
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"ok={val}\n")
-          print(f"{'monthly' if is_monthly else 'weekly'} board email enabled: {val}")
+              f.write(f"mode={mode}\n")
+              f.write(f"ok={'true' if (ok and mode != 'skip') else 'false'}\n")
+          print(f"mode={mode} ok={ok}")
           PY
 
       - name: Run board email
@@ -109,12 +121,10 @@ jobs:
           RECIPIENTS_KEY:   ${{ secrets.RECIPIENTS_KEY }}
         run: |
           ARGS=""
-          # On the 1st of the month (scheduled) or when manually requesting monthly, add --monthly
-          DAY=$(TZ='Australia/Sydney' date +%d)
-          REPORT="${{ github.event.inputs.report }}"
-          if [ "$DAY" = "01" ] || [ "$REPORT" = "monthly" ]; then
-            ARGS="$ARGS --monthly"
-          fi
+          MODE="${{ steps.cfg.outputs.mode }}"
+          if [ "$MODE" = "monthly" ];  then ARGS="$ARGS --monthly";  fi
+          if [ "$MODE" = "reminder" ]; then ARGS="$ARGS --reminder"; fi
+          # Manual-dispatch flags (apply to the weekly/monthly send paths)
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
@@ -124,6 +134,7 @@ jobs:
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             ARGS="$ARGS --force"
           fi
+          echo "Running board_email with:$ARGS"
           python scripts/board_email.py $ARGS
 
       - name: Commit sent guards

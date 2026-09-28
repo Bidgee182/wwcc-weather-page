@@ -2441,9 +2441,38 @@ def main():
     parser.add_argument('--test',    action='store_true', help='Send to andrew@bidgeepumps.com.au only')
     parser.add_argument('--force',   action='store_true', help='Ignore dedup guard and send regardless')
     parser.add_argument('--monthly', action='store_true', help='Send monthly board finance report instead of weekly')
+    parser.add_argument('--reminder', action='store_true',
+                        help='Send Andrew the Monday reminder to enter the pump meter and send the board report')
     args = parser.parse_args()
 
     now_syd = datetime.now(SYDNEY_TZ)
+
+    if args.reminder:
+        # Monday nudge to Andrew only (test_mode = himself), so the weekly report
+        # is a reviewed document with metered pumping in it, not an auto-send.
+        already = _already_sent_this_week(now_syd)
+        subject = 'Board report: enter pump meter + send (this week)'
+        status  = ('Already sent this week - nothing to do.' if already
+                   else 'Not sent yet. If you do not send it, it auto-sends Wednesday.')
+        html = (
+            '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1b2631;line-height:1.7;">'
+            '<p>Good morning - it is board-report day.</p>'
+            '<ol>'
+            '<li>Open the <a href="https://bidgee182.github.io/wwcc-weather-page/admin.html">admin dashboard</a> '
+            '&rarr; Pumps &rarr; <b>Pump Meter Reading</b>, and enter this week\'s cumulative meter reading.</li>'
+            '<li>Under <b>Send Tests &amp; Dry Runs</b>, click <b>Dry Run</b> to preview the report.</li>'
+            '<li>When it looks right, click <b>Send to Board</b>.</li>'
+            '</ol>'
+            f'<p><b>Status:</b> {status}</p>'
+            '<p style="color:#64748b;font-size:12px;">Safety net: if it is not sent by Wednesday morning it will '
+            'auto-send, flagged provisional if no meter reading was entered.</p></div>'
+        )
+        sent = send_email(subject, html, test_mode=True)
+        if not sent:
+            log.error('Reminder email did NOT send - failing the run')
+            sys.exit(1)
+        log.info('Monday board-report reminder sent to Andrew')
+        return
 
     if args.monthly:
         # ── Monthly report ────────────────────────────────────────────────────
