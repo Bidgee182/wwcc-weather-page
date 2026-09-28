@@ -3550,7 +3550,7 @@ def build_weekly_meter_reminder_html(now_sydney):
     {_gk_kv_table([
         ('1. Open',   f'<a href="{admin_url}" style="color:#1a4a2e;font-weight:bold;">{admin_url}</a>'),
         ('2. Go to',  'Pumps tab &rarr; "Pump Meter Reading" card'),
-        ('3. Enter',  'Today\'s date, the meter reading, and the units (kL or ML)'),
+        ('3. Enter',  "Today's date, the meter reading, and the units (kL or ML)"),
         ('4. Save',   'Click "Add Reading" - the Board report picks it up automatically'),
     ])}
   </td></tr>
