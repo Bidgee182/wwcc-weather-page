@@ -1,5 +1,8 @@
 {
-  "_note": "Physical pump-meter cumulative readings (source of truth for lake water extraction). Entered via the admin dashboard. Each interval's delta is spread across irrigation-season days by scripts/pump_meter.py. Telemetry flow is deliberately NOT used (Grundfos estimate only).",
+  "_note": "Physical pump-meter cumulative readings (source of truth for lake water extraction). Entered via the admin dashboard. Each interval's delta is spread across irrigation-season days by scripts/pump_meter.py. Telemetry flow is deliberately NOT used (Grundfos estimate only). Meter units: 1 unit = 1000 L = 1 kL (confirmed 28 Sep 2026 against pump run-hours).",
   "season_start": "2026-09-02",
-  "readings": []
+  "readings": [
+    {"date": "2026-08-03", "value": 499665, "unit": "kL", "note": "baseline (photo of meter 3 Aug 2026, before this season's pumping)"},
+    {"date": "2026-09-28", "value": 511841, "unit": "kL", "note": "baseline reading (verified against pump run-hours)"}
+  ]
 }
