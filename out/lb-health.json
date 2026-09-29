@@ -1,14 +1,14 @@
 {
- "updatedAt": "2026-09-29T08:48:54.961558+00:00",
- "window": "day",
+ "updatedAt": "2026-09-29T14:55:35.988150+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "4 Person Ambrose Stroke",
- "compDate": "2026-09-29",
- "playerCount": 14,
- "pollAgeMin": 0.2,
- "officialResultsReady": true,
+ "competition": null,
+ "compDate": null,
+ "playerCount": null,
+ "pollAgeMin": 0.8,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 3,
+  "ntp": 0,
   "ld": 0,
   "balls": 0
  },
@@ -16,14 +16,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "1 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,26 +35,20 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "14 players"
+   "detail": "0 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
-  },
-  {
-   "key": "pdf:10414381",
-   "label": "Results PDF",
-   "status": "ok",
-   "detail": "1 grades, 20 players, 3 NTP, 0 LD, 0 balls"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   }
  ],
  "yesterday": [
   {
-   "competition": "Veterans 9 Hole Stableford Back 9",
+   "competition": "4 Person Ambrose Stroke",
    "status": "success",
-   "summary": "single field, 76 players, 1 NTP, 0 LD, 24 balls",
+   "summary": "1 grades, 20 players, 3 NTP, 0 LD, 0 balls",
    "role": "primary"
   }
  ]
