@@ -399,6 +399,11 @@
         <h2>Pump Station - Energy &amp; Cost</h2>
         <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:6px;">Electricity to run the lake pumps, and the town-water cost it avoids. Energy is read from the pump's own cumulative meter, so it is captured even if the monitor drops out.</p>
         <div id="pc-headline" style="padding:12px 14px;border-radius:8px;font-size:0.95em;line-height:1.5;margin:8px 0 4px;background:#123a24;color:#a9f0c9;">--</div>
+        <div id="pc-fytd" style="margin-top:10px;padding:12px 16px;border-radius:8px;background:#16212c;border:1px solid #2b3d4d;">
+            <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#7f8c8d;">Electricity cost for the P&amp;L &mdash; financial year to date</div>
+            <div style="font-size:1.9em;font-weight:800;color:#ecf0f1;font-variant-numeric:tabular-nums;margin-top:2px;" id="pc-fytd-val">--</div>
+            <div style="font-size:0.72em;color:#566573;margin-top:2px;" id="pc-fytd-sub">--</div>
+        </div>
         <div class="lk-range-row" style="margin-top:14px;">
             <span style="font-size:0.8em;color:#7f8c8d;align-self:center;margin-right:4px;">Period:</span>
             <button class="lk-range-btn active" id="pcp-week"   onclick="setPumpCostPeriod('week')">This Week</button>
@@ -1636,6 +1641,14 @@ function _pcRender(){
     const s=pc.season;
     document.getElementById('pc-headline').innerHTML=
         `This season the pumps have used <strong>${rnd(s.kwh)} kWh</strong> (<strong>$${rnd(s.cost)}</strong> of electricity) to move <strong>${(s.ml||0).toFixed(1)} ML</strong> from the lake - avoiding about <strong>$${rnd(s.townWaterEquiv)}</strong> of town water, a <strong>net saving of $${rnd(s.netSaving)}</strong>.`;
+    // P&L total: financial year to date, ex-GST headline (incl-GST in brackets)
+    const fy=pc.financialYtd;
+    if(fy){
+        const exg=n=>'$'+Math.round(n||0).toLocaleString();
+        document.getElementById('pc-fytd-val').textContent=`${exg(fy.costExGst)} ex GST`;
+        document.getElementById('pc-fytd-sub').innerHTML=
+            `FY ${pc.fyLabel} (1 Jul${pc.dataFrom?`; captured from ${pc.dataFrom}`:''} to ${pc.asOf}) &middot; ${exg(fy.cost)} incl GST &middot; ${rnd(fy.kwh)} kWh &middot; pump energy only (excludes site demand/supply charges).`;
+    }
     document.getElementById('pc-foot').textContent=
         `As of ${pc.asOf}. Tariff: peak ${pc.tariff.peak}c / shoulder ${pc.tariff.shoulder}c / off-peak ${pc.tariff.off}c per kWh. ${pc.note||''}`;
 }

@@ -132,15 +132,21 @@ def compute_day(d, prev, rates, ml_by_date):
 def rollup(records, start_d, end_d, cost_per_kl):
     sel = [r for r in records if start_d.isoformat() <= r["date"] <= end_d.isoformat()]
     kwh = sum(r["kwh"] for r in sel)
-    cost = sum(r["cost"] for r in sel)
+    cost = sum(r["cost"] for r in sel)          # tariff rates are GST-inclusive
     ml = sum(r["ml"] for r in sel)
     town = ml * 1000.0 * cost_per_kl
     return {
-        "kwh": round(kwh, 1), "cost": round(cost, 2), "ml": round(ml, 3),
+        "kwh": round(kwh, 1), "cost": round(cost, 2), "costExGst": round(cost / 1.1, 2),
+        "ml": round(ml, 3),
         "townWaterEquiv": round(town, 2), "netSaving": round(town - cost, 2),
         "costPerMl": round(cost / ml, 2) if ml > 0 else None,
-        "days": len(sel),
+        "from": start_d.isoformat(), "to": end_d.isoformat(), "days": len(sel),
     }
+
+
+def _fy_start(d):
+    """Australian financial year start (1 July)."""
+    return date(d.year if d.month >= 7 else d.year - 1, 7, 1)
 
 
 def main():
@@ -165,8 +171,10 @@ def main():
     # Which days to (re)compute: from the day after the last record (or the season
     # start / lookback cap on first run) through yesterday.
     last_recorded = max(by_date) if by_date else None
+    # First run backfills from the FY start so the P&L total covers the whole
+    # financial year (days with no pump data return nothing and are skipped).
     start_from = (date.fromisoformat(last_recorded) + timedelta(days=1)) if last_recorded \
-        else _season_start(today)
+        else _fy_start(today)
     floor = today - timedelta(days=MAX_BACKFILL_DAYS)
     if start_from < floor:
         start_from = floor
@@ -192,19 +200,27 @@ def main():
     DAILY_PATH.write_text(json.dumps(daily, separators=(",", ":")) + "\n", encoding="utf-8")
 
     ss = _season_start(today)
+    fy = _fy_start(today)
+    fy_label = f"{fy.year}-{str(fy.year + 1)[2:]}"
+    data_from = daily[0]["date"] if daily else None
     summary = {
         "asOf": today.isoformat(),
         "generatedAt": (datetime.now(SYD) if SYD else datetime.now()).replace(microsecond=0).isoformat(),
         "tariff": rates, "costPerKl": cost_per_kl,
+        "dataFrom": data_from,
+        "fyLabel": fy_label,
+        "financialYtd": rollup(daily, fy, yesterday, cost_per_kl),
+        "calendarYtd":  rollup(daily, date(today.year, 1, 1), yesterday, cost_per_kl),
         "week":   rollup(daily, yesterday - timedelta(days=6), yesterday, cost_per_kl),
         "month":  rollup(daily, today.replace(day=1), yesterday, cost_per_kl),
         "season": rollup(daily, ss, yesterday, cost_per_kl),
-        "note": "Energy from the CU352 cumulative counter (outage-proof). Volume from the physical pump meter. Cost is marginal pump running cost at the time-of-use tariff; excludes site demand/supply charges.",
+        "note": "Energy from the CU352 cumulative counter (outage-proof). Volume from the physical pump meter. Cost is the marginal pump running (energy) cost at the time-of-use tariff; excludes site demand/supply/fixed charges on the shared club meter. Tariff rates are GST-inclusive; costExGst is the ex-GST figure for the P&L.",
     }
     SUMMARY_PATH.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    fytd = summary["financialYtd"]
     print(f"Wrote {len(daily)} daily records ({wrote} new/updated).")
-    print(f"Season: {summary['season']['kwh']} kWh, ${summary['season']['cost']}, "
-          f"{summary['season']['ml']} ML, net saving ${summary['season']['netSaving']}")
+    print(f"FY {fy_label} to date: {fytd['kwh']} kWh, ${fytd['cost']} incl GST "
+          f"(${fytd['costExGst']} ex GST), {fytd['ml']} ML, net saving ${fytd['netSaving']}")
     return 0
 
 
