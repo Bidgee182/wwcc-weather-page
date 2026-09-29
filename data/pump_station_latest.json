@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-09-29T13:57:28.397250+00:00",
-  "last_seen": "2026-09-29T13:57:28.397250+00:00",
-  "last_connected": "2026-09-29T13:57:28.397250+00:00",
+  "timestamp": "2026-09-29T14:02:18.668212+00:00",
+  "last_seen": "2026-09-29T14:02:18.668212+00:00",
+  "last_connected": "2026-09-29T14:02:18.668212+00:00",
   "system": {
-    "pressure_actual_bar": 7.685,
+    "pressure_actual_bar": 7.622,
     "pressure_suction_bar": -0.838,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 155.7,
-    "power_kw": 45.9,
+    "flow_m3h": 142.1,
+    "power_kw": 41.8,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 100.0,
+    "relative_performance_pct": 98.4,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 203448,
+    "energy_kwh": 203450,
     "run_hours": 41814,
     "powered_hours": null,
     "power_ons": 82,
@@ -49,11 +49,11 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 15.5,
-      "current_a": 25.8,
+      "speed_pct": 97.6,
+      "power_kw": 14.3,
+      "current_a": 22.8,
       "run_hours": 5254.0,
-      "starts_today": 5,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -67,11 +67,11 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 14.2,
-      "current_a": 24.0,
+      "speed_pct": 98.0,
+      "power_kw": 12.8,
+      "current_a": 20.6,
       "run_hours": 5252.0,
-      "starts_today": 6,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -85,11 +85,11 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 16.1,
-      "current_a": 26.6,
+      "speed_pct": 98.0,
+      "power_kw": 15.0,
+      "current_a": 23.8,
       "run_hours": 5252.0,
-      "starts_today": 3,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -107,7 +107,7 @@
       "power_kw": 0.0,
       "current_a": 0.0,
       "run_hours": 1404.0,
-      "starts_today": 7,
+      "starts_today": 0,
       "temp_c": null,
       "alarm_code": 0
     }
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7716,
+      "raw": 7670,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 162,
+      "raw": 165,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-09-28T14:52:16.799864+00:00",
-      "pa": 7.37,
-      "ps": 7.8,
-      "pi": -0.812,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5250.0,
-        5248.0,
-        5250.0,
-        1402.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-09-28T14:57:04.798049+00:00",
       "pa": 7.37,
@@ -11677,6 +11637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-09-29T14:02:18.668212+00:00",
+      "pa": 7.622,
+      "ps": 7.8,
+      "pi": -0.838,
+      "fl": 142.1,
+      "nr": 3,
+      "pk": 41.8,
+      "sp": [
+        97.6,
+        98.0,
+        98.0,
+        0.0
+      ],
+      "pw": [
+        14.3,
+        12.8,
+        15.0,
+        0.0
+      ],
+      "rh": [
+        5254.0,
+        5252.0,
+        5252.0,
+        1404.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -12043,7 +12043,7 @@
   ],
   "pump_energy_kwh": [
     2206,
-    62090,
+    62092,
     4336,
     3822
   ],
