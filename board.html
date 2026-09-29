@@ -359,6 +359,41 @@
 
     </div><!-- end two-col -->
 
+    <!-- Season outlook: estimated vs actual evaporation + pumping -->
+    <div class="card" id="season-outlook-card" style="display:none;">
+        <h2>Season Outlook - Estimated vs Actual</h2>
+        <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:6px;">How real weather and pumping have shifted the cease-to-pump date versus the estimate made at the start of the season.</p>
+        <div id="ev-headline" style="padding:12px 14px;border-radius:8px;font-size:0.95em;line-height:1.5;margin:8px 0 4px;background:#16232e;color:#ecf0f1;">Waiting for weekly data...</div>
+
+        <div class="lk-range-row" style="margin-top:14px;">
+            <span style="font-size:0.8em;color:#7f8c8d;align-self:center;margin-right:4px;">Period:</span>
+            <button class="lk-range-btn active" id="evp-week"   onclick="setEvapPeriod('week')">This Week</button>
+            <button class="lk-range-btn"        id="evp-month"  onclick="setEvapPeriod('month')">This Month</button>
+            <button class="lk-range-btn"        id="evp-season" onclick="setEvapPeriod('season')">Season</button>
+        </div>
+        <div class="outlook-grid" style="margin-top:12px;">
+            <div class="outlook-block"><div class="ob-val" id="ev-est">--</div><div class="ob-lbl">Estimated Evap</div><div class="ob-sub">BOM seasonal avg</div></div>
+            <div class="outlook-block"><div class="ob-val" id="ev-act">--</div><div class="ob-lbl">Actual Evap</div><div class="ob-sub" id="ev-act-sub">from lake sensor</div></div>
+            <div class="outlook-block"><div class="ob-val" id="ev-diff">--</div><div class="ob-lbl">Difference</div><div class="ob-sub">actual vs estimate</div></div>
+            <div class="outlook-block"><div class="ob-val" id="ev-days">--</div><div class="ob-lbl">Days on Cutoff</div><div class="ob-sub">vs season-start plan</div></div>
+        </div>
+
+        <div class="lk-range-row" style="margin-top:18px;">
+            <span style="font-size:0.8em;color:#7f8c8d;align-self:center;margin-right:4px;">Graph:</span>
+            <button class="lk-range-btn active" id="evg-level" onclick="setEvapGraph('level')">Lake level: plan vs actual</button>
+            <button class="lk-range-btn"        id="evg-days"  onclick="setEvapGraph('days')">Days added / subtracted</button>
+        </div>
+        <div class="data-notice" id="ev-graph-notice" style="margin-top:10px;"></div>
+        <div style="height:320px;position:relative;margin-top:8px;"><canvas id="ev-chart"></canvas></div>
+
+        <div class="sec-lbl" style="margin-top:18px;cursor:pointer;user-select:none;" onclick="toggleEvapHistory()">Weekly history <span id="ev-hist-caret">&#9656;</span></div>
+        <div id="ev-history-wrap" style="display:none;overflow-x:auto;margin-top:8px;"></div>
+
+        <p style="font-size:0.68em;color:#566573;margin-top:12px;">
+            "Actual" is the measured lake movement minus your metered pumping, so it also carries seepage and any catchment inflow (a rain week can show a gain). The evaporation-vs-pumping split is exact from the week metering began; earlier weeks show the combined net. The telemetry pump-flow estimate is not used. Updates when the weekly board report runs.
+        </p>
+    </div>
+
     <!-- Lake level chart - full width below the two-col -->
     <div class="card">
         <h2>Lake Albert Level - Sensor History</h2>
@@ -1321,6 +1356,223 @@ function renderLakeChart(labels, values) {
 
 
 
+// ═══ Season outlook: estimated vs actual evaporation + pumping ═══════════════
+let _evChart = null, _evPeriod = 'week', _evGraph = 'level', _evState = null;
+const _EV_GREEN = '#2ecc71', _EV_RED = '#e74c3c', _EV_PLAN = '#9aa7b0',
+      _EV_ACT = '#48c9b0', _EV_TICK = '#7f8c8d', _EV_GRID = '#1e3040';
+
+function _evIso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _evN(v){ const n = parseFloat(v); return isFinite(n) ? n : null; }
+
+// Normalise the weekly variance log into consistent evaporation + days rows.
+// New rows carry the evap/pumping split; older rows are reconstructed from the
+// net figures using the config pumping estimate (the same basis the server used).
+function _evNormRows(evapLog){
+    const pf=_cfg.evaporation.pan_factor, pan=_cfg.evaporation.monthly_pan_mm_day;
+    const irrig=_cfg.town_water.daily_kl_by_month, actM=new Set(_cfg.irrigation_season.active_months);
+    const rows=[];
+    for (const r of (evapLog||[])){
+        if(!r||!r.date) continue;
+        const m=r.month||(new Date(r.date+'T00:00:00').getMonth()+1);
+        const ahdEnd=_evN(r.ahd_end)??_evN(r.ahd_start);
+        const area=ahdEnd!=null?lakeArea(ahdEnd):lakeArea(_cfg.lake_geometry.full_supply_ahd);
+        const predicted=_evN(r.predicted_mm), actual=_evN(r.actual_mm);
+        let estEvap=_evN(r.est_evap_mm), actEvap=_evN(r.actual_evap_mm), days=_evN(r.days_shift);
+        if(estEvap==null && predicted!=null){
+            const pumpMm=(actM.has(m)?(parseFloat(irrig[m]||0)/1000)*7:0)*1e6/area;
+            estEvap=predicted-pumpMm;
+            if(actEvap==null && actual!=null) actEvap=actual-pumpMm;
+        }
+        if(days==null && predicted!=null && actual!=null){
+            const varMl=(actual-predicted)*area/1e6;
+            const drawMl=(parseFloat(pan[m])*pf*area/1e6)+(actM.has(m)?parseFloat(irrig[m]||0)/1000:0);
+            days=drawMl>0?-varMl/drawMl:0;
+        }
+        rows.push({date:r.date, m, estEvap, actEvap, ahdEnd,
+            diff:(estEvap!=null&&actEvap!=null)?actEvap-estEvap:null,
+            days:days||0, drift:null, pumpMl:_evN(r.pump_ml), pumpSource:r.pump_source||null, rain:_evN(r.rain_mm)});
+    }
+    rows.sort((a,b)=>a.date<b.date?-1:1);
+    return rows;
+}
+
+// Day-by-day level trajectory (JS port of project_to_level, returning the path).
+function _evProject(startAhd,startDate,targetAhd,pumpScale){
+    const pan=_cfg.evaporation.monthly_pan_mm_day, pf=_cfg.evaporation.pan_factor;
+    const irrig=_cfg.town_water.daily_kl_by_month, actM=new Set(_cfg.irrigation_season.active_months);
+    const out=[]; let cur=startAhd; const d=new Date(startDate); d.setHours(0,0,0,0);
+    for(let i=0;i<800;i++){
+        out.push({date:new Date(d), level:cur});
+        if(cur<=targetAhd) break;
+        const m=d.getMonth()+1, area=lakeArea(cur);
+        const evapMl=parseFloat(pan[m])*pf*area/1e6;
+        const irrigMl=actM.has(m)?parseFloat(irrig[m]||0)/1000*(pumpScale||1):0;
+        cur-=(evapMl+irrigMl)*1000/area;
+        d.setDate(d.getDate()+1);
+    }
+    return out;
+}
+
+function _evDayAvg(lakeReadings,fromDate){
+    const byDay={};
+    for(const r of (lakeReadings||[])){
+        if(r.manual) continue;
+        const dt=new Date(String(r.date).replace('Z','+00:00')); if(isNaN(dt)) continue;
+        if(dt<fromDate) continue;
+        const v=parseFloat(r.ahd); if(!isFinite(v)) continue;
+        const k=_evIso(dt); (byDay[k]=byDay[k]||[]).push(v);
+    }
+    const avg={}; for(const k of Object.keys(byDay)) avg[k]=byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length;
+    return avg;
+}
+
+function prepSeasonOutlook(o){
+    if(!_cfg || o.ahd==null) return;
+    const rows=_evNormRows(o.evapLog);
+    const dayAvg=_evDayAvg(o.lakeReadings, o.seasonStartDate);
+    const dayKeys=Object.keys(dayAvg).sort();
+    const startLevel=dayKeys.length?dayAvg[dayKeys[0]]:o.ahd;
+    const startDate =dayKeys.length?new Date(dayKeys[0]+'T00:00:00'):o.seasonStartDate;
+    const ceaseAhd=Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
+    const estTraj=_evProject(startLevel,startDate,ceaseAhd,1);
+    const estCease=(estTraj.length && estTraj[estTraj.length-1].level<=ceaseAhd)?estTraj[estTraj.length-1].date:null;
+    // Cumulative cutoff drift at each week: project the cease date from that week's
+    // MEASURED level and compare to the season-start estimate - the same method as
+    // the headline, so every "days" figure on the card is consistent.
+    const projCeaseFrom=(ahd,dateStr)=>{ if(ahd==null) return null; const t=_evProject(ahd,new Date(dateStr+'T00:00:00'),ceaseAhd,1); return (t.length && t[t.length-1].level<=ceaseAhd)?t[t.length-1].date:null; };
+    if(estCease){ for(const r of rows){ const pc=projCeaseFrom(r.ahdEnd,r.date); r.drift=pc?daysBetween(estCease,pc):null; } }
+    _evState={rows,dayAvg,startLevel,startDate,ceaseAhd,estTraj,estCease,curCease:o.ceaseDate||null,ahdNow:o.ahd};
+    document.getElementById('season-outlook-card').style.display='';
+    renderSeasonOutlook();
+}
+
+function _evDaysForPeriod(){
+    const s=_evState, wd=s.rows.filter(r=>r.drift!=null);
+    const curDrift=(s.estCease && s.curCease)?daysBetween(s.estCease,s.curCease):(wd.length?wd[wd.length-1].drift:0);
+    if(_evPeriod==='season' || !wd.length) return curDrift;
+    if(_evPeriod==='week') return wd[wd.length-1].drift - (wd.length>=2?wd[wd.length-2].drift:0);
+    const n=new Date(), ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+    const before=wd.filter(r=>r.date.slice(0,7)<ym);
+    return wd[wd.length-1].drift - (before.length?before[before.length-1].drift:0);
+}
+
+function _evPeriodRows(){
+    const rows=_evState.rows; if(!rows.length) return [];
+    if(_evPeriod==='week') return rows.slice(-1);
+    if(_evPeriod==='month'){ const n=new Date(); const ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); return rows.filter(r=>r.date.slice(0,7)===ym); }
+    const ss=_evIso(seasonStart(new Date()));
+    return rows.filter(r=>r.date>=ss);
+}
+
+function renderSeasonOutlook(){
+    if(!_evState) return;
+    const s=_evState, set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+    // Headline: shift in the cease date vs the season-start plan
+    const hb=document.getElementById('ev-headline');
+    if(s.estCease && s.curCease){
+        const dd=daysBetween(s.estCease,s.curCease), added=dd>=0, n=Math.abs(dd);
+        hb.style.background=added?'#123a24':'#3a1618';
+        hb.style.color=added?'#a9f0c9':'#f5b7b1';
+        hb.innerHTML=`As of today, real weather and pumping have <strong>${added?'added':'taken'} ~${n} day${n===1?'':'s'}</strong> ${added?'to':'off'} the cease-to-pump date versus the estimate made at the start of the season.`
+            +`<br><span style="opacity:0.85;font-size:0.9em;">Season-start estimate: <strong>${fmtDate(s.estCease)}</strong> &nbsp;&rarr;&nbsp; now projected: <strong>${fmtDate(s.curCease)}</strong></span>`;
+    } else {
+        hb.style.background='#16232e'; hb.style.color='#ecf0f1';
+        hb.textContent = s.rows.length ? 'Cutoff comparison shows once the lake is projected to reach the cease level within the horizon.' : 'Waiting for the first weekly report to log actual evaporation.';
+    }
+    // Rolling tiles
+    const pr=_evPeriodRows();
+    const sum=f=>pr.reduce((a,r)=>a+((r[f]!=null&&isFinite(r[f]))?r[f]:0),0);
+    if(pr.length){
+        const estE=sum('estEvap'), actE=sum('actEvap'), diff=actE-estE, pct=estE?diff/estE*100:0, dr=Math.round(_evDaysForPeriod());
+        set('ev-est',estE.toFixed(1)+' mm'); set('ev-act',actE.toFixed(1)+' mm');
+        const de=document.getElementById('ev-diff'); if(de){de.textContent=(diff>=0?'+':'')+diff.toFixed(1)+' mm ('+(diff>=0?'+':'')+pct.toFixed(0)+'%)'; de.style.color=diff<=0?_EV_GREEN:_EV_RED;}
+        const dv=document.getElementById('ev-days'); if(dv){dv.textContent=(dr>=0?'+':'')+dr+' day'+(Math.abs(dr)===1?'':'s'); dv.style.color=dr>=0?_EV_GREEN:_EV_RED;}
+        set('ev-act-sub','lake sensor · '+(pr.some(r=>r.pumpSource==='metered')?'metered pumping':'estimated pumping'));
+    } else { ['ev-est','ev-act','ev-diff','ev-days'].forEach(id=>set(id,'--')); }
+    // toggle states
+    ['week','month','season'].forEach(p=>document.getElementById('evp-'+p).classList.toggle('active',_evPeriod===p));
+    document.getElementById('evg-level').classList.toggle('active',_evGraph==='level');
+    document.getElementById('evg-days').classList.toggle('active',_evGraph==='days');
+    if(_evGraph==='level') _evRenderLevel(); else _evRenderDays();
+    _evRenderHistory();
+}
+
+function _evRenderLevel(){
+    const s=_evState;
+    document.getElementById('ev-graph-notice').innerHTML='<strong>Lake level - plan vs actual:</strong> dashed grey = the level we estimated at the start of the season; solid = actual measured. The actual line runs <span style="color:'+_EV_GREEN+';">green above the plan</span> (buffer gained) and <span style="color:'+_EV_RED+';">red below</span> (buffer lost).';
+    let axis=s.estTraj.map(p=>new Date(p.date));
+    const lastAxis=axis.length?axis[axis.length-1]:new Date();
+    if(s.curCease && s.curCease>lastAxis){ let d=new Date(lastAxis); d.setDate(d.getDate()+1); while(d<=s.curCease){axis.push(new Date(d)); d.setDate(d.getDate()+1);} }
+    const estByIso={}; s.estTraj.forEach(p=>estByIso[_evIso(p.date)]=p.level);
+    const today=new Date(); today.setHours(0,0,0,0);
+    const proj=_evProject(s.ahdNow,today,s.ceaseAhd,1), projByIso={}; proj.forEach(p=>projByIso[_evIso(p.date)]=p.level);
+    const labels=[],estArr=[],actArr=[],projArr=[];
+    for(const d of axis){ const k=_evIso(d);
+        labels.push(fmtDateShort(d));
+        estArr.push(estByIso[k]!=null?+estByIso[k].toFixed(3):null);
+        actArr.push((d<=today && s.dayAvg[k]!=null)?+s.dayAvg[k].toFixed(3):null);
+        projArr.push((d>=today && projByIso[k]!=null)?+projByIso[k].toFixed(3):null);
+    }
+    const actSeg={borderColor:ctx=>{const i=ctx.p1DataIndex,a=actArr[i],e=estArr[i]; if(a==null||e==null)return _EV_ACT; return a>=e?_EV_GREEN:_EV_RED;}};
+    const ctx=document.getElementById('ev-chart').getContext('2d');
+    if(_evChart) _evChart.destroy();
+    _evChart=new Chart(ctx,{type:'line',data:{labels,datasets:[
+        {label:'Estimated (season-start plan)',data:estArr,borderColor:_EV_PLAN,borderWidth:2,borderDash:[5,4],pointRadius:0,fill:false,tension:0.2,spanGaps:true},
+        {label:'Actual measured',data:actArr,borderColor:_EV_ACT,borderWidth:2.5,pointRadius:0,fill:false,tension:0.2,spanGaps:true,segment:actSeg},
+        {label:'Projected from now',data:projArr,borderColor:_EV_ACT,borderWidth:2,borderDash:[2,3],pointRadius:0,fill:false,tension:0.2,spanGaps:true},
+        {label:'Cease level',data:labels.map(()=>s.ceaseAhd),borderColor:'#EB1E23',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false,tension:0},
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:_EV_TICK,font:{size:11}}},
+            tooltip:{callbacks:{label:c=>{const i=c.dataIndex; if(c.dataset.label==='Actual measured'&&actArr[i]!=null&&estArr[i]!=null){const dmm=(actArr[i]-estArr[i])*1000; return `Actual ${actArr[i].toFixed(3)} m (${dmm>=0?'+':''}${dmm.toFixed(0)} mm vs plan)`;} return `${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(3)+' m':'-'}`;}}}},
+        scales:{x:{ticks:{color:_EV_TICK,maxTicksLimit:10},grid:{color:_EV_GRID}},
+            y:{ticks:{color:_EV_TICK,callback:v=>v.toFixed(2)+' m'},grid:{color:_EV_GRID},title:{display:true,text:'Lake level (m AHD)',color:'#566573'}}}}});
+}
+
+function _evRenderDays(){
+    const s=_evState, ss=_evIso(seasonStart(new Date()));
+    const rows=s.rows.filter(r=>r.drift!=null && r.date>=ss);
+    document.getElementById('ev-graph-notice').innerHTML='<strong>Days added / subtracted:</strong> the projected cease date each week (from the measured level) vs the season-start estimate. <span style="color:'+_EV_GREEN+';">Above zero = days gained</span>; <span style="color:'+_EV_RED+';">below zero = days lost</span>.';
+    const labels=[],cum=[];
+    for(const r of rows){ labels.push(fmtDateShort(new Date(r.date+'T00:00:00'))); cum.push(+r.drift.toFixed(1)); }
+    if(s.estCease && s.curCease){ labels.push('Today'); cum.push(daysBetween(s.estCease,s.curCease)); }
+    const seg={borderColor:ctx=>cum[ctx.p1DataIndex]>=0?_EV_GREEN:_EV_RED};
+    const ctx=document.getElementById('ev-chart').getContext('2d');
+    if(_evChart) _evChart.destroy();
+    _evChart=new Chart(ctx,{type:'line',data:{labels,datasets:[
+        {label:'Cumulative days vs plan',data:cum,borderColor:_EV_ACT,borderWidth:2.5,
+         pointRadius:3,pointBackgroundColor:cum.map(v=>v>=0?_EV_GREEN:_EV_RED),
+         fill:{target:'origin',above:'rgba(46,204,113,0.12)',below:'rgba(231,76,60,0.12)'},tension:0.2,segment:seg},
+    ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:_EV_TICK,font:{size:11}}},
+            tooltip:{callbacks:{label:c=>{const v=c.parsed.y; return `${v>=0?'+':''}${v} day${Math.abs(v)===1?'':'s'} ${v>=0?'gained':'lost'} (running total)`;}}}},
+        scales:{x:{ticks:{color:_EV_TICK,maxTicksLimit:12},grid:{color:_EV_GRID}},
+            y:{ticks:{color:_EV_TICK,callback:v=>(v>=0?'+':'')+v+'d'},grid:{color:_EV_GRID},title:{display:true,text:'Days vs plan',color:'#566573'}}}}});
+}
+
+function _evRenderHistory(){
+    const rows=_evState.rows.slice().reverse(), wrap=document.getElementById('ev-history-wrap');
+    if(!rows.length){ wrap.innerHTML='<p style="color:#7f8c8d;font-size:0.85em;">No weekly data yet.</p>'; return; }
+    let h='<table style="width:100%;border-collapse:collapse;font-size:0.8em;"><thead><tr style="color:#7f8c8d;">'
+        +'<th style="text-align:left;padding:4px 8px;">Week ending</th><th style="text-align:right;padding:4px 8px;">Est evap</th>'
+        +'<th style="text-align:right;padding:4px 8px;">Actual evap</th><th style="text-align:right;padding:4px 8px;">Diff</th>'
+        +'<th style="text-align:right;padding:4px 8px;">Days &plusmn;</th><th style="text-align:left;padding:4px 8px;">Pumping</th></tr></thead><tbody>';
+    for(const r of rows){
+        const days=r.drift!=null?Math.round(r.drift):null, dc=(r.diff==null)?'#7f8c8d':(r.diff<=0?_EV_GREEN:_EV_RED), kc=(days==null)?'#7f8c8d':(days>=0?_EV_GREEN:_EV_RED);
+        h+=`<tr style="border-top:1px solid #1e3040;color:#c8d0d6;">`
+          +`<td style="text-align:left;padding:4px 8px;">${fmtDate(new Date(r.date+'T00:00:00'))}</td>`
+          +`<td style="text-align:right;padding:4px 8px;">${r.estEvap!=null?r.estEvap.toFixed(1)+' mm':'-'}</td>`
+          +`<td style="text-align:right;padding:4px 8px;">${r.actEvap!=null?r.actEvap.toFixed(1)+' mm':'-'}</td>`
+          +`<td style="text-align:right;padding:4px 8px;color:${dc};">${r.diff!=null?(r.diff>=0?'+':'')+r.diff.toFixed(1):'-'}</td>`
+          +`<td style="text-align:right;padding:4px 8px;color:${kc};">${days==null?'-':(days>=0?'+':'')+days}</td>`
+          +`<td style="text-align:left;padding:4px 8px;color:#7f8c8d;">${r.pumpSource||'est.'}</td></tr>`;
+    }
+    wrap.innerHTML=h+'</tbody></table>';
+}
+
+function setEvapPeriod(p){ _evPeriod=p; renderSeasonOutlook(); }
+function setEvapGraph(g){ _evGraph=g; renderSeasonOutlook(); }
+function toggleEvapHistory(){ const w=document.getElementById('ev-history-wrap'),c=document.getElementById('ev-hist-caret'),open=w.style.display==='none'; w.style.display=open?'':'none'; c.innerHTML=open?'&#9662;':'&#9656;'; }
+
 // ── Tank fill source (mains vs rainwater) ─────────────────────────────────────
 // Period log: costs only attach to inflows on days when mains was the source.
 let _tkSources = [{ from: '2026-02-10', source: 'mains' }];  // replaced by fetch
@@ -1773,7 +2025,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -1783,6 +2035,8 @@ async function loadAll() {
             fetch('data/farmbot_lake_readings.json'   + cb),
             fetch('data/farmbot_readings.json'        + cb),
             fetch('data/tank_fill_source.json'        + cb),
+            fetch('data/evap_variance_log.json'       + cb),
+            fetch('data/pump_meter.json'              + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -1795,6 +2049,8 @@ async function loadAll() {
         const histText      = histRes.ok    ? await histRes.text()  : '';
         const wxText        = wxRes.ok      ? await wxRes.text()    : '';
         const lakeReadings  = lakeReadRes.ok ? await lakeReadRes.json() : [];
+        const evapLog       = evapRes.ok  ? await evapRes.json().catch(() => []) : [];
+        const meterFile     = meterRes.ok ? await meterRes.json().catch(() => ({})) : {};
         _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
         if (srcRes.ok) { const s = await srcRes.json(); if (Array.isArray(s) && s.length) _tkSources = s.sort((a, b) => a.from < b.from ? -1 : 1); }
 
@@ -1843,6 +2099,12 @@ async function loadAll() {
                 probe.setMonth(probe.getMonth() + 1);
             }
         }
+
+        // ── Season outlook: estimated vs actual evaporation + pumping ─────────
+        try {
+            prepSeasonOutlook({ ahd, ceaseDate, seasonStartDate: seaStart,
+                                lakeReadings, evapLog, meterFile });
+        } catch (e) { console.warn('season outlook render failed', e); }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
         const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
