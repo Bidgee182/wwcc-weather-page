@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-09-29T04:05:55.549801+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-09-29T03:37:32.903942+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1790,15 +1799,6 @@
       "description": "Limit 1 exceeded",
       "pump_label": "P3 - CRNE45",
       "source_name": "System"
-    },
-    {
-      "timestamp_iso": "2026-08-31T20:47:37.128343+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ]
 }
