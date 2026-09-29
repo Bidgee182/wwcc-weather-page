@@ -331,7 +331,7 @@
                 <h2>This Month at a Glance</h2>
                 <div class="metric-grid metric-grid-2">
                     <div class="metric">
-                        <div class="lbl">Est. ML Pumped</div>
+                        <div class="lbl">ML Pumped</div>
                         <div class="val" id="ov-ml-month">--</div>
                         <div class="sub" id="ov-ml-month-max">licence max --</div>
                     </div>
@@ -352,7 +352,7 @@
                     </div>
                 </div>
                 <p style="font-size:0.68em;color:#566573;margin-top:10px;">
-                    * Est. ML = daily irrigation demand capped at the licence zone rate. Licence max shown for reference. Flow sensor installation pending.
+                    * ML Pumped = actual metered readings when entered (labelled "metered"); otherwise the daily irrigation demand capped at the licence zone rate ("est"). Licence max shown for reference.
                 </p>
             </div>
         </div><!-- end right col -->
@@ -392,6 +392,30 @@
         <p style="font-size:0.68em;color:#566573;margin-top:12px;">
             "Actual" is the measured lake movement minus your metered pumping, so it also carries seepage and any catchment inflow (a rain week can show a gain). The evaporation-vs-pumping split is exact from the week metering began; earlier weeks show the combined net. The telemetry pump-flow estimate is not used. Updates when the weekly board report runs.
         </p>
+    </div>
+
+    <!-- Pump station energy + cost -->
+    <div class="card" id="pump-cost-card" style="display:none;">
+        <h2>Pump Station - Energy &amp; Cost</h2>
+        <p style="font-size:0.8em;color:#7f8c8d;margin-bottom:6px;">Electricity to run the lake pumps, and the town-water cost it avoids. Energy is read from the pump's own cumulative meter, so it is captured even if the monitor drops out.</p>
+        <div id="pc-headline" style="padding:12px 14px;border-radius:8px;font-size:0.95em;line-height:1.5;margin:8px 0 4px;background:#123a24;color:#a9f0c9;">--</div>
+        <div class="lk-range-row" style="margin-top:14px;">
+            <span style="font-size:0.8em;color:#7f8c8d;align-self:center;margin-right:4px;">Period:</span>
+            <button class="lk-range-btn active" id="pcp-week"   onclick="setPumpCostPeriod('week')">This Week</button>
+            <button class="lk-range-btn"        id="pcp-month"  onclick="setPumpCostPeriod('month')">This Month</button>
+            <button class="lk-range-btn"        id="pcp-season" onclick="setPumpCostPeriod('season')">Season</button>
+        </div>
+        <div class="outlook-grid" style="margin-top:12px;">
+            <div class="outlook-block"><div class="ob-val" id="pc-kwh">--</div><div class="ob-lbl">Energy Used</div><div class="ob-sub">from the pump meter</div></div>
+            <div class="outlook-block"><div class="ob-val" id="pc-cost">--</div><div class="ob-lbl">Electricity Cost</div><div class="ob-sub">at time-of-use tariff</div></div>
+            <div class="outlook-block"><div class="ob-val" id="pc-ml">--</div><div class="ob-lbl">Water Pumped</div><div class="ob-sub">metered, from the lake</div></div>
+            <div class="outlook-block"><div class="ob-val" id="pc-perml">--</div><div class="ob-lbl">Cost per ML</div><div class="ob-sub">electricity only</div></div>
+        </div>
+        <div class="metric-grid metric-grid-2" style="margin-top:14px;margin-bottom:0;">
+            <div class="metric"><div class="lbl">Town Water Avoided</div><div class="val" id="pc-town">--</div><div class="sub">same volume at town water rates</div></div>
+            <div class="metric"><div class="lbl">Net Saving</div><div class="val col-green" id="pc-net">--</div><div class="sub">town water avoided minus electricity</div></div>
+        </div>
+        <p style="font-size:0.68em;color:#566573;margin-top:12px;" id="pc-foot">--</p>
     </div>
 
     <!-- Lake level chart - full width below the two-col -->
@@ -879,6 +903,26 @@ function seasonStart(now) {
     const y = now.getFullYear(), m = now.getMonth() + 1;
     return new Date(m >= 9 ? y : y - 1, 8, 1); // month index 8 = September
 }
+
+// Physical pump-meter -> {isoDate: ML pumped}, spread across irrigation-season days
+// (JS port of scripts/pump_meter.py). The Grundfos flow estimate is not used.
+function _meterDailyMl(meterFile){
+    const out={}; let rd=(meterFile&&meterFile.readings)||[];
+    rd=rd.map(r=>{const v=parseFloat(r.value); if(!isFinite(v))return null; const u=String(r.unit||'ML').toLowerCase(); return {d:r.date, ml:(u==='kl'?v/1000:(u==='l'?v/1e6:v))};}).filter(Boolean).sort((a,b)=>a.d<b.d?-1:1);
+    if(rd.length<2) return out;
+    const ss=meterFile.season_start||null, actM=new Set(_cfg.irrigation_season.active_months);
+    for(let i=1;i<rd.length;i++){
+        const delta=rd[i].ml-rd[i-1].ml; if(delta<=0) continue;
+        const span=[]; let c=new Date(rd[i-1].d+'T00:00:00'); const e=new Date(rd[i].d+'T00:00:00'); c.setDate(c.getDate()+1);
+        while(c<=e){ span.push(new Date(c)); c.setDate(c.getDate()+1); }
+        let elig=span.filter(day=>actM.has(day.getMonth()+1)&&(!ss||_evIso(day)>=ss));
+        if(!elig.length) elig=span;
+        const per=delta/elig.length;
+        for(const day of elig){ const k=_evIso(day); out[k]=(out[k]||0)+per; }
+    }
+    return out;
+}
+function _meterMlBetween(daily, from, to){ let s=0; const f=_evIso(from), t=_evIso(to); for(const k in daily){ if(k>=f && k<=t) s+=daily[k]; } return s; }
 
 // All days from a to b (inclusive)
 function* eachDay(from, to) {
@@ -1573,6 +1617,29 @@ function setEvapPeriod(p){ _evPeriod=p; renderSeasonOutlook(); }
 function setEvapGraph(g){ _evGraph=g; renderSeasonOutlook(); }
 function toggleEvapHistory(){ const w=document.getElementById('ev-history-wrap'),c=document.getElementById('ev-hist-caret'),open=w.style.display==='none'; w.style.display=open?'':'none'; c.innerHTML=open?'&#9662;':'&#9656;'; }
 
+// ═══ Pump station energy + cost (from data/pump_cost_summary.json) ════════════
+let _pumpCost=null, _pcPeriod='week';
+function renderPumpCost(pc){ if(pc) _pumpCost=pc; if(!_pumpCost) return; document.getElementById('pump-cost-card').style.display=''; _pcRender(); }
+function setPumpCostPeriod(p){ _pcPeriod=p; _pcRender(); }
+function _pcRender(){
+    const pc=_pumpCost, d=pc[_pcPeriod]; if(!d) return;
+    const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+    ['week','month','season'].forEach(p=>document.getElementById('pcp-'+p).classList.toggle('active',_pcPeriod===p));
+    const rnd=n=>Math.round(n||0).toLocaleString();
+    set('pc-kwh', rnd(d.kwh)+' kWh');
+    set('pc-cost', '$'+rnd(d.cost));
+    set('pc-ml', (d.ml!=null?d.ml.toFixed(2):'--')+' ML');
+    set('pc-perml', d.costPerMl!=null?('$'+rnd(d.costPerMl)+'/ML'):'--');
+    set('pc-town', '$'+rnd(d.townWaterEquiv));
+    set('pc-net', '$'+rnd(d.netSaving));
+    const net=document.getElementById('pc-net'); if(net) net.style.color=(d.netSaving>=0?'#2ecc71':'#e74c3c');
+    const s=pc.season;
+    document.getElementById('pc-headline').innerHTML=
+        `This season the pumps have used <strong>${rnd(s.kwh)} kWh</strong> (<strong>$${rnd(s.cost)}</strong> of electricity) to move <strong>${(s.ml||0).toFixed(1)} ML</strong> from the lake - avoiding about <strong>$${rnd(s.townWaterEquiv)}</strong> of town water, a <strong>net saving of $${rnd(s.netSaving)}</strong>.`;
+    document.getElementById('pc-foot').textContent=
+        `As of ${pc.asOf}. Tariff: peak ${pc.tariff.peak}c / shoulder ${pc.tariff.shoulder}c / off-peak ${pc.tariff.off}c per kWh. ${pc.note||''}`;
+}
+
 // ── Tank fill source (mains vs rainwater) ─────────────────────────────────────
 // Period log: costs only attach to inflows on days when mains was the source.
 let _tkSources = [{ from: '2026-02-10', source: 'mains' }];  // replaced by fetch
@@ -2025,7 +2092,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes, pcostRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -2037,6 +2104,7 @@ async function loadAll() {
             fetch('data/tank_fill_source.json'        + cb),
             fetch('data/evap_variance_log.json'       + cb),
             fetch('data/pump_meter.json'              + cb),
+            fetch('data/pump_cost_summary.json'       + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -2051,6 +2119,7 @@ async function loadAll() {
         const lakeReadings  = lakeReadRes.ok ? await lakeReadRes.json() : [];
         const evapLog       = evapRes.ok  ? await evapRes.json().catch(() => []) : [];
         const meterFile     = meterRes.ok ? await meterRes.json().catch(() => ({})) : {};
+        const pumpCost      = pcostRes.ok ? await pcostRes.json().catch(() => null) : null;
         _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
         if (srcRes.ok) { const s = await srcRes.json(); if (Array.isArray(s) && s.length) _tkSources = s.sort((a, b) => a.from < b.from ? -1 : 1); }
 
@@ -2105,6 +2174,7 @@ async function loadAll() {
             prepSeasonOutlook({ ahd, ceaseDate, seasonStartDate: seaStart,
                                 lakeReadings, evapLog, meterFile });
         } catch (e) { console.warn('season outlook render failed', e); }
+        try { renderPumpCost(pumpCost); } catch (e) { console.warn('pump cost render failed', e); }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
         const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
@@ -2206,13 +2276,18 @@ async function loadAll() {
         if (dailyCostMonth) $('ol-daily-cost-sub').textContent =
             'at ' + dailyCostMonth.toLocaleDateString('en-AU', { month:'long' }) + ' demand, from town water';
 
-        // This month at a glance - demand-based estimate headline, licence max as context
-        $('ov-ml-month').textContent      = fmtMl(monthSav.totalMlDemand);
-        $('ov-ml-month-max').textContent  = 'licence max ' + fmtMl(monthSav.totalMl);
+        // This month at a glance - ACTUAL metered pumping when available, else the
+        // demand-based estimate. Licence max shown as context.
+        const _meterDaily  = _meterDailyMl(meterFile);
+        const _hasMeter    = Object.keys(_meterDaily).length > 0;
+        const _meterMonth  = _meterMlBetween(_meterDaily, monthStart, yesterday);
+        const _meterSeason = _meterMlBetween(_meterDaily, savFrom, yesterday);
+        $('ov-ml-month').textContent      = _hasMeter ? fmtMl(_meterMonth) : fmtMl(monthSav.totalMlDemand);
+        $('ov-ml-month-max').textContent  = (_hasMeter ? 'metered · ' : 'est · ') + 'licence max ' + fmtMl(monthSav.totalMl);
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
-        $('ov-ml-season').textContent     = fmtMl(seasonSav.totalMlDemand);
+        $('ov-ml-season').textContent     = _hasMeter ? fmtMl(_meterSeason) : fmtMl(seasonSav.totalMlDemand);
         $('ov-saving-season').textContent = fmt$(seasonSav.totalSaving);
-        $('ov-ml-season-lbl').textContent = 'from ' + fmtDateShort(savFrom) + ' (max ' + fmtMl(seasonSav.totalMl) + ')';
+        $('ov-ml-season-lbl').textContent = (_hasMeter ? 'metered · ' : 'est · ') + 'from ' + fmtDateShort(savFrom) + ' (max ' + fmtMl(seasonSav.totalMl) + ')';
         $('ov-saving-season-lbl').textContent = 'from ' + fmtDateShort(savFrom);
 
         // Lake level chart (range filters re-render from this cached set)

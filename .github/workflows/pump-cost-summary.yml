@@ -1,0 +1,45 @@
+name: Pump Cost Summary
+
+on:
+  schedule:
+    # ~2-3am Sydney (16:00 UTC) - yesterday is fully complete by then, year-round.
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build pump energy + cost rollups (counter-based, outage-proof)
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/pump_cost_summary.py
+
+      - name: Commit summary
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/pump_cost_daily.json data/pump_cost_summary.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No pump cost changes to commit"
+          else
+            git commit -m "Pump cost summary $(TZ=Australia/Sydney date +%F)"
+            for i in 1 2 3 4 5; do
+              if git pull --rebase -X theirs origin main && git push; then break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 3
+            done
+          fi

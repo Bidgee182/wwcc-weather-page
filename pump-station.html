@@ -1424,21 +1424,37 @@ function buildDailyStats(rows) {
         const pressures = rs.map(r => r.pressure_avg).filter(v => v != null);
         const flows     = rs.map(r => r.flow_avg).filter(v => v != null);
         const setpoints = rs.map(r => r.setpoint_bar).filter(v => v != null);
-        // kWh from power x time: the per-pump kwh register on the CU352 is stuck
-        // (never increments), so energy is integrated from the minute-average
-        // power, which already bakes in the run duty-cycle. samples = seconds in
-        // the window; energy(kWh) = avg_power_kw * seconds / 3600.
-        const kwhFrom = col => rs.reduce((s, r) => s + (r[col] || 0) * (r.samples || 60) / 3600, 0);
-        // Marginal $ cost per pump: energy in each row x the TOU rate for its timestamp
-        const cost = [0, 0, 0, 0];
+        // Energy from the CU352 CUMULATIVE kWh counters (outage-proof): a Pi
+        // dropout can't lose energy because the counter keeps climbing and the
+        // day's delta recovers it. Integrated power (avg_kw x time) is kept only
+        // to shape the time-of-use cost, then scaled to the counter delta so the
+        // gap energy is still costed at the right rate.
+        const ctrDelta = col => {
+            const v = rs.map(r => r[col]).filter(x => x != null);
+            return v.length ? Math.max(0, Math.max(...v) - Math.min(...v)) : 0;
+        };
+        const kwhInt = c => rs.reduce((s, r) => s + (r[c] || 0) * (r.samples || 60) / 3600, 0);
+        const powCols = ['p1_power_kw', 'p2_power_kw', 'p3_power_kw', 'jockey_power_kw'];
+        const ctrCols = ['p1_kwh', 'p2_kwh', 'p3_kwh', 'jockey_kwh'];
+        const kwhInteg = powCols.map(kwhInt);
+        const kwhCtr   = ctrCols.map(ctrDelta);
+        // Reported energy = counter delta where present, else the integrated value.
+        const kwh = kwhCtr.map((c, i) => (c > 0 ? c : kwhInteg[i]));
+        // Cost: per-row TOU on integrated power, scaled up to the counter energy.
+        const costInt = [0, 0, 0, 0];
         for (const r of rs) {
             const rate = (tariff.rates_c_per_kwh[touPeriod(new Date(r.ts).getTime())] || 0) / 100;
             const h = (r.samples || 60) / 3600;
-            cost[0] += (r.p1_power_kw     || 0) * h * rate;
-            cost[1] += (r.p2_power_kw     || 0) * h * rate;
-            cost[2] += (r.p3_power_kw     || 0) * h * rate;
-            cost[3] += (r.jockey_power_kw || 0) * h * rate;
+            costInt[0] += (r.p1_power_kw     || 0) * h * rate;
+            costInt[1] += (r.p2_power_kw     || 0) * h * rate;
+            costInt[2] += (r.p3_power_kw     || 0) * h * rate;
+            costInt[3] += (r.jockey_power_kw || 0) * h * rate;
         }
+        const offRate = (tariff.rates_c_per_kwh.off || 0) / 100;
+        const cost = costInt.map((c, i) => {
+            if (kwhInteg[i] > 0) return c * (kwh[i] / kwhInteg[i]);   // scale to counter
+            return kwh[i] * offRate;                                  // full-gap day: off-peak
+        });
         return {
             date,
             hrs: [
@@ -1447,7 +1463,7 @@ function buildDailyStats(rows) {
                 rs.reduce((s, r) => s + (r.p3_run_secs     || 0), 0) / 3600,
                 rs.reduce((s, r) => s + (r.jockey_run_secs || 0), 0) / 3600,
             ],
-            kwh: [kwhFrom('p1_power_kw'), kwhFrom('p2_power_kw'), kwhFrom('p3_power_kw'), kwhFrom('jockey_power_kw')],
+            kwh,
             cost,
             sts: startsByDate[date],
             p_avg:  pressures.length ? pressures.reduce((a, b) => a + b, 0) / pressures.length : null,
@@ -1826,6 +1842,7 @@ async function ensureDaily() {
         const rows = await supaFetchAll('pump_stats_v2',
             'select=ts,p1_run_secs,p2_run_secs,p3_run_secs,jockey_run_secs,' +
             'p1_power_kw,p2_power_kw,p3_power_kw,jockey_power_kw,samples,' +
+            'p1_kwh,p2_kwh,p3_kwh,jockey_kwh,sys_energy_kwh,' +
             'pressure_avg,pressure_min,pressure_max,flow_avg,setpoint_bar' +
             '&ts=gte.' + sinceIso + '&order=ts.asc');
         dailyData = { days: buildDailyStats(rows) };
