@@ -2275,6 +2275,44 @@ def _suspense_story(p, is_stableford, hole_count):
     return None
 
 
+def _clean_club(home_club: str) -> str:
+    """Tidy a home-club name for display (e.g. 'Barwon Heads Golf Club' -> 'GC')."""
+    c = (home_club or "").strip()
+    return c.replace(" Golf Club", " GC").replace(" Country Club", " CC")
+
+
+def _visitor_welcome_story(ranked, board_date=None):
+    """Friendly round-robin welcome to visiting players. One welcome slot (the reel
+    keeps one card per title); the featured visitor and the message both change on a
+    ~45-minute time-of-day bucket, so every visitor is welcomed over the day and the
+    10 welcome messages rotate. Team names are skipped; the current leader is left to
+    the competitive 'Travelling Trophy' line."""
+    if not ranked:
+        return None
+    solo = [p for p in ranked if p.get("player") and " & " not in p["player"]]
+    vis = [p for p in solo if _is_visitor(p.get("homeClub"))]
+    if not vis:
+        return None
+    # Don't double up: if a visitor is leading they already get 'Travelling Trophy'.
+    lead = ranked[0]
+    vis = [p for p in vis if p is not lead] or vis
+    vis.sort(key=lambda p: (p.get("player") or ""))
+    try:
+        now = datetime.now(_KIOSK_TZ)
+        bucket = (now.hour * 60 + now.minute) // 45      # ~45-min rotation
+    except Exception:
+        bucket = 0
+    p = vis[bucket % len(vis)]
+    club = _clean_club(p.get("homeClub"))
+    d = _pick_phrase("visitor_welcome", f"{board_date}|welcome|{bucket}",
+        "Welcome to Wagga Wagga Country Club, {player} - great to have {club} with us today. Enjoy your round.",
+        player=p["player"], club=club)
+    if not d:
+        return None
+    return _mk_story(p["player"], "Welcome to WWCC", d, "orange", "\U0001F44B", 54,
+                     p.get("points"), p.get("thru"), "welcome")
+
+
 def _visitor_story(p):
     """A travelling player from another club making a mark on the local board."""
     if not _is_visitor(p.get("homeClub")):
@@ -2944,6 +2982,9 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
                 out.append(v)
         out += _field_superlatives(ranked, hole_count, is_stableford)
         out += _social_stories(ranked, board_date, hole_count)
+    welcome = _visitor_welcome_story(ranked, board_date)   # round-robin visitor welcome
+    if welcome:
+        out.append(welcome)
     wxd = _load_weather_flavour(board_date)
     wx = _weather_story(wxd, board_date)
     if wx:
