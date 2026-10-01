@@ -283,6 +283,39 @@
         </div>
     </div>
 
+    <!-- Water budget: metered pumping vs planned demand -->
+    <div class="card" id="ov-budget-card" style="display:none;">
+        <h2>Water Budget - Pumped vs Plan</h2>
+        <div class="lk-range-row">
+            <button class="lk-range-btn"        id="bud-week"   onclick="setBudgetPeriod('week')">This Week</button>
+            <button class="lk-range-btn active"  id="bud-month"  onclick="setBudgetPeriod('month')">This Month</button>
+            <button class="lk-range-btn"        id="bud-season" onclick="setBudgetPeriod('season')">Season</button>
+        </div>
+        <div class="metric-grid metric-grid-3" style="margin-bottom:10px;">
+            <div class="metric">
+                <div class="lbl">Planned (budget)</div>
+                <div class="val" id="bud-plan">--</div>
+                <div class="sub">estimated demand</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Actual (metered)</div>
+                <div class="val" id="bud-actual">--</div>
+                <div class="sub">pumped from lake</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Variance</div>
+                <div class="val" id="bud-var">--</div>
+                <div class="sub" id="bud-var-sub">vs plan</div>
+            </div>
+        </div>
+        <div style="background:#1a252f;border-radius:8px;padding:4px;">
+            <div id="bud-bar" style="height:18px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
+        </div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-top:6px;" id="bud-note">
+            Actual metered extraction vs the planned irrigation demand. Green = under budget, red = over.
+        </div>
+    </div>
+
     <div class="two-col">
 
         <!-- Lake Status -->
@@ -1145,7 +1178,10 @@ function currentZone(ahd) {
 // evaporation and irrigation demand in active months only (JS port of
 // lake_utils.project_to_level). Returns the crossing Date, or null if the
 // level is already at/below the target or does not reach it within 3 years.
-function projectToLevel(ahd, targetAhd) {
+// pumpScale scales the config irrigation demand to actual metered pumping (1.0 =
+// config estimate unchanged), mirroring lake_utils.project_to_level, so the
+// dashboard projections track reality the same way the board email already does.
+function projectToLevel(ahd, targetAhd, pumpScale = 1) {
     const pan   = _cfg.evaporation.monthly_pan_mm_day;
     const pf    = _cfg.evaporation.pan_factor;
     const irrig = _cfg.town_water.daily_kl_by_month;
@@ -1157,7 +1193,7 @@ function projectToLevel(ahd, targetAhd) {
         const m = d.getMonth() + 1;
         const area = lakeArea(cur);
         const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
-        const irrigMl = actM.has(m) ? parseFloat(irrig[m] || 0) / 1000 : 0;
+        const irrigMl = actM.has(m) ? parseFloat(irrig[m] || 0) / 1000 * pumpScale : 0;
         cur -= (evapMl + irrigMl) * 1000 / area;
         d.setDate(d.getDate() + 1);
         if (cur <= targetAhd) return new Date(d);
@@ -1165,24 +1201,24 @@ function projectToLevel(ahd, targetAhd) {
     return null;
 }
 
-function projectToCease(ahd) {
+function projectToCease(ahd, pumpScale = 1) {
     const ceaseAhd = Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
-    return projectToLevel(ahd, ceaseAhd);
+    return projectToLevel(ahd, ceaseAhd, pumpScale);
 }
 
-function daysToNextZone(ahd, zone) {
+function daysToNextZone(ahd, zone, pumpScale = 1) {
     const nextZ = _cfg.zone_thresholds.find(z => z.zone === zone.zone + 1);
     if (!nextZ) return null;
     if (ahd <= zone.min_ahd) return 0;
     // Same day-by-day model as the cease projection (actual irrigation demand
     // plus monthly evaporation) so the two outlook figures agree.
-    const crossDate = projectToLevel(ahd, zone.min_ahd);
+    const crossDate = projectToLevel(ahd, zone.min_ahd, pumpScale);
     if (!crossDate) return Infinity;   // no crossing within the 3-year horizon
     const today = new Date(); today.setHours(0,0,0,0);
     return daysBetween(today, crossDate);
 }
 
-function townWaterCostToSeasonEnd(ceaseDate) {
+function townWaterCostToSeasonEnd(ceaseDate, pumpScale = 1) {
     if (!ceaseDate) return null;
     const irrig = _cfg.town_water.daily_kl_by_month;
     const costKl = _cfg.town_water.cost_per_kl;
@@ -1195,9 +1231,57 @@ function townWaterCostToSeasonEnd(ceaseDate) {
     let total = 0;
     for (const d of eachDay(cease, endSeason)) {
         const m = d.getMonth() + 1;
-        if (actM.has(m)) total += parseFloat(irrig[m] || 0) * costKl;
+        if (actM.has(m)) total += parseFloat(irrig[m] || 0) * costKl * pumpScale;
     }
     return total;
+}
+
+// ── Water budget: real metered pumping vs the planned (config) demand ──────────
+// Actual pumping comes from water_usage.json daily (the corrected compliance
+// meter), so the budget, the WaterNSW tab and the pump_scale all use one source.
+function _wuDailyMap(wu) {
+    const map = {};
+    if (wu && Array.isArray(wu.daily)) for (const [d, ml] of wu.daily) map[d] = ml;
+    return map;
+}
+function _wuMlBetween(map, from, to) {
+    const f = _evIso(from), t = _evIso(to);
+    let s = 0;
+    for (const k in map) if (k >= f && k <= t) s += map[k];
+    return s;
+}
+// Planned (budgeted) extraction over a date range = config daily_kl_by_month on
+// active-season days, in ML. pumpScale NOT applied (this is the plan, not actual).
+function _plannedMlBetween(from, to) {
+    const irrig = _cfg.town_water.daily_kl_by_month;
+    const actM = new Set(_cfg.irrigation_season.active_months);
+    let s = 0;
+    for (const d of eachDay(from, to)) {
+        const m = d.getMonth() + 1;
+        if (actM.has(m)) s += parseFloat(irrig[m] || 0) / 1000;
+    }
+    return s;
+}
+// Meter-derived pump scale = recent actual ML/day over active days in the last
+// `lookback` days / the config estimate for the current month (clamped 0.3-3.0).
+function _pumpScaleFromWu(wu, asOf, lookback = 14) {
+    const map = _wuDailyMap(wu);
+    if (!Object.keys(map).length) return 1;
+    const irrig = _cfg.town_water.daily_kl_by_month;
+    const actM = new Set(_cfg.irrigation_season.active_months);
+    const m = asOf.getMonth() + 1;
+    const estPerDay = parseFloat(irrig[m] || 0) / 1000;
+    if (!estPerDay) return 1;
+    const from = new Date(asOf); from.setDate(from.getDate() - lookback + 1);
+    let sum = 0, n = 0;
+    for (const d of eachDay(from, asOf)) {
+        if (!actM.has(d.getMonth() + 1)) continue;
+        const k = _evIso(d);
+        if (k in map) { sum += map[k]; n++; }
+    }
+    if (!n) return 1;
+    const scale = (sum / n) / estPerDay;
+    return Math.min(3, Math.max(0.3, scale));
 }
 
 // ── Parse CSV text → array of objects ────────────────────────────────────────
@@ -1849,6 +1933,57 @@ function _wnWyLabel(d) {           // 'YYYY-MM-DD' -> water-year label 'YYYY-YY'
     return wy + '-' + String(wy + 1).slice(2);
 }
 function _wnFmtMl(v) { return (v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'); }
+
+// ── Water budget card (pumped vs planned demand) ───────────────────────────────
+let _budgetPeriod = 'month';   // 'week' | 'month' | 'season'
+let _budgetWu = null, _budgetSeaStart = null;
+function renderWaterBudget(wu, seaStart) {
+    if (wu) _budgetWu = wu;
+    if (seaStart) _budgetSeaStart = seaStart;
+    if (!_budgetWu || !Array.isArray(_budgetWu.daily) || !_budgetWu.daily.length) return;
+    _budgetRender();
+}
+function setBudgetPeriod(p) { _budgetPeriod = p; _budgetRender(); }
+function _budgetRender() {
+    const map = _wuDailyMap(_budgetWu);
+    const lastDay = _budgetWu.lastDay;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // Compare over whole days we actually have metered data for.
+    let to = today;
+    if (lastDay) { const ld = new Date(lastDay + 'T00:00:00'); if (ld < to) to = ld; }
+    let from;
+    if (_budgetPeriod === 'week') { from = new Date(to); from.setDate(from.getDate() - 6); }
+    else if (_budgetPeriod === 'season') { from = new Date(_budgetSeaStart || new Date(to.getFullYear(), 8, 1)); }
+    else { from = new Date(to.getFullYear(), to.getMonth(), 1); }   // month-to-date
+
+    const plan = _plannedMlBetween(from, to);
+    const actual = _wuMlBetween(map, from, to);
+    const varMl = actual - plan;          // + = over budget (pumped more than planned)
+    const over = varMl > 0;
+    const col = over ? _WN_RED : _WN_GREEN;
+
+    ['week', 'month', 'season'].forEach(p =>
+        document.getElementById('bud-' + p).classList.toggle('active', _budgetPeriod === p));
+
+    $('ov-budget-card').style.display = '';
+    $('bud-plan').textContent   = _wnFmtMl(plan);
+    $('bud-actual').textContent = _wnFmtMl(actual);
+    const pct = plan > 0 ? Math.abs(varMl) / plan * 100 : 0;
+    const ve = $('bud-var');
+    ve.textContent = (varMl >= 0 ? '+' : '-') + _wnFmtMl(Math.abs(varMl));
+    ve.style.color = col;
+    $('bud-var-sub').textContent = plan > 0
+        ? `${pct.toFixed(0)}% ${over ? 'over' : 'under'} plan`
+        : 'no plan for period';
+    // Bar = actual as a fraction of plan (capped at 100% width)
+    const bar = $('bud-bar');
+    bar.style.width = (plan > 0 ? Math.min(100, actual / plan * 100) : 0).toFixed(1) + '%';
+    bar.style.background = col;
+    const fD = d => d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    $('bud-note').textContent =
+        `${fD(from)} to ${fD(to)}: pumped ${_wnFmtMl(actual)} vs planned ${_wnFmtMl(plan)} `
+        + `(${over ? 'over' : 'under'} budget). Green = under, red = over. Actual from the metered compliance meter.`;
+}
 
 function renderWaterNsw(wu, lic) {
     if (wu) _wu = wu;
@@ -2538,11 +2673,12 @@ async function loadAll() {
         const seasonSav = calcSavings(timeline, savFrom, yesterday);
         const monthSav  = calcSavings(timeline, monthStart, yesterday);
 
-        // ── Cease projection ──────────────────────────────────────────────────
-        const ceaseDate   = ahd != null ? projectToCease(ahd) : null;
-        const daysNxtZone = (ahd != null && zone) ? daysToNextZone(ahd, zone) : null;
+        // ── Cease projection (scaled to actual metered pumping) ───────────────
+        const pumpScale   = _pumpScaleFromWu(waterUsage, today);
+        const ceaseDate   = ahd != null ? projectToCease(ahd, pumpScale) : null;
+        const daysNxtZone = (ahd != null && zone) ? daysToNextZone(ahd, zone, pumpScale) : null;
         const daysToC     = ceaseDate ? daysBetween(today, ceaseDate) : null;
-        const costToEnd   = ceaseDate ? townWaterCostToSeasonEnd(ceaseDate) : null;
+        const costToEnd   = ceaseDate ? townWaterCostToSeasonEnd(ceaseDate, pumpScale) : null;
         const costPerKl   = _cfg.town_water.cost_per_kl;
         // Daily cost while ceased: demand of the first irrigating month at or
         // after the projected cease date (today's month would read $0 all winter)
@@ -2570,6 +2706,7 @@ async function loadAll() {
         } catch (e) { console.warn('season outlook render failed', e); }
         try { renderPumpCost(pumpCost); } catch (e) { console.warn('pump cost render failed', e); }
         try { renderWaterNsw(waterUsage, licence); } catch (e) { console.warn('waternsw render failed', e); }
+        try { renderWaterBudget(waterUsage, seaStart); } catch (e) { console.warn('water budget render failed', e); }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
         const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
@@ -2672,11 +2809,16 @@ async function loadAll() {
             'at ' + dailyCostMonth.toLocaleDateString('en-AU', { month:'long' }) + ' demand, from town water';
 
         // This month at a glance - ACTUAL metered pumping when available, else the
-        // demand-based estimate. Licence max shown as context.
+        // demand-based estimate. Licence max shown as context. Prefer the daily
+        // compliance meter (water_usage.json) so this matches the Water Budget card
+        // and the WaterNSW tab; fall back to the pump-meter spread, then to estimate.
+        const _wuDaily     = _wuDailyMap(waterUsage);
+        const _wuLast      = (waterUsage && waterUsage.lastDay) ? new Date(waterUsage.lastDay + 'T00:00:00') : yesterday;
         const _meterDaily  = _meterDailyMl(meterFile);
-        const _hasMeter    = Object.keys(_meterDaily).length > 0;
-        const _meterMonth  = _meterMlBetween(_meterDaily, monthStart, yesterday);
-        const _meterSeason = _meterMlBetween(_meterDaily, savFrom, yesterday);
+        const _hasWu       = Object.keys(_wuDaily).length > 0;
+        const _hasMeter    = _hasWu || Object.keys(_meterDaily).length > 0;
+        const _meterMonth  = _hasWu ? _wuMlBetween(_wuDaily, monthStart, _wuLast) : _meterMlBetween(_meterDaily, monthStart, yesterday);
+        const _meterSeason = _hasWu ? _wuMlBetween(_wuDaily, savFrom, _wuLast)    : _meterMlBetween(_meterDaily, savFrom, yesterday);
         $('ov-ml-month').textContent      = _hasMeter ? fmtMl(_meterMonth) : fmtMl(monthSav.totalMlDemand);
         $('ov-ml-month-max').textContent  = (_hasMeter ? 'metered · ' : 'est · ') + 'licence max ' + fmtMl(monthSav.totalMl);
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);

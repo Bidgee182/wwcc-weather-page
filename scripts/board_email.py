@@ -649,6 +649,102 @@ def _waternsw_panel():
     )
 
 
+def _season_start_date(d):
+    """1 September of the current irrigation season (mirrors board seasonStart)."""
+    from datetime import date as _date
+    return _date(d.year if d.month >= 9 else d.year - 1, 9, 1)
+
+
+def _water_budget_panel(now_syd):
+    """Water budget card: metered pumping vs the planned (config) demand for
+    week / month / season, with an over/under indicator. Actual pumping is read
+    from water_usage.json (the corrected compliance meter) so it matches the board
+    Overview and WaterNSW tab; the plan is the config daily_kl_by_month estimate."""
+    from datetime import date as _date, timedelta as _td
+    wu = _load_json(_DATA_DIR / 'water_usage.json')
+    if not wu or not wu.get('daily'):
+        return ''
+    cfg = lu.get_config()
+    kl = cfg['town_water']['daily_kl_by_month']
+    active = set(cfg['irrigation_season']['active_months'])
+
+    daily = {d: ml for d, ml in wu['daily']}
+    today = now_syd.date()
+    to = today
+    try:
+        ld = _date.fromisoformat(wu['lastDay'])
+        if ld < to:
+            to = ld
+    except Exception:
+        pass
+
+    def planned_ml(a, b):
+        tot, cur = 0.0, a
+        while cur <= b:
+            if cur.month in active:
+                tot += float(kl.get(str(cur.month), 0)) / 1000.0
+            cur += _td(days=1)
+        return tot
+
+    def actual_ml(a, b):
+        ai, bi = a.isoformat(), b.isoformat()
+        return sum(v for d, v in daily.items() if ai <= d <= bi)
+
+    periods = [
+        ('This Week', to - _td(days=6), to),
+        ('This Month', to.replace(day=1), to),
+        ('Season', _season_start_date(to), to),
+    ]
+    rows = ''
+    for i, (name, a, b) in enumerate(periods):
+        plan, act = planned_ml(a, b), actual_ml(a, b)
+        var = act - plan
+        over = var > 0
+        pct = abs(var) / plan * 100 if plan > 0 else 0
+        vcol = '#c0392b' if over else '#1e8449'
+        vtxt = (f'{"+" if var >= 0 else "-"}{abs(var):g} ML'
+                + (f' ({pct:.0f}% {"over" if over else "under"})' if plan > 0 else ''))
+        bg = _ROW_A if i % 2 == 0 else _ROW_B
+        rows += f"""
+  <tr bgcolor="{bg}" style="background-color:{bg};">
+    <td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;color:{_HDR_BG};font-weight:700;">{name}</td>
+    <td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;color:#334155;text-align:right;">{plan:g} ML</td>
+    <td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;color:#334155;text-align:right;">{act:g} ML</td>
+    <td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:{vcol};text-align:right;">{vtxt}</td>
+  </tr>"""
+
+    return (
+        _card_open('Water Budget - Pumped vs Plan')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:left;">Period</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Planned</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Actual (metered)</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Variance</th>
+  </tr>{rows}
+</table>
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td style="padding:10px 20px;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;line-height:1.6;">
+        Planned = the estimated irrigation demand (config). Actual = metered extraction from the lake.
+        <span style="color:#1e8449;font-weight:700;">Under</span> = pumping less than planned;
+        <span style="color:#c0392b;font-weight:700;">over</span> = pumping more than planned.
+      </p>
+    </td>
+  </tr>
+</table>"""
+        + _card_close()
+    )
+
+
 def build_html(now_syd):
     # ── Load data ──────────────────────────────────────────────────────────────
     lake_latest   = _load_json(_DATA_DIR / 'farmbot_lake_latest.json')
@@ -1682,6 +1778,9 @@ def build_html(now_syd):
         # ── Disclaimer ─────────────────────────────────────────────────────────
         # ── WaterNSW licence usage ───────────────────────────────────────────────
         + _waternsw_panel()
+
+        # ── Water budget: metered pumping vs planned demand ──────────────────────
+        + _water_budget_panel(now_syd)
 
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
