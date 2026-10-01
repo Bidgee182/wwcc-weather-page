@@ -655,6 +655,27 @@ def _season_start_date(d):
     return _date(d.year if d.month >= 9 else d.year - 1, 9, 1)
 
 
+def _measured_evap_scale():
+    """Magnitude-weighted ratio of actual to estimated weekly evaporation from
+    evap_variance_log.json (clamped 0.3-1.5), or None. Used for the measured-trend
+    cease date. Handles both field namings (est_evap_mm/actual_evap_mm, older
+    predicted_mm/actual_mm)."""
+    log = _load_json(_DATA_DIR / 'evap_variance_log.json')
+    if not isinstance(log, list):
+        return None
+    se = sa = 0.0
+    for w in log:
+        e = w.get('est_evap_mm', w.get('predicted_mm'))
+        a = w.get('actual_evap_mm', w.get('actual_mm'))
+        try:
+            e, a = float(e), float(a)
+        except (TypeError, ValueError):
+            continue
+        if e > 0 and a >= 0:
+            se += e; sa += a
+    return min(1.5, max(0.3, sa / se)) if se > 0 else None
+
+
 def _water_budget_panel(now_syd):
     """Water budget card: metered pumping vs the licence pump budget (the licence
     MAXIMUM pump rate, e.g. 1.5 ML/day in Zone 1) for week / month / season, with a
@@ -868,6 +889,9 @@ def build_html(now_syd):
     cease_date    = lu.project_to_cease(ahd, now_syd.date(), _pump_scale)
     cost_to_march = lu.town_water_cost_projection(cease_date, pump_scale=_pump_scale) if cease_date else None
     last_proj     = _get_last_week_projection()
+    # Measured-trend cease (actual evaporation so far) shown beside the conservative one
+    _mscale        = _measured_evap_scale()
+    cease_measured = lu.project_to_cease(ahd, now_syd.date(), _pump_scale, _mscale) if _mscale else None
 
     # Rainfall savings (two-component method - see town-water-cost-report.html)
     cfg_tw      = lu.get_config()['town_water']
@@ -1043,6 +1067,7 @@ def build_html(now_syd):
     projection_banner = ''
     if lv_num >= 2:  # show when not at Normal Operations (Level 1)
         _pb_move_html = ''
+        _pb_measured_html = ''
         if cease_date is None:
             # Already at or below cease level
             _pb_date_html = '<span style="color:#b83c3c;">CEASE LEVEL REACHED</span>'
@@ -1078,6 +1103,21 @@ def build_html(now_syd):
                     pass
             _pb_days_html = f'{_days_away:,} days from today'
             _end_yr       = cease_date.year + (1 if cease_date.month > 4 else 0)
+            # Measured-trend cease (actual evaporation so far), beside the conservative
+            _pb_measured_html = ''
+            if cease_measured and _mscale and _mscale < 0.98:
+                from datetime import date as _d
+                _se_yr = now_syd.year + (1 if now_syd.month >= 5 else 0)
+                _season_end = _d(_se_yr, 4, 30)
+                _pct = round(_mscale * 100)
+                if cease_measured > _season_end:
+                    _pb_measured_html = (f'Measured trend: likely holds above cease this season '
+                                         f'(actual evaporation ~{_pct}% of estimate so far)')
+                else:
+                    _dm = (cease_measured - now_syd.date()).days
+                    _pb_measured_html = (f'Measured trend: {cease_measured.day} '
+                                         f'{cease_measured.strftime("%b %Y")} (~{_dm:,} days, '
+                                         f'actual evaporation ~{_pct}% of estimate)')
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
             _pb_cost_sub  = f'{_cease_str} to 30 Apr {_end_yr} (season end)'
 
@@ -1323,6 +1363,7 @@ def build_html(now_syd):
             <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
                 color:#991b1b;">{_pb_days_html}</p>
             {f'<p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:10px;color:#b45309;">{_pb_move_html}</p>' if _pb_move_html else ''}
+            {f'<p style="margin:5px 0 0 0;font-family:Arial,sans-serif;font-size:10px;color:#1e8449;">{_pb_measured_html}</p>' if _pb_measured_html else ''}
           </td>
           <td width="50%" style="background:#fef2f2;padding:12px 16px;vertical-align:top;">
             <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;

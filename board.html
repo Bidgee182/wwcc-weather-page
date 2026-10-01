@@ -391,6 +391,11 @@
                         <div class="sub" id="ol-daily-cost-sub">irrigation from town water</div>
                     </div>
                 </div>
+                <div id="ol-measured-wrap" style="display:none;margin-top:12px;background:#16232e;border-radius:8px;padding:10px 12px;">
+                    <div style="font-size:0.72em;text-transform:uppercase;letter-spacing:1px;color:#7f8c8d;">Measured-trend cease date</div>
+                    <div style="font-size:1.05em;font-weight:bold;color:#5dade2;" id="ol-cease-measured">--</div>
+                    <div style="font-size:0.72em;color:#7f8c8d;margin-top:2px;" id="ol-cease-measured-sub">based on actual evaporation measured so far this season</div>
+                </div>
             </div>
 
             <!-- Current month snapshot -->
@@ -1187,7 +1192,10 @@ function currentZone(ahd) {
 // evaporation and irrigation demand in active months only (JS port of
 // lake_utils.project_to_level). Returns the crossing Date, or null if the
 // level is already at/below the target or does not reach it within 3 years.
-function projectToLevel(ahd, targetAhd) {
+// evapScale=1 is the conservative config estimate (pan_factor 0.7). A measured
+// scale < 1 (actual evaporation running below the estimate) pushes the cease date
+// later - used for the "measured-trend" second cease date shown beside it.
+function projectToLevel(ahd, targetAhd, evapScale = 1) {
     const pan   = _cfg.evaporation.monthly_pan_mm_day;
     const pf    = _cfg.evaporation.pan_factor;
     const irrig = _cfg.town_water.daily_kl_by_month;
@@ -1198,7 +1206,7 @@ function projectToLevel(ahd, targetAhd) {
     for (let i = 0; i < 1095; i++) {
         const m = d.getMonth() + 1;
         const area = lakeArea(cur);
-        const evapMl = parseFloat(pan[m]) * pf * area / 1e6;
+        const evapMl = parseFloat(pan[m]) * pf * area / 1e6 * evapScale;
         const irrigMl = actM.has(m) ? parseFloat(irrig[m] || 0) / 1000 : 0;
         cur -= (evapMl + irrigMl) * 1000 / area;
         d.setDate(d.getDate() + 1);
@@ -1207,9 +1215,24 @@ function projectToLevel(ahd, targetAhd) {
     return null;
 }
 
-function projectToCease(ahd) {
+function projectToCease(ahd, evapScale = 1) {
     const ceaseAhd = Math.min(..._cfg.zone_thresholds.filter(z=>z.min_ahd!==null).map(z=>z.min_ahd));
-    return projectToLevel(ahd, ceaseAhd);
+    return projectToLevel(ahd, ceaseAhd, evapScale);
+}
+
+// Mean ratio of actual to estimated weekly evaporation from the variance log
+// (clamped), i.e. how much of the conservative evaporation is really happening.
+function _measuredEvapScale(log) {
+    if (!Array.isArray(log)) return null;
+    // Magnitude-weighted (sum actual / sum estimated) so small/low-loss weeks don't
+    // skew it. Newer entries use est_evap_mm/actual_evap_mm; older predicted_mm/actual_mm.
+    let se = 0, sa = 0, n = 0;
+    for (const w of log) {
+        const e = parseFloat(w.est_evap_mm != null ? w.est_evap_mm : w.predicted_mm);
+        const a = parseFloat(w.actual_evap_mm != null ? w.actual_evap_mm : w.actual_mm);
+        if (isFinite(e) && isFinite(a) && e > 0 && a >= 0) { se += e; sa += a; n++; }
+    }
+    return (n && se > 0) ? Math.min(1.5, Math.max(0.3, sa / se)) : null;
 }
 
 function daysToNextZone(ahd, zone) {
@@ -2664,6 +2687,10 @@ async function loadAll() {
         const daysNxtZone = (ahd != null && zone) ? daysToNextZone(ahd, zone) : null;
         const daysToC     = ceaseDate ? daysBetween(today, ceaseDate) : null;
         const costToEnd   = ceaseDate ? townWaterCostToSeasonEnd(ceaseDate) : null;
+        // Measured-trend cease: project using actual evaporation measured so far,
+        // shown beside the conservative estimate (decision: show both).
+        const _mEvapScale = _measuredEvapScale(evapLog);
+        const ceaseMeasured = (ahd != null && _mEvapScale) ? projectToCease(ahd, _mEvapScale) : null;
         const costPerKl   = _cfg.town_water.cost_per_kl;
         // Daily cost while ceased: demand of the first irrigating month at or
         // after the projected cease date (today's month would read $0 all winter)
@@ -2792,6 +2819,29 @@ async function loadAll() {
         $('ol-daily-cost').textContent = dailyCost != null ? '$' + Math.round(dailyCost) + '/day' : '--';
         if (dailyCostMonth) $('ol-daily-cost-sub').textContent =
             'at ' + dailyCostMonth.toLocaleDateString('en-AU', { month:'long' }) + ' demand, from town water';
+
+        // Measured-trend cease date beside the conservative one. If the measured
+        // trend pushes cease past the end of the irrigation season (30 Apr), say the
+        // lake likely holds rather than printing a misleading far-off date.
+        if (ceaseMeasured && _mEvapScale && _mEvapScale < 0.98) {
+            $('ol-measured-wrap').style.display = '';
+            const pctTxt = Math.round(_mEvapScale * 100) + '% of the conservative estimate so far';
+            const seasonEndYr = today.getMonth() >= 4 ? today.getFullYear() + 1 : today.getFullYear();
+            const seasonEnd = new Date(seasonEndYr, 3, 30);
+            if (ceaseMeasured > seasonEnd) {
+                $('ol-cease-measured').textContent = 'Likely holds above cease this season';
+                $('ol-cease-measured-sub').textContent =
+                    'actual evaporation running ~' + pctTxt + '; conservative estimate: ' + (ceaseDate ? fmtDate(ceaseDate) : '--')
+                    + '. Early-season trend may rise over summer.';
+            } else {
+                const dM = daysBetween(today, ceaseMeasured);
+                $('ol-cease-measured').textContent = fmtDate(ceaseMeasured) + ' (~' + (dM > 365 ? '365+' : dM) + ' days)';
+                $('ol-cease-measured-sub').textContent =
+                    'based on actual evaporation ~' + pctTxt + '; conservative estimate: ' + (ceaseDate ? fmtDate(ceaseDate) : '--');
+            }
+        } else {
+            $('ol-measured-wrap').style.display = 'none';
+        }
 
         // This month at a glance - ACTUAL metered pumping when available, else the
         // demand-based estimate. Licence max shown as context. Source of truth is the

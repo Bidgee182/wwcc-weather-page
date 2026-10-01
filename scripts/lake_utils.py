@@ -254,7 +254,7 @@ def days_to_next_zone(ahd, start_date, pump_scale=1.0):
 
 # ── Cease-to-pump projection ───────────────────────────────────────────────────
 
-def project_to_level(ahd, target_ahd, start_date, pump_scale=1.0):
+def project_to_level(ahd, target_ahd, start_date, pump_scale=1.0, evap_scale=1.0):
     """Day-by-day simulation: date AHD drops to target_ahd.
 
     No future rainfall assumed. Each day deducts:
@@ -291,8 +291,10 @@ def project_to_level(ahd, target_ahd, start_date, pump_scale=1.0):
         m    = cur_date.month
         area = lake_area_m2(cur_ahd)
 
-        # BOM open-water evaporation (ML/day)
-        evap_ml  = float(pan_rates[str(m)]) * pf * area / 1_000_000
+        # BOM open-water evaporation (ML/day). evap_scale=1.0 is the conservative
+        # estimate; a measured scale < 1 (actual evaporation below estimate) is
+        # passed for the "measured-trend" cease date shown beside it.
+        evap_ml  = float(pan_rates[str(m)]) * pf * area / 1_000_000 * evap_scale
 
         # Irrigation pumped from lake (ML/day) - zero in off-season months,
         # scaled to actual metered draw when pump_scale is supplied
@@ -309,7 +311,7 @@ def project_to_level(ahd, target_ahd, start_date, pump_scale=1.0):
     return None
 
 
-def project_to_cease(ahd, start_date, pump_scale=1.0):
+def project_to_cease(ahd, start_date, pump_scale=1.0, evap_scale=1.0):
     """Date AHD hits the cease-to-pump threshold (see project_to_level).
 
     The cease threshold is derived from the lowest numeric min_ahd in
@@ -321,7 +323,7 @@ def project_to_cease(ahd, start_date, pump_scale=1.0):
     """
     cfg       = get_config()
     cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds'] if z['min_ahd'] is not None)
-    return project_to_level(ahd, cease_ahd, start_date, pump_scale)
+    return project_to_level(ahd, cease_ahd, start_date, pump_scale, evap_scale)
 
 
 def town_water_cost_projection(cease_date, end_date=None, pump_scale=1.0):
