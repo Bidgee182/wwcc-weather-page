@@ -1282,8 +1282,16 @@ def _load_lake_data():
             latest = json.load(f)
         with open(base / 'farmbot_lake_readings.json') as f:
             readings = json.load(f)
-        with open(base / 'pumping_usage.json') as f:
-            pumping = json.load(f)
+        # Pumping (lake extraction) comes from the DAS compliance meter
+        # (water_usage.json daily = real daily ML), NOT the retired pumping_usage.json
+        # which was a stale 0-ML seed that made evaporation look too high.
+        pumping = []
+        try:
+            with open(base / 'water_usage.json') as f:
+                _wu = json.load(f)
+            pumping = [{'date': d, 'ml': ml} for d, ml in (_wu.get('daily') or [])]
+        except Exception:
+            pass
         return {'latest': latest, 'readings': readings, 'pumping': pumping}
     except Exception as e:
         logging.warning(f'Lake data load failed: {e}')

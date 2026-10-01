@@ -108,8 +108,16 @@ def load_data():
         'latest':   load_json(DATA_DIR / 'farmbot_lake_latest.json'),
         'readings': load_json(DATA_DIR / 'farmbot_lake_readings.json') or [],
         'history':  load_json(DATA_DIR / 'davis_weather_history.json') or [],
-        'pumping':  load_json(DATA_DIR / 'pumping_usage.json') or [],
+        # Pumping (lake extraction) comes from the DAS compliance meter
+        # (water_usage.json daily = real daily ML), NOT the retired pumping_usage.json
+        # (a stale 0-ML seed that made evaporation look too high).
+        'pumping':  _pumping_from_water_usage(),
     }
+
+
+def _pumping_from_water_usage():
+    wu = load_json(DATA_DIR / 'water_usage.json') or {}
+    return [{'date': d, 'ml': ml} for d, ml in (wu.get('daily') or [])]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
