@@ -1,0 +1,26 @@
+{
+  "_note": "WaterNSW water-account figures taken from the official Water Account Statements (see the 'Water Statements' folder). AUTHORITATIVE for allocation/compliance (the DAS daily series in water_usage.json is operational only and splits usage differently by calendar year). Available Water = the LOWER of the account balance and the remaining 3-year use limit, and is the real extraction headroom this water year - it can exceed the 193 ML annual share via carryover + the rolling 3-year accounting. Update these values when WaterNSW issues a new statement.",
+  "licence": "40AL413687",
+  "wal": "33232",
+  "shareComponent": 193,
+  "mlPerShare": 1.0,
+  "carryoverLimitMl": 193.0,
+  "accountMaxMl": 386.0,
+  "threeYearUseLimitMl": 579.0,
+  "threeYearAccessLimitMl": 772.0,
+  "statementDate": "2026-10-01",
+  "currentWaterYear": "2026-27",
+  "availableWaterMl": 363.1,
+  "threeYearUseLimitRemainingMl": 363.1,
+  "threeYearAccessLimitRemainingMl": 556.1,
+  "accountBalanceMl": 386.0,
+  "awdMl": 193.0,
+  "history": [
+    {"year": "2021-22", "awdMl": 193.0, "usageMl": 100.5, "availableWaterMl": 285.5, "useLimitRemainingMl": 478.5, "accountBalanceMl": 285.5},
+    {"year": "2022-23", "awdMl": 193.0, "usageMl": 0.0,   "availableWaterMl": 386.0, "useLimitRemainingMl": 478.5, "accountBalanceMl": 386.0},
+    {"year": "2023-24", "awdMl": 193.0, "usageMl": 172.8, "availableWaterMl": 213.2, "useLimitRemainingMl": 305.7, "accountBalanceMl": 213.2},
+    {"year": "2024-25", "awdMl": 193.0, "usageMl": 156.2, "availableWaterMl": 229.8, "useLimitRemainingMl": 250.0, "accountBalanceMl": 229.8},
+    {"year": "2025-26", "awdMl": 193.0, "usageMl": 59.7,  "availableWaterMl": 190.3, "useLimitRemainingMl": 190.3, "accountBalanceMl": 326.3},
+    {"year": "2026-27", "awdMl": 193.0, "usageMl": 0.0,   "availableWaterMl": 363.1, "useLimitRemainingMl": 363.1, "accountBalanceMl": 386.0, "current": true}
+  ]
+}

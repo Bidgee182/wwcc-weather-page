@@ -278,8 +278,9 @@
         <div style="background:#1a252f;border-radius:8px;padding:4px;">
             <div id="ov-wnsw-bar" style="height:18px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
         </div>
-        <div style="font-size:0.72em;color:#7f8c8d;margin-top:6px;">
-            Metered extraction vs the 193 ML allocation (1 July - 30 June). Full history on the WaterNSW tab.
+        <div style="font-size:0.72em;color:#5dade2;margin-top:6px;font-weight:600;" id="ov-wnsw-avail"></div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-top:4px;">
+            Metered extraction this water year (1 July - 30 June). Full allocation detail on the WaterNSW tab.
         </div>
     </div>
 
@@ -951,6 +952,54 @@
 
 <!-- ── WaterNSW tab ──────────────────────────────────────────────────────────── -->
 <div id="tab-wnsw" class="tab-panel">
+
+    <!-- Water allocation (from the WaterNSW account statement) -->
+    <div class="card" id="wn-alloc-card" style="display:none;">
+        <h2>Water Allocation - WaterNSW Account</h2>
+        <div class="metric-grid metric-grid-4" style="margin-bottom:12px;">
+            <div class="metric" style="border-top:3px solid #2471a3;">
+                <div class="lbl">Available Now</div>
+                <div class="val" id="wn-al-avail" style="color:#5dade2;">--</div>
+                <div class="sub">can be extracted this water year</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Annual Share</div>
+                <div class="val" id="wn-al-awd">--</div>
+                <div class="sub">credited each year (AWD)</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Account Balance</div>
+                <div class="val" id="wn-al-account">--</div>
+                <div class="sub">incl. carry-over (max <span id="wn-al-accountmax">386</span>)</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">3-Year Use Limit Left</div>
+                <div class="val" id="wn-al-uselimit">--</div>
+                <div class="sub">of <span id="wn-al-uselimit-total">579</span> ML over any 3 years</div>
+            </div>
+        </div>
+        <div style="background:#1a252f;border-radius:8px;padding:4px;">
+            <div id="wn-al-bar" style="height:20px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
+        </div>
+        <div style="font-size:0.78em;color:#a9cce3;margin-top:8px;" id="wn-al-headline">--</div>
+        <div class="table-wrap" style="margin-top:14px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Water Year</th>
+                    <th style="text-align:right;">Used</th>
+                    <th style="text-align:right;">Available (end)</th>
+                    <th style="text-align:right;">3-Yr Limit Left</th>
+                </tr>
+            </thead>
+            <tbody id="wn-al-body"></tbody>
+        </table>
+        </div>
+        <div style="font-size:0.72em;color:#7f8c8d;margin-top:6px;" id="wn-al-note">
+            Figures from the official WaterNSW water account statement. Available Water is the lower of the account
+            balance and the remaining 3-year use limit.
+        </div>
+    </div>
 
     <!-- Licence & current water-year -->
     <div class="two-col">
@@ -1994,6 +2043,48 @@ function _budgetRender() {
         + `(${_budgetMaxPerDay} ML/day licence max x active days). Green = within budget, red = over. Actual from the metered compliance meter.`;
 }
 
+// ── Water allocation (from the WaterNSW account statement) ─────────────────────
+let _alloc = null;
+function renderAllocation(a) {
+    if (a) _alloc = a;
+    if (!_alloc) return;
+    a = _alloc;
+    const avail = a.availableWaterMl, useLeft = a.threeYearUseLimitRemainingMl, useTot = a.threeYearUseLimitMl;
+    $('wn-alloc-card').style.display = '';
+    $('wn-al-avail').textContent   = _wnFmtMl(avail);
+    $('wn-al-awd').textContent     = _wnFmtMl(a.awdMl);
+    $('wn-al-account').textContent = _wnFmtMl(a.accountBalanceMl);
+    $('wn-al-accountmax').textContent   = a.accountMaxMl;
+    $('wn-al-uselimit').textContent     = _wnFmtMl(useLeft);
+    $('wn-al-uselimit-total').textContent = useTot;
+    // Burn-down bar = share of the 3-year use limit already used
+    const usedPct = useTot > 0 ? (1 - useLeft / useTot) * 100 : 0;
+    const bar = $('wn-al-bar');
+    bar.style.width = Math.min(100, Math.max(0, usedPct)).toFixed(1) + '%';
+    bar.style.background = usedPct > 90 ? _WN_RED : usedPct > 75 ? _WN_AMBER : _WN_GREEN;
+    $('wn-al-headline').innerHTML =
+        `You can extract <strong>${_wnFmtMl(avail)}</strong> this water year - more than the ${_wnFmtMl(a.awdMl)} `
+        + `annual share, thanks to carry-over and the rolling 3-year accounting. `
+        + `3-year use limit: ${_wnFmtMl(useLeft)} of ${useTot} ML remaining.`;
+    $('wn-al-body').innerHTML = (a.history || []).slice().reverse().map(h => {
+        const cur = h.current ? ' style="font-weight:bold;color:#ecf0f1;"' : '';
+        return `<tr${cur}><td>${h.year}${h.current ? ' (current)' : ''}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(h.usageMl)}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(h.availableWaterMl)}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(h.useLimitRemainingMl)}</td></tr>`;
+    }).join('');
+    $('wn-al-note').textContent =
+        `Figures from the official WaterNSW water account statement dated ${a.statementDate}. `
+        + `Available Water is the lower of the account balance and the remaining 3-year use limit `
+        + `(${useTot} ML over any 3 years). Per-year usage follows WaterNSW meter-read dates, so it `
+        + `differs from the operational daily graph below.`;
+
+    // Mirror "Available now" onto the Overview WaterNSW card
+    const ovAvail = document.getElementById('ov-wnsw-avail');
+    if (ovAvail) ovAvail.textContent = 'Available now (WaterNSW account): ' + _wnFmtMl(avail)
+        + ' - more than the ' + _wnFmtMl(a.awdMl) + ' annual share (carry-over + rolling 3-year limit).';
+}
+
 function renderWaterNsw(wu, lic) {
     if (wu) _wu = wu;
     // Licence card
@@ -2626,7 +2717,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes, pcostRes, wuRes, licRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes, pcostRes, wuRes, licRes, allocRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -2641,6 +2732,7 @@ async function loadAll() {
             fetch('data/pump_cost_summary.json'       + cb),
             fetch('data/water_usage.json'             + cb),
             fetch('data/licence_config.json'          + cb),
+            fetch('data/allocation_config.json'       + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -2658,6 +2750,7 @@ async function loadAll() {
         const pumpCost      = pcostRes.ok ? await pcostRes.json().catch(() => null) : null;
         const waterUsage    = wuRes.ok  ? await wuRes.json().catch(() => null) : null;
         const licence       = licRes.ok ? await licRes.json().catch(() => null) : null;
+        const allocation    = allocRes.ok ? await allocRes.json().catch(() => null) : null;
         _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
         if (srcRes.ok) { const s = await srcRes.json(); if (Array.isArray(s) && s.length) _tkSources = s.sort((a, b) => a.from < b.from ? -1 : 1); }
 
@@ -2718,6 +2811,7 @@ async function loadAll() {
         } catch (e) { console.warn('season outlook render failed', e); }
         try { renderPumpCost(pumpCost); } catch (e) { console.warn('pump cost render failed', e); }
         try { renderWaterNsw(waterUsage, licence); } catch (e) { console.warn('waternsw render failed', e); }
+        try { renderAllocation(allocation); } catch (e) { console.warn('allocation render failed', e); }
         try { renderWaterBudget(waterUsage, seaStart, zone ? zone.max_pump_ml_day : null); } catch (e) { console.warn('water budget render failed', e); }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
