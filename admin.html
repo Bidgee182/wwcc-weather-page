@@ -568,6 +568,23 @@
         The pump telemetry flow is a Grundfos amps/curve estimate and is deliberately not used.</p>
     </div>
     <div class="card">
+        <h2>Upload DAS CSV (daily detail for the graph)</h2>
+        <p class="note" style="margin-top:0;">Export the meter data from the DAS portal and upload the CSV here each week to give
+        the board's WaterNSW usage graph true <strong>daily</strong> resolution (instead of one point per weekly reading).
+        The standard Eagle.io export format is auto-detected.</p>
+        <p class="note"><strong>Date range doesn't matter.</strong> Readings merge by day against the stored meter register, which is
+        the absolute cumulative value - so overlapping days can't double-count (it keeps the more complete reading), new days fill
+        gaps, and anything already there is left as-is. Upload just the week or the whole history, as often as you like.</p>
+        <div class="flexrow" style="margin-top:10px;align-items:center;">
+            <input type="file" id="wncsv-file" accept=".csv,text/csv">
+            <button onclick="meterCsvUpload()">Upload &amp; Update Graph</button>
+        </div>
+        <div class="status" id="wncsv-status"></div>
+        <p class="note">Writes data/water_register_daily.json (raw register) and rebuilds data/water_usage.json.
+        The 10x telemetry over-read is corrected automatically.</p>
+    </div>
+
+    <div class="card">
         <h2>WaterNSW Licence &amp; Usage History</h2>
         <p class="note" style="margin-top:0;">Licence details and the searchable 5-year usage graph live on the board dashboard's
         <strong>WaterNSW</strong> tab (view-only for the board). To refresh the long-term history there, drop a new DAS export into
@@ -1191,7 +1208,13 @@ async function ghGet(path) {
     return { sha: d.sha, text: dec.decode(Uint8Array.from(atob(d.content.replace(/\n/g, '')), c => c.charCodeAt(0))) };
 }
 async function ghPut(path, text, message, sha) {
-    const content = btoa(String.fromCharCode(...enc.encode(text)));
+    // Chunked base64 so large files (e.g. the growing water register) don't blow
+    // the call-stack arg limit of String.fromCharCode(...). Identical output for
+    // small files - just safe for big ones.
+    const bytes = enc.encode(text);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    const content = btoa(bin);
     for (let attempt = 0; ; attempt++) {
         const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
             method:'PUT',
@@ -2529,6 +2552,129 @@ async function meterDel(date, value) {
         st('Deleted.'); loadMeter();
     } catch (e) { st('Failed: ' + e.message); }
 }
+// ── WaterNSW DAS CSV upload (daily register for the board graph) ─────────────────
+// Mirrors scripts/water_usage_build.py: parse the raw end-of-day meter register,
+// merge by day (absolute cumulative, so overlaps can't double-count - keep the
+// larger/more-complete value, fill gaps, leave existing days), then rebuild the
+// corrected rollups the board reads. Correction comes from pump_meter.json das block.
+function _wnCsvRow(line) {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (q) {
+            if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+            else cur += c;
+        } else if (c === ',') { out.push(cur); cur = ''; }
+        else if (c === '"') q = true;
+        else cur += c;
+    }
+    out.push(cur); return out;
+}
+function _wnParseRegisterCsv(text) {
+    const lines = text.split(/\r\n|\n|\r/);
+    const reg = {};
+    // Skip the 3 header rows (Id / keys / Units). Register = column index 5.
+    for (let i = 3; i < lines.length; i++) {
+        if (!lines[i]) continue;
+        const f = _wnCsvRow(lines[i]);
+        if (f.length <= 5) continue;
+        const v = parseFloat(f[5]);
+        if (!isFinite(v)) continue;
+        const day = (f[0] || '').slice(0, 10);
+        if (day.length === 10) reg[day] = v;   // later rows overwrite -> end-of-day
+    }
+    return reg;
+}
+function _wnWaterYear(d) {
+    const y = +d.slice(0, 4), m = +d.slice(5, 7), wy = m >= 7 ? y : y - 1;
+    return wy + '-' + String(wy + 1).slice(2);
+}
+function _wnBuildUsage(reg, scale, offset) {
+    const ALLOC = 193;
+    const days = Object.keys(reg).sort();
+    const r = (x, n) => { const p = Math.pow(10, n); return Math.round(x * p) / p; };
+    const daily = []; let prev = null;
+    for (const d of days) {
+        const v = reg[d];
+        if (prev != null) { let ml = r((v - prev) * scale / 1000, 4); if (ml < 0) ml = 0; daily.push([d, ml]); }
+        prev = v;
+    }
+    const monthly = {}, wy = {}, cy = {};
+    for (const [d, ml] of daily) {
+        monthly[d.slice(0, 7)] = (monthly[d.slice(0, 7)] || 0) + ml;
+        const w = _wnWaterYear(d); wy[w] = (wy[w] || 0) + ml;
+        cy[d.slice(0, 4)] = (cy[d.slice(0, 4)] || 0) + ml;
+    }
+    const firstReg = reg[days[0]], lastReg = reg[days[days.length - 1]];
+    return {
+        _note: 'Built by the admin DAS-CSV upload from the raw meter register (corrected). ' +
+               'The DAS flow(inML) column is not used (10x high, ~1000x before the 2022-11-24 LID reconfig).',
+        generated: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+        correction: { scale, offset_kl: offset, reconfig_date: '2022-11-24' },
+        allocationMl: ALLOC,
+        firstDay: days[0], lastDay: days[days.length - 1],
+        currentMeterFaceKl: r(lastReg * scale + offset, 1),
+        totalMlSinceStart: r((lastReg - firstReg) * scale / 1000, 2),
+        waterYears: Object.keys(wy).sort().map(k => ({ label: k, usedMl: r(wy[k], 2), pct: r(wy[k] / ALLOC * 100, 1) })),
+        calendarYears: Object.keys(cy).sort().map(k => ({ year: k, usedMl: r(cy[k], 2) })),
+        monthly: Object.keys(monthly).sort().map(k => [k, r(monthly[k], 3)]),
+        daily,
+    };
+}
+async function meterCsvUpload() {
+    const st = m => $('wncsv-status').textContent = m;
+    const inp = $('wncsv-file'); const file = inp.files && inp.files[0];
+    if (!file) { st('Choose a CSV file first.'); return; }
+    if (!SES.token) { st('No token on this device.'); return; }
+    st('Reading ' + file.name + '...');
+    try {
+        const text = await file.text();
+        const newReg = _wnParseRegisterCsv(text);
+        const nDays = Object.keys(newReg).length;
+        if (!nDays) { st('No meter register values found - is this the DAS export CSV?'); return; }
+
+        // Merge by day into the stored register (max-per-day; see header comment)
+        const rf = await ghGet('data/water_register_daily.json');
+        let blob = {}; try { blob = JSON.parse(rf.text) || {}; } catch {}
+        const register = blob.register || {};
+        let added = 0, overlap = 0;
+        for (const [d, v] of Object.entries(newReg)) {
+            if (d in register) { overlap++; register[d] = Math.max(register[d], v); }
+            else { added++; register[d] = v; }
+        }
+        const days = Object.keys(register).sort();
+        const out = {
+            _note: 'Durable raw end-of-day meter register (uncorrected). Source of truth for ' +
+                   'data/water_usage.json; correction applied when building usage. Merged by day.',
+            updated: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+            source: 'upload:' + file.name,
+            firstDay: days[0], lastDay: days[days.length - 1],
+            register: {},
+        };
+        for (const d of days) out.register[d] = register[d];
+
+        st('Merged ' + nDays + ' days (+' + added + ' new, ' + overlap + ' overlapping). Saving register...');
+        await ghPut('data/water_register_daily.json', JSON.stringify(out),
+            `WaterNSW register upload ${file.name} (+${added} new, ${overlap} overlap) (by ${SES.email})`, rf.sha);
+
+        // Correction config, then rebuild the usage rollups
+        const pf = await ghGet('data/pump_meter.json');
+        let pm = {}; try { pm = JSON.parse(pf.text) || {}; } catch {}
+        const das = pm.das || {};
+        const scale = das.scale ?? 0.1, offset = das.offset_kl ?? 10475.7;
+        st('Rebuilding graph data...');
+        const usage = _wnBuildUsage(out.register, scale, offset);
+        const uf = await ghGet('data/water_usage.json');
+        await ghPut('data/water_usage.json', JSON.stringify(usage),
+            `WaterNSW usage rebuild from ${file.name} (by ${SES.email})`, uf.sha);
+
+        logAction('water_csv_upload', `${file.name}: +${added} new, ${overlap} overlap, through ${usage.lastDay}`);
+        st(`Done. ${days.length} days total (+${added} new, ${overlap} overlapping kept), through ${usage.lastDay}. ` +
+           `The board WaterNSW graph updates within ~15 min.`);
+        inp.value = '';
+    } catch (e) { st('Failed: ' + e.message); }
+}
+
 async function pumpAdd() {
     const date = $('pump-date').value, ml = parseFloat($('pump-ml').value), note = $('pump-note').value.trim();
     const st = m => $('pump-status').textContent = m;

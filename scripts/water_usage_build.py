@@ -1,40 +1,68 @@
 #!/usr/bin/env python3
-"""Build data/water_usage.json from the WaterNSW DAS export.
+"""Build the WaterNSW water-usage files for the board dashboard.
 
-The DAS compliance telemetry (LID 120922-3-LID01, WAL 40AL413687) over-reads
-EXACTLY 10x (confirmed Oct 2026 against the physical meter). We NEVER trust the
-export's own "flow(inML)" column: before the DAS reconfigured the LID on
-2022-11-24 that column was not divided down and reads ~1000x too high, and after
-that date it is still 10x the real volume. Instead we read the raw cumulative
-meter register (the "flow" kL / "meter displayed" column, which is continuous and
-reset-free across the whole 5 years) and apply ONE correction:
+Two artifacts:
+  * data/water_register_daily.json - the DURABLE raw store: the end-of-day
+    cumulative meter register per day (raw, exactly as the DAS logs it). This is
+    the source of truth; the admin page merges weekly CSV uploads into it.
+  * data/water_usage.json - DERIVED rollups the board reads (daily/monthly/
+    water-year), with the 10x over-read corrected.
 
-    real kL (cumulative) = register * das.scale + das.offset_kl
-    usage over a period  = delta(register) * das.scale / 1000  ML   (offset cancels)
+Why the register and not the export's flow(inML) column: the DAS over-reads
+EXACTLY 10x (confirmed Oct 2026 against the physical meter), and before the LID
+was reconfigured on 2022-11-24 its flow(inML) column was not divided down and
+reads ~1000x high. The raw register ("flow" kL / "meter displayed", col 5) is
+continuous and reset-free across all 5 years, so we read that and apply ONE
+correction from data/pump_meter.json's das block:
 
-das.scale / das.offset_kl come from data/pump_meter.json so that when WaterNSW
-corrects the LID (scale -> 1, offset -> 0) this pipeline follows automatically.
+    usage over a period = delta(register) * das.scale / 1000  ML  (= register/10000)
 
-Output data/water_usage.json is small (daily usage pairs + monthly + water-year
-rollups) so board.html can load it without parsing the 2.4 MB CSV client-side.
+The +offset_kl cancels in deltas. When WaterNSW fixes the LID (das.scale -> 1,
+offset -> 0) a rebuild re-applies automatically. NOTE: raw register values from
+before and after a real LID fix are in different units and must not be merged -
+re-seed from a fresh full export at that point.
 
-Drop a newer/wider DAS export into data/reference/ and re-run; the newest export
-file (by embedded end date, else mtime) is used automatically.
+Usage:
+  python scripts/water_usage_build.py                 # build from the register
+      store if present, else seed it from the newest data/reference CSV
+  python scripts/water_usage_build.py --import-csv F   # merge CSV F into the
+      register store, then rebuild
+  python scripts/water_usage_build.py --reseed         # rebuild the register
+      store from the newest data/reference CSV (discards the stored register)
+
+The admin page performs the --import-csv + rebuild in-browser; this script is the
+canonical/offline path and keeps the arithmetic in one documented place.
 """
 import csv
 import glob
 import json
+import math
 import os
+import sys
 from collections import OrderedDict
 from datetime import datetime, timezone
+
+
+def _r(x, n):
+    """Round half-up, matching JS Math.round, so the admin in-browser build and
+    this offline build produce byte-identical files (no churn). Python's built-in
+    round() uses banker's rounding and would differ on .5 boundaries."""
+    p = 10 ** n
+    return math.floor(x * p + 0.5) / p
+
+
+def _jsnum(x):
+    """Emit integral floats as ints (46.0 -> 46) so json output matches JS
+    JSON.stringify, keeping the admin-upload and offline builds byte-identical."""
+    return int(x) if float(x) == int(x) else x
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 REF_DIR = os.path.join(ROOT, "data", "reference")
 OUT = os.path.join(ROOT, "data", "water_usage.json")
+REGISTER = os.path.join(ROOT, "data", "water_register_daily.json")
 PUMP_METER = os.path.join(ROOT, "data", "pump_meter.json")
 
-# Column indices in the DAS Eagle.io export (3 header rows: Id, keys, Units)
 COL_TS = 0
 COL_REGISTER = 5   # "flow" in kL = raw cumulative meter register (continuous)
 ALLOCATION_ML = 193.0
@@ -44,12 +72,10 @@ def _latest_export():
     files = glob.glob(os.path.join(REF_DIR, "das_export_*.csv"))
     if not files:
         raise SystemExit("No DAS export found in data/reference/ (das_export_*.csv)")
-    # Prefer the file whose name encodes the latest end date; fall back to mtime.
+
     def key(p):
-        base = os.path.basename(p)
-        parts = base.replace(".csv", "").split("_")
-        end = parts[-1] if parts else ""
-        return (end, os.path.getmtime(p))
+        parts = os.path.basename(p).replace(".csv", "").split("_")
+        return (parts[-1] if parts else "", os.path.getmtime(p))
     return max(files, key=key)
 
 
@@ -73,21 +99,17 @@ def _num(x):
 
 
 def _water_year(d):
-    """d = 'YYYY-MM-DD'; returns water-year label (Jul 1 - Jun 30)."""
     y, m = int(d[:4]), int(d[5:7])
     wy = y if m >= 7 else y - 1
     return f"{wy}-{str(wy + 1)[2:]}"
 
 
-def main():
-    src = _latest_export()
-    scale, offset = _das_cfg()
-
-    # Last register reading per calendar day (register is monotonic, reset-free).
-    daily_reg = OrderedDict()
-    with open(src, encoding="utf-8-sig") as fh:
+def register_from_csv(path):
+    """Parse a DAS export -> {YYYY-MM-DD: end-of-day raw register}."""
+    daily = {}
+    with open(path, encoding="utf-8-sig") as fh:
         r = csv.reader(fh)
-        next(r, None); next(r, None); next(r, None)  # Id / keys / Units rows
+        next(r, None); next(r, None); next(r, None)   # Id / keys / Units rows
         for row in r:
             if len(row) <= COL_REGISTER:
                 continue
@@ -96,82 +118,123 @@ def main():
                 continue
             day = row[COL_TS][:10]
             if len(day) == 10:
-                daily_reg[day] = v  # later rows overwrite -> end-of-day value
+                daily[day] = v   # later rows overwrite -> end-of-day value
+    return daily
 
-    days = sorted(daily_reg)
+
+def load_register():
+    try:
+        with open(REGISTER, encoding="utf-8") as fh:
+            blob = json.load(fh) or {}
+        reg = blob.get("register") or {}
+        return {k: float(v) for k, v in reg.items()}
+    except Exception:
+        return {}
+
+
+def save_register(reg, source):
+    days = sorted(reg)
+    blob = {
+        "_note": ("Durable raw end-of-day meter register (as the DAS logs it, "
+                  "uncorrected). Source of truth for data/water_usage.json; the "
+                  "admin DAS-CSV upload merges new days in. Correction (10x + units) "
+                  "is applied when building water_usage.json."),
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source": source,
+        "firstDay": days[0] if days else None,
+        "lastDay": days[-1] if days else None,
+        "register": {d: reg[d] for d in days},
+    }
+    with open(REGISTER, "w", encoding="utf-8") as fh:
+        json.dump(blob, fh, separators=(",", ":"))
+
+
+def build_usage(reg):
+    scale, offset = _das_cfg()
+    days = sorted(reg)
     if not days:
-        raise SystemExit("No register readings parsed from " + src)
+        raise SystemExit("Register store is empty - nothing to build")
 
-    def to_ml(delta_register):
-        return round(delta_register * scale / 1000.0, 4)
+    def to_ml(delta):
+        return _r(delta * scale / 1000.0, 4)
 
-    # Daily usage = delta of end-of-day register vs previous day present.
-    daily = []
-    prev = None
+    daily, prev = [], None
     for d in days:
-        reg = daily_reg[d]
+        v = reg[d]
         if prev is not None:
-            ml = to_ml(reg - prev)
-            if ml < 0:
-                ml = 0.0  # guard; register is reset-free but clamp any blip
-            daily.append([d, ml])
-        prev = reg
+            ml = to_ml(v - prev)
+            # Emit integral values as ints (0 not 0.0) so json matches JS
+            # JSON.stringify exactly and the admin-upload rebuild causes no churn.
+            daily.append([d, _jsnum(ml if ml > 0 else 0)])
+        prev = v
 
-    # Monthly rollup
     monthly = OrderedDict()
     for d, ml in daily:
-        monthly.setdefault(d[:7], 0.0)
-        monthly[d[:7]] += ml
-    monthly_list = [[k, round(v, 3)] for k, v in monthly.items()]
-
-    # Water-year rollup (Jul-Jun) vs allocation
+        monthly[d[:7]] = monthly.get(d[:7], 0.0) + ml
     wy = OrderedDict()
     for d, ml in daily:
-        wy.setdefault(_water_year(d), 0.0)
-        wy[_water_year(d)] += ml
-    water_years = [
-        {"label": k, "usedMl": round(v, 2), "pct": round(v / ALLOCATION_ML * 100, 1)}
-        for k, v in wy.items()
-    ]
-
-    # Calendar-year rollup
+        wy[_water_year(d)] = wy.get(_water_year(d), 0.0) + ml
     cy = OrderedDict()
     for d, ml in daily:
-        cy.setdefault(d[:4], 0.0)
-        cy[d[:4]] += ml
-    calendar_years = [{"year": k, "usedMl": round(v, 2)} for k, v in cy.items()]
+        cy[d[:4]] = cy.get(d[:4], 0.0) + ml
 
-    first_reg, last_reg = daily_reg[days[0]], daily_reg[days[-1]]
+    first_reg, last_reg = reg[days[0]], reg[days[-1]]
     out = {
-        "_note": (
-            "Built by scripts/water_usage_build.py from the WaterNSW DAS export. "
-            "All volumes are the REAL (corrected) extraction: register * scale / 1000 ML. "
-            "The export's own flow(inML) column is NOT used (10x over-read, and ~1000x "
-            "before the LID reconfig on 2022-11-24). When WaterNSW fixes the LID, update "
-            "pump_meter.json das.scale/offset_kl and re-run."
-        ),
+        "_note": ("Built by scripts/water_usage_build.py from the raw meter register. "
+                  "Volumes are the REAL (corrected) extraction. The DAS flow(inML) "
+                  "column is not used (10x high, ~1000x before the 2022-11-24 LID reconfig)."),
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source": os.path.basename(src),
-        "correction": {"scale": scale, "offset_kl": offset,
-                       "reconfig_date": "2022-11-24",
-                       "note": "DAS over-reads 10x; corrected here. Reverts when LID fixed."},
-        "allocationMl": ALLOCATION_ML,
+        "correction": {"scale": scale, "offset_kl": offset, "reconfig_date": "2022-11-24"},
+        "allocationMl": _jsnum(ALLOCATION_ML),
         "firstDay": days[0],
         "lastDay": days[-1],
-        "currentMeterFaceKl": round(last_reg * scale + offset, 1),
-        "totalMlSinceStart": round((last_reg - first_reg) * scale / 1000.0, 2),
-        "waterYears": water_years,
-        "calendarYears": calendar_years,
-        "monthly": monthly_list,
+        "currentMeterFaceKl": _jsnum(_r(last_reg * scale + offset, 1)),
+        "totalMlSinceStart": _jsnum(_r((last_reg - first_reg) * scale / 1000.0, 2)),
+        "waterYears": [{"label": k, "usedMl": _jsnum(_r(v, 2)), "pct": _jsnum(_r(v / ALLOCATION_ML * 100, 1))}
+                       for k, v in wy.items()],
+        "calendarYears": [{"year": k, "usedMl": _jsnum(_r(v, 2))} for k, v in cy.items()],
+        "monthly": [[k, _jsnum(_r(v, 3))] for k, v in monthly.items()],
         "daily": daily,
     }
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(out, fh, separators=(",", ":"))
-    print(f"Wrote {OUT}")
-    print(f"  source: {os.path.basename(src)}")
-    print(f"  range : {days[0]} -> {days[-1]} ({len(daily)} days)")
-    print(f"  total : {out['totalMlSinceStart']} ML; current face {out['currentMeterFaceKl']} kL")
-    for w in water_years:
+    return out
+
+
+def main():
+    args = sys.argv[1:]
+    if "--import-csv" in args:
+        path = args[args.index("--import-csv") + 1]
+        reg = load_register()
+        new = register_from_csv(path)
+        # Merge by day. The register is absolute cumulative, so overlapping dates
+        # cannot double-count. Keep the LARGER value per day so a partial re-read
+        # (e.g. an export whose last day stops mid-afternoon) never lowers a day
+        # that a complete read already filled. New days fill gaps; missing days keep.
+        added = overlap = 0
+        for day, val in new.items():
+            if day in reg:
+                overlap += 1
+                reg[day] = max(reg[day], val)
+            else:
+                added += 1
+                reg[day] = val
+        save_register(reg, "merged:" + os.path.basename(path))
+        print(f"Merged {os.path.basename(path)}: +{added} new, {overlap} overlapping "
+              f"(kept the more complete reading); {len(reg)} days total")
+    elif "--reseed" in args or not load_register():
+        src = _latest_export()
+        reg = register_from_csv(src)
+        save_register(reg, os.path.basename(src))
+        print(f"Seeded register from {os.path.basename(src)} ({len(reg)} days)")
+    else:
+        reg = load_register()
+
+    reg = load_register()
+    out = build_usage(reg)
+    print(f"Wrote {OUT}: {out['firstDay']} -> {out['lastDay']}, "
+          f"total {out['totalMlSinceStart']} ML, face {out['currentMeterFaceKl']} kL")
+    for w in out["waterYears"]:
         print(f"    {w['label']}: {w['usedMl']} ML ({w['pct']}%)")
 
 
