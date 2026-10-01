@@ -791,7 +791,10 @@ def build_html(now_syd):
     lv_bg    = level['color_bg']
     lv_txt   = level['color_text']
 
-    _pump_scale = _pump_scale_for(month, now_syd.date())
+    # Projections use the config estimate (pump_scale = 1.0) so the email mirrors
+    # the board/website exactly. Early-season metered scaling pulled the cease date
+    # too early; the trusted figure is the estimate (~16-17 Jan).
+    _pump_scale = 1.0
     nxt     = lu.next_zone_below(ahd)
     days, _ = lu.days_to_next_zone(ahd, now_syd.date(), _pump_scale)
 
@@ -2191,7 +2194,8 @@ def build_monthly_html(now_syd):
     rain_vs_avg = (rain_month - rain_avg) if rain_avg is not None else None
 
     # ── Outlook ────────────────────────────────────────────────────────────────
-    _pump_scale   = _pump_scale_for(month_num, today)
+    # Config estimate (pump_scale = 1.0) so the email mirrors the board/website.
+    _pump_scale   = 1.0
     cease_date    = lu.project_to_cease(ahd, today, _pump_scale)
     cost_to_march = lu.town_water_cost_projection(cease_date, pump_scale=_pump_scale) if cease_date else None
     days_to_cease = (cease_date - today).days if cease_date else None
