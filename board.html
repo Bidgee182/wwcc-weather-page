@@ -953,6 +953,52 @@
 <!-- ── WaterNSW tab ──────────────────────────────────────────────────────────── -->
 <div id="tab-wnsw" class="tab-panel">
 
+    <!-- Searchable usage graph -->
+    <div class="card">
+        <h2>Water Usage - Searchable History</h2>
+        <div class="lk-range-row">
+            <button class="lk-range-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+            <button class="lk-range-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
+            <button class="lk-range-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
+            <button class="lk-range-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;"
+                title="Toggle between usage per period and the running cumulative total">Mode: Per period</button>
+            <button class="lk-range-btn" onclick="wnDownloadCsv()" title="Download the data in view as CSV">Download CSV</button>
+        </div>
+        <div class="lk-range-row" id="wn-range-row">
+            <button class="lk-range-btn" onclick="setWnRange('12m')">12 Months</button>
+            <button class="lk-range-btn active" onclick="setWnRange('wy')">This Water Year</button>
+            <button class="lk-range-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
+            <button class="lk-range-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
+        </div>
+        <div class="lk-custom-row" id="wn-custom-row">
+            <label>From <input type="date" id="wn-from"></label>
+            <label>To <input type="date" id="wn-to"></label>
+            <button class="lk-apply-btn" onclick="applyWnCustom()">Apply</button>
+        </div>
+        <div class="data-notice">
+            <strong>Showing:</strong> <span id="wn-chart-note">loading...</span> &bull;
+            Volumes are the corrected extraction from the WaterNSW compliance meter (hover any bar to read the exact figure).
+        </div>
+        <div class="chart-wrap" style="height:300px;position:relative;">
+            <canvas id="wn-chart"></canvas>
+        </div>
+        <div class="metric-grid metric-grid-3" style="margin-top:12px;margin-bottom:0;">
+            <div class="metric">
+                <div class="lbl">Total (period)</div>
+                <div class="val" id="wn-stat-total">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Peak <span id="wn-stat-peak-unit">month</span></div>
+                <div class="val" id="wn-stat-peak">--</div>
+                <div class="sub" id="wn-stat-peak-when">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Average per period</div>
+                <div class="val" id="wn-stat-avg">--</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Water allocation (from the WaterNSW account statement) -->
     <div class="card" id="wn-alloc-card" style="display:none;">
         <h2>Water Allocation - WaterNSW Account</h2>
@@ -1021,52 +1067,6 @@
         <table class="data-table" id="wn-lic-table">
             <tbody id="wn-lic-body"></tbody>
         </table>
-    </div>
-
-    <!-- Searchable usage graph -->
-    <div class="card">
-        <h2>Water Usage - Searchable History</h2>
-        <div class="lk-range-row">
-            <button class="lk-range-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
-            <button class="lk-range-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
-            <button class="lk-range-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
-            <button class="lk-range-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;"
-                title="Toggle between usage per period and the running cumulative total">Mode: Per period</button>
-            <button class="lk-range-btn" onclick="wnDownloadCsv()" title="Download the data in view as CSV">Download CSV</button>
-        </div>
-        <div class="lk-range-row" id="wn-range-row">
-            <button class="lk-range-btn" onclick="setWnRange('12m')">12 Months</button>
-            <button class="lk-range-btn active" onclick="setWnRange('wy')">This Water Year</button>
-            <button class="lk-range-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
-            <button class="lk-range-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
-        </div>
-        <div class="lk-custom-row" id="wn-custom-row">
-            <label>From <input type="date" id="wn-from"></label>
-            <label>To <input type="date" id="wn-to"></label>
-            <button class="lk-apply-btn" onclick="applyWnCustom()">Apply</button>
-        </div>
-        <div class="data-notice">
-            <strong>Showing:</strong> <span id="wn-chart-note">loading...</span> &bull;
-            Volumes are the corrected extraction from the WaterNSW compliance meter (hover any bar to read the exact figure).
-        </div>
-        <div class="chart-wrap" style="height:300px;position:relative;">
-            <canvas id="wn-chart"></canvas>
-        </div>
-        <div class="metric-grid metric-grid-3" style="margin-top:12px;margin-bottom:0;">
-            <div class="metric">
-                <div class="lbl">Total (period)</div>
-                <div class="val" id="wn-stat-total">--</div>
-            </div>
-            <div class="metric">
-                <div class="lbl">Peak <span id="wn-stat-peak-unit">month</span></div>
-                <div class="val" id="wn-stat-peak">--</div>
-                <div class="sub" id="wn-stat-peak-when">--</div>
-            </div>
-            <div class="metric">
-                <div class="lbl">Average per period</div>
-                <div class="val" id="wn-stat-avg">--</div>
-            </div>
-        </div>
     </div>
 
     <!-- Water-year table -->
