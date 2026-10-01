@@ -877,6 +877,47 @@
         </div>
 
         <div class="card">
+            <h2>&#128167; Water Used for Irrigation</h2>
+            <div class="irr-metrics">
+                <div class="irr-metric"><div class="lbl">Total (period)</div><div class="val" id="wn-stat-total" style="color:#5dade2;">--</div></div>
+                <div class="irr-metric"><div class="lbl">Peak <span id="wn-stat-peak-unit">day</span></div><div class="val" id="wn-stat-peak" style="color:#e67e22;">--</div><div class="lbl" id="wn-stat-peak-when" style="text-transform:none;letter-spacing:0;"></div></div>
+                <div class="irr-metric"><div class="lbl">Avg / period</div><div class="val" id="wn-stat-avg" style="color:#7f8c8d;">--</div></div>
+            </div>
+            <div style="margin-top:10px;text-align:right;">
+                <button onclick="toggleWnDetail()" id="wn-detail-btn" class="wn-btn">&#128202; Show detail</button>
+            </div>
+            <div id="wn-detail" style="display:none;margin-top:10px;">
+                <div class="wn-row">
+                    <button class="wn-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+                    <button class="wn-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
+                    <button class="wn-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
+                    <button class="wn-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;">Mode: Per period</button>
+                    <button class="wn-btn" onclick="wnDownloadCsv()">Download CSV</button>
+                </div>
+                <div class="wn-row" id="wn-range-row">
+                    <button class="wn-btn" onclick="setWnRange('12m')">12 Months</button>
+                    <button class="wn-btn active" onclick="setWnRange('wy')">This Water Year</button>
+                    <button class="wn-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
+                    <button class="wn-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
+                </div>
+                <div id="wn-custom-row" style="display:none;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+                    <label style="font-size:.85em">From <input type="date" id="wn-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:#ecf0f1"></label>
+                    <label style="font-size:.85em">To <input type="date" id="wn-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:#ecf0f1"></label>
+                    <button class="wn-btn" onclick="applyWnCustom()">Apply</button>
+                </div>
+                <div style="font-size:.78em;color:#7f8c8d;margin-bottom:10px;">
+                    <strong style="color:#5dade2;">Showing:</strong> <span id="wn-chart-note">loading...</span>
+                    &bull; metered lake extraction for irrigation (hover a bar for the exact figure).
+                </div>
+                <div style="position:relative;height:280px;"><canvas id="wn-chart"></canvas></div>
+            </div>
+            <div style="font-size:.72em;color:#7f8c8d;margin-top:8px;">
+                Metered lake extraction (WaterNSW compliance meter, 10x-corrected), uploaded weekly from the DAS portal.
+                This is the water pumped from the lake for irrigation.
+            </div>
+        </div>
+
+        <div class="card">
             <h2>&#127783;&#65039; 7-Day Water Balance</h2>
             <div id="rainfall-summary-content"><div style="color:#7f8c8d;font-size:0.85em">Awaiting data...</div></div>
             <div style="margin-top:12px;text-align:right">
@@ -888,42 +929,6 @@
                     <tbody id="weekly-tbody"><tr><td colspan="4" style="color:#7f8c8d;font-size:0.85em">Accumulating data...</td></tr></tbody>
                     <tfoot id="weekly-tfoot"></tfoot>
                 </table>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>&#128167; Water Used for Irrigation</h2>
-            <div class="wn-row">
-                <button class="wn-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
-                <button class="wn-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
-                <button class="wn-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
-                <button class="wn-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;">Mode: Per period</button>
-                <button class="wn-btn" onclick="wnDownloadCsv()">Download CSV</button>
-            </div>
-            <div class="wn-row" id="wn-range-row">
-                <button class="wn-btn" onclick="setWnRange('12m')">12 Months</button>
-                <button class="wn-btn active" onclick="setWnRange('wy')">This Water Year</button>
-                <button class="wn-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
-                <button class="wn-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
-            </div>
-            <div id="wn-custom-row" style="display:none;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-                <label style="font-size:.85em">From <input type="date" id="wn-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:#ecf0f1"></label>
-                <label style="font-size:.85em">To <input type="date" id="wn-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:#ecf0f1"></label>
-                <button class="wn-btn" onclick="applyWnCustom()">Apply</button>
-            </div>
-            <div style="font-size:.78em;color:#7f8c8d;margin-bottom:10px;">
-                <strong style="color:#5dade2;">Showing:</strong> <span id="wn-chart-note">loading...</span>
-                &bull; metered lake extraction for irrigation (hover a bar for the exact figure).
-            </div>
-            <div style="position:relative;height:280px;"><canvas id="wn-chart"></canvas></div>
-            <div class="irr-metrics" style="margin-top:12px;">
-                <div class="irr-metric"><div class="lbl">Total (period)</div><div class="val" id="wn-stat-total" style="color:#5dade2;">--</div></div>
-                <div class="irr-metric"><div class="lbl">Peak <span id="wn-stat-peak-unit">day</span></div><div class="val" id="wn-stat-peak" style="color:#e67e22;">--</div><div class="lbl" id="wn-stat-peak-when" style="text-transform:none;letter-spacing:0;"></div></div>
-                <div class="irr-metric"><div class="lbl">Avg / period</div><div class="val" id="wn-stat-avg" style="color:#7f8c8d;">--</div></div>
-            </div>
-            <div style="font-size:.72em;color:#7f8c8d;margin-top:8px;">
-                Metered lake extraction (WaterNSW compliance meter, 10x-corrected), uploaded weekly from the DAS portal.
-                This is the water pumped from the lake for irrigation.
             </div>
         </div>
 
@@ -2286,6 +2291,13 @@ async function renderWaterUsage() {
     if (!_wu) { const n = _g('wn-chart-note'); if (n) n.textContent = 'water_usage.json unavailable'; return; }
     _wnRenderChart();
 }
+function toggleWnDetail() {
+    const d = _g('wn-detail'), b = _g('wn-detail-btn');
+    const show = d.style.display === 'none' || !d.style.display;
+    d.style.display = show ? 'block' : 'none';
+    b.textContent = (show ? '📊 Hide detail' : '📊 Show detail');
+    if (show) _wnRenderChart();   // draw now that the canvas is visible
+}
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
 function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
 function toggleWnCum() { _wnCum = !_wnCum; _wnRenderChart(); }
@@ -2354,6 +2366,11 @@ function _wnRenderChart() {
     _g('wn-chart-note').textContent = s.labels.length
         ? `${s.labels[0]} to ${s.labels[s.labels.length - 1]} (${s.labels.length} ${s.unit}${s.labels.length === 1 ? '' : 's'}${_wnCum ? ', cumulative' : ''})`
         : 'No data in the selected period';
+
+    // Stats (pills) are always set above; only draw the chart when the detail panel
+    // is open - a canvas inside a display:none parent renders at zero size.
+    const _det = _g('wn-detail');
+    if (_det && (_det.style.display === 'none' || !_det.style.display)) return;
 
     const colors = s.values.map(v => {
         if (_wnGran === 'wy') return (v / alloc * 100) > 90 ? _WN_RED : (v / alloc * 100) > 75 ? _WN_AMBER : _WN_BLUE;
