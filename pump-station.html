@@ -565,6 +565,7 @@
     <button class="nav-btn"             onclick="showTab('pumps',this)"><span class="nav-icon">⚙</span>Pumps</button>
     <button class="nav-btn"             onclick="showTab('performance',this)"><span class="nav-icon">≋</span>Charts</button>
     <button class="nav-btn"             onclick="showTab('trends',this)"><span class="nav-icon">↗</span>Trends</button>
+    <button class="nav-btn"             onclick="showTab('water',this)"><span class="nav-icon">💧</span>Water</button>
     <button class="nav-btn"             onclick="showTab('alarms',this)"><span class="nav-icon">⚠</span>Alarms</button>
     <div class="nav-divider"></div>
     <button class="nav-btn nav-control" onclick="showTab('control',this)" id="nav-btn-control"><span class="nav-icon">◈</span>Control</button>
@@ -846,6 +847,45 @@
         <div class="chart-wrap h160" id="c-dflow-wrap"><canvas id="c-dflow"></canvas></div>
     </div>
 
+</div>
+
+<!-- ═══════════════════════════ WATER USAGE ═══════════════════════════ -->
+<div id="tab-water" class="tab-panel">
+    <div class="card">
+        <h2>Water Usage - Lake Extraction</h2>
+        <div class="range-row" style="margin-bottom:10px;flex-wrap:wrap;">
+            <button class="metric-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+            <button class="metric-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
+            <button class="metric-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
+            <button class="metric-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;">Mode: Per period</button>
+            <button class="metric-btn" onclick="wnDownloadCsv()">Download CSV</button>
+        </div>
+        <div class="range-row" id="wn-range-row" style="margin-bottom:10px;flex-wrap:wrap;">
+            <button class="metric-btn" onclick="setWnRange('12m')">12 Months</button>
+            <button class="metric-btn active" onclick="setWnRange('wy')">This Water Year</button>
+            <button class="metric-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
+            <button class="metric-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
+        </div>
+        <div id="wn-custom-row" style="display:none;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <label style="font-size:.85em">From <input type="date" id="wn-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <label style="font-size:.85em">To <input type="date" id="wn-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <button class="metric-btn" onclick="applyWnCustom()">Apply</button>
+        </div>
+        <div style="font-size:.78em;color:#7f8c8d;margin-bottom:10px;">
+            <strong style="color:#5dade2;">Showing:</strong> <span id="wn-chart-note">loading...</span>
+            &bull; corrected extraction from the WaterNSW compliance meter (hover a bar for the exact figure).
+        </div>
+        <div style="position:relative;height:300px;"><canvas id="wn-chart"></canvas></div>
+        <div class="stat-grid-3" style="margin-top:12px;">
+            <div class="sys-metric"><div class="sm-val" id="wn-stat-total" style="color:#5dade2;">--</div><div class="sm-unit">total</div><div class="sm-lbl">This Period</div></div>
+            <div class="sys-metric"><div class="sm-val" id="wn-stat-peak" style="color:#e67e22;">--</div><div class="sm-unit">peak <span id="wn-stat-peak-unit">day</span></div><div class="sm-lbl" id="wn-stat-peak-when">--</div></div>
+            <div class="sys-metric"><div class="sm-val" id="wn-stat-avg" style="color:#7f8c8d;">--</div><div class="sm-unit">average</div><div class="sm-lbl">per period</div></div>
+        </div>
+        <div style="font-size:.72em;color:#7f8c8d;margin-top:8px;">
+            Volumes corrected for the 10x DAS telemetry over-read. Uploaded weekly from the DAS portal.
+            Full licence &amp; allocation detail on the board dashboard's WaterNSW tab.
+        </div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════ CONTROL ═══════════════════════════ -->
@@ -1161,7 +1201,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.8';
+const PUMP_VERSION = '3.9';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1569,7 +1609,7 @@ async function costSave() {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-const TABS = ['overview','pumps','performance','trends','alarms','control','log','setup'];
+const TABS = ['overview','pumps','performance','trends','water','alarms','control','log','setup'];
 const PUMP_COLORS = ['#3498db','#2ecc71','#e67e22','#9b59b6'];
 const PUMP_BG     = ['rgba(52,152,219,.15)','rgba(46,204,113,.15)','rgba(230,126,34,.15)','rgba(155,89,182,.15)'];
 const PUMP_LABELS = ['P1 CRNE45','P2 CRNE45','P3 CRNE45','Jockey CRNE10'];
@@ -1680,6 +1720,7 @@ function showTab(name, btn) {
     if (name === 'trends')      renderTrendCharts();
     if (name === 'control')     { ctrlRefreshStatus(); if (ctrlSes.unlocked) ctrlLoadCmds(); }
     if (name === 'log')         loadLogTab();
+    if (name === 'water')       renderWaterUsage();
     closeSidebar();
 }
 
@@ -1699,6 +1740,137 @@ function openControlAction(act, val) {
     if (ctrlSes.unlocked) ctrlQueueOrConfirm(act, val);
     else ctrlPendingOnUnlock = { act, val };
 
+}
+
+// ─── Water usage (lake extraction, from data/water_usage.json) ──────────────────
+// Ported from the board WaterNSW graph. NOTE: $ here is a currency formatter, so DOM
+// lookups use _g (getElementById). Defaults to the Daily chart / This Water Year.
+let _wu = null, _wnGran = 'daily', _wnRange = 'wy', _wnCustom = null, _wnCum = false, _wnChart = null, _wnLoaded = false;
+const _WN_BLUE = '#2471a3', _WN_AMBER = '#e67e22', _WN_RED = '#e74c3c', _WN_GREEN = '#27ae60';
+const _g = id => document.getElementById(id);
+function _wnFmtMl(v) { return v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'; }
+
+async function renderWaterUsage() {
+    if (!_wnLoaded) {
+        try { const r = await fetch('data/water_usage.json?_=' + Date.now()); _wu = r.ok ? await r.json() : null; }
+        catch { _wu = null; }
+        _wnLoaded = true;
+    }
+    if (!_wu) { _g('wn-chart-note').textContent = 'water_usage.json unavailable'; return; }
+    _wnRenderChart();
+}
+function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
+function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
+function toggleWnCum() { _wnCum = !_wnCum; _wnRenderChart(); }
+function toggleWnCustom() { const e = _g('wn-custom-row'); e.style.display = (e.style.display === 'none' || !e.style.display) ? 'flex' : 'none'; }
+function applyWnCustom() { const f = _g('wn-from').value, t = _g('wn-to').value; if (!f || !t) return; _wnCustom = { from: f, to: t }; _wnRange = 'custom'; _wnRenderChart(); }
+
+function _wnSeries() {
+    if (!_wu) return { labels: [], values: [], unit: '' };
+    if (_wnGran === 'wy') {
+        return { labels: (_wu.waterYears || []).map(w => w.label),
+                 values: (_wu.waterYears || []).map(w => w.usedMl), unit: 'water year' };
+    }
+    const raw = _wnGran === 'daily' ? (_wu.daily || []) : (_wu.monthly || []);
+    let from = null, to = null;
+    if (_wnRange === 'custom' && _wnCustom) { from = _wnCustom.from; to = _wnCustom.to; }
+    else if (_wnRange === '12m') {
+        const last = _wu.lastDay || new Date().toISOString().slice(0, 10);
+        const d = new Date(last); d.setFullYear(d.getFullYear() - 1);
+        from = d.toISOString().slice(0, 10); to = last;
+    } else if (_wnRange === 'wy') {
+        const wys = _wu.waterYears || [];
+        if (wys.length) { from = wys[wys.length - 1].label.slice(0, 4) + '-07-01'; to = _wu.lastDay; }
+    }
+    const inRange = key => {
+        const k = _wnGran === 'monthly' ? key + '-15' : key;
+        if (from && k < from) return false;
+        if (to && k > to) return false;
+        return true;
+    };
+    const filt = raw.filter(p => inRange(p[0]));
+    const fmtLbl = _wnGran === 'daily'
+        ? k => new Date(k).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
+        : k => new Date(k + '-15').toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+    return { labels: filt.map(p => fmtLbl(p[0])), values: filt.map(p => p[1]),
+             unit: _wnGran === 'daily' ? 'day' : 'month', keys: filt.map(p => p[0]) };
+}
+
+function _wnRenderChart() {
+    ['daily', 'monthly', 'wy'].forEach(g => { const b = _g('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g); });
+    const rr = _g('wn-range-row'); if (rr) rr.style.opacity = _wnGran === 'wy' ? '0.4' : '1';
+    ['12m', 'wy', 'all'].forEach(r => {
+        const sel = _wnGran !== 'wy' && _wnRange === r;
+        const btn = r === 'all' ? _g('wn-btn-all') : [...document.querySelectorAll('#wn-range-row .metric-btn')].find(b => (b.getAttribute('onclick') || '').includes("'" + r + "'"));
+        if (btn) btn.classList.toggle('active', sel);
+    });
+    _g('wn-btn-custom').classList.toggle('active', _wnGran !== 'wy' && _wnRange === 'custom');
+    _g('wn-btn-cum').textContent = 'Mode: ' + (_wnCum ? 'Cumulative' : 'Per period');
+
+    const s = _wnSeries();
+    const alloc = _wu.allocationMl || 193;
+    let values = s.values.slice();
+    if (_wnCum) { let run = 0; values = values.map(v => (run += v)); }
+
+    const total = s.values.reduce((a, b) => a + b, 0);
+    _g('wn-stat-total').textContent = _wnFmtMl(total);
+    _g('wn-stat-peak-unit').textContent = s.unit || 'period';
+    if (s.values.length) {
+        const mi = s.values.indexOf(Math.max(...s.values));
+        _g('wn-stat-peak').textContent = _wnFmtMl(s.values[mi]);
+        _g('wn-stat-peak-when').textContent = s.labels[mi] || '';
+        _g('wn-stat-avg').textContent = _wnFmtMl(total / s.values.length);
+    } else {
+        _g('wn-stat-peak').textContent = '--'; _g('wn-stat-peak-when').textContent = '';
+        _g('wn-stat-avg').textContent = '--';
+    }
+    _g('wn-chart-note').textContent = s.labels.length
+        ? `${s.labels[0]} to ${s.labels[s.labels.length - 1]} (${s.labels.length} ${s.unit}${s.labels.length === 1 ? '' : 's'}${_wnCum ? ', cumulative' : ''})`
+        : 'No data in the selected period';
+
+    const colors = s.values.map(v => {
+        if (_wnGran === 'wy') return (v / alloc * 100) > 90 ? _WN_RED : (v / alloc * 100) > 75 ? _WN_AMBER : _WN_BLUE;
+        return _WN_BLUE;
+    });
+    const ctx = _g('wn-chart').getContext('2d');
+    if (_wnChart) _wnChart.destroy();
+    _wnChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: s.labels, datasets: [{
+            label: _wnCum ? 'Cumulative ML' : 'ML used', data: values,
+            backgroundColor: _wnCum ? _WN_BLUE : colors, borderRadius: 3, maxBarThickness: 46,
+        }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => {
+                    const v = c.parsed.y;
+                    let t = (_wnCum ? 'Cumulative: ' : '') + v.toFixed(2) + ' ML';
+                    if (_wnGran === 'wy' && !_wnCum) t += '  (' + (v / alloc * 100).toFixed(1) + '% of ' + alloc + ' ML)';
+                    return t;
+                } } },
+            },
+            scales: {
+                x: { ticks: { color: '#7f8c8d', maxRotation: 60, autoSkip: true, maxTicksLimit: 24 }, grid: { color: '#1e3040' } },
+                y: { beginAtZero: true, ticks: { color: '#7f8c8d', callback: v => v + ' ML' }, grid: { color: '#1e3040' } },
+            },
+        },
+    });
+}
+
+function wnDownloadCsv() {
+    const s = _wnSeries();
+    if (!s.labels.length) return;
+    const keys = s.keys || s.labels;
+    let csv = 'period,ml_used\n';
+    for (let i = 0; i < s.labels.length; i++) csv += `${keys[i]},${s.values[i]}\n`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `wwcc_water_usage_${_wnGran}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
