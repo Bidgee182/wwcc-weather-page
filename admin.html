@@ -1337,6 +1337,8 @@ function enterApp() {
     $('session-box').style.display = 'block';
     $('quicknav').style.display = 'block';
     $('session-email').textContent = SES.email + (SES.token ? '' : ' (read-only - no token)');
+    // Open the panel named in the URL hash, if any (deep-link after login)
+    { const h = location.hash.slice(1); if (h && document.getElementById('panel-' + h)) showPanel(h); }
     // Fine-grained tokens live at most a year - warn as expiry approaches
     try {
         const saved = localStorage.getItem(tokStoreKey(SES.email) + '_date');
@@ -1450,7 +1452,15 @@ function showPanel(p) {
     document.querySelectorAll('[data-p]').forEach(x => x.classList.toggle('active', x.dataset.p === p));
     $('panel-' + p).classList.add('active');
     if (p === 'health' && Date.now() - _lastHealth > 60000) loadHealth();
+    // Reflect the panel in the URL so Back/Forward and shared links work (once logged in)
+    if (location.hash.slice(1) !== p) location.hash = p;
 }
+// Follow Back/Forward between panels (only while the app is visible / logged in)
+window.addEventListener('hashchange', () => {
+    if (!$('main') || $('main').style.display !== 'block') return;
+    const h = location.hash.slice(1);
+    if (h && document.getElementById('panel-' + h)) showPanel(h);
+});
 
 // ── Health ────────────────────────────────────────────────────────────────────
 function ago(iso) {
