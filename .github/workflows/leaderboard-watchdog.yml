@@ -19,10 +19,11 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  # Shared repo-writes queue: this job commits data/email_log.csv (and
-  # results_log.csv), which other workflows also append to. Serializing them here
-  # prevents concurrent appends from dropping audit rows via `-X theirs`.
-  group: repo-writes
+  # Own group - MUST NOT share repo-writes: this is a time-sensitive scheduled
+  # watchdog, and in the busy repo-writes queue its runs get superseded/cancelled
+  # (GitHub keeps only the latest queued run per group). The email_log.csv row-loss
+  # this was meant to fix is re-solved separately (see .gitattributes merge=union).
+  group: leaderboard-watchdog
   cancel-in-progress: false
 
 permissions:

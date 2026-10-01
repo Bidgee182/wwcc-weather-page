@@ -15,10 +15,11 @@ on:
         default: ''
 
 concurrency:
-  # Shared repo-writes queue: this job commits data/email_log.csv, which several
-  # other workflows also append to. Serializing them here prevents concurrent
-  # appends from dropping audit rows via `git pull --rebase -X theirs`.
-  group: repo-writes
+  # Own group - MUST NOT share repo-writes: this polls every 5 min and in the busy
+  # repo-writes queue it both gets cancelled and starves other jobs (watchdog,
+  # farmbot poll). The email_log.csv row-loss is re-solved via .gitattributes
+  # merge=union instead of serializing everything.
+  group: grundfos-poll
   cancel-in-progress: false
 
 jobs:

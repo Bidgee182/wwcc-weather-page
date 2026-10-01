@@ -1,0 +1,7 @@
+# Append-only audit logs: union-merge so concurrent appends from different
+# workflows combine both sides instead of one dropping the other. (Full effect
+# requires the committing workflow to rebase WITHOUT `-X theirs`, which bypasses
+# merge drivers; the log writers run in separate concurrency groups so collisions
+# are rare.)
+data/email_log.csv merge=union
+data/results_log.csv merge=union
