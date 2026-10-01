@@ -1,16 +1,15 @@
-name: Weekly Meter Reminder
+name: Weekly DAS Upload Reminder
 
 on:
-  # Automatic weekly reminder RETIRED (Oct 2026): the meter is now reminded monthly
-  # via daily_report.py's end-of-month reminder (which includes the manager). The
-  # schedule below is disabled; manual dispatch is kept for one-off sends/tests.
-  # schedule:
-  #   - cron: '0 22 * * 0'   # Mon 8am AEST (Sun 22:00 UTC)
-  #   - cron: '0 21 * * 0'   # Mon 8am AEDT (Sun 21:00 UTC)
+  schedule:
+    # Monday 8:00 AM Sydney year-round (dual DST cron; a Sydney-time guard drops
+    # the off-hour twin so it always lands at 08:00 local).
+    - cron: '0 22 * * 0'   # Mon 8am AEST (Sun 22:00 UTC)
+    - cron: '0 21 * * 0'   # Mon 8am AEDT (Sun 21:00 UTC)
   workflow_dispatch:
     inputs:
       test:
-        description: 'Send [TEST] to Andrew only (does not go to the manager)'
+        description: 'Send [TEST] (still to Andrew only)'
         required: false
         default: 'false'
         type: choice
@@ -19,7 +18,9 @@ on:
           - 'true'
 
 concurrency:
-  group: repo-writes
+  # Own group - this only sends an email (read-only token, no repo write), so it must
+  # NOT share the busy repo-writes queue where scheduled runs get cancelled.
+  group: weekly-das-reminder
   cancel-in-progress: false
 
 jobs:
@@ -52,12 +53,12 @@ jobs:
         if: env.SKIP != '1'
         run: pip install -r scripts/requirements.txt
 
-      - name: Send weekly pump meter reminder
+      - name: Send weekly DAS upload reminder
         if: env.SKIP != '1'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
-          ARGS="--weekly-meter-reminder"
+          ARGS="--das-upload-reminder"
           if [ "${{ github.event.inputs.test }}" = "true" ]; then ARGS="$ARGS --test"; fi
-          echo "Running daily_report.py$ARGS"
+          echo "Running daily_report.py $ARGS"
           python scripts/daily_report.py $ARGS

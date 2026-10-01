@@ -3589,6 +3589,70 @@ def build_weekly_meter_reminder_html(now_sydney):
     return html, subject
 
 
+def build_das_upload_reminder_html(now_sydney):
+    """Build the WEEKLY (Monday) DAS CSV upload reminder (to Andrew).
+
+    Prompts a fresh export of the WaterNSW DAS data and an upload via the admin
+    WaterNSW tab, so the board's daily usage graph and allocation stay current.
+    """
+    today     = now_sydney.date()
+    date_str  = _fmt_d(today, '%-d %B %Y')
+    admin_url = 'https://bidgee182.github.io/wwcc-weather-page/admin.html'
+    das_url   = 'https://das.waternsw.com.au'
+
+    body_rows = _gk_alert_banner('WEEKLY DAS UPLOAD - MONDAY', '#1a4a2e')
+    body_rows += f"""<tr><td style="background:white;padding:20px 24px 16px;">
+  <p style="margin:0 0 12px 0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    Good morning. Time for this week's <strong>DAS upload</strong>. Export the latest meter
+    data from the WaterNSW DAS portal and upload it on the admin WaterNSW tab, so the board's
+    daily water-usage graph and the allocation figures stay up to date.
+  </p>
+  <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;">
+    The date range doesn't matter - readings merge by day, so you can export just the week
+    or the whole history. The 10x telemetry over-read is corrected automatically on upload.
+  </p>
+</td></tr>"""
+
+    body_rows += f"""
+  {sec_header('1', 'Export from the DAS Portal')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('Date',        date_str),
+        ('1. Open',     f'<a href="{das_url}" style="color:#1a4a2e;font-weight:bold;">{das_url}</a>'),
+        ('2. Export',   'Export the meter data (CSV) for the licence / extraction site'),
+        ('3. Save',     'Save the CSV file to this device'),
+    ])}
+  </td></tr>
+
+  {sec_header('2', 'Upload on the Admin Page')}
+  <tr><td style="background:white;padding:20px 24px 8px;border-radius:0 0 10px 10px;">
+    {_gk_kv_table([
+        ('1. Open',   f'<a href="{admin_url}" style="color:#1a4a2e;font-weight:bold;">{admin_url}</a>'),
+        ('2. Go to',  'WaterNSW tab &rarr; "Upload DAS CSV" card'),
+        ('3. Upload', 'Choose the CSV and click "Upload &amp; Update Graph"'),
+        ('4. Done',   'The board graph + allocation refresh within ~15 minutes'),
+    ])}
+  </td></tr>
+
+  {sec_header('3', 'Monthly Physical Check')}
+  <tr><td style="background:white;padding:20px 24px 20px;border-radius:0 0 10px 10px;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;color:#374151;line-height:1.6;">
+      Once a month, also enter a physical meter reading (WaterNSW tab &rarr; Pump Meter Reading,
+      Source = Physical). The page cross-checks it against the DAS and warns on screen if they
+      differ by more than 1% - your signal that the DAS calibration has drifted.
+    </p>
+  </td></tr>"""
+
+    subject = f'Weekly DAS Upload - Monday {date_str}'
+    html    = _gk_meter_wrap(
+        'Weekly DAS Upload',
+        f'Monday {date_str} - export from DAS and upload on the admin page',
+        body_rows,
+        now_sydney,
+    )
+    return html, subject
+
+
 def build_meter_submission_html(now_sydney):
     """Build the 13th-of-month WaterNSW submission reminder email (GK style)."""
     today            = now_sydney.date()
@@ -4308,6 +4372,14 @@ if __name__ == '__main__':
             send_email(subj, html,
                        (['manager@wwcc.com.au'], ['andrew@bidgeepumps.com.au'], []))
             log.info('--weekly-meter-reminder: sent to manager (CC Andrew).')
+
+    elif '--das-upload-reminder' in args:
+        # Weekly (Monday) DAS CSV upload reminder - to Andrew only.
+        now_sydney = datetime.now(tz=TZ)
+        html, subj = build_das_upload_reminder_html(now_sydney)
+        pre = '[TEST] ' if '--test' in args else ''
+        send_email(f'{pre}{subj}', html, ['andrew@bidgeepumps.com.au'])
+        log.info('--das-upload-reminder: sent to Andrew.')
 
     elif '--test' in args:
         # Send test email(s) to andrew@bidgeepumps.com.au with [TEST] subject prefix.
