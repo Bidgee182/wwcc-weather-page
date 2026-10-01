@@ -537,6 +537,118 @@ def _load_json(path):
         return None
 
 
+def _waternsw_usage_chart(water_years, alloc):
+    """QuickChart.io PNG - usage by water year vs the allocation line."""
+    wys = water_years[-6:]
+    labels = [w['label'] for w in wys]
+    vals = [w['usedMl'] for w in wys]
+
+    def _c(v):
+        p = v / alloc * 100 if alloc else 0
+        return '#c0392b' if p > 90 else '#e67e22' if p > 75 else '#2980b9'
+
+    config = {
+        'type': 'bar',
+        'data': {'labels': labels, 'datasets': [
+            {'data': vals, 'backgroundColor': [_c(v) for v in vals], 'borderWidth': 0},
+            {'type': 'line', 'label': f'Allocation {alloc:g} ML', 'data': [alloc] * len(labels),
+             'borderColor': '#c0392b', 'borderWidth': 1, 'borderDash': [5, 4],
+             'fill': False, 'pointRadius': 0, 'lineTension': 0},
+        ]},
+        'options': {
+            'legend': {'display': False},
+            'scales': {
+                'xAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'maxRotation': 0}}],
+                'yAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'beginAtZero': True}}],
+            },
+        },
+    }
+    cfg_json = json.dumps(config, separators=(',', ':'))
+    url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=200&c={_up.quote(cfg_json)}'
+    return (f'<img src="{url}" width="100%" alt="Water usage by water year"'
+            f' style="display:block;border-radius:6px;max-width:100%;">')
+
+
+def _waternsw_panel():
+    """WaterNSW licence card: this water year used/remaining vs allocation + a
+    usage-by-water-year chart. All figures come from data/water_usage.json so the
+    email, the board Overview tile and the board WaterNSW tab always line up."""
+    wu = _load_json(_DATA_DIR / 'water_usage.json')
+    if not wu or not wu.get('waterYears'):
+        return ''
+    wys = wu['waterYears']
+    alloc = wu.get('allocationMl', 193)
+    cur = wys[-1]
+    used = cur['usedMl']
+    label = cur['label']
+    remaining = round(alloc - used, 1)
+    pct = used / alloc * 100 if alloc else 0
+    accent = '#c0392b' if pct > 90 else '#e67e22' if pct > 75 else '#1e8449'
+    bar_used = max(1, min(100, round(pct)))
+    bar_rem = 100 - bar_used
+
+    stat_row = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(25, _ROW_A, f'Used ({label})', f'{used:g} ML', 'this water year', accent)}
+    {_stat_cell(25, _ROW_B, 'Remaining', f'{remaining:g} ML', 'of entitlement')}
+    {_stat_cell(25, _ROW_A, 'Allocation', f'{alloc:g} ML', 'per water year')}
+    {_stat_cell(25, _ROW_B, 'Used', f'<span style="color:{accent};">{pct:.1f}%</span>', 'of allocation', accent)}
+  </tr>
+</table>"""
+
+    usage_bar = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:10px;">
+  <tr><td style="padding:0 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="border-collapse:collapse;border-radius:6px;overflow:hidden;">
+      <tr style="height:22px;">
+        <td width="{bar_used}%" bgcolor="{accent}" style="background-color:{accent};">&nbsp;</td>
+        <td width="{bar_rem}%" bgcolor="#d6eaf8" style="background-color:#d6eaf8;">&nbsp;</td>
+      </tr>
+    </table>
+    <p style="margin:6px 0 0 0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;">
+      {used:g} ML used &middot; {remaining:g} ML remaining of {alloc:g} ML ({pct:.1f}% of this year's entitlement)
+    </p>
+  </td></tr>
+</table>"""
+
+    chart = _waternsw_usage_chart(wys, alloc)
+    return (
+        _card_open('WaterNSW Water Licence')
+        + stat_row
+        + usage_bar
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:14px;">
+  <tr>
+    <td bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">Usage by Water Year</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#0d1b2a;padding:12px;">{chart}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 20px;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;line-height:1.6;">
+        Water year runs 1 July to 30 June. Figures are the metered extraction from the WaterNSW
+        compliance meter, corrected for the known telemetry over-read. Allocation {alloc:g} ML/year
+        (WAL 40AL413687).
+      </p>
+    </td>
+  </tr>
+</table>"""
+        + _card_close()
+    )
+
+
 def build_html(now_syd):
     # ── Load data ──────────────────────────────────────────────────────────────
     lake_latest   = _load_json(_DATA_DIR / 'farmbot_lake_latest.json')
@@ -1568,6 +1680,9 @@ def build_html(now_syd):
         + _card_close()
 
         # ── Disclaimer ─────────────────────────────────────────────────────────
+        # ── WaterNSW licence usage ───────────────────────────────────────────────
+        + _waternsw_panel()
+
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:24px;">
