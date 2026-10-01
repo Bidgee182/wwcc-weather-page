@@ -19,7 +19,10 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: leaderboard-watchdog
+  # Shared repo-writes queue: this job commits data/email_log.csv (and
+  # results_log.csv), which other workflows also append to. Serializing them here
+  # prevents concurrent appends from dropping audit rows via `-X theirs`.
+  group: repo-writes
   cancel-in-progress: false
 
 permissions:
