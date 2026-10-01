@@ -2785,11 +2785,17 @@ async function loadAll() {
             'at ' + dailyCostMonth.toLocaleDateString('en-AU', { month:'long' }) + ' demand, from town water';
 
         // This month at a glance - ACTUAL metered pumping when available, else the
-        // demand-based estimate. Licence max shown as context.
+        // demand-based estimate. Licence max shown as context. Source of truth is the
+        // DAS compliance meter (water_usage.json daily) so this matches the Water
+        // Budget card, the WaterNSW tab and the greenkeeper emails; pump_meter spread
+        // is only a fallback if water_usage is unavailable.
+        const _wuDaily     = _wuDailyMap(waterUsage);
+        const _wuLast      = (waterUsage && waterUsage.lastDay) ? new Date(waterUsage.lastDay + 'T00:00:00') : yesterday;
         const _meterDaily  = _meterDailyMl(meterFile);
-        const _hasMeter    = Object.keys(_meterDaily).length > 0;
-        const _meterMonth  = _meterMlBetween(_meterDaily, monthStart, yesterday);
-        const _meterSeason = _meterMlBetween(_meterDaily, savFrom, yesterday);
+        const _hasWu       = Object.keys(_wuDaily).length > 0;
+        const _hasMeter    = _hasWu || Object.keys(_meterDaily).length > 0;
+        const _meterMonth  = _hasWu ? _wuMlBetween(_wuDaily, monthStart, _wuLast) : _meterMlBetween(_meterDaily, monthStart, yesterday);
+        const _meterSeason = _hasWu ? _wuMlBetween(_wuDaily, savFrom, _wuLast)    : _meterMlBetween(_meterDaily, savFrom, yesterday);
         $('ov-ml-month').textContent      = _hasMeter ? fmtMl(_meterMonth) : fmtMl(monthSav.totalMlDemand);
         $('ov-ml-month-max').textContent  = (_hasMeter ? 'metered · ' : 'est · ') + 'licence max ' + fmtMl(monthSav.totalMl);
         $('ov-saving-month').textContent  = fmt$(monthSav.totalSaving);
