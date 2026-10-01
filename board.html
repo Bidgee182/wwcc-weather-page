@@ -956,11 +956,29 @@
     <!-- Water allocation (from the WaterNSW account statement) -->
     <div class="card" id="wn-alloc-card" style="display:none;">
         <h2>Water Allocation - WaterNSW Account</h2>
-        <div class="metric-grid metric-grid-4" style="margin-bottom:12px;">
+        <!-- Hero: this year's usage vs the 193 ML annual share -->
+        <div class="metric-grid metric-grid-2" style="margin-bottom:10px;">
+            <div class="metric" style="border-top:3px solid #e67e22;">
+                <div class="lbl">Used This Year (<span id="wn-al-wy">--</span>)</div>
+                <div class="val" id="wn-al-used" style="font-size:1.7em;color:#e67e22;">--</div>
+                <div class="sub" id="wn-al-used-sub">of the 193 ML annual share</div>
+            </div>
+            <div class="metric" style="border-top:3px solid #27ae60;">
+                <div class="lbl">Remaining This Year</div>
+                <div class="val" id="wn-al-remain" style="font-size:1.7em;color:#2ecc71;">--</div>
+                <div class="sub">of your annual share</div>
+            </div>
+        </div>
+        <div style="background:#1a252f;border-radius:8px;padding:4px;">
+            <div id="wn-al-bar" style="height:20px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
+        </div>
+        <div style="font-size:0.8em;color:#f0c674;margin-top:8px;" id="wn-al-headline">--</div>
+        <!-- Secondary context -->
+        <div class="metric-grid metric-grid-4" style="margin-top:12px;margin-bottom:0;">
             <div class="metric" style="border-top:3px solid #2471a3;">
-                <div class="lbl">Available Now</div>
+                <div class="lbl">Can Extend To</div>
                 <div class="val" id="wn-al-avail" style="color:#5dade2;">--</div>
-                <div class="sub">can be extracted this water year</div>
+                <div class="sub">max total this year (uses future years)</div>
             </div>
             <div class="metric">
                 <div class="lbl">Annual Share</div>
@@ -978,10 +996,6 @@
                 <div class="sub">of <span id="wn-al-uselimit-total">579</span> ML over any 3 years</div>
             </div>
         </div>
-        <div style="background:#1a252f;border-radius:8px;padding:4px;">
-            <div id="wn-al-bar" style="height:20px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
-        </div>
-        <div style="font-size:0.78em;color:#a9cce3;margin-top:8px;" id="wn-al-headline">--</div>
         <div class="table-wrap" style="margin-top:14px;">
         <table class="data-table">
             <thead>
@@ -1001,34 +1015,12 @@
         </div>
     </div>
 
-    <!-- Licence & current water-year -->
-    <div class="two-col">
-        <div class="card">
-            <h2>Water Access Licence</h2>
-            <table class="data-table" id="wn-lic-table">
-                <tbody id="wn-lic-body"></tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h2>This Water Year</h2>
-            <div class="metric-grid metric-grid-2" style="margin-bottom:14px;">
-                <div class="metric">
-                    <div class="lbl">Used (<span id="wn-wy-label">--</span>)</div>
-                    <div class="val" id="wn-wy-used">--</div>
-                    <div class="sub">of <span id="wn-wy-alloc">193</span> ML entitlement</div>
-                </div>
-                <div class="metric">
-                    <div class="lbl">Remaining</div>
-                    <div class="val" id="wn-wy-remain">--</div>
-                    <div class="sub" id="wn-wy-pct">--</div>
-                </div>
-            </div>
-            <div style="background:#1a252f;border-radius:8px;padding:4px;margin-bottom:6px;">
-                <div id="wn-wy-bar" style="height:22px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
-            </div>
-            <div style="font-size:0.72em;color:#7f8c8d;">Allocation resets each water year (1 July). Bar turns amber above 75%, red above 90%.</div>
-        </div>
+    <!-- Licence -->
+    <div class="card">
+        <h2>Water Access Licence</h2>
+        <table class="data-table" id="wn-lic-table">
+            <tbody id="wn-lic-body"></tbody>
+        </table>
     </div>
 
     <!-- Searchable usage graph -->
@@ -2049,40 +2041,64 @@ function renderAllocation(a) {
     if (a) _alloc = a;
     if (!_alloc) return;
     a = _alloc;
-    const avail = a.availableWaterMl, useLeft = a.threeYearUseLimitRemainingMl, useTot = a.threeYearUseLimitMl;
+    const annual = a.awdMl, useTot = a.threeYearUseLimitMl;
+
+    // "Used this year" = the LIVE compliance-meter reading (water_usage.json daily,
+    // DAS). We know it even though WaterNSW records it only at the next meter read.
+    let usedTY = null;
+    if (_wu && Array.isArray(_wu.waterYears) && _wu.waterYears.length) {
+        const cw = _wu.waterYears.find(w => w.label === a.currentWaterYear) || _wu.waterYears[_wu.waterYears.length - 1];
+        if (cw) usedTY = cw.usedMl;
+    }
+    if (usedTY == null) {
+        const h = (a.history || []).find(x => x.current) || (a.history || []).slice(-1)[0];
+        usedTY = h ? h.usageMl : 0;
+    }
+    const remainTY = Math.max(0, annual - usedTY);
+    const pctUsed  = annual > 0 ? usedTY / annual * 100 : 0;
+    const ceiling  = a.availableWaterMl;                                   // max total this year
+    const useLeftLive = Math.max(0, a.threeYearUseLimitRemainingMl - usedTY);
+    const col = pctUsed > 90 ? _WN_RED : pctUsed > 75 ? _WN_AMBER : _WN_GREEN;
+
     $('wn-alloc-card').style.display = '';
-    $('wn-al-avail').textContent   = _wnFmtMl(avail);
-    $('wn-al-awd').textContent     = _wnFmtMl(a.awdMl);
-    $('wn-al-account').textContent = _wnFmtMl(a.accountBalanceMl);
-    $('wn-al-accountmax').textContent   = a.accountMaxMl;
-    $('wn-al-uselimit').textContent     = _wnFmtMl(useLeft);
+    $('wn-al-wy').textContent       = a.currentWaterYear;
+    $('wn-al-used').textContent     = _wnFmtMl(usedTY);
+    $('wn-al-used-sub').textContent = 'of the ' + _wnFmtMl(annual) + ' annual share (' + pctUsed.toFixed(1) + '%)';
+    $('wn-al-remain').textContent   = _wnFmtMl(remainTY);
+    $('wn-al-avail').textContent    = _wnFmtMl(ceiling);
+    $('wn-al-awd').textContent      = _wnFmtMl(annual);
+    $('wn-al-account').textContent  = _wnFmtMl(a.accountBalanceMl);
+    $('wn-al-accountmax').textContent     = a.accountMaxMl;
+    $('wn-al-uselimit').textContent       = _wnFmtMl(useLeftLive);
     $('wn-al-uselimit-total').textContent = useTot;
-    // Burn-down bar = share of the 3-year use limit already used
-    const usedPct = useTot > 0 ? (1 - useLeft / useTot) * 100 : 0;
+    // Bar = share of the 193 ML ANNUAL allocation used this year
     const bar = $('wn-al-bar');
-    bar.style.width = Math.min(100, Math.max(0, usedPct)).toFixed(1) + '%';
-    bar.style.background = usedPct > 90 ? _WN_RED : usedPct > 75 ? _WN_AMBER : _WN_GREEN;
+    bar.style.width = Math.min(100, Math.max(2, pctUsed)).toFixed(1) + '%';
+    bar.style.background = col;
     $('wn-al-headline').innerHTML =
-        `You can extract <strong>${_wnFmtMl(avail)}</strong> this water year - more than the ${_wnFmtMl(a.awdMl)} `
-        + `annual share, thanks to carry-over and the rolling 3-year accounting. `
-        + `3-year use limit: ${_wnFmtMl(useLeft)} of ${useTot} ML remaining.`;
+        `You've used <strong>${_wnFmtMl(usedTY)}</strong> of your ${_wnFmtMl(annual)} annual share - `
+        + `<strong>${_wnFmtMl(remainTY)}</strong> left this year. If the season needs it you can extract up to `
+        + `<strong>${_wnFmtMl(ceiling)}</strong> in total this year by drawing on carry-over + the rolling 3-year limit, `
+        + `but water used beyond the ${_wnFmtMl(annual)} share reduces the next two years.`;
+    // History table - current year row shows the live meter figure
     $('wn-al-body').innerHTML = (a.history || []).slice().reverse().map(h => {
+        let u = h.usageMl, av = h.availableWaterMl, ul = h.useLimitRemainingMl, tag = '';
+        if (h.current) { u = usedTY; av = Math.max(0, a.availableWaterMl - usedTY); ul = useLeftLive; tag = ' (current, live meter)'; }
         const cur = h.current ? ' style="font-weight:bold;color:#ecf0f1;"' : '';
-        return `<tr${cur}><td>${h.year}${h.current ? ' (current)' : ''}</td>`
-            + `<td style="text-align:right;">${_wnFmtMl(h.usageMl)}</td>`
-            + `<td style="text-align:right;">${_wnFmtMl(h.availableWaterMl)}</td>`
-            + `<td style="text-align:right;">${_wnFmtMl(h.useLimitRemainingMl)}</td></tr>`;
+        return `<tr${cur}><td>${h.year}${tag}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(u)}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(av)}</td>`
+            + `<td style="text-align:right;">${_wnFmtMl(ul)}</td></tr>`;
     }).join('');
     $('wn-al-note').textContent =
-        `Figures from the official WaterNSW water account statement dated ${a.statementDate}. `
-        + `Available Water is the lower of the account balance and the remaining 3-year use limit `
-        + `(${useTot} ML over any 3 years). Per-year usage follows WaterNSW meter-read dates, so it `
-        + `differs from the operational daily graph below.`;
+        `Annual share and 3-year limits from the official WaterNSW statement dated ${a.statementDate}. `
+        + `"Used this year" is the live compliance-meter reading (WaterNSW records it at the next meter read). `
+        + `Available = lower of account balance and remaining 3-year use limit (${useTot} ML over any 3 years).`;
 
-    // Mirror "Available now" onto the Overview WaterNSW card
+    // Mirror onto the Overview WaterNSW card
     const ovAvail = document.getElementById('ov-wnsw-avail');
-    if (ovAvail) ovAvail.textContent = 'Available now (WaterNSW account): ' + _wnFmtMl(avail)
-        + ' - more than the ' + _wnFmtMl(a.awdMl) + ' annual share (carry-over + rolling 3-year limit).';
+    if (ovAvail) ovAvail.textContent = 'Can extend to ' + _wnFmtMl(ceiling) + ' this year if needed '
+        + '(carry-over + rolling 3-year); beyond the ' + _wnFmtMl(annual) + ' share borrows from future years.';
 }
 
 function renderWaterNsw(wu, lic) {
@@ -2107,21 +2123,15 @@ function renderWaterNsw(wu, lic) {
     if (!_wu) { $('wn-chart-note').textContent = 'water_usage.json unavailable'; return; }
     const alloc = _wu.allocationMl || 193;
 
-    // Current water-year card (last water year in the data = current)
+    // Current water-year figures (the dedicated "This Water Year" card was removed;
+    // the Allocation card's hero now shows used/remaining). Still used for the
+    // Overview WaterNSW tile.
     const wys = _wu.waterYears || [];
     const cur = wys.length ? wys[wys.length - 1] : null;
     if (cur) {
         const remain = alloc - cur.usedMl, pct = cur.usedMl / alloc * 100;
         const col = pct > 90 ? _WN_RED : pct > 75 ? _WN_AMBER : _WN_GREEN;
         const barW = Math.min(100, Math.max(0, pct)).toFixed(1) + '%';
-        $('wn-wy-label').textContent = cur.label;
-        $('wn-wy-used').textContent  = _wnFmtMl(cur.usedMl);
-        $('wn-wy-alloc').textContent = alloc;
-        $('wn-wy-remain').textContent = _wnFmtMl(remain);
-        $('wn-wy-pct').textContent   = pct.toFixed(1) + '% used';
-        const bar = $('wn-wy-bar');
-        bar.style.width = barW;
-        bar.style.background = col;
 
         // Mirror onto the Overview tab (same source -> figures always line up)
         const ovCard = $('ov-wnsw-card');
