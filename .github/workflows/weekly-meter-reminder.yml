@@ -1,11 +1,12 @@
 name: Weekly Meter Reminder
 
 on:
-  schedule:
-    # Monday 8:00 AM Sydney year-round (dual DST cron; a Sydney-time guard drops
-    # the off-hour twin so it always lands at 08:00 local).
-    - cron: '0 22 * * 0'   # Mon 8am AEST (Sun 22:00 UTC)
-    - cron: '0 21 * * 0'   # Mon 8am AEDT (Sun 21:00 UTC)
+  # Automatic weekly reminder RETIRED (Oct 2026): the meter is now reminded monthly
+  # via daily_report.py's end-of-month reminder (which includes the manager). The
+  # schedule below is disabled; manual dispatch is kept for one-off sends/tests.
+  # schedule:
+  #   - cron: '0 22 * * 0'   # Mon 8am AEST (Sun 22:00 UTC)
+  #   - cron: '0 21 * * 0'   # Mon 8am AEDT (Sun 21:00 UTC)
   workflow_dispatch:
     inputs:
       test:

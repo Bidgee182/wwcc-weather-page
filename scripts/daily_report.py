@@ -4218,7 +4218,11 @@ def main():
     if today_date.day == last_day_of_month:
         log.info('Last day of month - sending water meter reading reminder...')
         meter_html, meter_subject = build_meter_reading_html(now_sydney)
-        send_email(meter_subject, meter_html, EMAIL_RECIPIENTS_ALL)
+        # Manager reads the meter, so include manager@wwcc.com.au on the monthly
+        # reminder (the weekly reminder has been retired).
+        _meter_rcpts = (_merge(EMAIL_RECIPIENTS_ALL[0], ['manager@wwcc.com.au']),
+                        EMAIL_RECIPIENTS_ALL[1], EMAIL_RECIPIENTS_ALL[2])
+        send_email(meter_subject, meter_html, _meter_rcpts)
 
     # ── 13. WaterNSW submission reminder (13th of month) ──────────────────
     if today_date.day == 13:
