@@ -1901,8 +1901,8 @@ async function loadCSVBalance() {
             const rainDay = cols[iRainDay]?.trim().toLowerCase() === 'true';
             const _raw = (idx) => idx >= 0 ? cols[idx]?.trim() : undefined;
             parsed[date] = {          // last row per date wins (CSV may have duplicates)
-                et:       isNaN(et)       ? 0    : et,
-                rain:     isNaN(rain)     ? 0    : rain,
+                et:       isNaN(et)       ? null : et,
+                rain:     isNaN(rain)     ? null : rain,
                 tempMax:  isNaN(tempMax)  ? null : tempMax,
                 tempMin:  isNaN(tempMin)  ? null : tempMin,
                 meanRH:   isNaN(meanRH)   ? null : meanRH,

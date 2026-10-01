@@ -29,7 +29,9 @@ import anthropic
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "footy_stories.json"
-MODEL = os.environ.get("FOOTY_MODEL", "claude-opus-5")
+# `or` not a default arg: a workflow that passes an undefined var sends "" (set but
+# empty), which would beat os.environ.get's default and break the API call.
+MODEL = os.environ.get("FOOTY_MODEL") or "claude-opus-5"
 MAX_PHRASES = 25
 
 

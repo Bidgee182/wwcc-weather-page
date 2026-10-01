@@ -36,12 +36,14 @@ log = logging.getLogger(__name__)
 # CONFIGURATION - loaded from GitHub Secrets (environment variables)
 # ─────────────────────────────────────────────────────────────────────────────
 
-DAVIS_DID        = os.environ.get('DAVIS_DID',        '001D0A00AB84')
-DAVIS_PASS       = os.environ.get('DAVIS_PASS',        'Ap08021977')
-DAVIS_TOKEN      = os.environ.get('DAVIS_TOKEN',       '771389FF9E4B4856A18AD35028EAFCE8')
-DAVIS_V2_KEY     = os.environ.get('DAVIS_V2_KEY',      'kvsweiywmnahb6ayvc7gstbdigst1k9x')
-DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET',   'urw4q7amnhwnajydf3r1ubggcrvcicvh')
-DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION',  '243271')   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
+# `or` defaults: a workflow secret/var that is undefined arrives as "" (set but
+# empty), which would override os.environ.get's default. `or` falls back correctly.
+DAVIS_DID        = os.environ.get('DAVIS_DID')       or '001D0A00AB84'
+DAVIS_PASS       = os.environ.get('DAVIS_PASS')      or 'Ap08021977'
+DAVIS_TOKEN      = os.environ.get('DAVIS_TOKEN')     or '771389FF9E4B4856A18AD35028EAFCE8'
+DAVIS_V2_KEY     = os.environ.get('DAVIS_V2_KEY')    or 'kvsweiywmnahb6ayvc7gstbdigst1k9x'
+DAVIS_V2_SECRET  = os.environ.get('DAVIS_V2_SECRET') or 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
+DAVIS_V2_STATION = os.environ.get('DAVIS_V2_STATION') or '243271'   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
 # Lake Albert station still supplies ET / solar / UV / THSW - the club
 # station's ISS has no solar or UV sensors fitted, so it cannot report them.
 DAVIS_V2_SOLAR_STATION = os.environ.get('DAVIS_V2_SOLAR_STATION', '10489')
@@ -3999,9 +4001,10 @@ def main():
             d['temp_max'] = daily['temperature_2m_max'][0]
         if d['temp_min'] is None and daily.get('temperature_2m_min'):
             d['temp_min'] = daily['temperature_2m_min'][0]
-        if d['rain_mm'] == 0 and daily.get('precipitation_sum'):
+        # None (sensor/merge gave nothing) must also trigger backfill, not just 0.
+        if (d['rain_mm'] is None or d['rain_mm'] == 0) and daily.get('precipitation_sum'):
             d['rain_mm'] = daily['precipitation_sum'][0] or 0.0
-        if d['et_mm'] == 0 and daily.get('et0_fao_evapotranspiration'):
+        if (d['et_mm'] is None or d['et_mm'] == 0) and daily.get('et0_fao_evapotranspiration'):
             d['et_mm'] = daily['et0_fao_evapotranspiration'][0] or 0.0
     # UV: the Davis archive endpoint carries no UV fields, so max/avg/dose all
     # come from Open-Meteo's historical-forecast API (hourly integration for

@@ -212,7 +212,9 @@ def main():
         "financialYtd": rollup(daily, fy, yesterday, cost_per_kl),
         "calendarYtd":  rollup(daily, date(today.year, 1, 1), yesterday, cost_per_kl),
         "week":   rollup(daily, yesterday - timedelta(days=6), yesterday, cost_per_kl),
-        "month":  rollup(daily, today.replace(day=1), yesterday, cost_per_kl),
+        # Clamp the end so the 1st of a month doesn't give a backwards (empty)
+        # window (month_start=today > yesterday); shows month-to-date instead.
+        "month":  rollup(daily, today.replace(day=1), max(today.replace(day=1), yesterday), cost_per_kl),
         "season": rollup(daily, ss, yesterday, cost_per_kl),
         "note": "Energy from the CU352 cumulative counter (outage-proof). Volume from the physical pump meter. Cost is the marginal pump running (energy) cost at the time-of-use tariff; excludes site demand/supply/fixed charges on the shared club meter. Tariff rates are GST-inclusive; costExGst is the ex-GST figure for the P&L.",
     }
