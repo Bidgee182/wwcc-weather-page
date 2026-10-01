@@ -565,7 +565,7 @@
     <button class="nav-btn"             onclick="showTab('pumps',this)"><span class="nav-icon">⚙</span>Pumps</button>
     <button class="nav-btn"             onclick="showTab('performance',this)"><span class="nav-icon">≋</span>Charts</button>
     <button class="nav-btn"             onclick="showTab('trends',this)"><span class="nav-icon">↗</span>Trends</button>
-    <button class="nav-btn"             onclick="showTab('water',this)"><span class="nav-icon">💧</span>Water</button>
+    <button class="nav-btn"             onclick="showTab('water',this)"><span class="nav-icon"><svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-0.12em;fill:currentColor;"><path d="M12 2.7S5 10 5 15a7 7 0 0 0 14 0C19 10 12 2.7 12 2.7z"/></svg></span>Water</button>
     <button class="nav-btn"             onclick="showTab('alarms',this)"><span class="nav-icon">⚠</span>Alarms</button>
     <div class="nav-divider"></div>
     <button class="nav-btn nav-control" onclick="showTab('control',this)" id="nav-btn-control"><span class="nav-icon">◈</span>Control</button>
@@ -1201,7 +1201,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '3.9';
+const PUMP_VERSION = '4.0';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
