@@ -327,7 +327,7 @@
                 <div class="lake-pill-val" id="b-evap">--</div>
             </div>
         </div>
-        <div style="font-size:0.68em;color:#566573;text-align:center">Volume estimate assumes uniform lake cross-section. Full capacity at RL 191.551 m AHD = ~4,148 ML.</div>
+        <div style="font-size:0.68em;color:#566573;text-align:center">Volume from the lake area model, scaled to the official full-supply capacity of ~4,148 ML at RL 191.551 m AHD.</div>
     </div>
 
     <div class="card">
@@ -894,7 +894,7 @@ function lakeAreaM2(ahd) {
     const slope = (fullArea - calArea) / (fullAhd - calAhd);
     return Math.max(0, calArea + slope * (ahd - calAhd));
 }
-function ahdToML(ahd) {
+function _rawAhdToML(ahd) {
     if (ahd == null) return null;
     if (ahd <= LAKE_BOTTOM_AHD) return 0;
     const steps = 200, dh = (ahd - LAKE_BOTTOM_AHD) / steps;
@@ -903,6 +903,14 @@ function ahdToML(ahd) {
         total += (lakeAreaM2(LAKE_BOTTOM_AHD + i * dh) + lakeAreaM2(LAKE_BOTTOM_AHD + (i + 1) * dh)) / 2 * dh;
     }
     return total / 1000;
+}
+// Scale the tapered integral up to the OFFICIAL full-supply capacity (LAKE_FULL_ML)
+// so a full lake reads 4,148 ML / 100% (the bare integral under-reads ~9%, capping
+// the gauge at ~91%). Matches the Python vol_between_ml scaling.
+const _AHD_ML_SCALE = LAKE_FULL_ML / _rawAhdToML(LAKE_FULL_AHD);
+function ahdToML(ahd) {
+    const raw = _rawAhdToML(ahd);
+    return raw == null ? null : raw * _AHD_ML_SCALE;
 }
 
 // ── 7-day depth sparkline (Current Water Level card) ─────────────────────────

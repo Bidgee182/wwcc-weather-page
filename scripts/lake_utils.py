@@ -143,12 +143,8 @@ def lake_area_m2(ahd):
 
 # ── Volume ────────────────────────────────────────────────────────────────────
 
-def vol_between_ml(lo_ahd, hi_ahd, steps=500):
-    """Volume of water (ML) between two AHD levels.
-
-    Uses trapezoidal integration over the linear area model, anchored to the
-    official full-supply capacity in lake_config.json.
-    """
+def _raw_vol_between_ml(lo_ahd, hi_ahd, steps=500):
+    """Trapezoidal integral of the linear area model between two AHD levels (ML)."""
     if lo_ahd >= hi_ahd:
         return 0.0
     dh    = (hi_ahd - lo_ahd) / steps
@@ -158,6 +154,32 @@ def vol_between_ml(lo_ahd, hi_ahd, steps=500):
         h2 = lo_ahd + (i + 1) * dh
         total += (lake_area_m2(h1) + lake_area_m2(h2)) / 2.0 * dh
     return total / 1000.0  # m³ → ML
+
+
+_VOL_SCALE = None
+
+
+def _vol_scale():
+    """Scale factor that anchors the tapered integral to the OFFICIAL full-supply
+    capacity (lake_geometry.full_supply_ml). The bare trapezoidal integral under-
+    reads the surveyed capacity (~3,767 vs 4,148 ML), so the % gauge could never
+    reach 100%. We scale the displayed VOLUME up to the official figure. NOTE: this
+    only affects volume display - the cease/zone projections use lake_area_m2()
+    directly, not this, so they are unchanged."""
+    global _VOL_SCALE
+    if _VOL_SCALE is None:
+        geo = get_config()['lake_geometry']
+        full_ml = geo.get('full_supply_ml')
+        bottom  = geo.get('physical_bottom_ahd', 188.1)
+        raw = _raw_vol_between_ml(bottom, geo['full_supply_ahd'])
+        _VOL_SCALE = (full_ml / raw) if (full_ml and raw) else 1.0
+    return _VOL_SCALE
+
+
+def vol_between_ml(lo_ahd, hi_ahd, steps=500):
+    """Volume of water (ML) between two AHD levels, scaled to the official
+    full-supply capacity so a full lake reads 100% / full_supply_ml."""
+    return _raw_vol_between_ml(lo_ahd, hi_ahd, steps) * _vol_scale()
 
 
 # ── Zone information ──────────────────────────────────────────────────────────
