@@ -2296,7 +2296,7 @@ function toggleWnDetail() {
     const show = d.style.display === 'none' || !d.style.display;
     d.style.display = show ? 'block' : 'none';
     b.textContent = (show ? '📊 Hide detail' : '📊 Show detail');
-    if (show) _wnRenderChart();   // draw now that the canvas is visible
+    if (show) renderWaterUsage();   // loads data if needed, then draws
 }
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
 function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
@@ -2336,6 +2336,7 @@ function _wnSeries() {
 }
 
 function _wnRenderChart() {
+    if (!_wu) { renderWaterUsage(); return; }   // data not loaded yet - load then re-render
     ['daily', 'monthly', 'wy'].forEach(g => { const b = _g('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g); });
     const rr = _g('wn-range-row'); if (rr) rr.style.opacity = _wnGran === 'wy' ? '0.4' : '1';
     ['12m', 'wy', 'all'].forEach(r => {
