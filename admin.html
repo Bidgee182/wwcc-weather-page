@@ -565,6 +565,7 @@
         </div>
         <div class="note" id="meter-hint" style="margin-top:6px;"></div>
         <div class="status" id="meter-status"></div>
+        <div id="meter-check" style="margin-top:8px;font-size:0.85em;display:none;border-radius:6px;padding:8px 10px;"></div>
         <p class="note">Writes data/pump_meter.json - the source of truth for lake water use in the reports.
         The pump telemetry flow is a Grundfos amps/curve estimate and is deliberately not used.</p>
     </div>
@@ -2502,6 +2503,49 @@ async function loadMeter() {
         }).join('');
     } catch { $('meter-list').innerHTML = '<tr><td colspan="5">Could not load.</td></tr>'; }
 }
+// On-page cross-check: compare a physical meter reading against what the DAS says
+// the meter should read on that date (register x scale + offset). Flags >1% drift.
+const METER_CHECK_TOL_PCT = 1.0;
+async function _meterCheckPhysical(dateStr, physKl) {
+    const el = $('meter-check');
+    const show = (html, bg, fg) => { el.style.display = ''; el.style.background = bg; el.style.color = fg; el.innerHTML = html; };
+    try {
+        const rf = await ghGet('data/water_register_daily.json');
+        let blob = {}; try { blob = JSON.parse(rf.text) || {}; } catch {}
+        const reg = blob.register || {};
+        if (!Object.keys(reg).length) {
+            show('No DAS register data yet - upload a DAS CSV to enable the cross-check.', '#2a2f3a', '#bdc3c7'); return;
+        }
+        // Exact date, else the nearest DAS day within 7 days
+        let regRaw = reg[dateStr], regDate = dateStr;
+        if (regRaw == null) {
+            let best = null, bestDiff = 8;
+            for (const d of Object.keys(reg)) {
+                const diff = Math.abs((new Date(d) - new Date(dateStr)) / 86400000);
+                if (diff <= 7 && diff < bestDiff) { best = d; bestDiff = diff; }
+            }
+            if (best) { regRaw = reg[best]; regDate = best; }
+        }
+        if (regRaw == null) {
+            show(`No DAS data near ${dateStr} yet - upload this week's DAS CSV and the cross-check will run.`, '#2a2f3a', '#bdc3c7'); return;
+        }
+        const scale = _meterDasCfg.scale ?? 0.1, offset = _meterDasCfg.offset_kl ?? 0;
+        const dasKl = regRaw * scale + offset;
+        const diff = physKl - dasKl, pct = dasKl ? diff / dasKl * 100 : 0;
+        const near = regDate === dateStr ? '' : ` (nearest DAS day ${regDate})`;
+        const line = `Physical ${Math.round(physKl).toLocaleString()} kL vs DAS-implied `
+            + `${Math.round(dasKl).toLocaleString()} kL${near}: diff ${diff >= 0 ? '+' : ''}${Math.round(diff).toLocaleString()} kL `
+            + `(${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%).`;
+        if (Math.abs(pct) <= METER_CHECK_TOL_PCT) {
+            show('&#10003; ' + line + ' Within 1% - DAS calibration looks good.', '#14321f', '#a9f0c9');
+        } else {
+            show('&#9888; ' + line + ' Over 1% - the DAS calibration may have drifted or the LID been reconfigured. '
+                + 'Check before trusting the DAS figures. (If WaterNSW fixed the LID, set the das scale=1 / offset=0 in pump_meter.json.)',
+                '#3a1618', '#f5b7b1');
+        }
+    } catch (e) { show('Cross-check unavailable: ' + e.message, '#2a2f3a', '#bdc3c7'); }
+}
+
 async function meterAdd() {
     const date = $('meter-date').value, raw = parseFloat($('meter-value').value);
     const source = $('meter-source').value;
@@ -2535,6 +2579,11 @@ async function meterAdd() {
             `Pump meter reading ${date}: ${reading.value} kL (${source}) (by ${SES.email})`, f.sha);
         logAction('pump_meter_reading', `${date}: ${reading.value} kL (${source})`);
         st(source === 'DAS' ? `Saved - DAS ${raw} stored as ${reading.value} kL.` : 'Saved.');
+        // On-page cross-check: does a PHYSICAL reading match what the DAS implies?
+        if (source !== 'DAS') {
+            const physKl = String(unit).toLowerCase() === 'ml' ? raw * 1000 : raw;
+            _meterCheckPhysical(date, physKl);
+        } else { $('meter-check').style.display = 'none'; }
         $('meter-value').value = ''; $('meter-note').value = '';
         loadMeter();
     } catch (e) { st('Failed: ' + e.message); }
