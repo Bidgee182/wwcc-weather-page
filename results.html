@@ -489,6 +489,7 @@ async function loadIndex() {
         }
         el.innerHTML = index.map((c, i) => buildCard(c, i)).join('');
         window._index = index;
+        _resApplyHash();   // open a deep-linked comp (#<comp>) if the URL has one
 
         // Enrich each card with grade winners + ball count (parallel fetches)
         index.forEach((c, i) => {
@@ -508,9 +509,29 @@ async function loadIndex() {
     }
 }
 
+// ── URL hash (deep-link a comp, so Back returns to the list) ──────────────────
+function _resKey(e) { return e && e.file ? e.file.split('/').pop().replace(/\.json$/, '') : ''; }
+let _resCurKey = null;
+function _resApplyHash() {
+    const h = location.hash.slice(1);
+    if (!h) {
+        if (_resCurKey !== null) { _resCurKey = null;
+            document.getElementById('detail').style.display = 'none';
+            document.getElementById('list-view').style.display = 'block'; }
+        return;
+    }
+    if (h === _resCurKey) return;
+    const idx = (window._index || []).findIndex(e => _resKey(e) === h);
+    if (idx >= 0) loadDetail(idx);
+}
+window.addEventListener('hashchange', _resApplyHash);
+
 // ── Detail view ───────────────────────────────────────────────────
 async function loadDetail(idx) {
     const entry = window._index[idx];
+    if (!entry) return;
+    _resCurKey = _resKey(entry);
+    if (location.hash.slice(1) !== _resCurKey) location.hash = _resCurKey;
     document.getElementById('list-view').style.display = 'none';
     document.getElementById('detail').style.display = 'block';
     document.getElementById('det-comp').textContent = entry.competition;
@@ -728,6 +749,8 @@ function renderDetail(data) {
 }
 
 function showList() {
+    _resCurKey = null;
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
     document.getElementById('detail').style.display = 'none';
     document.getElementById('list-view').style.display = 'block';
 }

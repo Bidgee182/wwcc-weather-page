@@ -1097,7 +1097,15 @@ function showTab(name) {
     if (name==='balance') renderBalanceTab();
     if (name==='weather' || name==='powerboat' || name==='sailing') { fetchWeather(); fetchDavisHistory(); }
     if (name==='fishing') { if (_windKph != null) updateFishingTab(); else { fetchWeather(); fetchDavisHistory(); } }
+    // Reflect the tab in the URL so Back/Forward and shared links work
+    if (location.hash.slice(1) !== name) location.hash = name;
 }
+// Open the tab named in the URL hash on load, and follow Back/Forward
+window.addEventListener('DOMContentLoaded', () => {
+    const apply = () => { const h = location.hash.slice(1); if (h && document.getElementById('tab-' + h)) showTab(h); };
+    apply();
+    window.addEventListener('hashchange', apply);
+});
 
 // ── Range controls (level tab) ────────────────────────────────────────────
 let _laSmooth='auto'; // 'auto' (4h averages on spans >= 14 days) | 'on' | 'off'

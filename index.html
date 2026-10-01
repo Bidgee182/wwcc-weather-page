@@ -2006,6 +2006,7 @@ function goTab(name) {
         if (b) b.classList.toggle('active', t === name);
     }
     if (!GK_MODE && !TV_MODE && !TV2_MODE) localStorage.setItem('go_active_tab', name);
+    if (!TV_MODE && !TV2_MODE && location.hash.slice(1) !== name) location.hash = name;
 }
 // Restore the last-used golfer tab (normal page views only)
 (function() {
@@ -2029,6 +2030,19 @@ function goTab(name) {
         document.getElementById('subtitle').textContent = 'Course Conditions for Players';
     }
     // TV_MODE is handled separately in initTVMode()
+})();
+
+// ── Deep-link the sub-tab from the URL hash (and follow Back/Forward) ──────────
+(function() {
+    const apply = () => {
+        const h = location.hash.slice(1);
+        if (!h || TV_MODE || TV2_MODE) return;
+        const inGk = document.getElementById('view-greenkeeper').style.display !== 'none';
+        if (inGk) { if (document.getElementById('gk-tab-' + h)) switchGKTab(h); }
+        else      { if (document.getElementById('go-tab-' + h)) goTab(h); }
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
 })();
 
 // ── Last-updated freshness colour ─────────────────────────────────
@@ -2252,6 +2266,8 @@ function switchGKTab(tab) {
         if (btn)   btn.classList.toggle('active', t === tab);
     });
     if (tab === 'irrigation') renderWaterUsage();
+    // Reflect the sub-tab in the URL so Back/Forward and shared links work
+    if (!TV_MODE && !TV2_MODE && location.hash.slice(1) !== tab) location.hash = tab;
 }
 
 // ── Water used for irrigation (lake extraction, data/water_usage.json) ─────────
