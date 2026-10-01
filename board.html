@@ -1096,6 +1096,15 @@ function daysBetween(a, b) {
     return Math.round((b - a) / 86400000);
 }
 
+// "Now" in Australia/Sydney wall-clock, as a Date whose local fields (year/month/
+// date) reflect Sydney - so all date decisions are correct regardless of the
+// viewing device's timezone. Use this, not new Date(), for today/season/projection.
+function _sydNow() {
+    try { return new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' })); }
+    catch (e) { return new Date(); }
+}
+function _sydToday() { return new Date().toLocaleString('en-CA', { timeZone: 'Australia/Sydney' }).slice(0, 10); }
+
 // Season: Sep 1 → Aug 31
 function seasonStart(now) {
     const y = now.getFullYear(), m = now.getMonth() + 1;
@@ -1184,7 +1193,7 @@ function projectToLevel(ahd, targetAhd) {
     const irrig = _cfg.town_water.daily_kl_by_month;
     const actM  = new Set(_cfg.irrigation_season.active_months);
 
-    let cur = ahd, d = new Date(); d.setHours(0,0,0,0);
+    let cur = ahd, d = _sydNow(); d.setHours(0,0,0,0);
     if (cur <= targetAhd) return null;
     for (let i = 0; i < 1095; i++) {
         const m = d.getMonth() + 1;
@@ -1211,7 +1220,7 @@ function daysToNextZone(ahd, zone) {
     // plus monthly evaporation) so the two outlook figures agree.
     const crossDate = projectToLevel(ahd, zone.min_ahd);
     if (!crossDate) return Infinity;   // no crossing within the 3-year horizon
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = _sydNow(); today.setHours(0,0,0,0);
     return daysBetween(today, crossDate);
 }
 
@@ -1724,7 +1733,7 @@ function _evDaysForPeriod(){
     const curDrift=(s.estCease && s.curCease)?daysBetween(s.estCease,s.curCease):(wd.length?wd[wd.length-1].drift:0);
     if(_evPeriod==='season' || !wd.length) return curDrift;
     if(_evPeriod==='week') return wd[wd.length-1].drift - (wd.length>=2?wd[wd.length-2].drift:0);
-    const n=new Date(), ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+    const n=_sydNow(), ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
     const before=wd.filter(r=>r.date.slice(0,7)<ym);
     return wd[wd.length-1].drift - (before.length?before[before.length-1].drift:0);
 }
@@ -1732,8 +1741,8 @@ function _evDaysForPeriod(){
 function _evPeriodRows(){
     const rows=_evState.rows; if(!rows.length) return [];
     if(_evPeriod==='week') return rows.slice(-1);
-    if(_evPeriod==='month'){ const n=new Date(); const ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); return rows.filter(r=>r.date.slice(0,7)===ym); }
-    const ss=_evIso(seasonStart(new Date()));
+    if(_evPeriod==='month'){ const n=_sydNow(); const ym=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); return rows.filter(r=>r.date.slice(0,7)===ym); }
+    const ss=_evIso(seasonStart(_sydNow()));
     return rows.filter(r=>r.date>=ss);
 }
 
@@ -1777,7 +1786,7 @@ function _evRenderLevel(){
     const lastAxis=axis.length?axis[axis.length-1]:new Date();
     if(s.curCease && s.curCease>lastAxis){ let d=new Date(lastAxis); d.setDate(d.getDate()+1); while(d<=s.curCease){axis.push(new Date(d)); d.setDate(d.getDate()+1);} }
     const estByIso={}; s.estTraj.forEach(p=>estByIso[_evIso(p.date)]=p.level);
-    const today=new Date(); today.setHours(0,0,0,0);
+    const today=_sydNow(); today.setHours(0,0,0,0);
     const proj=_evProject(s.ahdNow,today,s.ceaseAhd,1), projByIso={}; proj.forEach(p=>projByIso[_evIso(p.date)]=p.level);
     const labels=[],estArr=[],actArr=[],projArr=[];
     for(const d of axis){ const k=_evIso(d);
@@ -1802,7 +1811,7 @@ function _evRenderLevel(){
 }
 
 function _evRenderDays(){
-    const s=_evState, ss=_evIso(seasonStart(new Date()));
+    const s=_evState, ss=_evIso(seasonStart(_sydNow()));
     const rows=s.rows.filter(r=>r.drift!=null && r.date>=ss);
     document.getElementById('ev-graph-notice').innerHTML='<strong>Days added / subtracted:</strong> the projected cease date each week (from the measured level) vs the season-start estimate. <span style="color:'+_EV_GREEN+';">Above zero = days gained</span>; <span style="color:'+_EV_RED+';">below zero = days lost</span>.';
     const labels=[],cum=[];
@@ -1887,7 +1896,7 @@ function tkSourceOn(dateStr) {
     return s;
 }
 function tkCurrentSource() {
-    return tkSourceOn(new Date().toISOString().slice(0, 10));
+    return tkSourceOn(_sydToday());
 }
 function _tsStatus(msg, color) {
     const el = $('ts-status'); el.textContent = msg; el.style.color = color || '#7f8c8d';
@@ -1923,7 +1932,7 @@ function setBudgetPeriod(p) { _budgetPeriod = p; _budgetRender(); }
 function _budgetRender() {
     const map = _wuDailyMap(_budgetWu);
     const lastDay = _budgetWu.lastDay;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = _sydNow(); today.setHours(0, 0, 0, 0);
     // Compare over whole days we actually have metered data for.
     let to = today;
     if (lastDay) { const ld = new Date(lastDay + 'T00:00:00'); if (ld < to) to = ld; }
@@ -2634,7 +2643,7 @@ async function loadAll() {
         const wxRows   = wxText   ? parseCsv(wxText)   : [];
         const timeline = buildTimeline(histRows);
 
-        const now       = new Date();
+        const now       = _sydNow();
         const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
         const seaStart  = seasonStart(now);
