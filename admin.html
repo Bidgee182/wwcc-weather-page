@@ -150,6 +150,7 @@
     <button class="tab-btn" data-p="logs" onclick="showPanel('logs')">Logs</button>
     <button class="tab-btn" data-p="controls" onclick="showPanel('controls')">Controls</button>
     <button class="tab-btn" data-p="pump-users" onclick="showPanel('pump-users');pcuLoad()">Pumps</button>
+    <button class="tab-btn" data-p="waternsw" onclick="showPanel('waternsw');loadMeter()">WaterNSW</button>
     <button class="tab-btn" data-p="admins" onclick="showPanel('admins')">Admins</button>
     <button class="tab-btn" data-p="reference" onclick="showPanel('reference')">Reference</button>
     <button class="ghost" style="margin-left:auto;" onclick="window.print()" title="Print the tab you are viewing">Print</button>
@@ -478,29 +479,6 @@
     </div>
 
     <div class="card">
-        <h2>Pump Meter Reading (lake extraction)</h2>
-        <p class="note" style="margin-top:0;">Enter the cumulative pump meter reading each week (any time - it self-corrects).
-        The board report works out the water used between readings and spreads it across the irrigation-season days.
-        To backfill this season, add a winter reading (before pumping started) as well - back-date it and off-season days count as zero.</p>
-        <div class="table-wrap"><table>
-            <thead><tr><th>Date</th><th style="text-align:right;">Reading</th><th style="text-align:right;">Used since last</th><th>Note</th><th></th></tr></thead>
-            <tbody id="meter-list"><tr><td colspan="5">Loading...</td></tr></tbody>
-        </table></div>
-        <div class="flexrow" style="margin-top:12px;">
-            <label>Date<br><input type="date" id="meter-date"></label>
-            <label>Source<br><select id="meter-source" onchange="meterSrcHint()"><option value="physical">Physical meter</option><option value="DAS">DAS telemetry</option></select></label>
-            <label>Meter reading<br><input type="number" id="meter-value" step="0.1" min="0" style="width:130px;" oninput="meterSrcHint()"></label>
-            <label>Unit<br><select id="meter-unit"><option value="kL">kL</option><option value="ML">ML</option></select></label>
-            <label style="flex:1;min-width:140px;">Note<br><input type="text" id="meter-note" maxlength="120" placeholder="e.g. weekly read / winter baseline"></label>
-            <button onclick="meterAdd()">Add Reading</button>
-        </div>
-        <div class="note" id="meter-hint" style="margin-top:6px;"></div>
-        <div class="status" id="meter-status"></div>
-        <p class="note">Writes data/pump_meter.json - the source of truth for lake water use in the reports.
-        The pump telemetry flow is a Grundfos amps/curve estimate and is deliberately not used.</p>
-    </div>
-
-    <div class="card">
         <h2>Lake Pumping Record (manual entries)</h2>
         <div class="table-wrap"><table>
             <thead><tr><th>Date</th><th style="text-align:right;">ML</th><th>Note</th></tr></thead>
@@ -560,6 +538,41 @@
         <div class="status" id="pcu-master-status"></div>
         <p class="note">The token is AES-GCM encrypted with the master password before being stored in data/pump_ctrl_config.json.
         The plain token is never stored anywhere - only the encrypted blob. If you lose the master password, just enter the token and a new password above.</p>
+    </div>
+</div>
+
+<!-- WATERNSW -->
+<div class="panel" id="panel-waternsw">
+    <div class="card">
+        <h2>Pump Meter Reading (lake extraction)</h2>
+        <p class="note" style="margin-top:0;">This is the WaterNSW compliance meter. Enter the cumulative reading each week
+        (any time - it self-corrects). The board report works out the water used between readings and spreads it across the
+        irrigation-season days. To backfill this season, add a winter reading (before pumping started) as well - back-date it
+        and off-season days count as zero. Read it from the DAS portal (source = DAS, auto-corrects the 10x over-read) or the
+        physical meter face.</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Date</th><th style="text-align:right;">Reading</th><th style="text-align:right;">Used since last</th><th>Note</th><th></th></tr></thead>
+            <tbody id="meter-list"><tr><td colspan="5">Loading...</td></tr></tbody>
+        </table></div>
+        <div class="flexrow" style="margin-top:12px;">
+            <label>Date<br><input type="date" id="meter-date"></label>
+            <label>Source<br><select id="meter-source" onchange="meterSrcHint()"><option value="physical">Physical meter</option><option value="DAS">DAS telemetry</option></select></label>
+            <label>Meter reading<br><input type="number" id="meter-value" step="0.1" min="0" style="width:130px;" oninput="meterSrcHint()"></label>
+            <label>Unit<br><select id="meter-unit"><option value="kL">kL</option><option value="ML">ML</option></select></label>
+            <label style="flex:1;min-width:140px;">Note<br><input type="text" id="meter-note" maxlength="120" placeholder="e.g. weekly read / winter baseline"></label>
+            <button onclick="meterAdd()">Add Reading</button>
+        </div>
+        <div class="note" id="meter-hint" style="margin-top:6px;"></div>
+        <div class="status" id="meter-status"></div>
+        <p class="note">Writes data/pump_meter.json - the source of truth for lake water use in the reports.
+        The pump telemetry flow is a Grundfos amps/curve estimate and is deliberately not used.</p>
+    </div>
+    <div class="card">
+        <h2>WaterNSW Licence &amp; Usage History</h2>
+        <p class="note" style="margin-top:0;">Licence details and the searchable 5-year usage graph live on the board dashboard's
+        <strong>WaterNSW</strong> tab (view-only for the board). To refresh the long-term history there, drop a new DAS export into
+        <code>data/reference/</code> and run <code>python scripts/water_usage_build.py</code> - it rebuilds <code>data/water_usage.json</code>,
+        corrected for the 10x over-read. The current water-year total also tracks the weekly meter readings above.</p>
     </div>
 </div>
 

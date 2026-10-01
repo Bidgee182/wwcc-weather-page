@@ -216,6 +216,7 @@
     <button class="tab-btn"        onclick="showTab('savings')">Water Savings</button>
     <button class="tab-btn"        onclick="showTab('history')">Zone History</button>
     <button class="tab-btn"        onclick="showTab('rainfall')">Rainfall</button>
+    <button class="tab-btn"        onclick="showTab('wnsw')">WaterNSW</button>
 </div>
 
 <div class="err-bar" id="err-bar"></div>
@@ -874,6 +875,111 @@
             <tbody id="bal-body"></tbody>
         </table>
         </div>
+    </div>
+</div>
+
+<!-- ── WaterNSW tab ──────────────────────────────────────────────────────────── -->
+<div id="tab-wnsw" class="tab-panel">
+
+    <!-- Licence & current water-year -->
+    <div class="two-col">
+        <div class="card">
+            <h2>Water Access Licence</h2>
+            <table class="data-table" id="wn-lic-table">
+                <tbody id="wn-lic-body"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>This Water Year</h2>
+            <div class="metric-grid metric-grid-2" style="margin-bottom:14px;">
+                <div class="metric">
+                    <div class="lbl">Used (<span id="wn-wy-label">--</span>)</div>
+                    <div class="val" id="wn-wy-used">--</div>
+                    <div class="sub">of <span id="wn-wy-alloc">193</span> ML entitlement</div>
+                </div>
+                <div class="metric">
+                    <div class="lbl">Remaining</div>
+                    <div class="val" id="wn-wy-remain">--</div>
+                    <div class="sub" id="wn-wy-pct">--</div>
+                </div>
+            </div>
+            <div style="background:#1a252f;border-radius:8px;padding:4px;margin-bottom:6px;">
+                <div id="wn-wy-bar" style="height:22px;border-radius:6px;background:#27ae60;width:0%;transition:width .4s;"></div>
+            </div>
+            <div style="font-size:0.72em;color:#7f8c8d;">Allocation resets each water year (1 July). Bar turns amber above 75%, red above 90%.</div>
+        </div>
+    </div>
+
+    <!-- Searchable usage graph -->
+    <div class="card">
+        <h2>Water Usage - Searchable History</h2>
+        <div class="lk-range-row">
+            <button class="lk-range-btn" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+            <button class="lk-range-btn active" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
+            <button class="lk-range-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
+            <button class="lk-range-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;"
+                title="Toggle between usage per period and the running cumulative total">Mode: Per period</button>
+            <button class="lk-range-btn" onclick="wnDownloadCsv()" title="Download the data in view as CSV">Download CSV</button>
+        </div>
+        <div class="lk-range-row" id="wn-range-row">
+            <button class="lk-range-btn" onclick="setWnRange('12m')">12 Months</button>
+            <button class="lk-range-btn" onclick="setWnRange('wy')">This Water Year</button>
+            <button class="lk-range-btn active" id="wn-btn-all" onclick="setWnRange('all')">All</button>
+            <button class="lk-range-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
+        </div>
+        <div class="lk-custom-row" id="wn-custom-row">
+            <label>From <input type="date" id="wn-from"></label>
+            <label>To <input type="date" id="wn-to"></label>
+            <button class="lk-apply-btn" onclick="applyWnCustom()">Apply</button>
+        </div>
+        <div class="data-notice">
+            <strong>Showing:</strong> <span id="wn-chart-note">loading...</span> &bull;
+            Volumes are the corrected extraction from the WaterNSW compliance meter (hover any bar to read the exact figure).
+        </div>
+        <div class="chart-wrap" style="height:300px;position:relative;">
+            <canvas id="wn-chart"></canvas>
+        </div>
+        <div class="metric-grid metric-grid-3" style="margin-top:12px;margin-bottom:0;">
+            <div class="metric">
+                <div class="lbl">Total (period)</div>
+                <div class="val" id="wn-stat-total">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Peak <span id="wn-stat-peak-unit">month</span></div>
+                <div class="val" id="wn-stat-peak">--</div>
+                <div class="sub" id="wn-stat-peak-when">--</div>
+            </div>
+            <div class="metric">
+                <div class="lbl">Average per period</div>
+                <div class="val" id="wn-stat-avg">--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Water-year table -->
+    <div class="card">
+        <h2>Usage by Water Year (vs 193 ML allocation)</h2>
+        <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Water Year</th>
+                    <th style="text-align:right;">Used</th>
+                    <th style="text-align:right;">% of Allocation</th>
+                    <th>&nbsp;</th>
+                </tr>
+            </thead>
+            <tbody id="wn-wy-body"></tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="data-notice" id="wn-footnote" style="margin-top:4px;">
+        <strong>Data note:</strong> Figures are rebuilt from the raw WaterNSW meter register and corrected for the
+        known 10x telemetry over-read (confirmed Oct 2026). The DAS portal's own volume figures currently read 10x high,
+        and its figures before the LID was reconfigured on 24 Nov 2022 read ~1000x high - both are ignored here.
+        Source export: <span id="wn-src">--</span>, last reading <span id="wn-last">--</span>.
     </div>
 </div>
 
@@ -1669,6 +1775,202 @@ function _tsStatus(msg, color) {
     const el = $('ts-status'); el.textContent = msg; el.style.color = color || '#7f8c8d';
 }
 
+// ── WaterNSW tab ───────────────────────────────────────────────────────────────
+let _wu = null;             // water_usage.json
+let _wnGran = 'monthly';    // 'daily' | 'monthly' | 'wy'
+let _wnRange = 'all';       // '12m' | 'wy' | 'all'  (ignored when _wnGran==='wy')
+let _wnCustom = null;       // { from, to }
+let _wnCum = false;         // cumulative vs per-period
+let _wnChart = null;
+const _WN_BLUE = '#2471a3', _WN_AMBER = '#e67e22', _WN_RED = '#e74c3c', _WN_GREEN = '#27ae60';
+
+function _wnWyLabel(d) {           // 'YYYY-MM-DD' -> water-year label 'YYYY-YY'
+    const y = +d.slice(0, 4), m = +d.slice(5, 7), wy = m >= 7 ? y : y - 1;
+    return wy + '-' + String(wy + 1).slice(2);
+}
+function _wnFmtMl(v) { return (v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'); }
+
+function renderWaterNsw(wu, lic) {
+    if (wu) _wu = wu;
+    // Licence card
+    if (lic) {
+        const rows = [
+            ['Licence holder', lic.licenceHolder],
+            ['Water access licence (WAL)', lic.wal + (lic.walNumber ? ' (WAL ' + lic.walNumber + ')' : '')],
+            ['Work approval', lic.workApproval],
+            ['Meter serial', lic.meterSerial],
+            ['LID (telemetry unit)', lic.lid],
+            ['Water source', lic.waterSource],
+            ['Water sharing plan', lic.waterSharingPlan],
+            ['Annual allocation', (lic.allocationMl || 193) + ' ML / water year'],
+            ['Water year', lic.waterYear],
+            ['Approval expiry', lic.approvalExpiry ? fmtDate(new Date(lic.approvalExpiry)) : '--'],
+        ];
+        $('wn-lic-body').innerHTML = rows.filter(r => r[1]).map(r =>
+            `<tr><td style="color:#7f8c8d;">${r[0]}</td><td style="text-align:right;color:#ecf0f1;font-weight:600;">${r[1]}</td></tr>`).join('');
+    }
+    if (!_wu) { $('wn-chart-note').textContent = 'water_usage.json unavailable'; return; }
+    const alloc = _wu.allocationMl || 193;
+
+    // Current water-year card (last water year in the data = current)
+    const wys = _wu.waterYears || [];
+    const cur = wys.length ? wys[wys.length - 1] : null;
+    if (cur) {
+        const remain = alloc - cur.usedMl, pct = cur.usedMl / alloc * 100;
+        $('wn-wy-label').textContent = cur.label;
+        $('wn-wy-used').textContent  = _wnFmtMl(cur.usedMl);
+        $('wn-wy-alloc').textContent = alloc;
+        $('wn-wy-remain').textContent = _wnFmtMl(remain);
+        $('wn-wy-pct').textContent   = pct.toFixed(1) + '% used';
+        const bar = $('wn-wy-bar');
+        bar.style.width = Math.min(100, Math.max(0, pct)).toFixed(1) + '%';
+        bar.style.background = pct > 90 ? _WN_RED : pct > 75 ? _WN_AMBER : _WN_GREEN;
+    }
+
+    // Water-year table
+    $('wn-wy-body').innerHTML = wys.slice().reverse().map(w => {
+        const over = w.pct > 100;
+        const barW = Math.min(100, w.pct).toFixed(0);
+        const col = w.pct > 90 ? _WN_RED : w.pct > 75 ? _WN_AMBER : _WN_GREEN;
+        return `<tr><td>${w.label}</td>`
+            + `<td style="text-align:right;font-weight:600;color:#ecf0f1;">${_wnFmtMl(w.usedMl)}</td>`
+            + `<td style="text-align:right;color:${over ? _WN_RED : '#ecf0f1'};">${w.pct.toFixed(1)}%</td>`
+            + `<td style="width:40%;"><div style="background:#1a252f;border-radius:4px;height:12px;"><div style="width:${barW}%;height:12px;border-radius:4px;background:${col};"></div></div></td></tr>`;
+    }).join('');
+
+    $('wn-src').textContent  = _wu.source || '--';
+    $('wn-last').textContent = _wu.lastDay || '--';
+    _wnRenderChart();
+}
+
+function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
+function setWnRange(r) { _wnRange = r; _wnCustom = null; $('wn-custom-row').classList.remove('open'); _wnRenderChart(); }
+function toggleWnCum() { _wnCum = !_wnCum; _wnRenderChart(); }
+function toggleWnCustom() { $('wn-custom-row').classList.toggle('open'); }
+function applyWnCustom() {
+    const f = $('wn-from').value, t = $('wn-to').value;
+    if (!f || !t) return;
+    _wnCustom = { from: f, to: t }; _wnRange = 'custom'; _wnRenderChart();
+}
+
+function _wnSeries() {
+    // Returns {labels, values, unit} for the current granularity + range.
+    if (!_wu) return { labels: [], values: [], unit: '' };
+    if (_wnGran === 'wy') {
+        return { labels: (_wu.waterYears || []).map(w => w.label),
+                 values: (_wu.waterYears || []).map(w => w.usedMl),
+                 unit: 'water year' };
+    }
+    const raw = _wnGran === 'daily' ? (_wu.daily || []) : (_wu.monthly || []);
+    // Determine [from,to] as YYYY-MM-DD (monthly keys are YYYY-MM; compare on prefix)
+    let from = null, to = null;
+    if (_wnRange === 'custom' && _wnCustom) { from = _wnCustom.from; to = _wnCustom.to; }
+    else if (_wnRange === '12m') {
+        const last = _wu.lastDay || new Date().toISOString().slice(0, 10);
+        const d = new Date(last); d.setFullYear(d.getFullYear() - 1);
+        from = d.toISOString().slice(0, 10); to = last;
+    } else if (_wnRange === 'wy') {
+        const wys = _wu.waterYears || [];
+        if (wys.length) { from = wys[wys.length - 1].label.slice(0, 4) + '-07-01'; to = _wu.lastDay; }
+    }
+    const inRange = key => {
+        const k = _wnGran === 'monthly' ? key + '-15' : key; // mid-month for comparison
+        if (from && k < from) return false;
+        if (to && k > to) return false;
+        return true;
+    };
+    const filt = raw.filter(p => inRange(p[0]));
+    const fmtLbl = _wnGran === 'daily'
+        ? k => { const d = new Date(k); return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' }); }
+        : k => { const d = new Date(k + '-15'); return d.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }); };
+    return { labels: filt.map(p => fmtLbl(p[0])), values: filt.map(p => p[1]),
+             unit: _wnGran === 'daily' ? 'day' : 'month', keys: filt.map(p => p[0]) };
+}
+
+function _wnRenderChart() {
+    ['daily', 'monthly', 'wy'].forEach(g => {
+        const b = $('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g);
+    });
+    // Range controls only apply to daily/monthly
+    const rr = $('wn-range-row'); if (rr) rr.style.opacity = _wnGran === 'wy' ? '0.4' : '1';
+    ['12m', 'wy', 'all'].forEach(r => {
+        const sel = _wnGran !== 'wy' && _wnRange === r;
+        const btn = r === 'all' ? $('wn-btn-all') : [...document.querySelectorAll('#wn-range-row .lk-range-btn')].find(b => (b.getAttribute('onclick') || '').includes("'" + r + "'"));
+        if (btn) btn.classList.toggle('active', sel);
+    });
+    $('wn-btn-custom').classList.toggle('active', _wnGran !== 'wy' && _wnRange === 'custom');
+    $('wn-btn-cum').textContent = 'Mode: ' + (_wnCum ? 'Cumulative' : 'Per period');
+
+    const s = _wnSeries();
+    const alloc = _wu.allocationMl || 193;
+    let values = s.values.slice();
+    if (_wnCum) { let run = 0; values = values.map(v => (run += v)); }
+
+    // Stats
+    const total = s.values.reduce((a, b) => a + b, 0);
+    $('wn-stat-total').textContent = _wnFmtMl(total);
+    $('wn-stat-peak-unit').textContent = s.unit || 'period';
+    if (s.values.length) {
+        const mi = s.values.indexOf(Math.max(...s.values));
+        $('wn-stat-peak').textContent = _wnFmtMl(s.values[mi]);
+        $('wn-stat-peak-when').textContent = s.labels[mi] || '';
+        $('wn-stat-avg').textContent = _wnFmtMl(total / s.values.length);
+    } else {
+        $('wn-stat-peak').textContent = '--'; $('wn-stat-peak-when').textContent = '';
+        $('wn-stat-avg').textContent = '--';
+    }
+    $('wn-chart-note').textContent = s.labels.length
+        ? `${s.labels[0]} to ${s.labels[s.labels.length - 1]} (${s.labels.length} ${s.unit}${s.labels.length === 1 ? '' : 's'}${_wnCum ? ', cumulative' : ''})`
+        : 'No data in the selected period';
+
+    // Bar colours: water-year view flags over-allocation; others single hue
+    const colors = s.values.map((v, i) => {
+        if (_wnGran === 'wy') return (v / alloc * 100) > 90 ? _WN_RED : (v / alloc * 100) > 75 ? _WN_AMBER : _WN_BLUE;
+        return _WN_BLUE;
+    });
+
+    const ctx = $('wn-chart').getContext('2d');
+    if (_wnChart) _wnChart.destroy();
+    _wnChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: s.labels, datasets: [{
+            label: _wnCum ? 'Cumulative ML' : 'ML used', data: values,
+            backgroundColor: _wnCum ? _WN_BLUE : colors, borderRadius: 3, maxBarThickness: 46,
+        }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: {
+                    label: c => {
+                        const v = c.parsed.y;
+                        let t = (_wnCum ? 'Cumulative: ' : '') + v.toFixed(2) + ' ML';
+                        if (_wnGran === 'wy' && !_wnCum) t += '  (' + (v / alloc * 100).toFixed(1) + '% of ' + alloc + ' ML)';
+                        return t;
+                    } } },
+            },
+            scales: {
+                x: { ticks: { color: '#7f8c8d', maxRotation: 60, autoSkip: true, maxTicksLimit: 24 }, grid: { color: '#1e3040' } },
+                y: { beginAtZero: true, ticks: { color: '#7f8c8d', callback: v => v + ' ML' }, grid: { color: '#1e3040' } },
+            },
+        },
+    });
+}
+
+function wnDownloadCsv() {
+    const s = _wnSeries();
+    if (!s.labels.length) return;
+    const keys = s.keys || s.labels;
+    let csv = 'period,ml_used\n';
+    for (let i = 0; i < s.labels.length; i++) csv += `${keys[i]},${s.values[i]}\n`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `wwcc_water_usage_${_wnGran}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
 function renderTankSourceCard() {
     const cur = tkCurrentSource();
     const curEl = $('ts-current');
@@ -2105,7 +2407,7 @@ async function loadAll() {
         };
 
         // Load all data sources in parallel
-        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes, pcostRes] = await Promise.all([
+        const [cfgRes, lakeRes, zoneRes, tankRes, histRes, wxRes, lakeReadRes, tankReadRes, srcRes, evapRes, meterRes, pcostRes, wuRes, licRes] = await Promise.all([
             fetchRetry('data/lake_config.json'),
             fetchRetry('data/farmbot_lake_latest.json'),
             fetch('data/lake_pump_zone.json'          + cb),
@@ -2118,6 +2420,8 @@ async function loadAll() {
             fetch('data/evap_variance_log.json'       + cb),
             fetch('data/pump_meter.json'              + cb),
             fetch('data/pump_cost_summary.json'       + cb),
+            fetch('data/water_usage.json'             + cb),
+            fetch('data/licence_config.json'          + cb),
         ]);
 
         // Keep the previously loaded config if a deploy blip 404s it
@@ -2133,6 +2437,8 @@ async function loadAll() {
         const evapLog       = evapRes.ok  ? await evapRes.json().catch(() => []) : [];
         const meterFile     = meterRes.ok ? await meterRes.json().catch(() => ({})) : {};
         const pumpCost      = pcostRes.ok ? await pcostRes.json().catch(() => null) : null;
+        const waterUsage    = wuRes.ok  ? await wuRes.json().catch(() => null) : null;
+        const licence       = licRes.ok ? await licRes.json().catch(() => null) : null;
         _tkReadings         = tankReadRes.ok ? await tankReadRes.json() : _tkReadings;
         if (srcRes.ok) { const s = await srcRes.json(); if (Array.isArray(s) && s.length) _tkSources = s.sort((a, b) => a.from < b.from ? -1 : 1); }
 
@@ -2188,6 +2494,7 @@ async function loadAll() {
                                 lakeReadings, evapLog, meterFile });
         } catch (e) { console.warn('season outlook render failed', e); }
         try { renderPumpCost(pumpCost); } catch (e) { console.warn('pump cost render failed', e); }
+        try { renderWaterNsw(waterUsage, licence); } catch (e) { console.warn('waternsw render failed', e); }
 
         // ── Rainfall ──────────────────────────────────────────────────────────
         const { avgs: rainAvgs, byYearMonth: rainByYM } = buildRainAvgs(wxRows, 10);
