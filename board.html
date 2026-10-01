@@ -948,8 +948,8 @@
     <div class="card">
         <h2>Water Usage - Searchable History</h2>
         <div class="lk-range-row">
-            <button class="lk-range-btn" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
-            <button class="lk-range-btn active" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
+            <button class="lk-range-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+            <button class="lk-range-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
             <button class="lk-range-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
             <button class="lk-range-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;"
                 title="Toggle between usage per period and the running cumulative total">Mode: Per period</button>
@@ -957,8 +957,8 @@
         </div>
         <div class="lk-range-row" id="wn-range-row">
             <button class="lk-range-btn" onclick="setWnRange('12m')">12 Months</button>
-            <button class="lk-range-btn" onclick="setWnRange('wy')">This Water Year</button>
-            <button class="lk-range-btn active" id="wn-btn-all" onclick="setWnRange('all')">All</button>
+            <button class="lk-range-btn active" onclick="setWnRange('wy')">This Water Year</button>
+            <button class="lk-range-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
             <button class="lk-range-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
         </div>
         <div class="lk-custom-row" id="wn-custom-row">
@@ -1837,8 +1837,8 @@ function _tsStatus(msg, color) {
 
 // ── WaterNSW tab ───────────────────────────────────────────────────────────────
 let _wu = null;             // water_usage.json
-let _wnGran = 'monthly';    // 'daily' | 'monthly' | 'wy'
-let _wnRange = 'all';       // '12m' | 'wy' | 'all'  (ignored when _wnGran==='wy')
+let _wnGran = 'daily';      // 'daily' | 'monthly' | 'wy'
+let _wnRange = 'wy';        // '12m' | 'wy' | 'all'  (ignored when _wnGran==='wy')
 let _wnCustom = null;       // { from, to }
 let _wnCum = false;         // cumulative vs per-period
 let _wnChart = null;
