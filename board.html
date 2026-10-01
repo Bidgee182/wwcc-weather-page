@@ -858,7 +858,7 @@
 <div id="tab-rainfall" class="tab-panel">
     <div class="two-col">
         <div class="card">
-            <h2>Season Rainfall - Monthly</h2>
+            <h2>Water Year Rainfall - Monthly (Jul - Jun)</h2>
             <div class="table-wrap">
             <table class="data-table" id="rain-table">
                 <thead>
@@ -872,7 +872,7 @@
                 <tbody id="rain-body"></tbody>
                 <tfoot>
                     <tr>
-                        <td>Season Total</td>
+                        <td>Water Year Total</td>
                         <td style="text-align:right;" id="rain-total">--</td>
                         <td style="text-align:right;" id="rain-avg-total">--</td>
                         <td style="text-align:right;" id="rain-vs-total">--</td>
@@ -1067,6 +1067,12 @@ function daysBetween(a, b) {
 function seasonStart(now) {
     const y = now.getFullYear(), m = now.getMonth() + 1;
     return new Date(m >= 9 ? y : y - 1, 8, 1); // month index 8 = September
+}
+// Water year start (1 July) - used by the Rainfall tab so it aligns with the
+// WaterNSW allocation year. Kept separate from seasonStart (pumping/evap).
+function waterYearStart(now) {
+    const y = now.getFullYear(), m = now.getMonth() + 1;
+    return new Date(m >= 7 ? y : y - 1, 6, 1); // month index 6 = July
 }
 
 // Physical pump-meter -> {isoDate: ML pumped}, spread across irrigation-season days
@@ -2879,9 +2885,10 @@ async function loadAll() {
         const chartLabels = [], chartActuals = [], chartAvgs = [];
         let seasonRainTotal = 0, seasonAvgTotal = 0;
 
-        // Build months from season start to current month
+        // Build months from the water-year start (1 July) to the current month
         const rainMonths = [];
-        const cur = new Date(seaStart.getFullYear(), seaStart.getMonth(), 1);
+        const wyStart = waterYearStart(now);
+        const cur = new Date(wyStart.getFullYear(), wyStart.getMonth(), 1);
         const curMo = new Date(now.getFullYear(), now.getMonth(), 1);
         while (cur <= curMo) {
             rainMonths.push(new Date(cur));
