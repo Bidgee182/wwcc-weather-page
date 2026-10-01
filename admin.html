@@ -120,14 +120,14 @@
     <h2>Admin Login</h2>
     <div class="flexrow">
         <label>Email<br><input type="email" id="li-email" style="width:260px;" autocomplete="username"></label>
-        <label>PIN (6 digits)<br><input type="password" id="li-pin" maxlength="6" inputmode="numeric" style="width:110px;" autocomplete="current-password"></label>
+        <label>Passphrase<br><input type="password" id="li-pin" maxlength="64" style="width:220px;" autocomplete="current-password"></label>
     </div>
     <div style="margin-top:12px;"><button onclick="login()">Log In</button></div>
     <div id="setup-block" style="display:none;margin-top:14px;border-top:1px solid #3d5166;padding-top:12px;">
-        <div style="font-size:0.85em;color:#d4ac0d;margin-bottom:8px;">First login for this email - set your 6-digit PIN.</div>
+        <div style="font-size:0.85em;color:#d4ac0d;margin-bottom:8px;">First login for this email - set your passphrase (at least 10 characters).</div>
         <div class="flexrow">
-            <label>New PIN<br><input type="password" id="su-pin1" maxlength="6" inputmode="numeric" style="width:100px;"></label>
-            <label>Confirm<br><input type="password" id="su-pin2" maxlength="6" inputmode="numeric" style="width:100px;"></label>
+            <label>New passphrase<br><input type="password" id="su-pin1" maxlength="64" style="width:200px;"></label>
+            <label>Confirm<br><input type="password" id="su-pin2" maxlength="64" style="width:200px;"></label>
         </div>
         <label style="margin-top:10px;">GitHub token (needed once to save your PIN)<br>
             <input type="password" id="su-token" style="width:100%;max-width:380px;"></label>
@@ -136,8 +136,9 @@
     </div>
     <div class="status" id="li-status"></div>
     <p class="note">This page is a working convenience, not a vault: everything it displays is already
-    public in the repository. The PIN's real job is encrypting the GitHub write-token stored on this
-    device and attributing every change to your email in the audit logs.</p>
+    public in the repository. Your passphrase encrypts the GitHub write-token stored on this
+    device and attributes every change to your email in the audit logs. Use a long passphrase
+    (10+ characters) - the salt and hash are public, so a short PIN could be brute-forced offline.</p>
 </div>
 
 <!-- ── MAIN ──────────────────────────────────────────────────────────────── -->
@@ -611,12 +612,12 @@
         recorded in the Admin Actions log. You cannot remove your own account.</p>
     </div>
     <div class="card">
-        <h2>Change My PIN</h2>
+        <h2>Change My Passphrase</h2>
         <div class="flexrow">
-            <label>Current PIN<br><input type="password" id="cp-old" maxlength="6" inputmode="numeric" style="width:100px;"></label>
-            <label>New PIN<br><input type="password" id="cp-new1" maxlength="6" inputmode="numeric" style="width:100px;"></label>
-            <label>Confirm<br><input type="password" id="cp-new2" maxlength="6" inputmode="numeric" style="width:100px;"></label>
-            <button onclick="chgPin()">Change PIN</button>
+            <label>Current<br><input type="password" id="cp-old" maxlength="64" style="width:180px;"></label>
+            <label>New passphrase<br><input type="password" id="cp-new1" maxlength="64" style="width:180px;"></label>
+            <label>Confirm<br><input type="password" id="cp-new2" maxlength="64" style="width:180px;"></label>
+            <button onclick="chgPin()">Change Passphrase</button>
         </div>
         <div class="status" id="cp-status"></div>
     </div>
@@ -1256,13 +1257,14 @@ function tokStoreKey(email) { return 'wwcc_admin_tok_' + email.toLowerCase(); }
 async function login() {
     const email = $('li-email').value.trim().toLowerCase();
     const pin = $('li-pin').value.trim();
-    if (!email || !/^\d{6}$/.test(pin)) { $('li-status').textContent = 'Enter your email and a 6-digit PIN.'; return; }
+    // Allow longer passphrases; existing 6-char PINs still work (min length 6).
+    if (!email || pin.length < 6) { $('li-status').textContent = 'Enter your email and your passphrase.'; return; }
     await loadUsers();
     const u = _users.find(x => x.email.toLowerCase() === email);
     if (!u) { $('li-status').textContent = 'That email is not an admin.'; return; }
     if (!u.pin_hash) {
         $('setup-block').style.display = 'block';
-        $('li-status').textContent = 'Set your PIN below to finish creating your account.';
+        $('li-status').textContent = 'Set your passphrase below to finish creating your account.';
         if ((localStorage.getItem('wx_github_pat') || '').trim()) {
             $('su-token-hint').textContent = 'A token from the screen-message panel was found on this browser - leave the box blank to use it.';
         }
@@ -1297,8 +1299,8 @@ async function completeSetup() {
     // Use the token already saved by the screen-message panel on this browser
     // when the box is left blank - avoids any copy/truncation problems
     const tok = $('su-token').value.trim() || (localStorage.getItem('wx_github_pat') || '').trim();
-    if (!/^\d{6}$/.test(p1)) { $('li-status').textContent = 'PIN must be exactly 6 digits.'; return; }
-    if (p1 !== p2) { $('li-status').textContent = 'PINs do not match.'; return; }
+    if (p1.length < 10) { $('li-status').textContent = 'Passphrase must be at least 10 characters (use a memorable phrase).'; return; }
+    if (p1 !== p2) { $('li-status').textContent = 'Passphrases do not match.'; return; }
     if (!tok) { $('li-status').textContent = 'The GitHub token is required to save your PIN.'; return; }
     SES.token = tok;
     await loadUsers();
@@ -2152,8 +2154,8 @@ async function admRemove(email) {
 async function chgPin() {
     const oldP = $('cp-old').value.trim(), n1 = $('cp-new1').value.trim(), n2 = $('cp-new2').value.trim();
     const st = m => $('cp-status').textContent = m;
-    if (!/^\d{6}$/.test(n1)) { st('New PIN must be 6 digits.'); return; }
-    if (n1 !== n2) { st('New PINs do not match.'); return; }
+    if (n1.length < 10) { st('New passphrase must be at least 10 characters.'); return; }
+    if (n1 !== n2) { st('New passphrases do not match.'); return; }
     if (!SES.token) { st('No token on this device.'); return; }
     try {
         const f = await ghGet('data/admin_users.json');
