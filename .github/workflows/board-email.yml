@@ -86,8 +86,14 @@ jobs:
               rep  = "${{ github.event.inputs.report }}" or "weekly"
               mode = "monthly" if rep == "monthly" else "weekly"
           else:
-              wd, hr, day = now.weekday(), now.hour, now.day   # Mon=0 .. Sun=6
-              if day == 1 and hr == 19:
+              # Key the MONTHLY off the triggering cron, not the clock: GitHub can run
+              # a scheduled job hours late, and the old `day==1 and hr==19` guard then
+              # saw day 2 / wrong hour and skipped the monthly entirely (happened 1 Oct
+              # 2026). Both monthly DST crons map to "monthly"; board_email.py's
+              # once-a-month sent-guard dedups the twin + any delayed re-fire.
+              sched = "${{ github.event.schedule }}"
+              wd, hr = now.weekday(), now.hour   # Mon=0 .. Sun=6
+              if sched in ("0 8 1 * *", "0 9 1 * *"):
                   mode = "monthly"
               elif wd == 0 and hr == 7:
                   mode = "reminder"        # Monday morning nudge
