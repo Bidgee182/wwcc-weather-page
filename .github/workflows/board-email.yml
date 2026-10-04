@@ -161,7 +161,7 @@ jobs:
             git commit -m "Board email sent guard $(date -u +%Y-%m-%d)"
             ok=""
             for i in 1 2 3; do
-              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              if git pull --rebase --autostash -X theirs origin main && git push; then ok=1; break; fi
               echo "Push attempt $i failed, retrying..."; sleep 5
             done
             [ -n "$ok" ]
@@ -181,7 +181,7 @@ jobs:
             git commit -m "Board email preview $(date -u +%Y-%m-%d)"
             ok=""
             for i in 1 2 3; do
-              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              if git pull --rebase --autostash -X theirs origin main && git push; then ok=1; break; fi
               echo "Push attempt $i failed, retrying..."; sleep 5
             done
             [ -n "$ok" ]
