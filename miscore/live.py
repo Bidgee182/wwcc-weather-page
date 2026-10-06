@@ -3032,10 +3032,15 @@ def _rank_history_stories(ranked, prev_story, board_id, hole_count):
         rank = p.get("liveRank") or 999
         thru = p.get("thru") or 0
         pm = prev_meta.get(name)
-        start = (pm[0] if pm and pm[0] else (rank if thru >= 4 else None))
+        # Baseline rank for "mover" stories is only taken once a player has
+        # actually played a few holes - NOT when they first appear. Late starters
+        # enter at the bottom of a live board (few holes played), so locking their
+        # baseline to that entry rank made every hole read as a huge false "charge".
+        # Keep start None until thru >= 4, then it settles to the rank at that point.
+        start = (pm[0] if (pm and pm[0]) else (rank if thru >= 4 else None))
         best  = min(pm[1], rank) if pm else rank
         led   = (bool(pm[2]) if pm else False) or rank == 1
-        meta[name] = [start if start is not None else rank, best, 1 if led else 0]
+        meta[name] = [start, best, 1 if led else 0]
         finished = thru >= hc
         if start is not None and thru >= 6:
             climbed = start - rank
