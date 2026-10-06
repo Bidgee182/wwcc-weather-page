@@ -2618,6 +2618,116 @@ def _ambrose_stories(ranked, hole_count, board_date=None):
     return out
 
 
+def _team_stories(ranked, hole_count, board_date, is_stableford, lead_covered=False):
+    """Format-neutral partnership stories for ANY team/pairs event (foursomes,
+    pairs, 2- or 4-person ambrose, 4BBB). Standings/pairing based, day-seeded so
+    several rotate. Added ON TOP of the format-specific generators (ambrose /
+    best-ball) for variety, and the sole source for plain pairs/foursomes.
+    `lead_covered` skips the leader card when a format-specific generator has
+    already featured the leader. Uses the team_* phrase bank (data/story_phrases)."""
+    out = []
+    teams = [p for p in ranked if p.get("points") is not None]
+    if not teams:
+        return out
+    # `ranked` is already best-first per the board's scoring (higher stableford /
+    # lower stroke), so teams[0] is the leader regardless of format.
+    seed0 = f"{board_date}|team"
+    used = set()
+
+    def _hcp_str(p):
+        h = p.get("ambroseTeamHcp")
+        if h is not None:
+            return _trim_num(h)
+        m = re.search(r"\[(\+?\d+(?:\.\d+)?)\]", p.get("player") or "")
+        return m.group(1) if m else "-"
+
+    def _hcp_num(p):
+        try:
+            return float(_hcp_str(p))
+        except (TypeError, ValueError):
+            return None
+
+    def surnames(name):
+        got = []
+        for m in re.split(r"\s*&\s*", stripped(name)):
+            toks = m.strip().split()
+            if len(toks) >= 2:
+                got.append(toks[-1].lower())
+        return got
+
+    def add(p, cat, title, emoji, tier, rank_score, **extra):
+        if not p or p.get("player") in used:
+            return False
+        kw = dict(team=stripped(p.get("player")),
+                  score=_fmt_score(p.get("points"), is_stableford),
+                  hcp=_hcp_str(p), margin="", second="", sn="", other="")
+        kw.update(extra)
+        d = _pick_phrase(cat, f"{seed0}|{cat}|{p.get('player')}", **kw)
+        if not d:
+            return False
+        used.add(p.get("player"))
+        out.append(_mk_story(p.get("player"), title, d, tier, emoji, rank_score,
+                             p.get("points"), p.get("thru"), "team"))
+        return True
+
+    def first_unused(pred):
+        return next((p for p in teams if p.get("player") not in used and pred(p)), None)
+
+    leader = teams[0]
+    if not lead_covered:
+        if len(teams) >= 2:
+            m = abs(teams[1]["points"] - leader["points"])
+            m = int(m) if float(m).is_integer() else round(m, 2)
+            if m == 0:
+                add(leader, "team_leader", "Dream Team", "\U0001F91D", "gold", 90)
+            elif m <= 2:
+                add(leader, "team_leader_tight", "Dream Team", "\U0001F91D", "gold", 90,
+                    margin=m, second=stripped(teams[1].get("player")))
+            else:
+                add(leader, "team_leader_clear", "Dream Team", "\U0001F91D", "gold", 90, margin=m)
+        else:
+            add(leader, "team_leader", "Dream Team", "\U0001F91D", "gold", 90)
+
+    # Family affair: best-placed team (not already featured) sharing a surname
+    for p in teams:
+        if p.get("player") in used:
+            continue
+        sns = surnames(p.get("player"))
+        if next((s for s in sns if sns.count(s) >= 2), None):
+            dup = next(s for s in sns if sns.count(s) >= 2)
+            add(p, "team_family", "Keeping it in the Family", "\U0001F46A", "orange", 66, sn=dup.title())
+            break
+
+    half = teams[: max(1, len(teams) // 2)]
+    hvals = [(p, _hcp_num(p)) for p in half if _hcp_num(p) is not None]
+    if hvals:
+        add(min(hvals, key=lambda x: x[1])[0], "team_lowhcp", "Pure Strikers",
+            "\U0001F3AF", "orange", 58)
+        add(max(hvals, key=lambda x: x[1])[0], "team_highhcp", "Strokes to Spare",
+            "\U0001F4C8", "blue", 54)
+
+    # Countback: two adjacent teams sharing a score (feature the unused one)
+    for i in range(len(teams) - 1):
+        if teams[i]["points"] == teams[i + 1]["points"]:
+            a, b = teams[i], teams[i + 1]
+            feat = a if a.get("player") not in used else b
+            oth = b if feat is a else a
+            if add(feat, "team_countback", "Too Close to Call", "\U0001F522", "orange", 60,
+                   other=stripped(oth.get("player"))):
+                break
+
+    # Mid-pack + back marker, once a real field is in
+    if len(teams) >= 6:
+        add(teams[len(teams) // 2], "team_midpack", "In the Thick of It",
+            "\U0001F3CC", "blue", 46)
+        add(teams[-1], "team_backmarker", "Wooden Spoon Watch", "\U0001F37A", "blue", 40)
+    # Flavour wildcard on an unused top-half team
+    add(first_unused(lambda p: id(p) in set(id(x) for x in half)),
+        "team_flavour", "Better Together", "\U0001F465", "blue", 44)
+
+    return out
+
+
 def _load_weather_flavour(board_date):
     try:
         hist = json.load(open("data/davis_weather_history.json"))
@@ -2964,10 +3074,17 @@ def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
     # Team comps (4BBB best-ball, Ambrose) get partnership stories only - the
     # individual per-hole/context angles don't map onto best-ball scoring.
     if _is_team_comp(ranked, comp_name):
-        if "ambrose" in (comp_name or "").lower():
+        nm = (comp_name or "").lower()
+        if "ambrose" in nm:
+            # Keep the ambrose-flavoured lines, add the neutral team pool for variety
             out += _ambrose_stories(ranked, hole_count, board_date)
-        else:
+            out += _team_stories(ranked, hole_count, board_date, is_stableford, lead_covered=True)
+        elif any(k in nm for k in ("4bbb", "bbb", "four ball", "fourball", "4ball", "best ball", "best-ball")):
             out += _bbb_stories(ranked)
+            out += _team_stories(ranked, hole_count, board_date, is_stableford, lead_covered=True)
+        else:
+            # Plain pairs / foursomes: the neutral team pool is the sole source
+            out += _team_stories(ranked, hole_count, board_date, is_stableford)
     else:
         for p in ranked:
             c = _context_story(p, leader_pts, is_stableford, hole_count, board_date)

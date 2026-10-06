@@ -35,7 +35,10 @@ html, body {
     padding-bottom: 12px; border-bottom: 2px solid #27ae60;
     flex-shrink: 0;
 }
-.hdr-logo { height: 2.64em; width: auto; }
+/* Logo fills the left column (JS sets that column to the clock's width, so the
+   logo matches the clock and the centre title sits dead centre). max-height caps
+   it; left-aligned within the column. */
+.hdr-logo { width: 100%; height: auto; max-height: 4.2em; object-fit: contain; object-position: left center; }
 .hdr-center { text-align: center; min-width: 0; }
 .hdr-comp {
     font-size: 1.45em; font-weight: bold; letter-spacing: 3px;
@@ -371,7 +374,7 @@ html, body {
 
   <header class="hdr">
     <img class="hdr-logo"
-         src="assets/images/WAGGA%20WAGGA%20COUNTRY%20CLUB%20LOGO%20SECONDARY%20WHITE.png"
+         src="assets/images/wwcc-logo-white.png"
          alt="WWCC" onerror="this.style.display='none'">
     <div class="hdr-center">
       <div class="hdr-comp" id="hdr-comp">⛳ Live Golf Leaderboard</div>
@@ -510,7 +513,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -639,6 +642,18 @@ function tickCountdown() {
     }
 }
 
+// Match the logo column to the clock's width so the centre title sits dead
+// centre (logo and clock flank it symmetrically). Runs on load, resize and a
+// slow interval (to catch the hour going from 1 to 2 digits).
+function _syncHeaderCols() {
+    const hdr = document.querySelector('.hdr'), right = document.querySelector('.hdr-right');
+    if (!hdr || !right) return;
+    const w = Math.round(right.getBoundingClientRect().width);
+    if (w > 0) hdr.style.gridTemplateColumns = w + 'px 1fr ' + w + 'px';
+}
+window.addEventListener('resize', _syncHeaderCols);
+setInterval(_syncHeaderCols, 15000);
+
 // ── Fetch ─────────────────────────────────────────────────────────
 async function fetchData() {
     try {
@@ -652,6 +667,7 @@ async function fetchData() {
         if (_bEl) _bEl.textContent = 'v' + FRONTEND_VERSION + ' · ' +
             window.innerWidth + '×' + window.innerHeight +
             (window.devicePixelRatio !== 1 ? ' @' + window.devicePixelRatio.toFixed(2) : '');
+        _syncHeaderCols();
 
         // Store companion boards array; fall back to old single-companion field for compat.
         // 4BBB board is parked for now — add ?4bbb=1 to the URL to show it again.
