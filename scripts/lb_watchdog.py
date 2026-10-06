@@ -333,15 +333,41 @@ def run_checks(live, state, within):
                 if (p.get("thru") or 0) >= hc:
                     pub_fin[_norm(p.get("player"))] = p.get("points")
 
+            # The fresh scrape's boardTotal is the board "Total" column. For
+            # stableford / 4BBB / ambrose the published `points` is on that same
+            # scale (stableford points, or the net total copied straight through),
+            # so a direct compare works. But a SCORECARD STROKE/foursomes board
+            # publishes `points` as score-to-par, while boardTotal is NET STROKES -
+            # a different scale, so a direct compare flags every finished row (the
+            # false 'mismatch' seen on Womens Foursomes Championships, Oct 2026).
+            # Accept EITHER representation: direct (same scale) OR score-to-par,
+            # where points == floor(netStrokes - par). floor because the per-hole
+            # card allocates whole handicap strokes, dropping the fractional (.5)
+            # allowance that boardTotal keeps. A real publishing error matches
+            # neither and is still flagged.
+            par = live.get("par")
+
+            def _matches(pts, pub):
+                try:
+                    pts, pub = float(pts), float(pub)
+                except (TypeError, ValueError):
+                    return True   # can't compare -> don't flag as a difference
+                if abs(pts - pub) <= 0.01:
+                    return True            # same scale (stableford / 4BBB / ambrose)
+                if par is not None:
+                    try:
+                        if pub == math.floor(pts - float(par)):
+                            return True    # scorecard stroke: to-par vs net strokes
+                    except (TypeError, ValueError):
+                        pass
+                return False
+
             def _differs(name, pts):
                 if name not in pub_fin:
                     return False   # not finished on the published board - skip (churn)
                 if pts is None or pub_fin[name] is None:
                     return False   # source didn't carry a score - can't compare
-                try:
-                    return abs(float(pts) - float(pub_fin[name])) > 0.01
-                except (TypeError, ValueError):
-                    return False
+                return not _matches(pts, pub_fin[name])
             checked = [n for n, pts in fresh if n and n in pub_fin]
             diffs   = [n for n, pts in fresh if n and _differs(n, pts)]
             if len(diffs) > MISMATCH_ALLOWED:
