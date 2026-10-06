@@ -255,7 +255,7 @@ html, body {
     font-size: 1.08em; color: #7f8c8d;
 }
 .ftr-left  { display: flex; gap: 14px; align-items: center; }
-.ftr-mid   { display: flex; gap: 10px; align-items: center; justify-content: center; }
+.ftr-mid   { display: flex; flex-direction: column; gap: 3px; align-items: center; justify-content: center; text-align: center; }
 .ftr-right { display: flex; gap: 14px; align-items: center; }
 .ftr-updated { color: #bdc3c7; }
 .ftr-dot { width: 9px; height: 9px; border-radius: 50%; background: #7f8c8d; display: inline-block; flex-shrink: 0; }
@@ -459,12 +459,12 @@ html, body {
 
   <footer class="ftr">
     <div class="ftr-left">
-      <span class="hdr-meta" id="hdr-meta">Wagga Wagga Country Club</span>
       <span id="ftr-countdown">Fetching data...</span>
       <span class="ftr-build" id="ftr-build"></span>
     </div>
     <div class="ftr-mid">
       <span class="live-badge loading" id="live-badge">Loading</span>
+      <span class="hdr-meta" id="hdr-meta">Wagga Wagga Country Club</span>
       <span id="ftr-status"></span>
     </div>
     <div class="ftr-right">
@@ -523,7 +523,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _blueBallReady   = false;  // true once every teed-off player is through >= 9 holes
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
