@@ -881,6 +881,7 @@
             <div class="sys-metric"><div class="sm-val" id="wn-stat-peak" style="color:#e67e22;">--</div><div class="sm-unit">peak <span id="wn-stat-peak-unit">day</span></div><div class="sm-lbl" id="wn-stat-peak-when">--</div></div>
             <div class="sys-metric"><div class="sm-val" id="wn-stat-avg" style="color:#7f8c8d;">--</div><div class="sm-unit">average</div><div class="sm-lbl">per period</div></div>
         </div>
+        <div id="wn-meter-readings" style="font-size:.84em;color:#9fb3c8;margin-top:12px;padding-top:10px;border-top:1px solid #243444;display:none;"></div>
         <div style="font-size:.72em;color:#7f8c8d;margin-top:8px;">
             Volumes corrected for the 10x DAS telemetry over-read. Uploaded weekly from the DAS portal.
             Full licence &amp; allocation detail on the board dashboard's WaterNSW tab.
@@ -1201,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.0';
+const PUMP_VERSION = '4.1';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1746,9 +1747,23 @@ function openControlAction(act, val) {
 // Ported from the board WaterNSW graph. NOTE: $ here is a currency formatter, so DOM
 // lookups use _g (getElementById). Defaults to the Daily chart / This Water Year.
 let _wu = null, _wnGran = 'daily', _wnRange = 'wy', _wnCustom = null, _wnCum = false, _wnChart = null, _wnLoaded = false;
+let _pm = null, _pmLoaded = false;   // data/pump_meter.json (for the last physical read)
 const _WN_BLUE = '#2471a3', _WN_AMBER = '#e67e22', _WN_RED = '#e74c3c', _WN_GREEN = '#27ae60';
 const _g = id => document.getElementById(id);
 function _wnFmtMl(v) { return v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'; }
+function _wnKl(v) { return v == null ? '--' : Number(v).toLocaleString('en-AU', { maximumFractionDigits: 1 }) + ' kL'; }
+function _wnDate(d) { if (!d) return ''; const t = new Date(d + 'T00:00:00'); return isNaN(t) ? d : t.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); }
+async function _wnRenderMeterInfo() {
+    if (!_pmLoaded) { try { const r = await fetch('data/pump_meter.json?_=' + Date.now()); _pm = r.ok ? await r.json() : null; } catch { _pm = null; } _pmLoaded = true; }
+    const el = _g('wn-meter-readings'); if (!el) return;
+    const parts = [];
+    if (_wu && _wu.currentMeterFaceKl != null) parts.push('&#128225; Last DAS reading: <b>' + _wnKl(_wu.currentMeterFaceKl) + '</b> &middot; ' + _wnDate(_wu.lastDay));
+    const rs = (_pm && _pm.readings) || [];
+    const pr = rs.length ? rs.reduce((a, b) => (b.date > a.date ? b : a)) : null;
+    if (pr) parts.push('&#128207; Last physical read: <b>' + _wnKl(pr.value) + '</b> &middot; ' + _wnDate(pr.date));
+    el.innerHTML = parts.join(' &nbsp;&bull;&nbsp; ');
+    el.style.display = parts.length ? '' : 'none';
+}
 
 async function renderWaterUsage() {
     if (!_wnLoaded) {
@@ -1757,6 +1772,7 @@ async function renderWaterUsage() {
         _wnLoaded = true;
     }
     if (!_wu) { _g('wn-chart-note').textContent = 'water_usage.json unavailable'; return; }
+    _wnRenderMeterInfo();
     _wnRenderChart();
 }
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }

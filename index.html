@@ -913,6 +913,7 @@
                 </div>
                 <div style="position:relative;height:280px;"><canvas id="wn-chart"></canvas></div>
             </div>
+            <div id="wn-meter-readings" style="font-size:.76em;color:#9fb3c8;margin-top:12px;padding-top:10px;border-top:1px solid #243444;display:none;"></div>
             <div style="font-size:.72em;color:#7f8c8d;margin-top:8px;">
                 Metered lake extraction (WaterNSW compliance meter, 10x-corrected), uploaded weekly from the DAS portal.
                 This is the water pumped from the lake for irrigation.
@@ -2285,9 +2286,25 @@ function switchGKTab(tab) {
 // ── Water used for irrigation (lake extraction, data/water_usage.json) ─────────
 // Ported from the board/pump Water graph. Defaults to Daily / This Water Year.
 let _wu = null, _wnGran = 'daily', _wnRange = 'wy', _wnCustom = null, _wnCum = false, _wnChart = null, _wnLoaded = false;
+let _pm = null, _pmLoaded = false;   // data/pump_meter.json (for the last physical read)
 const _WN_BLUE = '#2471a3', _WN_AMBER = '#e67e22', _WN_RED = '#e74c3c', _WN_GREEN = '#27ae60';
 const _g = id => document.getElementById(id);
 function _wnFmtMl(v) { return v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'; }
+function _wnKl(v) { return v == null ? '--' : Number(v).toLocaleString('en-AU', { maximumFractionDigits: 1 }) + ' kL'; }
+function _wnDate(d) { if (!d) return ''; const t = new Date(d + 'T00:00:00'); return isNaN(t) ? d : t.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); }
+// Info line: latest DAS-derived meter face (from water_usage.json) + latest
+// physical dial read (from pump_meter.json). Both are the physical-dial basis.
+async function _wnRenderMeterInfo() {
+    if (!_pmLoaded) { try { const r = await fetch('data/pump_meter.json?_=' + Date.now()); _pm = r.ok ? await r.json() : null; } catch { _pm = null; } _pmLoaded = true; }
+    const el = _g('wn-meter-readings'); if (!el) return;
+    const parts = [];
+    if (_wu && _wu.currentMeterFaceKl != null) parts.push(`&#128225; Last DAS reading: <b>${_wnKl(_wu.currentMeterFaceKl)}</b> &middot; ${_wnDate(_wu.lastDay)}`);
+    const rs = (_pm && _pm.readings) || [];
+    const pr = rs.length ? rs.reduce((a, b) => (b.date > a.date ? b : a)) : null;
+    if (pr) parts.push(`&#128207; Last physical read: <b>${_wnKl(pr.value)}</b> &middot; ${_wnDate(pr.date)}`);
+    el.innerHTML = parts.join(' &nbsp;&bull;&nbsp; ');
+    el.style.display = parts.length ? '' : 'none';
+}
 
 async function renderWaterUsage() {
     if (!_wnLoaded) {
@@ -2299,6 +2316,7 @@ async function renderWaterUsage() {
     // "This Week" pill: rolling last 7 days of extraction, fixed regardless of the
     // graph's granularity/range selector (set once here, not in _wnRenderChart).
     const we = _g('wn-stat-week'); if (we) we.textContent = _wnFmtMl(_wnThisWeek());
+    _wnRenderMeterInfo();
     _wnRenderChart();
 }
 // Sum the most recent 7 calendar days (lastDay back 6 days, inclusive) from the

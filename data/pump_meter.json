@@ -2,13 +2,14 @@
   "_note": "Physical pump-meter cumulative readings (source of truth for lake water extraction). Entered via the admin dashboard. Each interval's delta is spread across irrigation-season days by scripts/pump_meter.py. Telemetry flow is deliberately NOT used (Grundfos estimate only). Meter units: 1 unit = 1000 L = 1 kL (confirmed 28 Sep 2026 against pump run-hours).",
   "das": {
     "scale": 0.1,
-    "offset_kl": 10475.7,
-    "_note": "The WaterNSW DAS/LID over-reads EXACTLY 10x (confirmed from the DAS export, Oct 2026: DAS 121.790 ML vs physical 12.176 ML, 3 Aug-28 Sep). A reading entered with source=DAS is stored as true kL = raw*scale + offset_kl, so it divides by 10 and aligns to the physical meter baseline (28 Sep: physical 511841 vs DAS 5013653). IMPORTANT: once WaterNSW corrects the LID scaling, set scale=1 and offset_kl=0.",
-    "confirmed": "2026-10-01"
+    "offset_kl": 10473.1,
+    "_note": "The WaterNSW DAS/LID over-reads EXACTLY 10x (confirmed from the DAS export, Oct 2026: DAS 121.790 ML vs physical 12.176 ML, 3 Aug-28 Sep). A reading entered with source=DAS is stored as true kL = raw*scale + offset_kl, so it divides by 10 and aligns to the physical meter dial. offset_kl is re-anchored to the latest physical read: 6 Oct 2026 greenkeeper dial 515992.5 vs DAS register 5055194 -> offset 10473.1 (was 10475.7 off the 28 Sep anchor; ~2.6 kL LID drift over 8 days). IMPORTANT: once WaterNSW corrects the LID scaling, set scale=1 and offset_kl=0.",
+    "confirmed": "2026-10-06"
   },
   "season_start": "2026-09-02",
   "readings": [
     {"date": "2026-08-03", "value": 499665, "unit": "kL", "note": "baseline (photo of meter 3 Aug 2026, before this season's pumping)"},
-    {"date": "2026-09-28", "value": 511841, "unit": "kL", "note": "baseline reading (verified against pump run-hours)"}
+    {"date": "2026-09-28", "value": 511841, "unit": "kL", "note": "baseline reading (verified against pump run-hours)"},
+    {"date": "2026-10-06", "value": 515992.5, "unit": "kL", "note": "greenkeeper physical dial read; das offset_kl re-anchored to this (10473.1)"}
   ]
 }
