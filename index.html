@@ -896,6 +896,8 @@
                 </div>
                 <div class="wn-row" id="wn-range-row">
                     <button class="wn-btn" onclick="setWnRange('12m')">12 Months</button>
+                    <button class="wn-btn" onclick="setWnRange('7d')">Rolling Week</button>
+                    <button class="wn-btn" onclick="setWnRange('14d')">14 Days</button>
                     <button class="wn-btn active" onclick="setWnRange('wy')">This Water Year</button>
                     <button class="wn-btn" id="wn-btn-all" onclick="setWnRange('all')">All</button>
                     <button class="wn-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
@@ -2327,7 +2329,11 @@ function _wnSeries() {
     const raw = _wnGran === 'monthly' ? (_wu.monthly || []) : (_wu.daily || []);
     let from = null, to = null;
     if (_wnRange === 'custom' && _wnCustom) { from = _wnCustom.from; to = _wnCustom.to; }
-    else if (_wnRange === '12m') {
+    else if (_wnRange === '7d' || _wnRange === '14d') {
+        const last = _wu.lastDay || new Date().toISOString().slice(0, 10);
+        const d = new Date(last); d.setDate(d.getDate() - (_wnRange === '7d' ? 6 : 13));
+        from = d.toISOString().slice(0, 10); to = last;
+    } else if (_wnRange === '12m') {
         const last = _wu.lastDay || new Date().toISOString().slice(0, 10);
         const d = new Date(last); d.setFullYear(d.getFullYear() - 1);
         from = d.toISOString().slice(0, 10); to = last;
@@ -2367,7 +2373,7 @@ function _wnRenderChart() {
     if (!_wu) { renderWaterUsage(); return; }   // data not loaded yet - load then re-render
     ['daily', 'weekly', 'monthly', 'wy'].forEach(g => { const b = _g('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g); });
     const rr = _g('wn-range-row'); if (rr) rr.style.opacity = _wnGran === 'wy' ? '0.4' : '1';
-    ['12m', 'wy', 'all'].forEach(r => {
+    ['12m', '7d', '14d', 'wy', 'all'].forEach(r => {
         const sel = _wnGran !== 'wy' && _wnRange === r;
         const btn = r === 'all' ? _g('wn-btn-all') : [...document.querySelectorAll('#wn-range-row .wn-btn')].find(b => (b.getAttribute('onclick') || '').includes("'" + r + "'"));
         if (btn) btn.classList.toggle('active', sel);
