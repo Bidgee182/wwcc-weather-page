@@ -513,7 +513,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.2';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1313,7 +1313,15 @@ function renderInfoTicker(d) {
     if (active.length >= 5) {
         let sp = 0, sh = 0;
         active.forEach(p => { sp += (p.points || 0); sh += (p.thru || 0); });
-        if (sh > 0) items.push({ t: 'Scoring pace', v: (sp / sh).toFixed(1) + ' pts/hole' });
+        if (sh > 0) {
+            // points is stableford points (higher=better) OR score-to-par for
+            // stroke/foursomes (strokes, lower=better) - label each correctly.
+            const pace = sp / sh;
+            const v = _isStableford
+                ? pace.toFixed(1) + ' pts/hole'
+                : (pace >= 0 ? '+' : '') + pace.toFixed(1) + ' to par/hole';
+            items.push({ t: 'Scoring pace', v });
+        }
     }
     // Biggest mover, from the rank history the stories already track
     const meta = (d.storyRanks && d.storyRanks.meta) || {};
