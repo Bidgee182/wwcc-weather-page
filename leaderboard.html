@@ -38,7 +38,7 @@ html, body {
 /* Logo fills the left column (JS sets that column to the clock's width, so the
    logo matches the clock and the centre title sits dead centre). max-height caps
    it; left-aligned within the column. */
-.hdr-logo { width: 100%; height: auto; max-height: 4.2em; object-fit: contain; object-position: left center; }
+.hdr-logo { width: 100%; height: auto; max-height: 3.5em; object-fit: contain; object-position: left center; }
 .hdr-center { text-align: center; min-width: 0; }
 .hdr-comp {
     font-size: 1.45em; font-weight: bold; letter-spacing: 3px;
@@ -49,7 +49,7 @@ html, body {
 .hdr-right { text-align: right; flex-shrink: 0; }
 .hdr-clock-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end; }
 .hdr-clock {
-    font-size: 2.3em; font-weight: bold; color: #27ae60;
+    font-size: 2.0em; font-weight: bold; color: #27ae60;
     line-height: 1; font-variant-numeric: tabular-nums;
 }
 .hdr-date { font-size: 0.8em; color: #bdc3c7; margin-top: 4px; }
@@ -248,6 +248,7 @@ html, body {
     font-size: 1.08em; color: #7f8c8d;
 }
 .ftr-left  { display: flex; gap: 14px; align-items: center; }
+.ftr-mid   { display: flex; gap: 10px; align-items: center; justify-content: center; }
 .ftr-right { display: flex; gap: 14px; align-items: center; }
 .ftr-updated { color: #bdc3c7; }
 .ftr-dot { width: 9px; height: 9px; border-radius: 50%; background: #7f8c8d; display: inline-block; flex-shrink: 0; }
@@ -382,7 +383,6 @@ html, body {
     </div>
     <div class="hdr-right">
       <div class="hdr-clock-row">
-        <span class="live-badge loading" id="live-badge">Loading</span>
         <div class="hdr-clock" id="clock">--:-- --</div>
       </div>
       <div class="hdr-date"  id="date-str">---</div>
@@ -456,7 +456,10 @@ html, body {
       <span id="ftr-countdown">Fetching data...</span>
       <span class="ftr-build" id="ftr-build"></span>
     </div>
-    <span id="ftr-status"></span>
+    <div class="ftr-mid">
+      <span class="live-badge loading" id="live-badge">Loading</span>
+      <span id="ftr-status"></span>
+    </div>
     <div class="ftr-right">
       <span class="ftr-dot" id="ftr-dot" title="Data feed"></span>
       <span class="ftr-updated" id="ftr-updated">Not yet loaded</span>
@@ -513,7 +516,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.3';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.4';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
