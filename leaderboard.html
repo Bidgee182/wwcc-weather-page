@@ -132,10 +132,10 @@ html, body {
 .r-hcp-token  { font-size: 0.72em; color: #4a6a84; font-weight: normal; }
 .r-hcp-team   { display: block; font-size: 0.68em; color: #4a6a84; font-weight: normal; margin-top: 3px; letter-spacing: 0.02em; }
 .r-gross { font-size: 0.72em; color: #8fb8cc; font-weight: normal; margin-right: 3px; }
-.r-pts   { text-align: right; font-size: 1.65em; font-weight: bold; color: #27ae60; white-space: nowrap; }
+.r-pts   { text-align: right; font-size: 1.57em; font-weight: bold; color: #27ae60; white-space: nowrap; }
 .r-pts.dim { color: #4a6a84; }
-.r-thru  { text-align: right; font-size: 1.2em; color: #7f8c8d; }
-.r-thru.fin { color: #27ae60; font-weight: bold; font-size: 1.32em; }
+.r-thru  { text-align: right; font-size: 1.14em; color: #7f8c8d; }
+.r-thru.fin { color: #27ae60; font-weight: bold; font-size: 1.25em; }
 
 /* Ambrose score column: HCP (grey, left) - GROSS (big, standout) - net (grey).
    Wider score cell so the three parts never squash against the THRU column.
@@ -510,7 +510,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
