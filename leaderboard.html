@@ -370,7 +370,7 @@ html, body {
 
   <header class="hdr">
     <img class="hdr-logo"
-         src="https://wwcc.com.au/cms/wp-content/themes/contemporary/assets/images/logo.png"
+         src="images/wwcc-logo-white.png"
          alt="WWCC" onerror="this.style.display='none'">
     <div class="hdr-center">
       <div class="hdr-comp" id="hdr-comp">⛳ Live Golf Leaderboard</div>
@@ -509,7 +509,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
