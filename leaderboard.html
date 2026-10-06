@@ -178,7 +178,7 @@ html, body {
 .story-right { text-align: right; flex-shrink: 0; padding-left: 8px; }
 .story-name   { font-size: 1.25em; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .story-title  { font-size: 1.05em; font-weight: 600; color: #ecf0f1; margin-top: 3px; }
-.story-detail { font-size: 0.88em; color: #7f8c8d; margin-top: 1px; }
+.story-detail { font-size: 0.88em; color: #aeb6bd; margin-top: 1px; }
 .story-pts    { font-size: 1.43em; font-weight: bold; color: #27ae60; }
 .story-thru   { font-size: 1.02em; color: #7f8c8d; margin-top: 1px; }
 
@@ -501,7 +501,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.6';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '9.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
@@ -1813,6 +1813,13 @@ function renderLeaderboard(players, holeCount, started, competition) {
         let escapedName;
         if (isAmb && isTeam) {
             escapedName = esc((p.player || '').replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, ''));
+        } else if (isTeam && ((p.player || '').match(/\[(\+?\d+(?:\.\d+)?)\]/g) || []).length === 1) {
+            // Pairs/foursomes with ONE combined handicap: MiScore embeds it after the
+            // FIRST name ("A [39] & B"). Move it to the end -> "A & B [39]". Names that
+            // carry a handicap PER player ("A [27] & B [10]") fall through unchanged.
+            const m = (p.player || '').match(/\[(\+?\d+(?:\.\d+)?)\]/);
+            const clean = esc((p.player || '').replace(/\s*\[(\+?\d+(?:\.\d+)?)\]/g, '').trim());
+            escapedName = clean + ' <span class="r-hcp-token">[' + m[1] + ']</span>';
         } else {
             // Style embedded [N] handicap tokens (used for team names like "A [27] & B [10]")
             escapedName = esc(p.player).replace(/\[(\+?\d+(?:\.\d+)?)\]/g,
