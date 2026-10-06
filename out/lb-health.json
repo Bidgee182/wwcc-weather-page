@@ -1,11 +1,11 @@
 {
- "updatedAt": "2026-10-05T23:01:20.544162+00:00",
+ "updatedAt": "2026-10-06T00:20:08.655444+00:00",
  "window": "day",
  "alertsActive": [],
- "competition": null,
- "compDate": null,
- "playerCount": 0,
- "pollAgeMin": 78.7,
+ "competition": "Womens Foursomes Championships Rd 1",
+ "compDate": "2026-10-06",
+ "playerCount": 24,
+ "pollAgeMin": 0.3,
  "officialResultsReady": false,
  "prizes": {
   "ntp": 0,
@@ -16,14 +16,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "crit",
-   "detail": "2 boards listed, none published"
+   "status": "ok",
+   "detail": "1 board(s) listed"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "crit",
-   "detail": "79 min old"
+   "status": "ok",
+   "detail": "Updated 0 min ago"
   },
   {
    "key": "creds",
@@ -35,13 +35,19 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "0 players"
+   "detail": "24 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
+   "status": "warn",
+   "detail": "4 finished row(s) differ"
+  },
+  {
+   "key": "pdf:10414387",
+   "label": "Results PDF",
    "status": "idle",
-   "detail": "Checked while comp is live"
+   "detail": "Awaiting official results"
   }
  ],
  "yesterday": [
