@@ -143,12 +143,13 @@ html, body {
 .main.ambrose .lb-row { grid-template-columns: 2.6em 1fr 7.2em 2.3em; }
 
 /* Stroke / foursomes: the score can be wide ("(83) +10"), so give it a wider
-   column, LEFT-justify the score and keep Thru hard RIGHT so the figure and the
-   F never crowd each other. Scoped to stroke so stableford/4BBB are untouched. */
+   column so it fits, keep the score RIGHT-aligned (so E / -1 / +10 line up in a
+   tidy column) and add a little right padding so the figure never crowds the F.
+   Scoped to stroke so stableford/4BBB are untouched. */
 .main.stroke .col-hdr,
-.main.stroke .lb-row { grid-template-columns: 2.6em 1fr 4.4em 2.3em; }
+.main.stroke .lb-row { grid-template-columns: 2.6em 1fr 4.6em 2.3em; }
 .main.stroke .r-pts,
-.main.stroke .col-hdr-pts { text-align: left; }
+.main.stroke .col-hdr-pts { padding-right: 0.5em; }
 .r-pts.amb { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 0.35em; white-space: nowrap; }
 .r-pts.amb .amb-hcp   { font-size: 0.5em; color: #7f93a3; font-weight: normal; }
 .r-pts.amb .amb-gross { font-size: 1em; color: #27ae60; font-weight: bold; }
@@ -370,7 +371,7 @@ html, body {
 
   <header class="hdr">
     <img class="hdr-logo"
-         src="images/wwcc-logo-white.png"
+         src="assets/images/WAGGA%20WAGGA%20COUNTRY%20CLUB%20LOGO%20SECONDARY%20WHITE.png"
          alt="WWCC" onerror="this.style.display='none'">
     <div class="hdr-center">
       <div class="hdr-comp" id="hdr-comp">⛳ Live Golf Leaderboard</div>
@@ -509,7 +510,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '9.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
