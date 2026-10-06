@@ -888,6 +888,7 @@
             <div style="margin-top:12px;">
                 <div class="wn-row">
                     <button class="wn-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
+                    <button class="wn-btn" id="wn-btn-g-weekly"  onclick="setWnGran('weekly')">Weekly</button>
                     <button class="wn-btn" id="wn-btn-g-monthly" onclick="setWnGran('monthly')">Monthly</button>
                     <button class="wn-btn" id="wn-btn-g-wy"      onclick="setWnGran('wy')">Water Year</button>
                     <button class="wn-btn" id="wn-btn-cum"       onclick="toggleWnCum()" style="margin-left:auto;">Mode: Per period</button>
@@ -2045,7 +2046,12 @@ function goTab(name) {
         if (inGk) { if (document.getElementById('gk-tab-' + h)) switchGKTab(h); }
         else      { if (document.getElementById('go-tab-' + h)) goTab(h); }
     };
-    apply();
+    // Defer the first apply() to DOMContentLoaded: it can call switchGKTab ->
+    // renderWaterUsage, which touches `let`-declared state defined later in this
+    // script. Running it during parse would hit the temporal dead zone and throw
+    // (blank graph on a #irrigation deep-link). By DOMContentLoaded all decls exist.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply, { once: true });
+    else apply();
     window.addEventListener('hashchange', apply);
 })();
 
@@ -2316,7 +2322,9 @@ function _wnSeries() {
         return { labels: (_wu.waterYears || []).map(w => w.label),
                  values: (_wu.waterYears || []).map(w => w.usedMl), unit: 'water year' };
     }
-    const raw = _wnGran === 'daily' ? (_wu.daily || []) : (_wu.monthly || []);
+    // Weekly has no stored series: aggregate the daily deltas into calendar weeks
+    // (Mon-Sun) client-side. Daily and weekly both read from _wu.daily.
+    const raw = _wnGran === 'monthly' ? (_wu.monthly || []) : (_wu.daily || []);
     let from = null, to = null;
     if (_wnRange === 'custom' && _wnCustom) { from = _wnCustom.from; to = _wnCustom.to; }
     else if (_wnRange === '12m') {
@@ -2334,6 +2342,20 @@ function _wnSeries() {
         return true;
     };
     const filt = raw.filter(p => inRange(p[0]));
+
+    if (_wnGran === 'weekly') {
+        // Group each day's usage under the Monday that starts its week
+        // Stay in local time throughout: parsing as local (T00:00:00) then keying
+        // via toISOString() (UTC) would shift the Monday back a day in AEST/AEDT.
+        const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const mondayOf = k => { const d = new Date(k + 'T00:00:00'); const off = (d.getDay() + 6) % 7; d.setDate(d.getDate() - off); return ymd(d); };
+        const weeks = new Map();
+        for (const [k, v] of filt) { const wk = mondayOf(k); weeks.set(wk, (weeks.get(wk) || 0) + v); }
+        const keys = [...weeks.keys()].sort();
+        const fmtWk = k => 'wk ' + new Date(k + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' });
+        return { labels: keys.map(fmtWk), values: keys.map(k => weeks.get(k)), unit: 'week', keys };
+    }
+
     const fmtLbl = _wnGran === 'daily'
         ? k => new Date(k).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' })
         : k => new Date(k + '-15').toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
@@ -2343,7 +2365,7 @@ function _wnSeries() {
 
 function _wnRenderChart() {
     if (!_wu) { renderWaterUsage(); return; }   // data not loaded yet - load then re-render
-    ['daily', 'monthly', 'wy'].forEach(g => { const b = _g('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g); });
+    ['daily', 'weekly', 'monthly', 'wy'].forEach(g => { const b = _g('wn-btn-g-' + g); if (b) b.classList.toggle('active', _wnGran === g); });
     const rr = _g('wn-range-row'); if (rr) rr.style.opacity = _wnGran === 'wy' ? '0.4' : '1';
     ['12m', 'wy', 'all'].forEach(r => {
         const sel = _wnGran !== 'wy' && _wnRange === r;
