@@ -2449,6 +2449,10 @@ function _wnRenderChart() {
             },
         },
     });
+    // Force the canvas to fill its container (guards against a stale/narrow width
+    // after a layout change, e.g. the custom-date row expanding, which otherwise
+    // leaves the bars squished to the left with blank space on the right).
+    requestAnimationFrame(() => { if (_wnChart) _wnChart.resize(); });
 }
 
 function wnDownloadCsv() {

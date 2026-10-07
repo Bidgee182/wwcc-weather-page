@@ -1202,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.1';
+const PUMP_VERSION = '4.2';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1873,6 +1873,11 @@ function _wnRenderChart() {
             },
         },
     });
+    // Force the canvas to fill its container on the next frame. Without this the
+    // chart can keep a stale/narrow width when it is rebuilt after a layout change
+    // (e.g. the custom-date row expanding), leaving the bars squished to the left
+    // with blank space on the right instead of spanning the full width.
+    requestAnimationFrame(() => { if (_wnChart) _wnChart.resize(); });
 }
 
 function wnDownloadCsv() {
