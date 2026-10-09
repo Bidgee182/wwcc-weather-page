@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-10-09T09:09:25.094582+00:00",
- "window": "day",
+ "updatedAt": "2026-10-09T14:40:02.355152+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Friday Medley Stableford",
- "compDate": "2026-10-09",
- "playerCount": 104,
- "pollAgeMin": 0.3,
- "officialResultsReady": true,
+ "competition": "Saturday Medley Stableford",
+ "compDate": "2026-10-10",
+ "playerCount": 196,
+ "pollAgeMin": 0.2,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 4,
+  "ntp": 0,
   "ld": 0,
-  "balls": 39
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,32 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "104 players"
+   "detail": "196 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
-  },
-  {
-   "key": "pdf:10414388",
-   "label": "Results: Friday Medley Stableford",
-   "status": "ok",
-   "detail": "3 grades, 51 players, 4 NTP, 0 LD, 39 balls"
-  },
-  {
-   "key": "pdf:10414389",
-   "label": "Results: 9 Hole Medley Stableford F\u2026",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf:10414298",
+   "label": "Results PDF",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Womens Foursomes Championships Rd 2",
+   "competition": "9 Hole Medley Stableford Front 9",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Friday Medley Stableford",
    "status": "success",
-   "summary": "single field, 32 players, 3 NTP, 0 LD, 0 balls",
+   "summary": "3 grades, 51 players, 4 NTP, 0 LD, 39 balls",
    "role": "primary"
   }
  ]
