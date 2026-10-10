@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-10-10T15:42:20.654714+00:00",
-  "last_seen": "2026-10-10T15:42:20.654714+00:00",
-  "last_connected": "2026-10-10T15:42:20.654714+00:00",
+  "timestamp": "2026-10-10T15:47:05.999080+00:00",
+  "last_seen": "2026-10-10T15:47:05.999080+00:00",
+  "last_connected": "2026-10-10T15:47:05.999080+00:00",
   "system": {
     "pressure_actual_bar": 7.685,
-    "pressure_suction_bar": -0.815,
+    "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 41.4,
+    "power_kw": 12.5,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 96.1,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 204862,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 95.7,
+      "power_kw": 12.5,
+      "current_a": 21.6,
       "run_hours": 5288.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7739,
+      "raw": 7670,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 185,
+      "raw": 173,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-09T17:09:11.611815+00:00",
-      "pa": 7.181,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5288.0,
-        5286.0,
-        5286.0,
-        1406.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-09T17:13:55.419391+00:00",
       "pa": 7.181,
@@ -11677,9 +11637,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-10T15:47:05.999080+00:00",
+      "pa": 7.685,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 41.4,
+      "nr": 1,
+      "pk": 12.5,
+      "sp": [
+        95.7,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        12.5,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5288.0,
+        5286.0,
+        5286.0,
+        1406.0
+      ],
+      "st": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-10-10T15:47:05.999080+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-10-08T18:05:34.169642+00:00",
       "type_code": 3,
@@ -12028,15 +12037,6 @@
       "type_name": "Low-Flow Stop activated",
       "code": 12,
       "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-09-30T00:58:58.577805+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
       "pump_label": "System",
       "source_name": "SystemFunction"
     }
