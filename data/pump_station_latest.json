@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-10-10T15:47:05.999080+00:00",
-  "last_seen": "2026-10-10T15:47:05.999080+00:00",
-  "last_connected": "2026-10-10T15:47:05.999080+00:00",
+  "timestamp": "2026-10-10T15:51:49.730135+00:00",
+  "last_seen": "2026-10-10T15:51:49.730135+00:00",
+  "last_connected": "2026-10-10T15:51:49.730135+00:00",
   "system": {
-    "pressure_actual_bar": 7.685,
-    "pressure_suction_bar": -0.821,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.835,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 41.4,
-    "power_kw": 12.5,
+    "flow_m3h": 130.6,
+    "power_kw": 37.6,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 96.1,
+    "relative_performance_pct": 96.5,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 204862,
+    "energy_kwh": 204864,
     "run_hours": 42080,
     "powered_hours": null,
     "power_ons": 82,
@@ -49,9 +49,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 95.7,
-      "power_kw": 12.5,
-      "current_a": 21.6,
+      "speed_pct": 96.5,
+      "power_kw": 13.0,
+      "current_a": 22.4,
       "run_hours": 5288.0,
       "starts_today": 1,
       "temp_c": null,
@@ -64,14 +64,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 96.5,
+      "power_kw": 10.8,
+      "current_a": 19.4,
       "run_hours": 5286.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 96.5,
+      "power_kw": 13.8,
+      "current_a": 23.2,
       "run_hours": 5286.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7670,
+      "raw": 7785,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 173,
+      "raw": 165,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-09T17:13:55.419391+00:00",
-      "pa": 7.181,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5288.0,
-        5286.0,
-        5286.0,
-        1406.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-09T17:18:42.644873+00:00",
       "pa": 7.181,
@@ -11677,6 +11637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-10T15:51:49.730135+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.835,
+      "fl": 130.6,
+      "nr": 3,
+      "pk": 37.6,
+      "sp": [
+        96.5,
+        96.5,
+        96.5,
+        0.0
+      ],
+      "pw": [
+        13.0,
+        10.8,
+        13.8,
+        0.0
+      ],
+      "rh": [
+        5288.0,
+        5286.0,
+        5286.0,
+        1406.0
+      ],
+      "st": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -12042,7 +12042,7 @@
     }
   ],
   "pump_energy_kwh": [
-    2682,
+    2684,
     62524,
     4834,
     3828
