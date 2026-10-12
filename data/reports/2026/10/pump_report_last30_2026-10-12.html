@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>WWCC Pump Station Report</title>
+<style>
+*{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#1a2733;margin:0;padding:28px;background:#fff;font-size:13px}
+h1{font-size:22px;margin:0 0 2px} .sub1{color:#5a6b7a;font-size:13px;margin-bottom:18px}
+.cards{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.card{flex:1;min-width:140px;border:1px solid #d6dee6;border-radius:8px;padding:12px 14px;background:#f7fafc}
+.card .v{font-size:23px;font-weight:700;color:#1565c0} .card .l{font-size:11px;color:#5a6b7a;text-transform:uppercase;letter-spacing:.5px}
+.card.warn .v{color:#c62828}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:#1565c0;color:#fff;padding:7px 9px;text-align:left;font-weight:600}
+th.num,td.num{text-align:right} td{padding:6px 9px;border-bottom:1px solid #e6ecf1}
+tr:nth-child(even) td{background:#f7fafc} td.d{font-weight:600;white-space:nowrap}
+td.low{background:#ffe3e3 !important;color:#c62828;font-weight:700}
+td.hi{background:#fff3cd !important;color:#9a6a00;font-weight:700}
+.sub{color:#9aa7b2;font-size:10.5px} .pend{color:#c99a00;font-style:italic;font-size:11px}
+.noirr{color:#aab4bd;font-size:10px;font-style:italic} .mark{color:#c62828;font-weight:700;font-size:11px;vertical-align:super}
+.note{margin-top:14px;font-size:11.5px;color:#5a6b7a;border-top:1px solid #d6dee6;padding-top:10px;line-height:1.5}
+.note b{color:#1a2733}
+@media print{body{padding:10px;font-size:11.5px} .card,th,td.low,td.hi{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<h1>Wagga Wagga Country Club - Pump Station Report</h1>
+<div class="sub1">Last 30 days: 13 Sep to 12 Oct 2026 &nbsp;|&nbsp; Generated 13 Oct 2026 08:34 &nbsp;|&nbsp; Setpoint 7.8 bar</div>
+<div class="cards">
+<div class="card"><div class="v">16.15 ML</div><div class="l">Total extraction (WaterNSW meter)</div></div>
+<div class="card"><div class="v">208</div><div class="l">Jockey starts &lt;60s (leak signature)</div></div>
+<div class="card warn"><div class="v">66</div><div class="l">Jockey starts &lt;30s (strong leak signal)</div></div>
+<div class="card"><div class="v">7.37 bar</div><div class="l">Avg night irrigation pressure</div></div>
+<div class="card warn"><div class="v">1.32 bar</div><div class="l">Lowest pressure (25 Sep)</div></div>
+</div>
+<table><thead><tr><th>Date</th><th class="num">WaterNSW flow (m3)</th><th class="num">Jockey starts &lt;60s <span style="font-weight:400;font-size:10px">/ total</span></th><th class="num">Jockey starts &lt;30s</th><th class="num">Press avg (bar)</th><th class="num">low</th><th class="num">high</th></tr></thead>
+<tbody><tr><td class="d">Sun 13 Sep<span class="mark">&dagger;</span></td><td class="num">821</td><td class="num">1<span class="sub">/1</span></td><td class="num">1</td><td class="num">7.23</td><td class="num">6.24</td><td class="num">8.0 </td></tr>
+<tr><td class="d">Mon 14 Sep</td><td class="num">75</td><td class="num hi">12<span class="sub">/35</span></td><td class="num">0</td><td class="num">7.84</td><td class="num">6.17</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Tue 15 Sep</td><td class="num">71</td><td class="num">8<span class="sub">/17</span></td><td class="num">0</td><td class="num">7.2</td><td class="num">6.49</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Wed 16 Sep</td><td class="num">835</td><td class="num">2<span class="sub">/12</span></td><td class="num">2</td><td class="num">7.42</td><td class="num low">5.86</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Thu 17 Sep</td><td class="num">57</td><td class="num">8<span class="sub">/32</span></td><td class="num">1</td><td class="num">7.46</td><td class="num">6.55</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Fri 18 Sep<span class="mark">&dagger;</span></td><td class="num">876</td><td class="num">7<span class="sub">/11</span></td><td class="num">1</td><td class="num">7.29</td><td class="num">6.11</td><td class="num">9.07 </td></tr>
+<tr><td class="d">Sat 19 Sep</td><td class="num">0</td><td class="num">4<span class="sub">/4</span></td><td class="num">4</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Sun 20 Sep<span class="mark">&dagger;</span></td><td class="num">384</td><td class="num">2<span class="sub">/4</span></td><td class="num">2</td><td class="num">7.46</td><td class="num low">5.67</td><td class="num">8.06 </td></tr>
+<tr><td class="d">Mon 21 Sep</td><td class="num">1095</td><td class="num">3<span class="sub">/12</span></td><td class="num">1</td><td class="num">7.39</td><td class="num low">5.98</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Tue 22 Sep</td><td class="num">1178</td><td class="num hi">11<span class="sub">/33</span></td><td class="num">3</td><td class="num">7.16</td><td class="num low">5.23</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Wed 23 Sep</td><td class="num">1247</td><td class="num">1<span class="sub">/3</span></td><td class="num">1</td><td class="num">7.11</td><td class="num low">5.61</td><td class="num">8.82 </td></tr>
+<tr><td class="d">Thu 24 Sep</td><td class="num">921</td><td class="num">6<span class="sub">/18</span></td><td class="num">3</td><td class="num">7.16</td><td class="num low">5.8</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Fri 25 Sep</td><td class="num">940</td><td class="num">6<span class="sub">/8</span></td><td class="num">3</td><td class="num">6.72</td><td class="num low">1.32</td><td class="num">9.07 </td></tr>
+<tr><td class="d">Sat 26 Sep</td><td class="num">1081</td><td class="num">3<span class="sub">/5</span></td><td class="num">2</td><td class="num">7.08</td><td class="num low">5.61</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Sun 27 Sep<span class="mark">&dagger;</span></td><td class="num">1025</td><td class="num">0<span class="sub">/1</span></td><td class="num">0</td><td class="num">7.33</td><td class="num low">5.54</td><td class="num">8.69 </td></tr>
+<tr><td class="d">Mon 28 Sep</td><td class="num">741</td><td class="num hi">15<span class="sub">/38</span></td><td class="num">3</td><td class="num">7.42</td><td class="num low">5.61</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Tue 29 Sep</td><td class="num">319</td><td class="num hi">39<span class="sub">/54</span></td><td class="num hi">6</td><td class="num">7.29</td><td class="num">6.43</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Wed 30 Sep</td><td class="num">1006</td><td class="num hi">10<span class="sub">/25</span></td><td class="num">0</td><td class="num">7.33</td><td class="num low">5.8</td><td class="num">8.95 </td></tr>
+<tr><td class="d">Thu 01 Oct</td><td class="num">1033</td><td class="num">9<span class="sub">/30</span></td><td class="num">1</td><td class="num">7.34</td><td class="num low">5.17</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Fri 02 Oct</td><td class="num">876</td><td class="num">1<span class="sub">/5</span></td><td class="num">1</td><td class="num">7.38</td><td class="num low">5.35</td><td class="num">8.88 </td></tr>
+<tr><td class="d">Sat 03 Oct</td><td class="num">0</td><td class="num">3<span class="sub">/3</span></td><td class="num">3</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Sun 04 Oct<span class="mark">&dagger;</span></td><td class="num">262</td><td class="num">5<span class="sub">/5</span></td><td class="num">3</td><td class="num">7.17</td><td class="num">6.24</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Mon 05 Oct<span class="mark">&dagger;</span></td><td class="num">657</td><td class="num">2<span class="sub">/2</span></td><td class="num">2</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Tue 06 Oct</td><td class="num">3</td><td class="num hi">10<span class="sub">/16</span></td><td class="num hi">5</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Wed 07 Oct</td><td class="num">0</td><td class="num">4<span class="sub">/4</span></td><td class="num">2</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Thu 08 Oct</td><td class="num">47</td><td class="num">9<span class="sub">/16</span></td><td class="num hi">5</td><td class="num">7.79</td><td class="num">6.8</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Fri 09 Oct</td><td class="num">156</td><td class="num">3<span class="sub">/5</span></td><td class="num">2</td><td class="num">7.78</td><td class="num">6.68</td><td class="num">8.82 </td></tr>
+<tr><td class="d">Sat 10 Oct</td><td class="num">0</td><td class="num">5<span class="sub">/5</span></td><td class="num">4</td><td class="num">-</td><td class="num">-</td><td class="num">- <span class="noirr">minimal</span></td></tr>
+<tr><td class="d">Sun 11 Oct<span class="mark">&dagger;</span></td><td class="num">140</td><td class="num">3<span class="sub">/6</span></td><td class="num">1</td><td class="num">7.77</td><td class="num">6.74</td><td class="num">9.01 </td></tr>
+<tr><td class="d">Mon 12 Oct</td><td class="num">298</td><td class="num hi">16<span class="sub">/38</span></td><td class="num">4</td><td class="num">7.75</td><td class="num low">4.22</td><td class="num">8.76 </td></tr></tbody></table>
+<div class="note">
+<b>WaterNSW flow (m3):</b> daily total extraction from the compliance meter (register, 10x-corrected). Days marked "awaiting upload" are after the last DAS download (2026-10-13).<br>
+<b>Jockey starts &lt;60s / &lt;30s:</b> jockey-pump starts that ran under 60 / 30 seconds (short pressure-maintenance cycling, the leak signature); &lt;60s is shown over total starts. Longer runs (hand-watering) are excluded. Days with 10+ (&lt;60s) or 5+ (&lt;30s) short starts are highlighted. These short starts occur right through the day, including a steady 2-3 per hour overnight when nothing should be drawing water.<br>
+<b>Pressure:</b> discharge pressure during night irrigation only (6pm-8am, while pumping). Lows under 6.0 bar (vs 7.8 setpoint) are highlighted - the suction-starvation events. "minimal" = little or no night irrigation that day.<br>
+<b>* 12 Oct</b> WaterNSW flow is partial - the DAS upload covers to about 8am; the full day's extraction (about 424 m3) is not in yet.<br>
+<b>&dagger;</b> Pump telemetry was partial on these days (station/SIM offline for part of the day), so jockey starts are a minimum and pressure is from partial coverage. On 5 Oct the meter recorded 657 m3 pumped while the pump was offline for about 6 hours, which is why its pressure shows "minimal".
+</div>
+</body></html>

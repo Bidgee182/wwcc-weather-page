@@ -500,6 +500,21 @@
 <!-- PUMP CONTROL USERS -->
 <div class="panel" id="panel-pump-users">
     <div class="card">
+        <h2>Pump Station Report</h2>
+        <p class="note" style="margin-top:0">Daily WaterNSW extraction, jockey-pump short starts (leak signature, &lt;60s and &lt;30s) and night irrigation pressure (avg / low / high). Opens a printable report in a new tab.</p>
+        <div class="flexrow" style="flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <button onclick="pumpReport('30d')">Last 30 days</button>
+            <button onclick="pumpReport('thismonth')">This month</button>
+            <button onclick="pumpReport('lastmonth')">Last month</button>
+            <span style="color:#7f8c8d">or</span>
+            <label>From<br><input type="date" id="pr-from" style="width:150px;"></label>
+            <label>To<br><input type="date" id="pr-to" style="width:150px;"></label>
+            <button onclick="pumpReport('custom')">Generate</button>
+        </div>
+        <div class="status" id="pr-status"></div>
+    </div>
+
+    <div class="card">
         <h2>Pump Control Users</h2>
         <div class="table-wrap"><table>
             <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>PIN</th><th>Added</th><th></th></tr></thead>
@@ -2209,6 +2224,92 @@ async function admResetPin(email) {
 // ── Pump Control Users ────────────────────────────────────────────────────────
 const PCU_PATH = 'data/pump_ctrl_users.json';
 const PCU_CFG  = 'data/pump_ctrl_config.json';
+
+// ── Pump Station Report ───────────────────────────────────────────────
+const PR_SUPA_URL = 'https://sduzxijjvpbfgvlwcwpp.supabase.co';
+const PR_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8';
+
+function _prFmt(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function _prRange(preset) {
+    const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (preset === '30d')       { const to = new Date(today); to.setDate(to.getDate()-1); const from = new Date(to); from.setDate(from.getDate()-29); return [_prFmt(from), _prFmt(to)]; }
+    if (preset === 'thismonth') { const from = new Date(today.getFullYear(), today.getMonth(), 1); const to = new Date(today); to.setDate(to.getDate()-1); return [_prFmt(from), _prFmt(to < from ? from : to)]; }
+    if (preset === 'lastmonth') { const from = new Date(today.getFullYear(), today.getMonth()-1, 1); const to = new Date(today.getFullYear(), today.getMonth(), 0); return [_prFmt(from), _prFmt(to)]; }
+    return [document.getElementById('pr-from').value, document.getElementById('pr-to').value];
+}
+async function pumpReport(preset) {
+    const st = document.getElementById('pr-status');
+    const [from, to] = _prRange(preset);
+    if (!from || !to || from > to) { st.textContent = 'Pick a valid From/To range.'; return; }
+    st.textContent = 'Generating...';
+    try {
+        const r = await fetch(PR_SUPA_URL + '/rest/v1/rpc/pump_daily_report', {
+            method: 'POST',
+            headers: { apikey: PR_SUPA_KEY, Authorization: 'Bearer ' + PR_SUPA_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_from: from, p_to: to }),
+        });
+        if (!r.ok) throw new Error('pump data ' + r.status);
+        const rows = await r.json();
+        const rg = await fetch('data/water_register_daily.json?_=' + Date.now()).then(x => x.json());
+        const reg = rg.register, regLast = rg.lastDay;
+        const rk = Object.keys(reg).sort(); const das = {};
+        for (let i = 1; i < rk.length; i++) das[rk[i]] = (reg[rk[i]] - reg[rk[i-1]]) * 0.1;
+        const html = _buildPumpReport(rows, das, regLast, from, to);
+        const w = window.open('', '_blank');
+        if (!w) { st.textContent = 'Popup blocked - allow popups for this site.'; return; }
+        w.document.write(html); w.document.close();
+        st.textContent = 'Report opened in a new tab (' + from + ' to ' + to + ').';
+    } catch (e) { st.textContent = 'Failed: ' + e.message; }
+}
+function _buildPumpReport(rows, das, regLast, from, to) {
+    const SETPOINT = 7.8;
+    const fd = s => { const t = new Date(s + 'T00:00:00'); return t.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' }); };
+    let totDas = 0, tot60 = 0, tot30 = 0, pSum = 0, pN = 0, low = null, anyGap = false, anyPartial = false;
+    for (const r of rows) {
+        if (das[r.day] !== undefined && r.day <= regLast) totDas += das[r.day];
+        tot60 += r.jockey_lt60; tot30 += r.jockey_lt30;
+        if (r.night_min >= 30) { pSum += r.p_avg; pN++; if (low === null || r.p_low < low.v) low = { v: r.p_low, d: r.day }; }
+    }
+    const avgP = pN ? (pSum / pN) : 0;
+    let tr = '';
+    for (const r of rows) {
+        const d = r.day;
+        const gap = r.tel_minutes > 0 && r.tel_minutes < 1400;
+        if (gap) anyGap = true;
+        const awaiting = d > regLast;
+        let dasv;
+        if (awaiting) { dasv = '<span class="pend">awaiting upload</span>'; }
+        else if (das[d] === undefined) { dasv = '-'; }
+        else { dasv = Math.round(das[d]); if (d === regLast) { dasv += '<span class="mark">*</span>'; anyPartial = true; } }
+        const irrig = r.night_min >= 30;
+        const s60c = r.jockey_lt60 >= 10 ? ' hi' : '';
+        const s30c = r.jockey_lt30 >= 5 ? ' hi' : '';
+        const lowc = (irrig && r.p_low < 6) ? ' low' : '';
+        const pnote = irrig ? '' : '<span class="noirr">minimal</span>';
+        let dd = fd(d); if (gap) dd += '<span class="mark">&dagger;</span>';
+        tr += '<tr><td class="d">' + dd + '</td><td class="num">' + dasv + '</td><td class="num' + s60c + '">' + r.jockey_lt60 + '<span class="sub">/' + r.jockey_total + '</span></td><td class="num' + s30c + '">' + r.jockey_lt30 + '</td><td class="num">' + (irrig ? r.p_avg.toFixed(2) : '-') + '</td><td class="num' + lowc + '">' + (irrig ? r.p_low.toFixed(2) : '-') + '</td><td class="num">' + (irrig ? r.p_high.toFixed(2) : '-') + ' ' + pnote + '</td></tr>';
+    }
+    const gen = new Date().toLocaleString('en-AU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const fromF = fd(from), toF = fd(to);
+    const lowCard = low ? ('<div class="card warn"><div class="v">' + low.v.toFixed(2) + ' bar</div><div class="l">Lowest pressure (' + fd(low.d) + ')</div></div>') : '';
+    let notes = '<b>WaterNSW flow (m3):</b> daily total extraction from the compliance meter (register, 10x-corrected). "awaiting upload" = after the last DAS download (' + regLast + ').<br>' +
+        '<b>Jockey starts &lt;60s / &lt;30s:</b> jockey-pump starts that ran under 60 / 30 seconds (short pressure-maintenance cycling, the leak signature); &lt;60s is shown over total starts. Longer runs (hand-watering) are excluded. Days with 10+ (&lt;60s) or 5+ (&lt;30s) are highlighted. These short starts run right through the day, including steadily overnight when nothing should be drawing water.<br>' +
+        '<b>Pressure:</b> discharge pressure during night irrigation only (6pm-8am, while pumping). Lows under 6.0 bar (vs ' + SETPOINT + ' setpoint) are highlighted - the suction-starvation events. "minimal" = little or no night irrigation that day.';
+    if (anyPartial) notes += '<br><b>*</b> The most recent DAS day may be partial if the upload did not cover the full day.';
+    if (anyGap) notes += '<br><b>&dagger;</b> Pump telemetry was partial on these days (station/SIM offline for part of the day), so jockey starts are a minimum and pressure is from partial coverage.';
+    const CSS = '*{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#1a2733;margin:0;padding:28px;background:#fff;font-size:13px}h1{font-size:22px;margin:0 0 2px}.sub1{color:#5a6b7a;font-size:13px;margin-bottom:18px}.cards{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}.card{flex:1;min-width:140px;border:1px solid #d6dee6;border-radius:8px;padding:12px 14px;background:#f7fafc}.card .v{font-size:23px;font-weight:700;color:#1565c0}.card .l{font-size:11px;color:#5a6b7a;text-transform:uppercase;letter-spacing:.5px}.card.warn .v{color:#c62828}table{width:100%;border-collapse:collapse;font-size:12.5px}th{background:#1565c0;color:#fff;padding:7px 9px;text-align:left;font-weight:600}th.num,td.num{text-align:right}td{padding:6px 9px;border-bottom:1px solid #e6ecf1}tr:nth-child(even) td{background:#f7fafc}td.d{font-weight:600;white-space:nowrap}td.low{background:#ffe3e3!important;color:#c62828;font-weight:700}td.hi{background:#fff3cd!important;color:#9a6a00;font-weight:700}.sub{color:#9aa7b2;font-size:10.5px}.pend{color:#c99a00;font-style:italic;font-size:11px}.noirr{color:#aab4bd;font-size:10px;font-style:italic}.mark{color:#c62828;font-weight:700;font-size:11px;vertical-align:super}.note{margin-top:14px;font-size:11.5px;color:#5a6b7a;border-top:1px solid #d6dee6;padding-top:10px;line-height:1.5}.note b{color:#1a2733}@media print{body{padding:10px;font-size:11.5px}.card,th,td.low,td.hi{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>WWCC Pump Station Report</title><style>' + CSS + '</style></head><body>' +
+        '<h1>Wagga Wagga Country Club - Pump Station Report</h1>' +
+        '<div class="sub1">' + fromF + ' to ' + toF + ' &nbsp;|&nbsp; Generated ' + gen + ' &nbsp;|&nbsp; Setpoint ' + SETPOINT + ' bar</div>' +
+        '<div class="cards">' +
+        '<div class="card"><div class="v">' + (totDas/1000).toFixed(2) + ' ML</div><div class="l">Total extraction (WaterNSW meter)</div></div>' +
+        '<div class="card"><div class="v">' + tot60 + '</div><div class="l">Jockey starts &lt;60s (leak signature)</div></div>' +
+        '<div class="card warn"><div class="v">' + tot30 + '</div><div class="l">Jockey starts &lt;30s (strong leak signal)</div></div>' +
+        '<div class="card"><div class="v">' + avgP.toFixed(2) + ' bar</div><div class="l">Avg night irrigation pressure</div></div>' +
+        lowCard + '</div>' +
+        '<table><thead><tr><th>Date</th><th class="num">WaterNSW flow (m3)</th><th class="num">Jockey starts &lt;60s <span style="font-weight:400;font-size:10px">/ total</span></th><th class="num">Jockey starts &lt;30s</th><th class="num">Press avg (bar)</th><th class="num">low</th><th class="num">high</th></tr></thead><tbody>' + tr + '</tbody></table>' +
+        '<div class="note">' + notes + '</div></body></html>';
+}
 
 async function pcuLoad() {
     const st = m => $('pcu-status').textContent = m;
