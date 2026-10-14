@@ -1,11 +1,11 @@
 {
- "updatedAt": "2026-10-14T12:23:56.394378+00:00",
- "window": "day",
+ "updatedAt": "2026-10-14T13:05:25.032334+00:00",
+ "window": "night",
  "alertsActive": [],
  "competition": "Mens Wednesday Stableford",
  "compDate": "2026-10-14",
  "playerCount": 182,
- "pollAgeMin": 1.5,
+ "pollAgeMin": 0.7,
  "officialResultsReady": true,
  "prizes": {
   "ntp": 11,
@@ -16,14 +16,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "4 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 1 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -40,8 +40,8 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414257",
@@ -62,5 +62,18 @@
    "detail": "Awaiting official results"
   }
  ],
- "yesterday": []
+ "yesterday": [
+  {
+   "competition": "Junior 9 Hole Comp Front 9",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Mens Wednesday Stableford",
+   "status": "success",
+   "summary": "3 grades, 99 players, 11 NTP, 4 LD, 75 balls",
+   "role": "primary"
+  }
+ ]
 }
