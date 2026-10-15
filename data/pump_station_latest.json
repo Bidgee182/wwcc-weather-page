@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-10-15T22:31:19.782402+00:00",
-  "last_seen": "2026-10-15T22:31:19.782402+00:00",
-  "last_connected": "2026-10-15T22:31:19.782402+00:00",
+  "timestamp": "2026-10-15T22:36:03.159482+00:00",
+  "last_seen": "2026-10-15T22:36:03.159482+00:00",
+  "last_connected": "2026-10-15T22:36:03.159482+00:00",
   "system": {
     "pressure_actual_bar": 7.811,
     "pressure_suction_bar": -0.821,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 29.8,
-    "power_kw": 7.4,
+    "flow_m3h": 30.6,
+    "power_kw": 7.3,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
     "relative_performance_pct": 91.3,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 206336,
+    "energy_kwh": 206338,
     "run_hours": 42206,
     "powered_hours": null,
     "power_ons": 82,
@@ -50,7 +50,7 @@
       "fault": false,
       "standby": false,
       "speed_pct": 91.7,
-      "power_kw": 7.4,
+      "power_kw": 7.3,
       "current_a": 16.4,
       "run_hours": 5324.0,
       "starts_today": 2,
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-14T23:18:57.150846+00:00",
-      "pa": 8.189,
-      "ps": 7.8,
-      "pi": -0.812,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5314.0,
-        5312.0,
-        5314.0,
-        1408.0
-      ],
-      "st": [
-        4,
-        4,
-        5,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-14T23:23:56.276749+00:00",
       "pa": 8.189,
@@ -11677,6 +11637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-15T22:36:03.159482+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.821,
+      "fl": 30.6,
+      "nr": 1,
+      "pk": 7.3,
+      "sp": [
+        91.7,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        7.3,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5324.0,
+        5322.0,
+        5324.0,
+        1408.0
+      ],
+      "st": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -12042,7 +12042,7 @@
     }
   ],
   "pump_energy_kwh": [
-    3190,
+    3192,
     62960,
     5358,
     3834
