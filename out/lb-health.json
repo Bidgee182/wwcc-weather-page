@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-10-20T10:20:07.549271+00:00",
- "window": "day",
+ "updatedAt": "2026-10-20T14:49:20.450178+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Womens Tournament Day",
- "compDate": "2026-10-20",
- "playerCount": 74,
- "pollAgeMin": 0.2,
- "officialResultsReady": true,
+ "competition": "Mens Wednesday Stableford",
+ "compDate": "2026-10-21",
+ "playerCount": 178,
+ "pollAgeMin": 0.3,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 5,
+  "ntp": 0,
   "ld": 0,
-  "balls": 39
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "1 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,20 +35,27 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "74 players"
+   "detail": "178 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414425",
+   "key": "pdf:10414260",
    "label": "Results PDF",
-   "status": "ok",
-   "detail": "3 grades, 119 players, 5 NTP, 0 LD, 39 balls"
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
- "yesterday": []
+ "yesterday": [
+  {
+   "competition": "Womens Tournament Day",
+   "status": "success",
+   "summary": "3 grades, 119 players, 5 NTP, 0 LD, 39 balls",
+   "role": "primary"
+  }
+ ]
 }
