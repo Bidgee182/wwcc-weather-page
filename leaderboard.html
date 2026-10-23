@@ -563,7 +563,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _blueBallReady   = false;  // true once every teed-off player is through >= 9 holes
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
@@ -2304,8 +2304,10 @@ function esc(s) {
 // alternates: board for a spell, then the message, then back. After the date
 // it hides itself and stops. Fully independent of the board/scoring code.
 const SM_DATE        = '2026-10-23';   // Sydney date this overlay is active
-const SM_MSG_SECS    = 15;             // message dwell when alternating
-const SM_BOARD_SECS  = 60;             // board dwell when alternating
+const SM_MSG_SECS    = 15;             // message dwell when alternating with a LIVE board
+const SM_BOARD_SECS  = 60;             // board dwell when alternating with a LIVE board
+const SM_IDLE_MSG_SECS   = 60;         // no live comp: message dwell ...
+const SM_IDLE_BOARD_SECS = 30;         // ... then the normal (no-competition) screen for this long
 let _compLive = false;                 // set each poll from the data
 let _smTimer  = null, _smVisible = false;
 
@@ -2327,7 +2329,13 @@ function _smSchedule(secs) {
 function _smTick() {
     if (!document.getElementById('special-msg')) return;
     if (_sydneyYMD() !== SM_DATE) { _smShow(false); return; }   // not today -> off, stop
-    if (!_compLive) { _smShow(true); _smSchedule(5); return; }   // no live comp -> message owns screen
+    // No live comp -> mostly the message, with the normal screen for 30s at a time
+    // so the board still shows (and scrolls) between messages.
+    if (!_compLive) {
+        if (_smVisible) { _smShow(false); _smSchedule(SM_IDLE_BOARD_SECS); }
+        else            { _smShow(true);  _smSchedule(SM_IDLE_MSG_SECS); }
+        return;
+    }
     // Live comp -> alternate board <-> message
     if (_smVisible) { _smShow(false); _smSchedule(SM_BOARD_SECS); }
     else            { _smShow(true);  _smSchedule(SM_MSG_SECS); }
