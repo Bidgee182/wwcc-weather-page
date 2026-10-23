@@ -262,6 +262,31 @@ html, body {
 .ftr-dot.fresh { background: #27ae60; box-shadow: 0 0 6px rgba(39,174,96,0.6); }
 .ftr-dot.stale { background: #e67e22; }
 .ftr-dot.down  { background: #e74c3c; }
+
+/* ── One-off full-screen message overlay: George Maher + Hamish Howard
+   Remembrance Golf Day (23 Oct 2026). Hidden until the _sm* controller shows
+   it; owns the screen while there is no live comp, then alternates with the
+   board once scoring starts. Self-disables after the date. ── */
+#special-msg {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 32%, #16324a 0%, #0a1628 72%);
+    opacity: 0; visibility: hidden; transition: opacity 0.7s ease; pointer-events: none;
+}
+#special-msg.show { opacity: 1; visibility: visible; }
+#special-msg .sm-card { text-align: center; max-width: 86vw; }
+#special-msg .sm-logowrap {
+    background: #fff; border-radius: 18px; padding: 4.5vh 6vw;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.45); display: inline-block; margin-bottom: 4.5vh;
+}
+#special-msg .sm-logowrap img { height: 30vh; max-height: 340px; display: block; }
+#special-msg .sm-wish {
+    color: #27ae60; font-size: clamp(1.8rem, 5.6vh, 4.4rem); font-weight: 800;
+    margin-bottom: 2.2vh; text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+}
+#special-msg .sm-foot {
+    color: #cfdae4; font-size: clamp(1rem, 2.8vh, 2.1rem); font-weight: 600; letter-spacing: 0.04em;
+}
 .ftr-build  { font-size: 0.62em; color: #4a6a84; letter-spacing: 0.05em; }
 .ftr-results { color: #4a6a84; font-size: 0.75em; text-decoration: none; }
 .ftr-results:hover { color: #7f8c8d; }
@@ -378,6 +403,21 @@ html, body {
 </style>
 </head>
 <body>
+
+<!-- One-off full-screen message: George Maher + Hamish Howard Remembrance Golf
+     Day (23 Oct 2026). Shown/alternated by the _sm* controller below. -->
+<div id="special-msg" aria-hidden="true">
+  <div class="sm-card">
+    <div class="sm-logowrap">
+      <img src="assets/images/gh-golf-day.png"
+           alt="The George Maher and Hamish Howard Remembrance Golf Day"
+           onerror="this.style.display='none'">
+    </div>
+    <div class="sm-wish">Good luck to all the players today!</div>
+    <div class="sm-foot">A warm welcome from Wagga Wagga Country Club</div>
+  </div>
+</div>
+
 <div id="root">
 
   <header class="hdr">
@@ -523,7 +563,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.7';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '10.8';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _blueBallReady   = false;  // true once every teed-off player is through >= 9 holes
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
@@ -689,6 +729,12 @@ async function fetchData() {
         const show4bbb = new URLSearchParams(location.search).get('4bbb') === '1';
         _companions = (data.companions || (data.companion ? [data.companion] : []))
             .filter(c => show4bbb || !((c.competition || '').toLowerCase().includes('4bbb')));
+
+        // Golf-day overlay (23 Oct 2026): is a real comp actually scoring right
+        // now? The overlay owns the screen until it is, then alternates with the
+        // board. Pre-comp / no-board / results all count as "not live yet".
+        _compLive = !!(data.started && data.players && data.players.length) ||
+                    _companions.some(c => c && c.started && (c.players || []).length);
         if (data.date && _bkDate !== data.date) loadBookings();
 
         // Pre-comp holding view takes over when a comp is published today but
@@ -2252,7 +2298,43 @@ function esc(s) {
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ── One-off golf-day message overlay controller ───────────────────
+// George Maher + Hamish Howard Remembrance Golf Day, 23 Oct 2026 only. While
+// no club comp is scoring, the overlay owns the TV. Once a comp goes live it
+// alternates: board for a spell, then the message, then back. After the date
+// it hides itself and stops. Fully independent of the board/scoring code.
+const SM_DATE        = '2026-10-23';   // Sydney date this overlay is active
+const SM_MSG_SECS    = 15;             // message dwell when alternating
+const SM_BOARD_SECS  = 60;             // board dwell when alternating
+let _compLive = false;                 // set each poll from the data
+let _smTimer  = null, _smVisible = false;
+
+function _sydneyYMD() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()); }
+    catch (e) { return ''; }
+}
+function _smShow(v) {
+    const el = document.getElementById('special-msg');
+    if (!el) return;
+    _smVisible = v;
+    el.classList.toggle('show', v);
+    el.setAttribute('aria-hidden', v ? 'false' : 'true');
+}
+function _smSchedule(secs) {
+    if (_smTimer) clearTimeout(_smTimer);
+    _smTimer = setTimeout(_smTick, secs * 1000);
+}
+function _smTick() {
+    if (!document.getElementById('special-msg')) return;
+    if (_sydneyYMD() !== SM_DATE) { _smShow(false); return; }   // not today -> off, stop
+    if (!_compLive) { _smShow(true); _smSchedule(5); return; }   // no live comp -> message owns screen
+    // Live comp -> alternate board <-> message
+    if (_smVisible) { _smShow(false); _smSchedule(SM_BOARD_SECS); }
+    else            { _smShow(true);  _smSchedule(SM_MSG_SECS); }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────
+_smTick();
 updateClock();
 setInterval(updateClock, 1000);
 loadBookings();
