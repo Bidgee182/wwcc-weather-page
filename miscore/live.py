@@ -4290,6 +4290,10 @@ def main(argv=None) -> int:
                     "status": "no board",
                     "generatedAt": datetime.now(timezone.utc).isoformat(),
                     "note": f"no competition for {args.club} in the last {args.days} days",
+                    # Report the deployed version even with no comp, so the kiosk
+                    # still auto-reloads to pick up leaderboard.html changes on a
+                    # no-competition day (e.g. a one-off message overlay).
+                    "frontendVersion": FRONTEND_VERSION,
                 }
                 log.info("no board found")
             else:
@@ -4426,7 +4430,8 @@ def main(argv=None) -> int:
                              ", ".join(f"{s['name']} ({s['reason']})" for s in c_skipped))
         except Exception as e:  # noqa: BLE001
             log.warning("poll failed: %s", e)
-            blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat()}
+            blob = {"status": "error", "error": str(e), "generatedAt": datetime.now(timezone.utc).isoformat(),
+                    "frontendVersion": FRONTEND_VERSION}
 
         # Archive confirmed official results to per-comp history the moment the
         # PDF is in, so Past Results is correct immediately and never depends on
