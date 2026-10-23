@@ -563,7 +563,7 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '11.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '11.1';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _blueBallReady   = false;  // true once every teed-off player is through >= 9 holes
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
@@ -746,6 +746,7 @@ async function fetchData() {
         // board. Pre-comp / no-board / results all count as "not live yet".
         _compLive = !!(data.started && data.players && data.players.length) ||
                     _companions.some(c => c && c.started && (c.players || []).length);
+        if (typeof _smTick === 'function') _smTick();   // correct overlay visibility at once
         if (data.date && _bkDate !== data.date) loadBookings();
 
         // Pre-comp holding view takes over when a comp is published today but
@@ -915,8 +916,15 @@ document.getElementById('lb-inner').addEventListener('animationend', () => {
     // always picks up the latest data AND any new frontend version, and self-heals
     // from a stuck state. Multi-board (companion) setups keep the smooth rotation -
     // a reload there would reset the cycle and never reach the companion boards.
-    if (!_companions || _companions.length === 0) { location.reload(); return; }
-    setTimeout(_applyPending, 2000);
+    const next = () => {
+        if (!_companions || _companions.length === 0) { location.reload(); return; }
+        setTimeout(_applyPending, 2000);
+    };
+    // Golf-day overlay: when a comp is live today, show the GH message only AFTER
+    // this complete scroll pass, hold it, then carry on - so the board always
+    // finishes a full scroll before the logo reappears.
+    if (typeof _smLiveActive === 'function' && _smLiveActive()) { _smFlash(next); return; }
+    next();
 });
 
 // Watchdog: rotation normally advances via animationend / force timers, but if
@@ -2321,7 +2329,7 @@ const SM_BOARD_SECS  = 60;             // board dwell when alternating with a LI
 const SM_IDLE_MSG_SECS   = 60;         // no live comp: message dwell ...
 const SM_IDLE_BOARD_SECS = 30;         // ... then the normal (no-competition) screen for this long
 let _compLive = false;                 // set each poll from the data
-let _smTimer  = null, _smVisible = false;
+let _smTimer  = null, _smVisible = false, _smFlashing = false;
 
 function _sydneyYMD() {
     try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney' }).format(new Date()); }
@@ -2341,6 +2349,7 @@ function _smSchedule(secs) {
 function _smTick() {
     if (!document.getElementById('special-msg')) return;
     if (_sydneyYMD() !== SM_DATE) { _smShow(false); return; }   // not today -> off, stop
+    if (_smFlashing) { _smSchedule(5); return; }                 // leave a post-scroll flash alone
     // No live comp -> mostly the message, with the normal screen for 30s at a time
     // so the board still shows (and scrolls) between messages.
     if (!_compLive) {
@@ -2348,9 +2357,22 @@ function _smTick() {
         else            { _smShow(true);  _smSchedule(SM_IDLE_MSG_SECS); }
         return;
     }
-    // Live comp -> alternate board <-> message
-    if (_smVisible) { _smShow(false); _smSchedule(SM_BOARD_SECS); }
-    else            { _smShow(true);  _smSchedule(SM_MSG_SECS); }
+    // Live comp -> the board owns the screen and scrolls; the message appears only
+    // AFTER a complete scroll pass (via _smFlash, triggered by the board's
+    // animationend), so a scroll is never cut short before the logo reappears.
+    _smShow(false);
+    _smSchedule(5);
+}
+// Live comp today: show the GH message for SM_MSG_SECS, then run cb (the board's
+// normal end-of-scroll action: reload for a single board, rotate for companions).
+function _smFlash(cb) {
+    if (_sydneyYMD() !== SM_DATE || !_compLive || !document.getElementById('special-msg')) { cb(); return; }
+    _smFlashing = true;
+    _smShow(true);
+    setTimeout(() => { _smShow(false); _smFlashing = false; cb(); }, SM_MSG_SECS * 1000);
+}
+function _smLiveActive() {
+    return _sydneyYMD() === SM_DATE && _compLive && !!document.getElementById('special-msg');
 }
 
 // ── Boot ──────────────────────────────────────────────────────────
