@@ -563,10 +563,21 @@ let _comingLastAnimDurMs  = 0;    // current coming-last scroll cycle duration (
 // Bump this whenever leaderboard.html changes. The poller reads it from this file
 // and reports it as data.frontendVersion; a running page reloads (at a scroll
 // boundary) only when the deployed version differs - so data commits never reload.
-const FRONTEND_VERSION = '10.9';   // shown in the footer; bump by 0.1 each leaderboard.html change
+const FRONTEND_VERSION = '11.0';   // shown in the footer; bump by 0.1 each leaderboard.html change
 let _loadedHash      = null;   // gitHash from first successful fetch (kept for footer only)
 let _blueBallReady   = false;  // true once every teed-off player is through >= 9 holes
 let _needsReload     = false;  // true when a NEWER frontend is deployed; reload at scroll-end
+let _newVersion      = null;   // the version the poller reported, for a cache-busting reload
+// GitHub Pages caches leaderboard.html for 10 minutes; a plain reload inside that
+// window gets the OLD page back and loops. Reload with the new version in the URL
+// so the CDN serves the fresh file at once (other params, e.g. ?lb= / ?4bbb=1, kept).
+function _reloadFresh() {
+    try {
+        const p = new URLSearchParams(location.search);
+        p.set('v', _newVersion || String(Date.now()));
+        location.replace(location.pathname + '?' + p.toString());
+    } catch (e) { location.reload(); }
+}
 let _refreshStopped  = false;  // true once round is complete - no more fetches needed
 let _awaitingOfficial = false; // everyone finished but official (PDF) results not in yet
 let _stoppedForDate  = null;   // competition date when _refreshStopped was set
@@ -742,7 +753,7 @@ async function fetchData() {
         if (_isPreComp(data)) {
             _hasData = true;
             _loadedHash = data.gitHash || null;
-            if (data.frontendVersion && data.frontendVersion !== FRONTEND_VERSION) { location.reload(); return; }
+            if (data.frontendVersion && data.frontendVersion !== FRONTEND_VERSION) { _newVersion = data.frontendVersion; _reloadFresh(); return; }
             _enterPreComp(data);
             setFooter(data.generatedAt, '');
             return;
@@ -768,6 +779,7 @@ async function fetchData() {
             // it, so the board updates content in place without a full-screen reload.
             if (data.frontendVersion && data.frontendVersion !== FRONTEND_VERSION) {
                 _needsReload = true;
+                _newVersion = data.frontendVersion;
             }
             // Buffer leaderboard rebuild until scroll completes full cycle -
             // users see every player before the list refreshes with new data.
@@ -813,7 +825,7 @@ function _applyPending() {
     _lastApplyTs = Date.now();
     if (_forceTimer) { clearTimeout(_forceTimer); _forceTimer = null; }
     if (_rotateCheckTimer) { clearTimeout(_rotateCheckTimer); _rotateCheckTimer = null; }
-    if (_needsReload) { location.reload(); return; }
+    if (_needsReload) { _reloadFresh(); return; }
 
     // Rotate through primary + companion boards - but only once EVERY visible
     // scrolling panel (players + stories + blue-ball when shown) on the current
@@ -914,7 +926,7 @@ document.getElementById('lb-inner').addEventListener('animationend', () => {
 let _lastApplyTs = Date.now();
 setInterval(() => {
     const idleMs = Date.now() - _lastApplyTs;
-    if (_needsReload && idleMs > 120000) { location.reload(); return; }
+    if (_needsReload && idleMs > 120000) { _reloadFresh(); return; }
     if (_hasData && idleMs > 180000) _applyPending();
 }, 60000);
 
