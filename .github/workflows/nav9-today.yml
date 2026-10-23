@@ -1,0 +1,48 @@
+name: Navigate 9s - today's board (10-min)
+
+# Builds data/nav9_today.json for the TV-kiosk Navigate 9s panel: scrapes today's
+# "Navigate 9" MiClub board, sums each finished card to a gross, and applies the
+# weekly handicap lookup (data/nav9_handicaps.json) to show netts. Runs every 10
+# minutes across Wagga daylight hours. Pure HTTP scrape (stdlib) - no extra deps.
+
+on:
+  schedule:
+    # Every 10 min, ~05:00-22:59 Sydney (AEDT = UTC+11 across the Navigate 9s season).
+    - cron: "*/10 18-23,0-11 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nav9-today
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build today's Navigate 9s netts
+        run: |
+          echo "Running at $(TZ='Australia/Sydney' date '+%Y-%m-%d %H:%M') Wagga time"
+          python scripts/nav9_today.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/nav9_today.json
+          if git diff --staged --quiet; then
+            echo "No change in today's Navigate 9s board"
+          else
+            git commit -m "Navigate 9s today $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            for j in 1 2 3 4 5; do
+              if git pull --rebase -X theirs origin main && git push; then echo "pushed"; break; fi
+              echo "push attempt $j failed, retrying..."; sleep $((j * 4))
+            done
+          fi

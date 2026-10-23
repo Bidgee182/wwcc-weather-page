@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigate 9s - Today</title>
+<style>
+/* Matches the WWCC TV kiosk theme. Fits 1920x1080, no page scroll - the list
+   scrolls within its panel. */
+:root { --nav9-ver: '1.0'; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  background: #0a1628; color: #ecf0f1; overflow: hidden;
+  display: flex; flex-direction: column; height: 100vh;
+}
+header {
+  display: flex; align-items: center; gap: 1.2vw;
+  padding: 1.3vh 1.9vw; background: rgba(0,0,0,0.25); flex-shrink: 0;
+  border-bottom: 3px solid #27ae60;
+}
+.hdr-logo { height: 6vh; max-height: 68px; }
+.hdr-mid { flex: 1; text-align: center; }
+.hdr-title { font-size: clamp(1.4rem, 3.4vh, 2.6rem); font-weight: 800; line-height: 1.05; }
+.hdr-sub { font-size: clamp(0.8rem, 1.9vh, 1.3rem); color: #9fb2c2; margin-top: 0.3vh; }
+.hdr-clock { text-align: right; font-size: clamp(1.1rem, 2.6vh, 2rem); font-weight: 700; white-space: nowrap; }
+.hdr-date  { font-size: clamp(0.7rem, 1.6vh, 1.1rem); color: #9fb2c2; text-align: right; }
+
+.col-hdr {
+  display: grid; grid-template-columns: 3.2em 1fr 7em 6em;
+  align-items: center; gap: 0.6vw;
+  padding: 0.8vh 1.9vw; background: rgba(0,0,0,0.4);
+  font-size: clamp(0.7rem, 1.6vh, 1.05rem); font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #8fa3b3; flex-shrink: 0;
+}
+.col-hdr .num { text-align: right; }
+
+.scroll-clip { flex: 1; overflow: hidden; position: relative; }
+.scroll-inner { will-change: transform; }
+.scroll-inner.scrolling { animation: nav9-scroll linear 1 forwards; }
+@keyframes nav9-scroll { from { transform: translateY(0); } to { transform: translateY(var(--scroll-dist, 0)); } }
+
+.row {
+  display: grid; grid-template-columns: 3.2em 1fr 7em 6em;
+  align-items: center; gap: 0.6vw;
+  padding: 1.0vh 1.9vw; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.row:nth-child(even) { background: rgba(255,255,255,0.03); }
+.row.top3 { background: rgba(39,174,96,0.08); }
+.rank {
+  text-align: center; font-size: clamp(1rem, 2.4vh, 1.8rem); font-weight: 800;
+  color: #8fa3b3;
+}
+.row.top3 .rank { color: #f1c40f; }
+.who { min-width: 0; }
+.name { font-size: clamp(1.05rem, 2.6vh, 2rem); font-weight: 700; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team { font-size: clamp(0.75rem, 1.7vh, 1.2rem); color: #9fb2c2; line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.2vh; }
+.gross { text-align: right; font-size: clamp(0.9rem, 2vh, 1.4rem); color: #8fa3b3; }
+.gross b { color: #c6d2dc; }
+.nett  { text-align: right; font-size: clamp(1.3rem, 3vh, 2.3rem); font-weight: 800; color: #27ae60; }
+
+footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9vh 1.9vw; background: #0a1520; border-top: 1px solid #1e3a50;
+  font-size: clamp(0.75rem, 1.7vh, 1.15rem); color: #9fb2c2; flex-shrink: 0;
+}
+.onfield { color: #e0e6eb; font-weight: 700; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #27ae60;
+  display: inline-block; box-shadow: 0 0 6px rgba(39,174,96,0.6); margin-right: 0.4em; }
+
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 1.5vh; color: #9fb2c2; padding: 4vh; }
+.empty .big { font-size: clamp(1.6rem, 4vh, 3rem); font-weight: 800; color: #ecf0f1; }
+.empty .em { font-size: clamp(3rem, 9vh, 6rem); }
+</style>
+</head>
+<body>
+<header>
+  <img class="hdr-logo" src="assets/images/wwcc-logo-white.png" alt="WWCC"
+       onerror="this.style.display='none'">
+  <div class="hdr-mid">
+    <div class="hdr-title">Navigate 9s &ndash; Today's Rounds</div>
+    <div class="hdr-sub" id="sub">Loading...</div>
+  </div>
+  <div>
+    <div class="hdr-clock" id="clock">--:--</div>
+    <div class="hdr-date" id="date">&nbsp;</div>
+  </div>
+</header>
+
+<div class="col-hdr" id="colhdr" style="display:none">
+  <span class="num">#</span>
+  <span>Player</span>
+  <span class="num">Gross</span>
+  <span class="num">Nett</span>
+</div>
+
+<div class="scroll-clip" id="clip">
+  <div class="scroll-inner" id="list"></div>
+</div>
+
+<footer id="ftr">
+  <span><span class="dot"></span><span id="onfield">&nbsp;</span></span>
+  <span id="updated">&nbsp;</span>
+</footer>
+
+<script>
+const FEED = 'data/nav9_today.json';
+const REFRESH_MS = 120000;         // re-fetch every 2 min
+const SCROLL_PX_PER_S = 36;        // scroll speed
+const END_HOLD_MS = 4000;          // pause at top/bottom
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function two(n){ return String(n).padStart(2,'0'); }
+
+function tickClock(){
+  const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Australia/Sydney'}));
+  let h = now.getHours(); const m = two(now.getMinutes());
+  const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12;
+  document.getElementById('clock').textContent = h + ':' + m + ' ' + ap;
+  document.getElementById('date').textContent = now.toLocaleDateString('en-AU',
+    { weekday:'short', day:'numeric', month:'short' });
+}
+
+let _animTimer = null;
+function startScroll(){
+  const clip = document.getElementById('clip'), list = document.getElementById('list');
+  if (_animTimer) { clearTimeout(_animTimer); _animTimer = null; }
+  list.classList.remove('scrolling'); list.style.removeProperty('--scroll-dist');
+  // one pass only when the list overflows the clip
+  const over = list.scrollHeight - clip.clientHeight;
+  if (over <= 4) return;                       // fits - no scroll needed
+  const dur = over / SCROLL_PX_PER_S;
+  _animTimer = setTimeout(() => {
+    list.style.setProperty('--scroll-dist', (-over) + 'px');
+    list.style.animationDuration = dur + 's';
+    list.classList.add('scrolling');
+  }, END_HOLD_MS);
+}
+document.getElementById('list').addEventListener('animationend', () => {
+  const list = document.getElementById('list');
+  _animTimer = setTimeout(() => {              // reset to top, hold, go again
+    list.classList.remove('scrolling'); list.style.removeProperty('--scroll-dist');
+    startScroll();
+  }, END_HOLD_MS);
+});
+
+function render(d){
+  const list = document.getElementById('list');
+  const rounds = (d && d.rounds) || [];
+  const wk = d && d.week ? ('Week ' + d.week) : '';
+  const seas = d && d.season ? (' · ' + d.season) : '';
+  document.getElementById('sub').textContent =
+    (d && d.boardFound === false && rounds.length === 0)
+      ? ('Navigate 9s' + (wk ? ' · ' + wk : '') + ' · no cards in yet today')
+      : ('Nett · best first' + (wk ? ' · ' + wk : '') + seas);
+
+  const onF = (d && d.inProgress) || 0;
+  document.getElementById('onfield').textContent =
+    onF > 0 ? (onF + (onF === 1 ? ' player still on the course' : ' players still on the course'))
+            : (rounds.length ? 'all cards in' : '');
+  const gen = d && d.generatedAt ? new Date(d.generatedAt) : new Date();
+  document.getElementById('updated').textContent = 'Updated ' +
+    gen.toLocaleTimeString('en-AU', { hour:'numeric', minute:'2-digit', timeZone:'Australia/Sydney' });
+
+  if (!rounds.length){
+    document.getElementById('colhdr').style.display = 'none';
+    list.innerHTML = '<div class="empty"><div class="em">⛳</div>' +
+      '<div class="big">No cards in yet today</div>' +
+      '<div>' + (onF > 0 ? (onF + ' players are out on the course - netts will appear as cards are returned.')
+                         : 'Netts will appear here as Navigate 9s cards come in.') + '</div></div>';
+    return;
+  }
+  document.getElementById('colhdr').style.display = '';
+  list.innerHTML = rounds.map((r, i) => {
+    const top3 = i < 3 ? ' top3' : '';
+    return '<div class="row' + top3 + '">' +
+      '<div class="rank">' + (i+1) + '</div>' +
+      '<div class="who"><div class="name">' + esc(r.name) + '</div>' +
+        '<div class="team">' + esc(r.team) + '</div></div>' +
+      '<div class="gross"><b>' + esc(r.gross) + '</b></div>' +
+      '<div class="nett">' + esc(r.nett) + '</div>' +
+    '</div>';
+  }).join('');
+  startScroll();
+}
+
+async function load(){
+  try {
+    const r = await fetch(FEED + '?_t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) render(await r.json());
+  } catch (e) { /* keep showing the last good board */ }
+}
+
+tickClock(); setInterval(tickClock, 1000);
+load(); setInterval(load, REFRESH_MS);
+window.addEventListener('resize', startScroll);
+</script>
+</body>
+</html>
