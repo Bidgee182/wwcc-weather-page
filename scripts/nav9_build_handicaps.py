@@ -61,7 +61,7 @@ def main(argv=None) -> int:
         print("NAV9_SUPABASE_URL / NAV9_SUPABASE_KEY not set", file=sys.stderr)
         return 2
 
-    seasons = rest(url, key, "seasons?select=id,name,status,starts_on,config&order=starts_on.desc")
+    seasons = rest(url, key, "seasons?select=id,name,status,starts_on,config,course&order=starts_on.desc")
     today = dt.datetime.now(dt.timezone(dt.timedelta(hours=11))).date().isoformat()  # Sydney AEDT
     if args.season:
         season = next((s for s in seasons if s["name"] == args.season), None)
@@ -93,11 +93,25 @@ def main(argv=None) -> int:
                    "&select=player_id,team_id,starting_handicap,is_sub,non_playing,joined_week,left_after_week&limit=2000")
     teams = {t["id"]: t["name"] for t in rest(url, key, f"teams?season_id=eq.{sid}&select=id,name&limit=2000")}
     pids = list({m["player_id"] for m in members})
-    names = {}
+    names, genders = {}, {}
     for i in range(0, len(pids), 300):
         chunk = ",".join(pids[i:i + 300])
-        for p in rest(url, key, f"players?id=in.({chunk})&select=id,full_name"):
+        for p in rest(url, key, f"players?id=in.({chunk})&select=id,full_name,gender"):
             names[p["id"]] = p["full_name"]
+            genders[p["id"]] = p.get("gender")
+
+    # Course card (per-hole par + women's par) so the kiosk scores over/under and
+    # nett against Navigate 9s' own pars, not MiClub's. Keyed by hole NUMBER so the
+    # scraped scorecard holes map straight onto it. Parked holes (out=true) dropped.
+    course = {}
+    for nine in ("front", "back"):
+        for h in (season.get("course") or {}).get(nine, []):
+            if h.get("out"):
+                continue
+            course[str(h["hole"])] = {
+                "par": h.get("par"),
+                "wpar": h.get("wpar") if h.get("wpar") is not None else h.get("par"),
+            }
 
     wk_override = {}
     if args.week_handicaps:
@@ -117,6 +131,7 @@ def main(argv=None) -> int:
             "name": nm,
             "team": teams.get(m["team_id"], "?"),
             "handicap": hcp,
+            "gender": genders.get(pid),
             "key": norm_key(nm),
         })
     players.sort(key=lambda p: p["name"])
@@ -127,6 +142,8 @@ def main(argv=None) -> int:
         "week": week,
         "parFront": par_front,
         "parBack": par_back,
+        "doubleParCap": bool((season.get("config") or {}).get("doubleParCap")),
+        "course": course,
         "generatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
         "basis": basis,
         "count": len(players),

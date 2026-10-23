@@ -4104,6 +4104,112 @@ _HISTORY_DIR     = Path(__file__).parent.parent / "out" / "history"
 _HISTORY_PDF_DIR = _HISTORY_DIR / "pdf"
 
 
+# ── Navigate 9s overlay ───────────────────────────────────────────────────────
+# Navigate 9s is a 9-hole NETT stroke comp run on the club's MiClub board but
+# scored off the Navigate 9s app's OWN rules: each player's weekly rolling
+# handicap, the club's own per-hole pars (men 36 / women 37 on the front; hole 5
+# is a par 5 for women, 17 a par 3), and a double-par cap. MiClub scores it gross
+# off its own par, so this post-processes a Navigate 9s board blob to the correct
+# nett: it overrides each hole's par, caps at double par, applies the handicap and
+# ranks by nett. The main score shown is NETT-TO-PAR (like the other stroke
+# boards). The weekly name/team/handicap/gender lookup + course card live in
+# data/nav9_handicaps.json (built by scripts/nav9_build_handicaps.py). This runs
+# ONLY on a board whose name matches "Navigate 9" - no other comp is touched.
+_NAV9_RE = re.compile(r"navigate\s*9", re.I)
+_NAV9_PATH = Path(__file__).parent.parent / "data" / "nav9_handicaps.json"
+_nav9_cache: dict = {"mtime": None, "data": None}
+
+
+def _nav9_key(name: str) -> str:
+    """Order-independent match key - must match nav9_build_handicaps.py exactly."""
+    return " ".join(sorted(re.findall(r"[a-z0-9]+", (name or "").lower())))
+
+
+def _nav9_lookup() -> dict | None:
+    try:
+        mt = _NAV9_PATH.stat().st_mtime
+    except OSError:
+        return None
+    if _nav9_cache["mtime"] != mt:
+        try:
+            _nav9_cache["data"] = json.loads(_NAV9_PATH.read_text(encoding="utf-8"))
+            _nav9_cache["mtime"] = mt
+        except Exception:
+            return None
+    return _nav9_cache["data"]
+
+
+def _apply_nav9(blob: dict) -> dict:
+    """If `blob` is a Navigate 9s board, re-score it to Navigate 9s nett. No-op
+    (returns blob unchanged) for every other competition."""
+    if not _NAV9_RE.search(blob.get("competition") or ""):
+        return blob
+    lk = _nav9_lookup()
+    if not lk:
+        return blob
+    by_key = {p["key"]: p for p in lk.get("players", [])}
+    course = lk.get("course") or {}
+    cap = bool(lk.get("doubleParCap"))
+    hc = blob.get("holeCount") or 9
+
+    def nav9_par(hole, gender):
+        c = course.get(str(hole))
+        if not c:
+            return None
+        return c["wpar"] if (gender == "female" and c.get("wpar") is not None) else c["par"]
+
+    finished, inprog = [], []
+    for p in blob.get("players") or []:
+        m = by_key.get(_nav9_key(p.get("player", "")))
+        gender = (m or {}).get("gender")
+        handi = (m or {}).get("handicap")
+        p["hcp"] = handi
+        if m and m.get("team"):
+            p["team"] = m["team"]
+        gross = played = to_par = 0
+        full_par = 0
+        for h in p.get("holes") or []:
+            par = nav9_par(h.get("hole"), gender)
+            if par is not None:
+                h["par"] = par
+                full_par += par
+            s = h.get("strokes")
+            if isinstance(s, int) and isinstance(par, int):
+                sc = min(s, 2 * par) if cap else s
+                h["strokes"] = sc
+                h["points"] = sc - par            # per-hole over/under, Navigate 9s par
+                gross += sc
+                played += 1
+                to_par += sc - par
+        p["thru"] = played if played < hc else hc
+        if played >= hc and handi is not None:
+            nett = gross - handi
+            p["_nav9_nett"] = nett
+            p["points"] = nett - full_par          # NETT-TO-PAR (option A)
+            finished.append(p)
+        else:
+            p["points"] = to_par                   # running gross-to-par while out
+            inprog.append(p)
+    finished.sort(key=lambda p: (p["_nav9_nett"], -p["thru"], p.get("player") or ""))
+    inprog.sort(key=lambda p: (p["points"], -p["thru"], p.get("player") or ""))
+    ordered = finished + inprog
+    for i, p in enumerate(ordered):
+        p["pos"] = i + 1
+    # Board par = the men's par for the nine in play, so the kiosk's gross-in-
+    # parens (coursePar + nett-to-par) reads as the nett for men.
+    hole_nums = {str(h.get("hole")) for p in ordered for h in (p.get("holes") or [])
+                 if h.get("hole") is not None}
+    mens_par = sum((course.get(hn) or {}).get("par") or 0 for hn in hole_nums)
+    if mens_par:
+        blob["par"] = mens_par
+    blob["players"] = ordered
+    blob["leaders"] = ordered[:3]
+    blob["isStableford"] = False
+    blob["type"] = "Nett"
+    blob["isNav9"] = True
+    return blob
+
+
 def _hist_slim_player(p: dict) -> dict:
     d = {k: v for k, v in p.items() if k not in ("holes", "last")}
     if p.get("holes"):
@@ -4309,6 +4415,7 @@ def main(argv=None) -> int:
                 except Exception:
                     prev_story, prev_found_at = {}, None
                 blob = poll(args.club, board, args.workers, prev, prev_story, prev_found_at)
+                blob = _apply_nav9(blob)   # re-score to nett if this is a Navigate 9s board
                 lead = blob["leaders"][0] if blob["leaders"] else None
                 log.info(
                     "%s: %d players, %s, leader %s",
@@ -4370,6 +4477,7 @@ def main(argv=None) -> int:
 
                 def _poll_companion(c_board, force_stroke=False):
                     cb = poll(args.club, c_board, args.workers, {})
+                    cb = _apply_nav9(cb)   # re-score to nett if this companion is Navigate 9s
                     is_sf = cb.get("isStableford", True)
                     players_out = cb.get("players", [])
                     comp_type_out = cb.get("type", "")
