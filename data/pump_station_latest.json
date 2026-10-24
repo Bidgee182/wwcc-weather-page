@@ -1,22 +1,22 @@
 {
-  "connected": false,
-  "timestamp": "2026-10-24T19:37:45.313079+00:00",
-  "last_seen": "2026-10-24T19:32:14.324748+00:00",
-  "last_connected": "2026-10-24T17:22:13.770208+00:00",
+  "connected": true,
+  "timestamp": "2026-10-24T19:42:29.903250+00:00",
+  "last_seen": "2026-10-24T19:42:29.903250+00:00",
+  "last_connected": "2026-10-24T19:42:29.903250+00:00",
   "system": {
-    "pressure_actual_bar": 7.811,
-    "pressure_suction_bar": -0.827,
+    "pressure_actual_bar": 8.126,
+    "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 84.8,
-    "power_kw": 22.7,
+    "flow_m3h": 0.0,
+    "power_kw": 0.0,
     "mode": "constant head",
-    "fault": false,
+    "fault": true,
     "system_on": true,
-    "relative_performance_pct": 95.7,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 207902,
-    "run_hours": 42408,
+    "energy_kwh": 207912,
+    "run_hours": 42410,
     "powered_hours": null,
     "power_ons": 82,
     "volume_m3": null,
@@ -30,10 +30,10 @@
     "cim_fw_ver2": 1797,
     "cim_fw_ver3": 4881,
     "cim_fw_ver4": 8224,
-    "alarm_code": 0,
+    "alarm_code": 190,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 0,
+    "sys_active_funcs": 4096,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -64,16 +64,16 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": true,
-      "fault": false,
+      "running": false,
+      "fault": true,
       "standby": false,
-      "speed_pct": 95.7,
-      "power_kw": 9.8,
-      "current_a": 18.2,
-      "run_hours": 5360.0,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
+      "run_hours": 5362.0,
       "starts_today": 0,
       "temp_c": null,
-      "alarm_code": 0
+      "alarm_code": 190
     },
     {
       "id": 3,
@@ -82,12 +82,12 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 95.7,
-      "power_kw": 12.9,
-      "current_a": 22.0,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 5362.0,
       "starts_today": 0,
       "temp_c": null,
@@ -112,18 +112,26 @@
       "alarm_code": 0
     }
   ],
-  "alarms": [],
+  "alarms": [
+    {
+      "active": true,
+      "code": 190,
+      "description": "Limit exceeded, supervised item 1",
+      "pump": "System",
+      "timestamp": "2026-10-24T19:42:29.903250+00:00"
+    }
+  ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7785,
+      "raw": 8130,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 170,
+      "raw": 182,
       "temp_c": null
     },
     {
@@ -158,326 +166,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-23T19:07:26.271313+00:00",
-      "pa": 8.126,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:12:12.473029+00:00",
-      "pa": 8.062,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:16:55.048354+00:00",
-      "pa": 8.062,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:21:38.011886+00:00",
-      "pa": 8.062,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:26:23.028524+00:00",
-      "pa": 8.062,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:31:05.467738+00:00",
-      "pa": 8.0,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:35:54.199438+00:00",
-      "pa": 8.0,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
-    {
-      "ts": "2026-10-23T19:40:42.730999+00:00",
-      "pa": 8.0,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-23T19:45:24.147498+00:00",
       "pa": 8.0,
@@ -11357,9 +11045,76 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-24T19:42:29.903250+00:00",
+      "pa": 8.126,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5362.0,
+        5362.0,
+        5362.0,
+        1412.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-10-24T19:42:29.903250+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 190,
+      "description": "Limit exceeded, supervised item 1",
+      "pump_label": "P2 - CRNE45",
+      "source_name": "Pump"
+    },
+    {
+      "timestamp_iso": "2026-10-24T19:42:29.903250+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 190,
+      "description": "Limit exceeded, supervised item 1",
+      "pump_label": "P2 - CRNE45",
+      "source_name": "System"
+    },
+    {
+      "timestamp_iso": "2026-10-24T19:42:29.903250+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-10-24T11:03:49.069128+00:00",
       "type_code": 4,
@@ -11692,39 +11447,12 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-10-21T02:28:58.865239+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-10-21T02:14:39.556316+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-10-21T02:09:50.297117+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ],
   "pump_energy_kwh": [
     3716,
-    63434,
-    5914,
+    63442,
+    5916,
     3844
   ],
   "mge_temps": [
@@ -11732,20 +11460,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "unreachable",
-    "dns_ip": "123.209.68.232",
-    "detail": "",
-    "summary": "bidgee-pumps.duckdns.org -> 123.209.68.232: nothing answers on 80/443/502 - modem offline or IP released",
-    "checked_at": "2026-10-24T19:37:45.313079+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-10-24T19:37:56.146978+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "123.209.68.232",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
