@@ -1,8 +1,17 @@
 {
-  "was_connected": false,
-  "offline_since": "2026-10-24T17:22:13.770208+00:00",
-  "offline_alert_sent": true,
-  "active_alarms": {},
+  "was_connected": true,
+  "offline_since": null,
+  "offline_alert_sent": false,
+  "active_alarms": {
+    "190": {
+      "appeared_at": "2026-10-24T19:42:29.903250+00:00",
+      "alarm_name": "Alarm appeared",
+      "alarm_desc": "Limit exceeded, supervised item 1",
+      "alarm_label": "P2 - CRNE45",
+      "first_alerted_at": "2026-10-24T19:42:33.405528+00:00",
+      "last_alerted_at": "2026-10-24T19:42:33.405528+00:00"
+    }
+  },
   "alarm_email_history": [
     {
       "code": "190",
@@ -84,9 +93,18 @@
       "appear_emailed_at": "2026-10-22T10:24:52.249706+00:00",
       "cleared_at": "2026-10-22T19:09:53.044886+00:00",
       "clear_emailed_at": "2026-10-22T19:10:06.855580+00:00"
+    },
+    {
+      "code": "190",
+      "desc": "Limit exceeded, supervised item 1",
+      "label": "P2 - CRNE45",
+      "appeared_at": "2026-10-24T19:42:29.903250+00:00",
+      "appear_emailed_at": "2026-10-24T19:42:33.405528+00:00",
+      "cleared_at": null,
+      "clear_emailed_at": null
     }
   ],
-  "last_dns_ip": "123.209.68.232",
+  "last_dns_ip": "123.209.98.106",
   "offline_last_alert_at": "2026-10-24T17:39:01.948548+00:00",
   "recovery_pending": null
 }
