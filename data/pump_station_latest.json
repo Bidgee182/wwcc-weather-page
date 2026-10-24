@@ -1,10 +1,10 @@
 {
   "connected": true,
-  "timestamp": "2026-10-24T19:47:21.511725+00:00",
-  "last_seen": "2026-10-24T19:47:21.511725+00:00",
-  "last_connected": "2026-10-24T19:47:21.511725+00:00",
+  "timestamp": "2026-10-24T19:52:02.585521+00:00",
+  "last_seen": "2026-10-24T19:52:02.585521+00:00",
+  "last_connected": "2026-10-24T19:52:02.585521+00:00",
   "system": {
-    "pressure_actual_bar": 8.126,
+    "pressure_actual_bar": 8.062,
     "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -30,7 +30,7 @@
     "cim_fw_ver2": 1797,
     "cim_fw_ver3": 4881,
     "cim_fw_ver4": 8224,
-    "alarm_code": 190,
+    "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
     "sys_active_funcs": 4096,
@@ -73,7 +73,7 @@
       "run_hours": 5362.0,
       "starts_today": 0,
       "temp_c": null,
-      "alarm_code": 190
+      "alarm_code": 4
     },
     {
       "id": 3,
@@ -115,17 +115,17 @@
   "alarms": [
     {
       "active": true,
-      "code": 190,
-      "description": "Limit exceeded, supervised item 1",
+      "code": 4,
+      "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-10-24T19:47:21.511725+00:00"
+      "timestamp": "2026-10-24T19:52:02.585521+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 8107,
+      "raw": 8084,
       "temp_c": null
     },
     {
@@ -166,46 +166,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-23T19:50:07.405391+00:00",
-      "pa": 8.0,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-23T19:55:00.050807+00:00",
       "pa": 7.938,
@@ -11085,9 +11045,85 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-24T19:52:02.585521+00:00",
+      "pa": 8.062,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5362.0,
+        5362.0,
+        5362.0,
+        1412.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-10-24T19:52:02.585521+00:00",
+      "type_code": 2,
+      "type_name": "Alarm cleared",
+      "code": 190,
+      "description": "Limit exceeded, supervised item 1",
+      "pump_label": "P2 - CRNE45",
+      "source_name": "Pump"
+    },
+    {
+      "timestamp_iso": "2026-10-24T19:52:02.585521+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 4,
+      "description": "Too many restarts",
+      "pump_label": "P2 - CRNE45",
+      "source_name": "Pump"
+    },
+    {
+      "timestamp_iso": "2026-10-24T19:52:02.585521+00:00",
+      "type_code": 2,
+      "type_name": "Alarm cleared",
+      "code": 190,
+      "description": "Limit exceeded, supervised item 1",
+      "pump_label": "System",
+      "source_name": "System"
+    },
+    {
+      "timestamp_iso": "2026-10-24T19:52:02.585521+00:00",
+      "type_code": 1,
+      "type_name": "Alarm appeared",
+      "code": 4,
+      "description": "Too many restarts",
+      "pump_label": "P2 - CRNE45",
+      "source_name": "System"
+    },
     {
       "timestamp_iso": "2026-10-24T19:42:29.903250+00:00",
       "type_code": 1,
@@ -11411,42 +11447,6 @@
       "description": "Limit exceeded, supervised item 1",
       "pump_label": "P2 - CRNE45",
       "source_name": "Pump"
-    },
-    {
-      "timestamp_iso": "2026-10-21T17:34:20.517661+00:00",
-      "type_code": 1,
-      "type_name": "Alarm appeared",
-      "code": 190,
-      "description": "Limit exceeded, supervised item 1",
-      "pump_label": "P2 - CRNE45",
-      "source_name": "System"
-    },
-    {
-      "timestamp_iso": "2026-10-21T17:34:20.517661+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-10-21T11:00:51.806942+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-10-21T02:47:55.831134+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ],
   "pump_energy_kwh": [
