@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-10-25T10:58:49.445582+00:00",
-  "last_seen": "2026-10-25T10:58:49.445582+00:00",
-  "last_connected": "2026-10-25T10:58:49.445582+00:00",
+  "timestamp": "2026-10-25T11:03:31.615160+00:00",
+  "last_seen": "2026-10-25T11:03:31.615160+00:00",
+  "last_connected": "2026-10-25T11:03:31.615160+00:00",
   "system": {
-    "pressure_actual_bar": 7.307,
-    "pressure_suction_bar": -0.818,
+    "pressure_actual_bar": 7.874,
+    "pressure_suction_bar": -0.83,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 84.1,
+    "power_kw": 24.9,
     "mode": "constant head",
     "fault": true,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 95.7,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 207912,
@@ -33,7 +33,7 @@
     "alarm_code": 4,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -46,14 +46,14 @@
       "rated_kw": 18.5,
       "block": 400,
       "bit": 0,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 95.7,
+      "power_kw": 12.1,
+      "current_a": 21.8,
       "run_hours": 5362.0,
-      "starts_today": 1,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 95.7,
+      "power_kw": 12.8,
+      "current_a": 22.6,
       "run_hours": 5362.0,
-      "starts_today": 0,
+      "starts_today": 1,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -118,20 +118,20 @@
       "code": 4,
       "description": "Too many restarts",
       "pump": "System",
-      "timestamp": "2026-10-25T10:58:49.445582+00:00"
+      "timestamp": "2026-10-25T11:03:31.615160+00:00"
     }
   ],
   "analog_inputs": [
     {
       "index": 1,
       "unit": 255,
-      "raw": 7279,
+      "raw": 7854,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 182,
+      "raw": 170,
       "temp_c": null
     },
     {
@@ -166,46 +166,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-10-24T10:59:08.380473+00:00",
-      "pa": 7.811,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5356.0,
-        5354.0,
-        5356.0,
-        1412.0
-      ],
-      "st": [
-        0,
-        4,
-        0,
-        4
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-10-24T11:03:49.069128+00:00",
       "pa": 7.811,
@@ -11045,9 +11005,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-10-25T11:03:31.615160+00:00",
+      "pa": 7.874,
+      "ps": 7.8,
+      "pi": -0.83,
+      "fl": 84.1,
+      "nr": 2,
+      "pk": 24.9,
+      "sp": [
+        95.7,
+        0.0,
+        95.7,
+        0.0
+      ],
+      "pw": [
+        12.1,
+        0.0,
+        12.8,
+        0.0
+      ],
+      "rh": [
+        5362.0,
+        5362.0,
+        5362.0,
+        1412.0
+      ],
+      "st": [
+        2,
+        0,
+        1,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-10-25T11:03:31.615160+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-10-25T03:28:44.831616+00:00",
       "type_code": 3,
@@ -11398,15 +11407,6 @@
       "description": "Too many restarts",
       "pump_label": "P2 - CRNE45",
       "source_name": "Pump"
-    },
-    {
-      "timestamp_iso": "2026-10-21T18:55:13.656193+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 190,
-      "description": "Limit exceeded, supervised item 1",
-      "pump_label": "System",
-      "source_name": "System"
     }
   ],
   "pump_energy_kwh": [
