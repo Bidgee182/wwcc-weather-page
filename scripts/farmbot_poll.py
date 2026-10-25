@@ -63,6 +63,10 @@ DAVIS_V2_API_KEY    = 'kvsweiywmnahb6ayvc7gstbdigst1k9x'
 DAVIS_V2_API_SECRET = 'urw4q7amnhwnajydf3r1ubggcrvcicvh'
 DAVIS_V2_STATION_ID = 243271   # club WeatherLink Live (was 10489 Lake Albert until Aug 2026)
 DAVIS_V2_BASE       = 'https://api.weatherlink.com/v2'
+# Re-pull this many days of Davis history every run so the daily summaries
+# self-heal after an outage (the console backfills its cloud archive on
+# reconnect). 7 covers a week-long outage with no manual input.
+DAVIS_BACKFILL_DAYS = int(os.environ.get('DAVIS_BACKFILL_DAYS', '7'))
 
 # Lake weather station sensor SIDs (hardcoded - fixed hardware)
 LAKE_WEATHER_SIDS = {
@@ -335,8 +339,16 @@ def poll_davis_history():
         except Exception as e:
             log.warning(f'Could not load davis history: {e}')
 
+    # Re-fetch a rolling window of recent days EVERY run, not just today. The
+    # WeatherLink Live console buffers through a power/comms outage and backfills
+    # its cloud archive when it reconnects, but that backfilled data only reaches
+    # our history if we re-pull those days. Re-pulling the last DAVIS_BACKFILL_DAYS
+    # makes the history self-heal after any outage up to that long with no manual
+    # input. It is idempotent: a day whose cloud data is already complete returns
+    # the same summary (no git change -> no commit); a day with no cloud data at
+    # all is left as-is, never wiped.
     updated = False
-    for days_ago in [1, 0]:   # yesterday (complete) then today (partial)
+    for days_ago in range(DAVIS_BACKFILL_DAYS, -1, -1):   # oldest -> today
         target    = now_syd - timedelta(days=days_ago)
         date_str  = target.strftime('%Y-%m-%d')
         start     = target.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -344,20 +356,17 @@ def poll_davis_history():
         start_ts  = int(start.timestamp())
         end_ts    = int(end.timestamp())
 
-        # Skip yesterday if already cached
-        if days_ago == 1 and date_str in all_days:
-            log.info(f'Davis: {date_str} already cached - skipping')
-            continue
-
         try:
             data = davis_v2_get(f'historic/{DAVIS_V2_STATION_ID}',
                                 {'start-timestamp': start_ts, 'end-timestamp': end_ts})
             sensors = data.get('sensors') or []
             if sensors:
                 summary = _process_davis_day(sensors)
-                all_days[date_str] = {'date': date_str, **summary}
-                log.info(f'Davis: {date_str} → tMax={summary["tMax"]}°C rain={summary["rain"]}mm')
-                updated = True
+                new_rec = {'date': date_str, **summary}
+                if all_days.get(date_str) != new_rec:
+                    all_days[date_str] = new_rec
+                    log.info(f'Davis: {date_str} → tMax={summary["tMax"]}°C rain={summary["rain"]}mm (updated)')
+                    updated = True
         except Exception as e:
             log.warning(f'Davis history fetch failed for {date_str}: {e}')
 
