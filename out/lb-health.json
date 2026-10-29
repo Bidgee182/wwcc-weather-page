@@ -1,14 +1,14 @@
 {
- "updatedAt": "2026-10-29T07:21:51.345919+00:00",
- "window": "day",
+ "updatedAt": "2026-10-29T14:13:34.495572+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "4 Person Ambrose Stroke",
- "compDate": "2026-10-29",
- "playerCount": 15,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "competition": "3 Person Ambrose Stroke",
+ "compDate": "2026-10-30",
+ "playerCount": 32,
+ "pollAgeMin": 0.6,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 2,
+  "ntp": 0,
   "ld": 0,
   "balls": 0
  },
@@ -16,14 +16,14 @@
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "2 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 0 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,44 +35,26 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "15 players"
+   "detail": "32 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
-  },
-  {
-   "key": "pdf:10414462",
-   "label": "Results: 4 Person Ambrose Stroke",
-   "status": "ok",
-   "detail": "1 grades, 23 players, 2 NTP, 0 LD, 0 balls"
-  },
-  {
-   "key": "pdf:10414463",
-   "label": "Results: Navigate 9s Back 9",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
+  },
+  {
+   "key": "pdf:10414464",
+   "label": "Results PDF",
+   "status": "idle",
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Junior 9 Hole Comp Front 9",
-   "status": "none-published",
-   "summary": "no official results by 7:30pm",
-   "role": "companion"
-  },
-  {
-   "competition": "Navigate 9's Back 9",
-   "status": "none-published",
-   "summary": "no official results by 7:30pm",
-   "role": "companion"
-  },
-  {
-   "competition": "Mens Wednesday Stableford",
+   "competition": "4 Person Ambrose Stroke",
    "status": "success",
-   "summary": "3 grades, 519 players, 11 NTP, 4 LD, 72 balls",
+   "summary": "1 grades, 23 players, 2 NTP, 0 LD, 0 balls",
    "role": "primary"
   }
  ]
