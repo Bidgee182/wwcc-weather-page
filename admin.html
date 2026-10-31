@@ -2252,8 +2252,14 @@ async function pumpReport(preset) {
         const rows = await r.json();
         const rg = await fetch('data/water_register_daily.json?_=' + Date.now()).then(x => x.json());
         const reg = rg.register, regLast = rg.lastDay;
+        // DAS scale comes from pump_meter.json config, not a hard-coded 0.1, so this
+        // report changes together with every other page if the LID over-read is ever
+        // corrected (scale set to 1 / offset 0). Falls back to 0.1.
+        let scale = _meterDasCfg.scale ?? 0.1;
+        try { const pm = await fetch('data/pump_meter.json?_=' + Date.now()).then(x => x.ok ? x.json() : null);
+              if (pm && pm.das && typeof pm.das.scale === 'number') scale = pm.das.scale; } catch {}
         const rk = Object.keys(reg).sort(); const das = {};
-        for (let i = 1; i < rk.length; i++) das[rk[i]] = (reg[rk[i]] - reg[rk[i-1]]) * 0.1;
+        for (let i = 1; i < rk.length; i++) das[rk[i]] = (reg[rk[i]] - reg[rk[i-1]]) * scale;
         const html = _buildPumpReport(rows, das, regLast, from, to);
         const w = window.open('', '_blank');
         if (!w) { st.textContent = 'Popup blocked - allow popups for this site.'; return; }
