@@ -80,7 +80,7 @@ def _latest_export():
 
 
 def _das_cfg():
-    scale, offset = 0.1, 10475.7
+    scale, offset = 0.1, 10473.1
     try:
         with open(PUMP_METER, encoding="utf-8") as fh:
             das = (json.load(fh) or {}).get("das", {})

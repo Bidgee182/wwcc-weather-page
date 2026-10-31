@@ -567,7 +567,7 @@
         and off-season days count as zero. Read it from the DAS portal (source = DAS, auto-corrects the 10x over-read) or the
         physical meter face.</p>
         <div class="table-wrap"><table>
-            <thead><tr><th>Date</th><th style="text-align:right;">Reading</th><th style="text-align:right;">Used since last</th><th>Note</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th style="text-align:right;">Reading</th><th style="text-align:right;">Used since last (ML)</th><th>Note</th><th></th></tr></thead>
             <tbody id="meter-list"><tr><td colspan="5">Loading...</td></tr></tbody>
         </table></div>
         <div class="flexrow" style="margin-top:12px;">
@@ -2298,7 +2298,7 @@ function _buildPumpReport(rows, das, regLast, from, to) {
     const gen = new Date().toLocaleString('en-AU', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const fromF = fd(from), toF = fd(to);
     const lowCard = low ? ('<div class="card warn"><div class="v">' + low.v.toFixed(2) + ' bar</div><div class="l">Lowest pressure (' + fd(low.d) + ')</div></div>') : '';
-    let notes = '<b>WaterNSW flow (m3):</b> daily total extraction from the compliance meter (register, 10x-corrected). "awaiting upload" = after the last DAS download (' + regLast + ').<br>' +
+    let notes = '<b>WaterNSW flow (kL):</b> daily total extraction from the compliance meter (register, 10x-corrected; 1 kL = 1 m3). "awaiting upload" = after the last DAS download (' + regLast + ').<br>' +
         '<b>Jockey starts &lt;60s / &lt;30s:</b> jockey-pump starts that ran under 60 / 30 seconds (short pressure-maintenance cycling, the leak signature); &lt;60s is shown over total starts. Longer runs (hand-watering) are excluded. Days with 10+ (&lt;60s) or 5+ (&lt;30s) are highlighted. These short starts run right through the day, including steadily overnight when nothing should be drawing water.<br>' +
         '<b>Pressure:</b> discharge pressure during night irrigation only (6pm-8am, while pumping). Lows under 6.0 bar (vs ' + SETPOINT + ' setpoint) are highlighted - the suction-starvation events. "minimal" = little or no night irrigation that day.';
     if (anyPartial) notes += '<br><b>*</b> The most recent DAS day may be partial if the upload did not cover the full day.';
@@ -2313,7 +2313,7 @@ function _buildPumpReport(rows, das, regLast, from, to) {
         '<div class="card warn"><div class="v">' + tot30 + '</div><div class="l">Jockey starts &lt;30s (strong leak signal)</div></div>' +
         '<div class="card"><div class="v">' + avgP.toFixed(2) + ' bar</div><div class="l">Avg night irrigation pressure</div></div>' +
         lowCard + '</div>' +
-        '<table><thead><tr><th>Date</th><th class="num">WaterNSW flow (m3)</th><th class="num">Jockey starts &lt;60s <span style="font-weight:400;font-size:10px">/ total</span></th><th class="num">Jockey starts &lt;30s</th><th class="num">Press avg (bar)</th><th class="num">low</th><th class="num">high</th></tr></thead><tbody>' + tr + '</tbody></table>' +
+        '<table><thead><tr><th>Date</th><th class="num">WaterNSW flow (kL)</th><th class="num">Jockey starts &lt;60s <span style="font-weight:400;font-size:10px">/ total</span></th><th class="num">Jockey starts &lt;30s</th><th class="num">Press avg (bar)</th><th class="num">low</th><th class="num">high</th></tr></thead><tbody>' + tr + '</tbody></table>' +
         '<div class="note">' + notes + '</div></body></html>';
 }
 
@@ -2571,12 +2571,12 @@ async function loadPumping() {
     } catch { $('pump-list').innerHTML = '<tr><td colspan="3">Could not load.</td></tr>'; }
 }
 function _meterToMl(v, unit) {
-    const u = String(unit || 'ML').toLowerCase();
+    const u = String(unit || 'kL').toLowerCase();
     if (u === 'kl') return v / 1000;
     if (u === 'l')  return v / 1000000;
     return v;
 }
-let _meterDasCfg = { scale: 0.1, offset_kl: 10475.7 };   // overwritten from pump_meter.json
+let _meterDasCfg = { scale: 0.1, offset_kl: 10473.1 };   // overwritten from pump_meter.json
 // Convert a raw DAS cumulative reading to true kL, aligned to the physical meter.
 function _dasToTrueKl(raw) { return raw * (_meterDasCfg.scale ?? 0.1) + (_meterDasCfg.offset_kl ?? 0); }
 function meterSrcHint() {
@@ -2625,7 +2625,7 @@ async function loadMeter() {
             const srcBadge = p.source === 'DAS'
                 ? ' <span style="font-size:0.72em;color:#2471a3;border:1px solid #2471a3;border-radius:4px;padding:0 4px;">DAS</span>'
                 : '';
-            return `<tr><td>${p.date}</td><td style="text-align:right;">${p.value} ${p.unit || 'ML'}${srcBadge}</td>`
+            return `<tr><td>${p.date}</td><td style="text-align:right;">${p.value} ${p.unit || 'kL'}${srcBadge}</td>`
                 + `<td style="text-align:right;">${usedTxt}</td>`
                 + `<td class="sub">${String(p.note || '').replace(/</g, '&lt;')}</td>`
                 + `<td><button onclick="meterDel('${p.date}',${p.value})" style="font-size:11px;">delete</button></td></tr>`;
@@ -2694,7 +2694,7 @@ async function meterAdd() {
         if (source === 'DAS') {
             const trueKl = Math.round((raw * (_meterDasCfg.scale ?? 0.1) + (_meterDasCfg.offset_kl ?? 0)) * 10) / 10;
             reading = { date, value: trueKl, unit: 'kL', source: 'DAS', rawDas: raw,
-                        note: note || `from DAS ${raw} (x${_meterDasCfg.scale}+${_meterDasCfg.offset_kl}) by ${SES.email}` };
+                        note: note || `from DAS ${raw} by ${SES.email}` };
             unit = 'kL';
         } else {
             reading = { date, value: raw, unit, source: 'physical', note: note || ('entered by ' + SES.email) };
@@ -2841,7 +2841,7 @@ async function meterCsvUpload() {
         const pf = await ghGet('data/pump_meter.json');
         let pm = {}; try { pm = JSON.parse(pf.text) || {}; } catch {}
         const das = pm.das || {};
-        const scale = das.scale ?? 0.1, offset = das.offset_kl ?? 10475.7;
+        const scale = das.scale ?? 0.1, offset = das.offset_kl ?? 10473.1;
         st('Rebuilding graph data...');
         const usage = _wnBuildUsage(out.register, scale, offset);
         const uf = await ghGet('data/water_usage.json');
