@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-10-31T07:04:19.170648+00:00",
- "window": "day",
+ "updatedAt": "2026-10-31T12:57:30.171508+00:00",
+ "window": "night",
  "alertsActive": [],
  "competition": "Saturday Medley Stableford",
  "compDate": "2026-10-31",
  "playerCount": 203,
- "pollAgeMin": 0.6,
- "officialResultsReady": false,
+ "pollAgeMin": 0.8,
+ "officialResultsReady": true,
  "prizes": {
-  "ntp": 0,
+  "ntp": 11,
   "ld": 0,
-  "balls": 0
+  "balls": 86
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "4 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 1 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -40,14 +40,14 @@
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
    "key": "pdf:10414436",
    "label": "Results: Saturday Medley Stableford",
-   "status": "idle",
-   "detail": "Awaiting official results"
+   "status": "ok",
+   "detail": "3 grades, 111 players, 11 NTP, 0 LD, 86 balls"
   },
   {
    "key": "pdf:10414435",
