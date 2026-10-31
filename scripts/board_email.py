@@ -2179,6 +2179,23 @@ def build_monthly_html(now_syd):
     total_mld_m = sum(zone_mld_m.values())   # demand-based estimate
     total_mld_s = sum(zone_mld_s.values())
 
+    # H2 (approved by Andrew, 1 Nov 2026): report the ACTUAL metered extraction
+    # from the WaterNSW compliance meter for the month/season, so the monthly
+    # report matches the weekly report and the WaterNSW panel. The licence
+    # zone-rate estimate was understating real pumping by roughly half. The
+    # estimate is kept only as a fallback for months before the meter data began.
+    _wu = _load_json(_DATA_DIR / 'water_usage.json')
+    _wu_monthly = dict(_wu.get('monthly', []))
+    _wu_daily   = dict(_wu.get('daily', []))
+    metered_month  = _wu_monthly.get(f'{month_start.year}-{month_start.month:02d}')
+    _season_vals   = [v for d, v in _wu_daily.items() if season_start.isoformat() <= d <= me_iso]
+    metered_season = round(sum(_season_vals), 2) if _season_vals else None
+    pumped_month      = metered_month  if metered_month  is not None else total_mld_m
+    pumped_season     = metered_season if metered_season is not None else total_mld_s
+    pumped_is_metered = metered_month  is not None
+    season_is_metered = metered_season is not None
+    pumped_label      = 'ML Pumped' if pumped_is_metered else 'Est. ML Pumped'
+
     # ── Town water savings ─────────────────────────────────────────────────────
     from datetime import timedelta as _td
     def _month_saving(from_d, to_d):
@@ -2221,7 +2238,7 @@ def build_monthly_html(now_syd):
         [month_start + timedelta(days=i) for i in range((month_end - month_start).days + 1)]
         if d.month in active_m)
     max_ml_l1 = max_rate_l1 * days_in_active_month
-    utilisation_pct = (total_mld_m / max_ml_l1 * 100) if max_ml_l1 > 0 else None
+    utilisation_pct = (pumped_month / max_ml_l1 * 100) if max_ml_l1 > 0 else None
 
     # ── Rainfall calculations ─────────────────────────────────────────────────
     wx_month  = [r for r in wx_rows if ms_iso <= r['date'] <= me_iso]
@@ -2304,8 +2321,8 @@ def build_monthly_html(now_syd):
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:20px;">
   <tr>
-    {_stat_cell(25, _ROW_A, 'Est. ML Pumped',
-        f'<span style="font-size:18px;">{_fmt_ml(total_mld_m)}</span>',
+    {_stat_cell(25, _ROW_A, pumped_label,
+        f'<span style="font-size:18px;">{_fmt_ml(pumped_month)}</span>',
         f'{month_label} (licence max {_fmt_ml(total_ml_m)})', accent='#2471a3')}
     {_stat_cell(25, _ROW_B, 'Town Water Saved',
         f'<span style="color:{saving_col};font-size:18px;">{_fmt_dollar(saving_month)}</span>',
@@ -2392,8 +2409,9 @@ def build_monthly_html(now_syd):
 
     # 4. Water cost & savings card
     irrig_note = ('<p style="margin:8px 12px 0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">'
-                  '* Est. - flow sensor not yet connected. ML est. = daily irrigation demand capped at the '
-                  'licence zone rate; (max) = licence maximum extraction for the days in that zone.</p>')
+                  'ML Pumped = actual extraction recorded on the WaterNSW compliance meter; '
+                  '(max) = licence maximum extraction for the days in that zone. Months before the '
+                  'meter data begins are shown as an estimate (marked est.) from the licence zone rate.</p>')
 
     # Next-month town water exposure: what this month's irrigation would cost
     # if the lake could not be pumped (cease). The monthly email sends on the
@@ -2445,10 +2463,10 @@ def build_monthly_html(now_syd):
   <tr>
     {_stat_cell(50, _ROW_A, f'Month Saving ({month_label})',
         f'<span style="color:#00762A;">{_fmt_dollar(saving_month)}</span>',
-        f'{total_mld_m:.1f} ML pumped est. (licence max {total_ml_m:.1f} ML)', accent='#00762A')}
+        f'{pumped_month:.1f} ML pumped{"" if pumped_is_metered else " est."} (licence max {total_ml_m:.1f} ML)', accent='#00762A')}
     {_stat_cell(50, _ROW_B, f'Season Saving (Sep {season_start.year})',
         f'<span style="color:#00762A;">{_fmt_dollar(saving_season)}</span>',
-        f'{total_mld_s:.1f} ML pumped season est. (licence max {total_ml_s:.1f} ML)', accent='#00762A')}
+        f'{pumped_season:.1f} ML pumped season{"" if season_is_metered else " est."} (licence max {total_ml_s:.1f} ML)', accent='#00762A')}
   </tr>
 </table>"""
         + _section_label(f'Zone Breakdown - {month_label} (Active Irrigation Days Only)')
