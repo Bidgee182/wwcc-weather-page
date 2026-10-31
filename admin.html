@@ -2588,7 +2588,19 @@ function meterSrcHint() {
 }
 async function loadMeter() {
     try {
-        const blob = await fetch('data/pump_meter.json?_=' + Date.now()).then(r => r.ok ? r.json() : {});
+        // Read the live repository copy via the API (the same source the save
+        // writes to) so a just-added reading shows immediately, instead of the
+        // GitHub Pages copy which lags the commit by the deploy. Fall back to the
+        // deployed static file when there is no admin token on this device.
+        let blob = {};
+        if (typeof SES !== 'undefined' && SES && SES.token) {
+            try { const _f = await ghGet('data/pump_meter.json'); blob = _f && _f.text ? JSON.parse(_f.text) : {}; }
+            catch { blob = {}; }
+        }
+        if (!blob || !blob.readings) {
+            try { blob = await fetch('data/pump_meter.json?_=' + Date.now()).then(r => r.ok ? r.json() : {}); }
+            catch { blob = {}; }
+        }
         if (blob && blob.das) _meterDasCfg = blob.das;
         meterSrcHint();
         const rd = [...((blob && blob.readings) || [])].sort((a, b) => a.date < b.date ? 1 : -1);
