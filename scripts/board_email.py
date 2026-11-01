@@ -776,6 +776,144 @@ def _water_budget_panel(now_syd):
     )
 
 
+def _season_traj(start_ahd, start_date, target_ahd, pump_scale=1.0):
+    """Day-by-day level path to target_ahd (date, ahd) pairs.
+
+    JS/offline twin of board.html _evProject and lake_utils.project_to_level,
+    but it returns the whole trajectory (not just the crossing date) so the email
+    can draw the same plan and projection lines the website plots. Same evap +
+    pumping assumptions, so the curve matches the dashboard exactly."""
+    cfg   = lu.get_config()
+    pan   = cfg['evaporation']['monthly_pan_mm_day']
+    pf    = cfg['evaporation']['pan_factor']
+    irrig = cfg['town_water']['daily_kl_by_month']
+    actM  = set(cfg['irrigation_season']['active_months'])
+    out, cur, d = [], float(start_ahd), start_date
+    for _ in range(800):
+        out.append((d, cur))
+        if cur <= target_ahd:
+            break
+        m    = d.month
+        area = lu.lake_area_m2(cur)
+        evap_ml  = float(pan[str(m)]) * pf * area / 1e6
+        irrig_ml = (float(irrig.get(str(m), 0)) / 1000.0 * pump_scale) if m in actM else 0.0
+        cur -= (evap_ml + irrig_ml) * 1000.0 / area
+        d = d + timedelta(days=1)
+    return out
+
+
+def _season_outlook_chart(start_level, start_date, cease_ahd, cur_cease,
+                          ahd_now, now_syd, readings):
+    """QuickChart.io PNG - the card's 'Lake level: plan vs actual' view.
+
+    Three lines on one axis (same as board.html _evRenderLevel):
+      * Plan  - dashed grey: the level trajectory estimated at season start.
+      * Actual - solid teal: measured day-average lake level up to today.
+      * Projected - dotted teal: forward from today's level to the cease level.
+    Plus a dashed red cease-to-pump line. Weekly-sampled to keep the URL small
+    and the picture legible. Returns '' if there is nothing to draw."""
+    try:
+        est_traj = _season_traj(start_level, start_date, cease_ahd, 1.0)
+        if len(est_traj) < 2:
+            return ''
+        today     = now_syd.date()
+        today_iso = today.isoformat()
+        ss_iso    = start_date.isoformat()
+
+        axis = [d for d, _ in est_traj]
+        if cur_cease and cur_cease > axis[-1]:
+            d = axis[-1] + timedelta(days=1)
+            while d <= cur_cease:
+                axis.append(d); d += timedelta(days=1)
+
+        est_by = {d.isoformat(): lv for d, lv in est_traj}
+
+        by_day = {}
+        for r in (readings or []):
+            if r.get('manual'):
+                continue
+            try:
+                d = _syd_date(r['date'])
+            except Exception:
+                continue
+            if d < ss_iso:
+                continue
+            try:
+                v = float(r.get('ahd'))
+            except (TypeError, ValueError):
+                continue
+            if v != v:
+                continue
+            by_day.setdefault(d, []).append(v)
+        act_by = {d: sum(vs) / len(vs) for d, vs in by_day.items()}
+
+        proj_by = {}
+        if ahd_now is not None:
+            for d, lv in _season_traj(ahd_now, today, cease_ahd, 1.0):
+                proj_by[d.isoformat()] = lv
+
+        # Weekly anchors across the whole axis (always keep the last day).
+        pts = [d for i, d in enumerate(axis) if i % 7 == 0]
+        if axis[-1] not in pts:
+            pts.append(axis[-1])
+
+        labels, plan, act, proj = [], [], [], []
+        prev = None
+        for d in pts:
+            k = d.isoformat()
+            labels.append(f'{d.day} {d.strftime("%b")}')
+            plan.append(round(est_by[k], 3) if k in est_by else None)
+            win = [v for dd, v in act_by.items()
+                   if (prev is None or dd > prev.isoformat()) and dd <= k and dd <= today_iso]
+            act.append(round(sum(win) / len(win), 3) if win else None)
+            proj.append(round(proj_by[k], 3) if (k >= today_iso and k in proj_by) else None)
+            prev = d
+
+        allv = [v for v in plan + act + proj if v is not None] + [cease_ahd]
+        ymin = round(min(allv) - 0.05, 2)
+        ymax = round(max(allv) + 0.05, 2)
+
+        config = {
+            'type': 'line',
+            'data': {'labels': labels, 'datasets': [
+                {'label': 'Plan (season start)', 'data': plan,
+                 'borderColor': '#9aa7b0', 'backgroundColor': 'rgba(0,0,0,0)',
+                 'borderWidth': 2, 'borderDash': [5, 4], 'fill': False,
+                 'pointRadius': 0, 'lineTension': 0.2, 'spanGaps': True},
+                {'label': 'Actual (measured)', 'data': act,
+                 'borderColor': '#48c9b0', 'backgroundColor': 'rgba(72,201,176,0.12)',
+                 'borderWidth': 2, 'fill': False, 'pointRadius': 2,
+                 'lineTension': 0.2, 'spanGaps': True},
+                {'label': 'Projected', 'data': proj,
+                 'borderColor': '#48c9b0', 'backgroundColor': 'rgba(0,0,0,0)',
+                 'borderWidth': 2, 'borderDash': [2, 3], 'fill': False,
+                 'pointRadius': 0, 'lineTension': 0.2, 'spanGaps': True},
+                {'label': 'Cease to pump', 'data': [cease_ahd] * len(labels),
+                 'borderColor': '#e74c3c', 'backgroundColor': 'rgba(0,0,0,0)',
+                 'borderWidth': 1, 'borderDash': [6, 4], 'fill': False,
+                 'pointRadius': 0, 'lineTension': 0},
+            ]},
+            'options': {
+                'legend': {'display': True,
+                           'labels': {'fontColor': '#cfd8dc', 'boxWidth': 18, 'fontSize': 11}},
+                'scales': {
+                    'xAxes': [{'gridLines': {'color': '#1e3040'},
+                               'ticks': {'fontColor': '#4a6070', 'maxRotation': 0,
+                                         'autoSkip': True, 'maxTicksLimit': 8}}],
+                    'yAxes': [{'gridLines': {'color': '#1e3040'},
+                               'ticks': {'fontColor': '#4a6070', 'min': ymin, 'max': ymax}}],
+                },
+            },
+        }
+        cfg_json = json.dumps(config, separators=(',', ':'))
+        url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=240&c={_up.quote(cfg_json)}'
+        return (f'<img src="{url}" width="100%" alt="Lake level - plan vs actual"'
+                f' style="display:block;border-radius:6px;max-width:100%;">')
+    except Exception as e:
+        log.warning('season outlook chart unavailable: %s', e)
+        return ''
+
+
 def _season_outlook_panel(now_syd, ahd, cease_date, readings):
     """Season Outlook - Estimated vs Actual (mirrors the board.html card).
 
@@ -786,8 +924,8 @@ def _season_outlook_panel(now_syd, ahd, cease_date, readings):
     always agree. Returns '' (panel hidden) if there is no variance data yet."""
     from datetime import date as _date
     try:
-        log = _load_json(_DATA_DIR / 'evap_variance_log.json')
-        if not isinstance(log, list) or not log:
+        vlog = _load_json(_DATA_DIR / 'evap_variance_log.json')
+        if not isinstance(vlog, list) or not vlog:
             return ''
         cfg   = lu.get_config()
         pf    = cfg['evaporation']['pan_factor']
@@ -827,12 +965,14 @@ def _season_outlook_panel(now_syd, ahd, cease_date, readings):
             start_level, start_date = ahd, ss_date
 
         est_cease = lu.project_to_cease(start_level, start_date, 1.0)
+        cease_ahd = min(z['min_ahd'] for z in cfg['zone_thresholds']
+                        if z.get('min_ahd') is not None)
 
         # Normalise each weekly row -> est/actual evaporation (mm) + cutoff drift.
         # Older rows carry only predicted_mm/actual_mm (net); reconstruct the evap
         # split from the config pumping estimate, exactly as board.html does.
         rows = []
-        for r in log:
+        for r in vlog:
             if not r or not r.get('date'):
                 continue
             dstr = r['date']
@@ -912,6 +1052,23 @@ def _season_outlook_panel(now_syd, ahd, cease_date, readings):
             headline = ('Cutoff comparison appears once the lake is projected to reach the '
                         'cease level within the projection horizon.')
 
+        # ── Lake level: plan vs actual (static twin of the card's hero chart) ────
+        chart_html = ''
+        if est_cease:
+            img = _season_outlook_chart(start_level, start_date, cease_ahd,
+                                        cease_date, ahd, now_syd, readings)
+            if img:
+                chart_html = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr><td style="padding:4px 0 6px 0;">{img}</td></tr>
+  <tr><td style="padding:0 6px 6px 6px;font-family:Arial,sans-serif;font-size:11px;
+      color:#64748b;line-height:1.5;text-align:center;">
+    Dashed grey = the level we estimated at the start of the season &middot;
+    solid = actual measured &middot; dotted = projected from today &middot;
+    red dashes = cease-to-pump level.</td></tr>
+</table>"""
+
         # ── This-week tiles (the card's default view) ────────────────────────────
         estW, actW, diffW, daysW = summ('week')
         pctW = (diffW / estW * 100) if estW else 0
@@ -969,7 +1126,7 @@ def _season_outlook_panel(now_syd, ahd, cease_date, readings):
     <div style="padding:12px 14px;border-radius:8px;font-family:Arial,sans-serif;font-size:13px;
         line-height:1.5;background:{hbg};color:{hfg};">{headline}</div>
   </td></tr>
-</table>
+</table>{chart_html}
 <p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
     color:#64748b;letter-spacing:0.7px;text-transform:uppercase;text-align:center;">This week</p>
 {tiles}
