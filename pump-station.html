@@ -1202,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.2';
+const PUMP_VERSION = '4.3';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1896,6 +1896,7 @@ function wnDownloadCsv() {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 let _histFetchedAt = 0, _dailyFetchedAt = 0, _alarmFetchedAt = 0;
+let _histLoadedMs = 0;   // how much history is currently cached (ms span); grows on demand
 const CACHE_TTL_MS   = 10 * 60000;   // alarm cache refreshes at most every 10 min
 const DAILY_TTL_MS   = 60 * 60000;   // daily aggregates change once a day - hourly is plenty
 
@@ -1962,27 +1963,39 @@ const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,
     + 'p1_starts,p2_starts,p3_starts,jockey_starts,'
     + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c';
 
-async function ensureHistory() {
-    const nowMs = Date.now();
-    if (historyData !== null && nowMs - _histFetchedAt < 55000) return;
-    const cutoffMs = nowMs - 90 * 24 * 3600000;
-    try {
-        if (historyData !== null && historyData.readings.length) {
-            // Incremental top-up: only rows newer than the last cached one
+async function ensureHistory(rangeH) {
+    // Lazily load ONLY the span the selected range needs, then grow the cache on
+    // demand. The default view is 24h, so loading a fixed 90-day archive up front
+    // (~130k rows / ~130 serial requests / ~80 MB) just to draw one day was the
+    // cause of the slow first paint. Once a wider range has been loaded it is kept,
+    // so switching back to a shorter range never re-fetches.
+    const nowMs  = Date.now();
+    const wantMs = Math.min(rangeH || 24, 2160) * 3600000;   // cap at 90 days
+    const haveRows = historyData !== null && historyData.readings.length > 0;
+
+    // We already hold at least the requested span: just keep it fresh incrementally.
+    if (haveRows && _histLoadedMs >= wantMs) {
+        if (nowMs - _histFetchedAt < 55000) return;
+        try {
             const lastTs = historyData.readings[historyData.readings.length - 1].ts;
             const fresh = await supaFetchAll('pump_stats_v2',
                 `${STATS_COLS}&order=ts.asc&ts=gt.${encodeURIComponent(lastTs)}`, 5000);
             historyData.readings.push(...fresh.map(statsRowToReading));
+            const cutoffMs = nowMs - _histLoadedMs;             // keep the loaded window
             while (historyData.readings.length
                    && new Date(historyData.readings[0].ts).getTime() < cutoffMs) {
-                historyData.readings.shift();   // keep the window at 90 days
+                historyData.readings.shift();
             }
             _histFetchedAt = nowMs;
-            return;
-        }
+        } catch(e) { _histFetchedAt = 0; }   // retry on the next cycle
+        return;
+    }
+
+    // Need a wider span than we hold (or nothing cached yet): (re)load it.
+    try {
         document.getElementById('hist-loading').style.display = 'block';
         // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate.
-        const cutoff = new Date(cutoffMs).toISOString().slice(0, 19) + 'Z';
+        const cutoff = new Date(nowMs - wantMs).toISOString().slice(0, 19) + 'Z';
         const PAGE = 1000;
         let allRows = [], offset = 0;
         while (true) {
@@ -1992,7 +2005,8 @@ async function ensureHistory() {
             if (page.length < PAGE) break;
             offset += PAGE;
         }
-        historyData = { readings: allRows.map(statsRowToReading) };
+        historyData  = { readings: allRows.map(statsRowToReading) };
+        _histLoadedMs = wantMs;
         _histFetchedAt = nowMs;
     } catch(e) {
         if (historyData === null) historyData = { readings:[] };
@@ -2070,7 +2084,7 @@ async function ensureAlarmHistory() {
 async function getPerfReadings() {
     if (customRangeReadings !== null) return customRangeReadings;
     const cutoff = Date.now() - perfRangeH * 3600000;
-    await ensureHistory();
+    await ensureHistory(perfRangeH);
     const all = historyData && historyData.readings ? historyData.readings : [];
     return bucketReadings(all.filter(r => new Date(r.ts).getTime() >= cutoff), perfRangeH);
 }
