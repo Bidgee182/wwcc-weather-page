@@ -611,8 +611,9 @@
             <button onclick="meterCsvUpload()">Upload &amp; Update Graph</button>
         </div>
         <div class="status" id="wncsv-status"></div>
-        <p class="note">Writes data/water_register_daily.json (raw register) and rebuilds data/water_usage.json.
-        The 10x telemetry over-read is corrected automatically.</p>
+        <p class="note">Writes data/water_register_daily.json (raw register) and rebuilds data/water_usage.json,
+        and also stores the full <strong>per-hour</strong> register in data/water_register_hourly.json for the pump
+        flow chart's WaterNSW overlay. The 10x telemetry over-read is corrected automatically.</p>
     </div>
 
     <div class="card">
@@ -2794,6 +2795,28 @@ function _wnParseRegisterCsv(text) {
     }
     return reg;
 }
+// Hourly sibling of _wnParseRegisterCsv: keep the DAS per-hour resolution (the
+// pump flow chart overlays it). Mirrors register_hourly_from_csv in the script.
+function _wnParseRegisterCsvHourly(text) {
+    const lines = text.split(/\r\n|\n|\r/);
+    const reg = {};
+    for (let i = 3; i < lines.length; i++) {
+        if (!lines[i]) continue;
+        const f = _wnCsvRow(lines[i]);
+        if (f.length <= 5) continue;
+        const v = parseFloat(f[5]);
+        if (!isFinite(v)) continue;
+        const hour = (f[0] || '').slice(0, 13);   // "YYYY-MM-DD HH"
+        if (hour.length === 13) reg[hour] = v;     // later rows overwrite -> end-of-hour
+    }
+    return reg;
+}
+const _WN_HOURLY_NOTE =
+    "Durable raw end-of-hour meter register (as the DAS logs it, uncorrected). " +
+    "Hourly sibling of water_register_daily.json; the pump flow chart reads this " +
+    "and derives m3/h (delta * das.scale; 1 kL = 1 m3). Keys are Sydney local hour " +
+    "'YYYY-MM-DD HH'. Merged by hour (max-per-hour, so a partial re-read never " +
+    "lowers an hour a complete read already filled).";
 function _wnWaterYear(d) {
     const y = +d.slice(0, 4), m = +d.slice(5, 7), wy = m >= 7 ? y : y - 1;
     return wy + '-' + String(wy + 1).slice(2);
@@ -2877,9 +2900,34 @@ async function meterCsvUpload() {
         await ghPut('data/water_usage.json', JSON.stringify(usage),
             `WaterNSW usage rebuild from ${file.name} (by ${SES.email})`, uf.sha);
 
-        logAction('water_csv_upload', `${file.name}: +${added} new, ${overlap} overlap, through ${usage.lastDay}`);
+        // Hourly register - per-hour resolution for the pump flow-chart overlay.
+        // Same max-per-hour merge; its own durable file so the daily/board data
+        // above is untouched.
+        st('Saving hourly detail...');
+        const newHourly = _wnParseRegisterCsvHourly(text);
+        const hf = await ghGet('data/water_register_hourly.json');
+        let hblob = {}; try { hblob = JSON.parse(hf.text) || {}; } catch {}
+        const hreg = hblob.register || {};
+        let hAdded = 0, hOver = 0;
+        for (const [hh, v] of Object.entries(newHourly)) {
+            if (hh in hreg) { hOver++; hreg[hh] = Math.max(hreg[hh], v); }
+            else { hAdded++; hreg[hh] = v; }
+        }
+        const hours = Object.keys(hreg).sort();
+        const hout = {
+            _note: _WN_HOURLY_NOTE,
+            updated: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+            source: 'upload:' + file.name,
+            firstHour: hours[0], lastHour: hours[hours.length - 1],
+            register: {},
+        };
+        for (const hh of hours) hout.register[hh] = hreg[hh];
+        await ghPut('data/water_register_hourly.json', JSON.stringify(hout),
+            `WaterNSW hourly register upload ${file.name} (+${hAdded} new, ${hOver} overlap) (by ${SES.email})`, hf.sha);
+
+        logAction('water_csv_upload', `${file.name}: +${added} new, ${overlap} overlap, through ${usage.lastDay}; hourly +${hAdded}/${hOver}`);
         st(`Done. ${days.length} days total (+${added} new, ${overlap} overlapping kept), through ${usage.lastDay}. ` +
-           `The board WaterNSW graph updates within ~15 min.`);
+           `Hourly: ${hours.length} hours (+${hAdded} new). The board graph and pump flow chart update within ~15 min.`);
         inp.value = '';
     } catch (e) { st('Failed: ' + e.message); }
 }

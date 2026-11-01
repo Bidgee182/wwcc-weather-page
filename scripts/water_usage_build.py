@@ -61,6 +61,7 @@ ROOT = os.path.dirname(HERE)
 REF_DIR = os.path.join(ROOT, "data", "reference")
 OUT = os.path.join(ROOT, "data", "water_usage.json")
 REGISTER = os.path.join(ROOT, "data", "water_register_daily.json")
+REGISTER_HOURLY = os.path.join(ROOT, "data", "water_register_hourly.json")
 PUMP_METER = os.path.join(ROOT, "data", "pump_meter.json")
 
 COL_TS = 0
@@ -122,6 +123,27 @@ def register_from_csv(path):
     return daily
 
 
+def register_hourly_from_csv(path):
+    """Parse a DAS export -> {"YYYY-MM-DD HH": end-of-hour raw register}.
+
+    The DAS logs on the hour, so this keeps the per-hour resolution the pump
+    flow chart overlays (the daily store above collapses it to end-of-day)."""
+    hourly = {}
+    with open(path, encoding="utf-8-sig") as fh:
+        r = csv.reader(fh)
+        next(r, None); next(r, None); next(r, None)   # Id / keys / Units rows
+        for row in r:
+            if len(row) <= COL_REGISTER:
+                continue
+            v = _num(row[COL_REGISTER])
+            if v is None:
+                continue
+            hour = row[COL_TS][:13]   # "YYYY-MM-DD HH"
+            if len(hour) == 13:
+                hourly[hour] = v   # later rows in the hour overwrite -> end-of-hour
+    return hourly
+
+
 def load_register():
     try:
         with open(REGISTER, encoding="utf-8") as fh:
@@ -130,6 +152,37 @@ def load_register():
         return {k: float(v) for k, v in reg.items()}
     except Exception:
         return {}
+
+
+def load_register_hourly():
+    try:
+        with open(REGISTER_HOURLY, encoding="utf-8") as fh:
+            blob = json.load(fh) or {}
+        reg = blob.get("register") or {}
+        return {k: float(v) for k, v in reg.items()}
+    except Exception:
+        return {}
+
+
+def save_register_hourly(reg, source):
+    hours = sorted(reg)
+    blob = {
+        "_note": ("Durable raw end-of-hour meter register (as the DAS logs it, "
+                  "uncorrected). Hourly sibling of water_register_daily.json; the "
+                  "pump flow chart reads this and derives m3/h (delta * das.scale; "
+                  "1 kL = 1 m3). Keys are Sydney local hour 'YYYY-MM-DD HH'. "
+                  "Merged by hour (max-per-hour, so a partial re-read never lowers "
+                  "an hour a complete read already filled)."),
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source": source,
+        "firstHour": hours[0] if hours else None,
+        "lastHour": hours[-1] if hours else None,
+        # _jsnum so integral registers emit as ints (JS Number.toString parity),
+        # keeping the admin in-browser upload and this offline build byte-identical.
+        "register": {h: _jsnum(reg[h]) for h in hours},
+    }
+    with open(REGISTER_HOURLY, "w", encoding="utf-8") as fh:
+        json.dump(blob, fh, separators=(",", ":"))
 
 
 def save_register(reg, source):
@@ -203,32 +256,51 @@ def build_usage(reg):
 
 def main():
     args = sys.argv[1:]
-    if "--import-csv" in args:
-        path = args[args.index("--import-csv") + 1]
-        reg = load_register()
-        new = register_from_csv(path)
-        # Merge by day. The register is absolute cumulative, so overlapping dates
-        # cannot double-count. Keep the LARGER value per day so a partial re-read
-        # (e.g. an export whose last day stops mid-afternoon) never lowers a day
-        # that a complete read already filled. New days fill gaps; missing days keep.
+
+    def _merge_max(store, new):
+        """Merge an absolute cumulative register. Overlaps can't double-count, so
+        keep the LARGER value per key: a partial re-read never lowers a key a
+        complete read already filled. New keys fill gaps; missing keys keep."""
         added = overlap = 0
-        for day, val in new.items():
-            if day in reg:
+        for k, v in new.items():
+            if k in store:
                 overlap += 1
-                reg[day] = max(reg[day], val)
+                store[k] = max(store[k], v)
             else:
                 added += 1
-                reg[day] = val
-        save_register(reg, "merged:" + os.path.basename(path))
-        print(f"Merged {os.path.basename(path)}: +{added} new, {overlap} overlapping "
+                store[k] = v
+        return added, overlap
+
+    if "--import-csv" in args:
+        path = args[args.index("--import-csv") + 1]
+        base = os.path.basename(path)
+        reg = load_register()
+        added, overlap = _merge_max(reg, register_from_csv(path))
+        save_register(reg, "merged:" + base)
+        # Hourly store rides along on the same upload
+        hreg = load_register_hourly()
+        hadd, hover = _merge_max(hreg, register_hourly_from_csv(path))
+        save_register_hourly(hreg, "merged:" + base)
+        print(f"Merged {base}: +{added} new, {overlap} overlapping "
               f"(kept the more complete reading); {len(reg)} days total")
+        print(f"    hourly: +{hadd} new, {hover} overlapping; {len(hreg)} hours total")
     elif "--reseed" in args or not load_register():
         src = _latest_export()
         reg = register_from_csv(src)
         save_register(reg, os.path.basename(src))
-        print(f"Seeded register from {os.path.basename(src)} ({len(reg)} days)")
+        hreg = register_hourly_from_csv(src)
+        save_register_hourly(hreg, os.path.basename(src))
+        print(f"Seeded register from {os.path.basename(src)} "
+              f"({len(reg)} days, {len(hreg)} hours)")
     else:
         reg = load_register()
+        # Backfill the hourly store if it is missing but a reference export exists.
+        if not load_register_hourly():
+            try:
+                src = _latest_export()
+                save_register_hourly(register_hourly_from_csv(src), os.path.basename(src))
+            except SystemExit:
+                pass
 
     reg = load_register()
     out = build_usage(reg)

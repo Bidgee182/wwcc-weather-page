@@ -1202,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.3';
+const PUMP_VERSION = '4.4';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2080,6 +2080,58 @@ async function ensureAlarmHistory() {
     } catch(e) { alarmHistoryData = { events:[] }; }
 }
 
+// ─── WaterNSW metered flow (hourly overlay on the flow chart) ─────────────────
+// The compliance meter logs hourly; data/water_register_hourly.json is the raw
+// cumulative register per Sydney hour (written by the admin DAS-CSV upload). The
+// hourly extraction rate is delta(register) * das.scale, and 1 kL = 1 m3, so it
+// plots on the same m3/h axis as the pump's own flow line. Same water: right now
+// the only supply through the pumps is the dam, which is what this meter records.
+let waterNswHourly = null;   // [{t:ms, v:m3/h}] oldest-first, or [] if unavailable
+function _wnHourMs(key) {
+    // "YYYY-MM-DD HH" is Sydney wall-clock; convert to a real epoch so it lines
+    // up with the pump trace (whose ts is UTC) on the absolute time axis.
+    const sp = key.split(' ');
+    const d = sp[0].split('-').map(Number), H = Number(sp[1]);
+    const naiveUtc = Date.UTC(d[0], d[1] - 1, d[2], H, 0, 0);
+    const probe = new Date(naiveUtc);
+    const syd = new Date(probe.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+    const utc = new Date(probe.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const offMin = Math.round((syd - utc) / 60000);   // ~600 (AEST) / ~660 (AEDT)
+    return naiveUtc - offMin * 60000;
+}
+async function ensureWaterNsw() {
+    if (waterNswHourly !== null) return;
+    try {
+        const [hr, pm] = await Promise.all([
+            fetch('data/water_register_hourly.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
+            fetch('data/pump_meter.json?_=' + Date.now()).then(r => r.ok ? r.json() : null),
+        ]);
+        const reg = hr && hr.register ? hr.register : null;
+        if (!reg) { waterNswHourly = []; return; }
+        const scale = (pm && pm.das && typeof pm.das.scale === 'number') ? pm.das.scale : 0.1;
+        const keys = Object.keys(reg).sort();
+        const out = []; let prev = null;
+        for (const k of keys) {
+            const v = reg[k];
+            if (prev !== null) {
+                let m3 = (v - prev) * scale;   // kL == m3, 10x-corrected
+                if (m3 < 0) m3 = 0;            // meter resets/partial reads never go negative
+                out.push({ t: _wnHourMs(k), v: m3 });
+            }
+            prev = v;
+        }
+        waterNswHourly = out;
+    } catch (e) { waterNswHourly = []; }
+}
+// Metered series clipped to the active chart window, as {x,y} for Chart.js.
+function waterNswSeries() {
+    if (!waterNswHourly || !waterNswHourly.length) return [];
+    let lo, hi;
+    if (customRangeFrom != null && customRangeTo != null) { lo = customRangeFrom; hi = customRangeTo; }
+    else { hi = Date.now(); lo = hi - perfRangeH * 3600000; }
+    return waterNswHourly.filter(p => p.t >= lo && p.t <= hi).map(p => ({ x: p.t, y: p.v }));
+}
+
 // Get filtered readings for selected performance range
 async function getPerfReadings() {
     if (customRangeReadings !== null) return customRangeReadings;
@@ -2649,6 +2701,7 @@ function closeCustomRange() {
 async function renderPerfCharts() {
     const pts = await getPerfReadings();
     await ensureFarmbotTank();
+    await ensureWaterNsw();
     const noData = pts.length === 0;
     const tsMs = r => new Date(r.ts).getTime();
     const xy = (pts, val) => pts.map(r => ({ x: tsMs(r), y: val(r) }));
@@ -2779,10 +2832,16 @@ async function renderPerfCharts() {
         });
     })();
 
-    // Flow
-    renderLineChart('c-flow', noData, pts, [
+    // Flow - pump output, plus the WaterNSW compliance meter (hourly) when present.
+    const wnFlow = waterNswSeries();
+    const flowDatasets = [
         { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
-    ], v=>v!=null?v.toFixed(1)+' m³/h':null);
+    ];
+    if (wnFlow.length) {
+        flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnFlow,
+            borderColor:'#9b59b6', stepped:true, thin:true, noHover:false });
+    }
+    renderLineChart('c-flow', noData, pts, flowDatasets, v=>v!=null?v.toFixed(1)+' m³/h':null);
     if (!noData) {
         const vals = pts.map(r=>r.fl).filter(v=>v!=null);
         setStats(['cf-min','cf-max','cf-avg'],
