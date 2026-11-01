@@ -776,6 +776,234 @@ def _water_budget_panel(now_syd):
     )
 
 
+def _season_outlook_panel(now_syd, ahd, cease_date, readings):
+    """Season Outlook - Estimated vs Actual (mirrors the board.html card).
+
+    How real weather + pumping have shifted the cease-to-pump date versus the
+    season-start estimate, plus estimated vs actual lake evaporation for the
+    week / month / season. Uses the SAME evap_variance_log.json and the SAME
+    scale=1.0 projection as the board dashboard, so the email and the website
+    always agree. Returns '' (panel hidden) if there is no variance data yet."""
+    from datetime import date as _date
+    try:
+        log = _load_json(_DATA_DIR / 'evap_variance_log.json')
+        if not isinstance(log, list) or not log:
+            return ''
+        cfg   = lu.get_config()
+        pf    = cfg['evaporation']['pan_factor']
+        pan   = cfg['evaporation']['monthly_pan_mm_day']
+        irrig = cfg['town_water']['daily_kl_by_month']
+        actM  = set(cfg['irrigation_season']['active_months'])
+        full_ahd = cfg.get('lake_geometry', {}).get('full_supply_ahd', ahd)
+
+        def _n(x):
+            try:
+                v = float(x); return v if v == v else None
+            except (TypeError, ValueError):
+                return None
+
+        # Season-start measured level: first non-manual day-average since 1 Sep.
+        ss_date = _season_start_date(now_syd.date())
+        ss_iso  = ss_date.isoformat()
+        by_day = {}
+        for r in (readings or []):
+            if r.get('manual'):
+                continue
+            try:
+                d = _syd_date(r['date'])
+            except Exception:
+                continue
+            if d < ss_iso:
+                continue
+            v = _n(r.get('ahd'))
+            if v is None:
+                continue
+            by_day.setdefault(d, []).append(v)
+        day_keys = sorted(by_day)
+        if day_keys:
+            start_level = sum(by_day[day_keys[0]]) / len(by_day[day_keys[0]])
+            start_date  = _date.fromisoformat(day_keys[0])
+        else:
+            start_level, start_date = ahd, ss_date
+
+        est_cease = lu.project_to_cease(start_level, start_date, 1.0)
+
+        # Normalise each weekly row -> est/actual evaporation (mm) + cutoff drift.
+        # Older rows carry only predicted_mm/actual_mm (net); reconstruct the evap
+        # split from the config pumping estimate, exactly as board.html does.
+        rows = []
+        for r in log:
+            if not r or not r.get('date'):
+                continue
+            dstr = r['date']
+            m = int(r.get('month') or _date.fromisoformat(dstr).month)
+            ahd_end = _n(r.get('ahd_end')) or _n(r.get('ahd_start'))
+            area = lu.lake_area_m2(ahd_end if ahd_end is not None else full_ahd)
+            predicted = _n(r.get('predicted_mm')); actual = _n(r.get('actual_mm'))
+            est_e = _n(r.get('est_evap_mm')); act_e = _n(r.get('actual_evap_mm'))
+            if est_e is None and predicted is not None:
+                pump_mm = ((float(irrig.get(str(m), 0)) / 1000.0) * 7 if m in actM else 0) * 1e6 / area
+                est_e = predicted - pump_mm
+                if act_e is None and actual is not None:
+                    act_e = actual - pump_mm
+            days = 0.0
+            if predicted is not None and actual is not None:
+                var_ml  = (actual - predicted) * area / 1e6
+                draw_ml = (float(pan[str(m)]) * pf * area / 1e6) + \
+                          (float(irrig.get(str(m), 0)) / 1000.0 if m in actM else 0)
+                days = (-var_ml / draw_ml) if draw_ml > 0 else 0.0
+            drift = None
+            if est_cease and ahd_end is not None:
+                pc = lu.project_to_cease(ahd_end, _date.fromisoformat(dstr), 1.0)
+                if pc:
+                    drift = (pc - est_cease).days
+            rows.append({'date': dstr, 'estE': est_e, 'actE': act_e,
+                         'drift': drift, 'src': r.get('pump_source')})
+        rows.sort(key=lambda r: r['date'])
+        if not rows:
+            return ''
+
+        ym = now_syd.strftime('%Y-%m')
+
+        def period_rows(p):
+            if p == 'week':  return rows[-1:]
+            if p == 'month': return [r for r in rows if r['date'][:7] == ym]
+            return [r for r in rows if r['date'] >= ss_iso]
+
+        wd = [r for r in rows if r['drift'] is not None]
+        cur_drift = ((cease_date - est_cease).days if (est_cease and cease_date)
+                     else (wd[-1]['drift'] if wd else 0))
+
+        def days_for(p):
+            if p == 'season' or not wd:
+                return cur_drift
+            if p == 'week':
+                return wd[-1]['drift'] - (wd[-2]['drift'] if len(wd) >= 2 else 0)
+            before = [r for r in wd if r['date'][:7] < ym]
+            return wd[-1]['drift'] - (before[-1]['drift'] if before else 0)
+
+        def summ(p):
+            pr = period_rows(p)
+            est = sum(r['estE'] for r in pr if r['estE'] is not None)
+            act = sum(r['actE'] for r in pr if r['actE'] is not None)
+            return est, act, act - est, int(round(days_for(p)))
+
+        def _fmtd(d):
+            return f'{d.day} {d.strftime("%b %Y")}'
+
+        def _sgn(v, unit, dec=1):
+            return f'{"+" if v >= 0 else ""}{v:.{dec}f}{unit}'
+
+        # ── Headline: cease-date shift vs the season-start estimate ──────────────
+        if est_cease and cease_date:
+            dd = (cease_date - est_cease).days
+            added = dd >= 0; n = abs(dd)
+            hbg, hfg = ('#123a24', '#a9f0c9') if added else ('#3a1618', '#f5b7b1')
+            headline = (
+                f'As of today, real weather and pumping have '
+                f'<strong>{"added" if added else "taken"} ~{n} day{"" if n == 1 else "s"}</strong> '
+                f'{"to" if added else "off"} the cease-to-pump date versus the estimate made at '
+                f'the start of the season.<br>'
+                f'<span style="opacity:0.85;font-size:0.92em;">Season-start estimate: '
+                f'<strong>{_fmtd(est_cease)}</strong> &rarr; now projected: '
+                f'<strong>{_fmtd(cease_date)}</strong></span>')
+        else:
+            hbg, hfg = (_HDR_BG, '#ecf0f1')
+            headline = ('Cutoff comparison appears once the lake is projected to reach the '
+                        'cease level within the projection horizon.')
+
+        # ── This-week tiles (the card's default view) ────────────────────────────
+        estW, actW, diffW, daysW = summ('week')
+        pctW = (diffW / estW * 100) if estW else 0
+        diff_col = '#1e8449' if diffW <= 0 else '#c0392b'
+        days_col = '#1e8449' if daysW >= 0 else '#c0392b'
+        week_src = next((r['src'] for r in reversed(period_rows('week')) if r.get('src')), None)
+        act_sub  = 'lake sensor &middot; ' + ('metered pumping' if week_src == 'metered' else 'estimated pumping')
+
+        tiles = f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(25, _ROW_A, 'Estimated Evap', f'{estW:.1f} mm', 'BOM seasonal avg')}
+    {_stat_cell(25, _ROW_B, 'Actual Evap', f'{actW:.1f} mm', act_sub)}
+    {_stat_cell(25, _ROW_A, 'Difference', f'<span style="color:{diff_col};">{_sgn(diffW, " mm")} ({_sgn(pctW, "%", 0)})</span>', 'actual vs estimate', diff_col)}
+    {_stat_cell(25, _ROW_B, 'Days on Cutoff', f'<span style="color:{days_col};">{"+" if daysW >= 0 else ""}{daysW} day{"" if abs(daysW) == 1 else "s"}</span>', 'vs season-start plan', days_col)}
+  </tr>
+</table>"""
+
+        # ── Period breakdown table (week / month / season) ───────────────────────
+        def _cell(v, col=None):
+            c = col or '#334155'
+            return (f'<td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;'
+                    f'color:{c};text-align:right;">{v}</td>')
+        prows = ''
+        metrics = [
+            ('Estimated evaporation', lambda s: f'{s[0]:.1f} mm', None),
+            ('Actual evaporation',    lambda s: f'{s[1]:.1f} mm', None),
+            ('Difference',            lambda s: _sgn(s[2], ' mm'), 'diff'),
+            ('Days on cutoff',        lambda s: f'{"+" if s[3] >= 0 else ""}{s[3]}', 'days'),
+        ]
+        sm = {p: summ(p) for p in ('week', 'month', 'season')}
+        for i, (name, fn, kind) in enumerate(metrics):
+            bg = _ROW_A if i % 2 == 0 else _ROW_B
+            cells = ''
+            for p in ('week', 'month', 'season'):
+                s = sm[p]
+                col = None
+                if kind == 'diff': col = '#1e8449' if s[2] <= 0 else '#c0392b'
+                if kind == 'days': col = '#1e8449' if s[3] >= 0 else '#c0392b'
+                cells += _cell(fn(s), col)
+            prows += (f'<tr bgcolor="{bg}" style="background-color:{bg};">'
+                      f'<td style="padding:8px 14px;font-family:Arial,sans-serif;font-size:12px;'
+                      f'color:{_HDR_BG};font-weight:700;">{name}</td>{cells}</tr>')
+
+        return (
+            _card_open('Season Outlook - Estimated vs Actual')
+            + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr><td style="padding:0 0 10px 0;">
+    <p style="margin:0 0 10px 0;font-family:Arial,sans-serif;font-size:12px;color:#64748b;">
+      How real weather and pumping have shifted the cease-to-pump date versus the estimate
+      made at the start of the season.</p>
+    <div style="padding:12px 14px;border-radius:8px;font-family:Arial,sans-serif;font-size:13px;
+        line-height:1.5;background:{hbg};color:{hfg};">{headline}</div>
+  </td></tr>
+</table>
+<p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+    color:#64748b;letter-spacing:0.7px;text-transform:uppercase;text-align:center;">This week</p>
+{tiles}
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:16px;">
+  <tr>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:left;">Period</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">This Week</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">This Month</th>
+    <th style="background-color:{_HDR_BG};padding:7px 14px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Season</th>
+  </tr>{prows}
+</table>
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr><td style="padding:10px 20px;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;line-height:1.6;">
+      "Actual" is the measured lake movement minus metered pumping, so it also carries seepage and
+      any catchment inflow (a rain week can show a gain). A
+      <span style="color:#1e8449;font-weight:700;">negative difference</span> is an easier week than
+      estimated (buffer gained); <span style="color:#c0392b;font-weight:700;">positive</span> is harsher.
+      Same evaporation and scale-1.0 projection as the board dashboard.</p>
+  </td></tr>
+</table>"""
+            + _card_close()
+        )
+    except Exception as e:
+        log.warning('season outlook panel unavailable: %s', e)
+        return ''
+
+
 def build_html(now_syd):
     # ── Load data ──────────────────────────────────────────────────────────────
     lake_latest   = _load_json(_DATA_DIR / 'farmbot_lake_latest.json')
@@ -1841,6 +2069,9 @@ def build_html(now_syd):
 
         # ── Water budget: metered pumping vs planned demand ──────────────────────
         + _water_budget_panel(now_syd)
+
+        # ── Season outlook: estimated vs actual evaporation + cease-date shift ────
+        + _season_outlook_panel(now_syd, ahd, cease_date, readings)
 
         + f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
