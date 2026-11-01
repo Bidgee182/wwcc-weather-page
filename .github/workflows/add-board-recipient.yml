@@ -1,0 +1,84 @@
+name: Add Board Recipient (one-shot)
+
+# Adds an address to an encrypted recipient list (data/email_recipients.enc.json)
+# server-side, so the RECIPIENTS_KEY secret never leaves GitHub. The script seeds
+# an empty stream from the matching EMAIL_BOARD_* fallback secret, so existing
+# recipients are preserved. Manual trigger only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Email address to add'
+        required: true
+        type: string
+      stream:
+        description: 'Which board list'
+        required: false
+        default: 'board_to'
+        type: choice
+        options:
+          - board_to
+          - board_cc
+          - board_bcc
+
+permissions:
+  contents: write
+
+concurrency:
+  # Shared with all repo-writing workflows so a poll can never push mid-run.
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  add-recipient:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Add recipient to the encrypted file
+        env:
+          RECIPIENTS_KEY:  ${{ secrets.RECIPIENTS_KEY }}
+          EMAIL_BOARD_TO:  ${{ secrets.EMAIL_BOARD_TO }}
+          EMAIL_BOARD_CC:  ${{ secrets.EMAIL_BOARD_CC }}
+          EMAIL_BOARD_BCC: ${{ secrets.EMAIL_BOARD_BCC }}
+          IN_EMAIL:  ${{ github.event.inputs.email }}
+          IN_STREAM: ${{ github.event.inputs.stream }}
+          IN_ACTOR:  ${{ github.actor }}
+        run: |
+          case "$IN_STREAM" in
+            board_cc)  SEED="$EMAIL_BOARD_CC" ;;
+            board_bcc) SEED="$EMAIL_BOARD_BCC" ;;
+            *)         SEED="$EMAIL_BOARD_TO" ;;
+          esac
+          python scripts/add_recipient.py \
+            --email "$IN_EMAIL" \
+            --stream "$IN_STREAM" \
+            --seed "$SEED" \
+            --by "github-action ($IN_ACTOR)"
+
+      - name: Commit updated recipients
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/email_recipients.enc.json || true
+          if git diff --staged --quiet; then
+            echo "No change to commit (address may already be present)"
+          else
+            git commit -m "Add board recipient (by ${{ github.actor }})"
+            ok=""
+            for i in 1 2 3; do
+              if git pull --rebase -X ours origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi
