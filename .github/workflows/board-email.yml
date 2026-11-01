@@ -2,17 +2,18 @@ name: Board Lake Update Email
 
 on:
   schedule:
-    # Weekly report is now MANUAL (enter pump meter -> Dry Run -> Send to Board).
-    # Monday 7:00 AM Sydney -> REMINDER to Andrew only (dual DST cron).
-    - cron: '0 21 * * 0'   # Mon 7am AEST (Sun 21:00 UTC)
-    - cron: '0 20 * * 0'   # Mon 7am AEDT (Sun 20:00 UTC)
-    # Wednesday 7:00 AM Sydney -> safety-net auto-send IF not already sent (dual DST).
-    - cron: '0 21 * * 2'   # Wed 7am AEST (Tue 21:00 UTC)
-    - cron: '0 20 * * 2'   # Wed 7am AEDT (Tue 20:00 UTC)
-    # Monthly — 1st of month 7:00 PM Sydney (dual DST).
-    - cron: '0 9 1 * *'    # AEST (09:00 UTC)
-    - cron: '0 8 1 * *'    # AEDT (08:00 UTC)
-    # A Sydney-time guard picks the correct DST cron; sent-guards prevent double-sends.
+    # EVERY board send fires at 7:00 AM Sydney (weekly report is still MANUAL:
+    # enter pump meter -> Dry Run -> Send to Board; Wednesday is the safety-net).
+    # 7am Sydney = 20:00 UTC (AEDT) or 21:00 UTC (AEST) the PRIOR day, so "7am on
+    # the 1st" cannot be written as a day-of-month cron - we fire daily at both UTC
+    # times and let the "Decide mode" step below pick reminder (Mon) / weekly (Wed)
+    # / monthly (1st) by the Sydney DATE. The guard keys off the date, NOT the clock
+    # hour, so a late GitHub run still counts (the 1 Oct 2026 miss was hour-based);
+    # board_email.py's once-a-week and once-a-month sent-guards dedup the two daily
+    # fires (an hour apart, so the first commits its guard before the second runs)
+    # and any delayed re-fire.
+    - cron: '0 20 * * *'   # 7am AEDT / 6am AEST
+    - cron: '0 21 * * *'   # 8am AEDT / 7am AEST
 
   workflow_dispatch:
     inputs:
@@ -86,20 +87,21 @@ jobs:
               rep  = "${{ github.event.inputs.report }}" or "weekly"
               mode = "monthly" if rep == "monthly" else "weekly"
           else:
-              # Key the MONTHLY off the triggering cron, not the clock: GitHub can run
-              # a scheduled job hours late, and the old `day==1 and hr==19` guard then
-              # saw day 2 / wrong hour and skipped the monthly entirely (happened 1 Oct
-              # 2026). Both monthly DST crons map to "monthly"; board_email.py's
-              # once-a-month sent-guard dedups the twin + any delayed re-fire.
-              sched = "${{ github.event.schedule }}"
-              wd, hr = now.weekday(), now.hour   # Mon=0 .. Sun=6
-              if sched in ("0 8 1 * *", "0 9 1 * *"):
-                  mode = "monthly"
+              # Gate by the Sydney DATE, not the clock hour: GitHub can run a scheduled
+              # job hours late, and an hour-based guard then skipped the send entirely
+              # (the 1 Oct 2026 miss). The two daily crons fire an hour apart, so the
+              # once-a-month / once-a-week sent-guards in board_email.py dedup to a
+              # single send (first fire commits its guard before the second runs) and
+              # also absorb any delayed re-fire. Monthly is checked first so it wins
+              # when the 1st lands on a Monday or Wednesday.
+              wd, hr, dom = now.weekday(), now.hour, now.day   # Mon=0 .. Sun=6
+              if dom == 1:
+                  mode = "monthly"         # 1st of month (any hour -> survives late runs)
+              elif wd == 2:
+                  mode = "weekly"          # Wednesday safety-net send (any hour; week-guard dedups)
               elif wd == 0 and hr == 7:
-                  mode = "reminder"        # Monday morning nudge
-              elif wd == 2 and hr == 7:
-                  mode = "weekly"          # Wednesday safety-net send
-              # any other firing is the off-DST twin of one of the above -> skip
+                  mode = "reminder"        # Monday 7am nudge to Andrew (one DST twin; no guard)
+              # any other firing is the off-DST twin / an ordinary day -> skip
           # Enabled toggle (manual dispatch always runs)
           cfg = {}
           p = pathlib.Path("data/email_config.json")
