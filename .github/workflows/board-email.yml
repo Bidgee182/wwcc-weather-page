@@ -49,6 +49,11 @@ on:
         options:
           - 'false'
           - 'true'
+      to:
+        description: 'One-off: send ONLY to this address (no CC/BCC, bypasses+leaves the sent-guard). Blank = normal list.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   # Shared with all repo-writing workflows: GitHub queues them so a poll can
@@ -127,6 +132,7 @@ jobs:
           EMAIL_BOARD_CC:   ${{ secrets.EMAIL_BOARD_CC }}
           EMAIL_BOARD_BCC:  ${{ secrets.EMAIL_BOARD_BCC }}
           RECIPIENTS_KEY:   ${{ secrets.RECIPIENTS_KEY }}
+          IN_TO: ${{ github.event.inputs.to }}
         run: |
           ARGS=""
           MODE="${{ steps.cfg.outputs.mode }}"
@@ -141,6 +147,9 @@ jobs:
           fi
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
             ARGS="$ARGS --force"
+          fi
+          if [ -n "$IN_TO" ]; then
+            ARGS="$ARGS --to $IN_TO"
           fi
           echo "Running board_email with:$ARGS"
           python scripts/board_email.py $ARGS

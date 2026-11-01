@@ -2703,8 +2703,14 @@ def build_monthly_html(now_syd):
 
 # ── Send ───────────────────────────────────────────────────────────────────────
 
-def send_email(subject, html_content, test_mode=False):
-    if test_mode:
+def send_email(subject, html_content, test_mode=False, override_to=None):
+    if override_to:
+        # One-off send to a single explicit address (no [TEST] prefix, no CC/BCC).
+        to_list  = [override_to]
+        cc_list  = []
+        bcc_list = []
+        log.info(f'OVERRIDE - sending only to {override_to}')
+    elif test_mode:
         to_list  = ['andrew@bidgeepumps.com.au']
         cc_list  = []
         bcc_list = []
@@ -2740,6 +2746,7 @@ def main():
     parser.add_argument('--test',    action='store_true', help='Send to andrew@bidgeepumps.com.au only')
     parser.add_argument('--force',   action='store_true', help='Ignore dedup guard and send regardless')
     parser.add_argument('--monthly', action='store_true', help='Send monthly board finance report instead of weekly')
+    parser.add_argument('--to', default='', help='Send only to this one address (one-off; bypasses the sent-guard and does not mark it)')
     parser.add_argument('--reminder', action='store_true',
                         help='Send Andrew the Monday reminder to enter the pump meter and send the board report')
     args = parser.parse_args()
@@ -2775,7 +2782,7 @@ def main():
 
     if args.monthly:
         # ── Monthly report ────────────────────────────────────────────────────
-        if not args.dry_run and not args.test and not args.force:
+        if not args.dry_run and not args.test and not args.force and not args.to:
             if _already_sent_this_month(now_syd):
                 log.info('Monthly board report already sent this month - skipping (use --force to override)')
                 return
@@ -2797,8 +2804,8 @@ def main():
             log.info(f'Monthly dry run - saved to {out}')
             return
 
-        sent = send_email(subject, html, test_mode=args.test)
-        if sent and not args.test:
+        sent = send_email(subject, html, test_mode=args.test, override_to=(args.to or None))
+        if sent and not args.test and not args.to:
             _mark_sent_this_month(now_syd)
             log.info('Monthly sent-this-month guard updated')
         if not sent:
@@ -2807,7 +2814,7 @@ def main():
         return
 
     # ── Weekly report ─────────────────────────────────────────────────────────
-    if not args.dry_run and not args.test and not args.force:
+    if not args.dry_run and not args.test and not args.force and not args.to:
         if _already_sent_this_week(now_syd):
             log.info('Board email already sent this week - skipping (use --force to override)')
             return
@@ -2828,9 +2835,9 @@ def main():
         log.info(f'Dry run - saved to {out}')
         return
 
-    sent = send_email(subject, html, test_mode=args.test)
+    sent = send_email(subject, html, test_mode=args.test, override_to=(args.to or None))
 
-    if sent and not args.test:
+    if sent and not args.test and not args.to:
         _mark_sent_this_week(now_syd, proj)
         log.info('Sent-this-week guard updated')
     if not sent:
