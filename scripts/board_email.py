@@ -640,7 +640,7 @@ def _waternsw_panel():
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#64748b;line-height:1.6;">
         Water year runs 1 July to 30 June. Figures are the metered extraction from the WaterNSW
         compliance meter, corrected for the known telemetry over-read. Allocation {alloc:g} ML/year
-        (WAL 40AL413687).
+        under Water Access Licence 40AL413687 (WAL 33232); water supply works approval 40CA413688.
       </p>
     </td>
   </tr>
@@ -725,7 +725,7 @@ def _water_budget_panel(now_syd):
     periods = [
         ('This Week', to - _td(days=6), to),
         ('This Month', to.replace(day=1), to),
-        ('Season', _season_start_date(to), to),
+        (f'Season (from {_season_start_date(to).strftime("%d %b").lstrip("0")})', _season_start_date(to), to),
     ]
     rows = ''
     for i, (name, a, b) in enumerate(periods):
@@ -1681,6 +1681,12 @@ def build_html(now_syd):
        '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
     </td>
   </tr>
+  <tr>
+    <td style="background:#0d1b2a;padding:0 12px 10px;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">
+        The dashed coloured lines mark the restriction levels listed in the Water Licence Levels table below.</p>
+    </td>
+  </tr>
 </table>
 {_daily_lake_html}
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
@@ -2401,6 +2407,12 @@ def build_monthly_html(now_syd):
     <td style="background:#0d1b2a;padding:12px;">
       {lake_chart if lake_chart else
        '<p style="color:#94a3b8;font-family:Arial;font-size:12px;margin:0;">No chart data available.</p>'}
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#0d1b2a;padding:0 12px 10px;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">
+        Dashed lines mark the restriction levels (1.50 / 1.00 / 0.75 / 0.50 ML/day), with cease-to-pump below 189.65 m AHD.</p>
     </td>
   </tr>
 </table>"""

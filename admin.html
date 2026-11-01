@@ -456,6 +456,10 @@
             <div class="status" id="ctl-src-status"></div>
         </div>
     </div>
+    <div class="card" id="licence-card">
+        <h2>WaterNSW Licence</h2>
+        <div id="ctl-licence" class="note" style="margin:0;line-height:1.7;">--</div>
+    </div>
     <div class="card">
         <h2>Kiosk Screen Messages</h2>
         <div class="flexrow">
@@ -1926,6 +1930,21 @@ async function loadControls() {
     const cb = '?_=' + Date.now();
     try { _cfg = await fetch('data/lake_config.json' + cb).then(r => r.json());
           $('ctl-rate-cur').textContent = '$' + _cfg.town_water.cost_per_kl.toFixed(2); } catch {}
+    // WaterNSW licence reminder - flags as the works approval nears expiry (diary).
+    try {
+        const L = _cfg && _cfg.licence, el = $('ctl-licence');
+        if (L && el) {
+            const exp = new Date(L.approval_expiry + 'T00:00:00');
+            const days = Math.round((exp - new Date()) / 86400000);
+            const crit = days < 90, warn = days < 365;
+            const col = crit ? '#e74c3c' : (warn ? '#e67e22' : '#27ae60');
+            el.innerHTML =
+                'Access Licence <b>' + L.licence_ref + '</b> (WAL ' + L.wal_number + ') &middot; allocation ' + L.allocation_ml + ' ML/yr<br>' +
+                'Works approval <b>' + L.works_approval + '</b> &middot; expires <span style="color:' + col + ';font-weight:bold;">' +
+                exp.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) + '</span> (' + days + ' days' +
+                (warn ? ' - ' + (crit ? 'RENEWAL URGENT' : 'renewal due - lodge with NRAR') : '') + ')';
+        }
+    } catch {}
     try { _sources = await fetch('data/tank_fill_source.json' + cb).then(r => r.json());
           renderSrc(); } catch {}
     kmRender();
