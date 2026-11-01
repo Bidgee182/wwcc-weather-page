@@ -157,6 +157,19 @@ def main():
     active_from, active_to = monday.isoformat(), sunday.isoformat()
     generated_at = now.replace(microsecond=0).isoformat()
 
+    # Once-a-week idempotency: the two DST crons fire an hour apart, so the second
+    # would otherwise re-call the API and overwrite the first. If this week's pack
+    # is already written, skip (manual workflow_dispatch sets FOOTY_FORCE to rerun).
+    force = os.environ.get("FOOTY_FORCE") == "true" or "--force" in sys.argv
+    if not force and OUT.exists():
+        try:
+            cur = json.loads(OUT.read_text(encoding="utf-8"))
+            if cur.get("activeFrom") == active_from:
+                print(f"Footy pack already refreshed for week {active_from} - skipping")
+                return 0
+        except Exception:
+            pass
+
     data = ask_claude(active_from, active_to)
     phrases = valid_phrases(data.get("phrases")) if data.get("inSeason") else []
     card = data.get("cardTitle") if phrases else "Footy"

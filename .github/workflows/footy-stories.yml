@@ -21,14 +21,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Guard - only the 7am Sydney fire (skip the other DST cron)
+      - name: Guard - run once on Monday Sydney (tolerate late GitHub runs)
         if: github.event_name == 'schedule'
         run: |
           echo "Sydney now: $(TZ=Australia/Sydney date)"
-          H=$(TZ=Australia/Sydney date +%H)
           D=$(TZ=Australia/Sydney date +%u)
-          if [ "$D" != "1" ] || [ "$H" != "07" ]; then
-            echo "Not Monday 07:xx Sydney - the other DST cron covers it. Skipping."
+          # Gate on the Sydney DATE only, not the clock hour: GitHub routinely runs
+          # these crons 1-3 hours late, and the old `hour == 07` guard then skipped
+          # BOTH DST twins every week (why the footy pack was frozen). The two twins
+          # are an hour apart; the once-a-week idempotency guard in
+          # footy_stories_update.py makes the second twin a no-op.
+          if [ "$D" != "1" ]; then
+            echo "Not Monday Sydney - skipping."
             echo "SKIP=1" >> "$GITHUB_ENV"
           fi
 
@@ -48,6 +52,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Optional: set repo variable FOOTY_MODEL to claude-sonnet-5 to cut cost.
           FOOTY_MODEL: ${{ vars.FOOTY_MODEL }}
+          # Manual runs always regenerate; scheduled runs skip if already done this week.
+          FOOTY_FORCE: ${{ github.event_name == 'workflow_dispatch' }}
         run: python scripts/footy_stories_update.py
 
       - name: Self-test the pack

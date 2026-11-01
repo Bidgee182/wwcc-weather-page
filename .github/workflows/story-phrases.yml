@@ -1,0 +1,78 @@
+name: Monthly Story Phrases Refresh
+
+# Rebuilds data/story_phrases.json (the TV leaderboard's scoreboard-story bank)
+# with a fresh batch each month: men's/general banter (season-aware footy via web
+# search) plus the softer women's "_w" variants. The generator keeps the current
+# lines for any category that fails validation, so the board never breaks.
+
+on:
+  schedule:
+    - cron: '0 10 1 * *'   # 1st of each month (~9pm Sydney; content job, timing not critical)
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Space-separated group names to regenerate (blank = all). e.g. "w_footy footy_core"'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  # Shared with all repo-writing workflows so a poll never pushes mid-run.
+  group: repo-writes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Anthropic SDK
+        run: pip install --quiet anthropic
+
+      - name: Pre-check current bank (informational)
+        run: python scripts/generate_story_phrases.py --check || true
+
+      - name: Regenerate phrase bank
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional repo variable STORY_MODEL to override the model (default claude-opus-5).
+          STORY_MODEL: ${{ vars.STORY_MODEL }}
+          IN_ONLY: ${{ github.event.inputs.only }}
+        run: |
+          if [ -n "$IN_ONLY" ]; then
+            python scripts/generate_story_phrases.py --only $IN_ONLY
+          else
+            python scripts/generate_story_phrases.py
+          fi
+
+      - name: Validate the new bank (blocks the commit if bad)
+        run: |
+          python scripts/generate_story_phrases.py --check
+          python -c "import json, sys; sys.path.insert(0, '.'); from miscore.live import _phrase_bank; b=_phrase_bank(); assert isinstance(b.get('footy_leader'), list) and b.get('footy_leader'); print('bank OK:', sum(len(v) for v in b.values() if isinstance(v, list)), 'lines,', sum(1 for k in b if k.endswith('_w')), 'women_w categories')"
+
+      - name: Commit and push
+        run: |
+          git config user.name  "WWCC Weather Bot"
+          git config user.email "bot@wwcc.com.au"
+          git add data/story_phrases.json
+          if git diff --staged --quiet; then
+            echo "No change to story phrases"
+          else
+            git commit -m "Story phrases: monthly refresh $(TZ=Australia/Sydney date +%F)"
+            ok=""
+            for i in 1 2 3 4 5; do
+              if git pull --rebase -X theirs origin main && git push; then ok=1; break; fi
+              echo "Push attempt $i failed, retrying..."; sleep 5
+            done
+            [ -n "$ok" ]
+          fi

@@ -2061,6 +2061,19 @@ def _rr(*opts: str) -> str:
 # bad template, unknown category) falls back to the built-in wording.
 _PHRASE_BANK: dict | None = None
 
+# Women's comps (the Tuesday/Thursday ladies' events, and any comp whose name
+# flags it as women's) get a softer, encouraging tone. When this is on, a pick
+# for category X prefers the "X_w" variant list if the bank has one - and when it
+# does, the roasty built-in fallbacks are dropped so only the gentle lines show.
+# Men's and all other comps are untouched (flag stays False). Set per board in
+# _enrich_stories; the bank's _w lists are produced by scripts/generate_story_phrases.py.
+_SOFT_WOMENS = False
+
+
+def _is_womens_comp(comp_name: str) -> bool:
+    n = (comp_name or "").lower()
+    return any(w in n for w in ("ladies", "women"))   # "women" covers womens / women's
+
 
 def _phrase_bank() -> dict:
     global _PHRASE_BANK
@@ -2075,8 +2088,17 @@ def _phrase_bank() -> dict:
 
 def _pick_phrase(cat: str, seed: str, *fallbacks: str, **fmt) -> str | None:
     """Deterministic pick from bank[cat] + fallbacks, formatted with fmt.
-    Returns None only when there is nothing to pick from."""
-    opts = list(_phrase_bank().get(cat) or []) + list(fallbacks)
+    Returns None only when there is nothing to pick from.
+
+    In women's soft mode, a populated "<cat>_w" list replaces the default list
+    AND the built-in fallbacks (which carry the roasty wording), so the gentle
+    variant is the only source. Falls back to the normal behaviour otherwise."""
+    bank = _phrase_bank()
+    if _SOFT_WOMENS and bank.get(cat + "_w"):
+        cat = cat + "_w"
+        opts = list(bank.get(cat))
+    else:
+        opts = list(bank.get(cat) or []) + list(fallbacks)
     if not opts:
         return None
     rnd = random.Random(f"{seed}|{cat}")
@@ -3074,6 +3096,8 @@ def _rank_history_stories(ranked, prev_story, board_id, hole_count):
 
 
 def _enrich_stories(ranked, is_stableford, hole_count, comp_name, board_date):
+    global _SOFT_WOMENS
+    _SOFT_WOMENS = _is_womens_comp(comp_name)   # softer tone for ladies' comps
     out = []
     leader_pts = ranked[0].get("points", 0) if ranked else 0
     # Team comps (4BBB best-ball, Ambrose) get partnership stories only - the
