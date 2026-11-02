@@ -119,8 +119,57 @@ def _key_value_table(rows):
             f' style="border:1px solid #eee;border-radius:4px;">{cells}</table>')
 
 
-def build_html(day_data, latest, period_label, alarms_24h):
+def real_alarm_events(events):
+    """Keep only genuine alarms, dropping routine Low-Flow Stop/Boost operation
+    (source 'SystemFunction'), which floods the log (often 170+ of the last 200
+    events) and buried the real alarms in the summary. The poller logs each real
+    alarm twice (once as 'Pump', once as 'System'), so collapse duplicates by
+    (second-resolution timestamp, code, type_code)."""
+    out, seen = [], set()
+    for e in events:
+        if e.get('source_name') == 'SystemFunction':
+            continue
+        k = (str(e.get('timestamp_iso', ''))[:19], e.get('code'), e.get('type_code'))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(e)
+    return out
+
+
+def active_alarms_from_latest(latest):
+    """Currently-active alarms/faults from the live snapshot - the same source the
+    admin health card reads, so an ongoing fault shows even when its onset predates
+    the reporting period. The same alarm is often reported both as a system alarm
+    and as a pump fault, so merge by code into one line, keeping the most specific
+    pump label and the real description."""
+    by_code = {}
+
+    def _add(code, pump, desc):
+        pump = pump or None
+        desc = desc if (desc and not str(desc).startswith('Alarm code') and desc != 'Fault active') else None
+        cur = by_code.get(code)
+        if cur is None:
+            by_code[code] = {'code': code, 'pump_label': pump or 'System',
+                             'description': desc or (f'Alarm code {code}' if code else 'Fault active')}
+        else:
+            if pump and pump != 'System' and cur['pump_label'] in (None, 'System', 'Pump'):
+                cur['pump_label'] = pump
+            if desc and (cur['description'].startswith('Alarm code') or cur['description'] == 'Fault active'):
+                cur['description'] = desc
+
+    for a in (latest.get('alarms') or []):
+        if a.get('active'):
+            _add(a.get('code'), a.get('pump'), a.get('description'))
+    for p in (latest.get('pumps') or []):
+        if p.get('fault'):
+            _add(p.get('alarm_code'), p.get('label'), p.get('alarm_desc'))
+    return list(by_code.values())
+
+
+def build_html(day_data, latest, period_label, alarms_24h, active_now=None):
     date_label = period_label
+    active_now = active_now or []
 
     p_min    = day_data.get('p_min')
     p_max    = day_data.get('p_max')
@@ -161,35 +210,57 @@ def build_html(day_data, latest, period_label, alarms_24h):
                      'font-family:Arial,sans-serif;font-size:14px;color:#999;">'
                      'No pump runs recorded</td></tr>')
 
-    # Alarm table rows
+    TH = ('padding:9px 16px;font-family:Arial,sans-serif;font-size:13px;'
+          'font-weight:bold;color:#fff;background:#003366;')
+
+    # Currently-active alarms banner (ongoing faults, from the live snapshot)
+    active_html = ''
+    if active_now:
+        arows = ''
+        for a in active_now:
+            code = a.get('code')
+            code_str = f' (code {code})' if code else ''
+            arows += (f'<tr><td style="padding:7px 16px;font-family:Arial,sans-serif;'
+                      f'font-size:13px;color:#c0392b;font-weight:bold;">{a.get("description","Fault")}{code_str}</td>'
+                      f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
+                      f'font-size:13px;color:#c0392b;">{a.get("pump_label","System")}</td></tr>')
+        active_html = (
+            '<table width="100%" cellpadding="0" cellspacing="0">'
+            f'{_section_heading("Active Now")}'
+            '<tr><td style="padding:0 32px 4px;">'
+            '<table width="100%" cellpadding="0" cellspacing="0" '
+            'style="border:1px solid #e0b4b4;border-radius:4px;background:#fdf3f3;">'
+            f'<tr><td style="{TH}background:#c0392b;">Active Alarm / Fault</td>'
+            f'<td style="{TH}background:#c0392b;">Source</td></tr>'
+            f'{arows}</table></td></tr></table>')
+
+    # Alarm event table rows (real alarms only; Low-Flow churn already removed).
+    # Show the DATE as well as the time since the period spans a week/month.
     alarm_rows = ''
-    for a in alarms_24h[:10]:
+    for i, a in enumerate(alarms_24h[:20]):
         ts = a.get('timestamp_iso', '')
         try:
             dt = datetime.fromisoformat(ts.replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
-            ts_str = dt.strftime('%-I:%M %p')
+            ts_str = dt.strftime('%a %-d %b, %-I:%M %p')
         except Exception:
             ts_str = ts[:16]
         t_code = a.get('type_code', 3)
         color  = '#c0392b' if t_code == 1 else '#e67e22'
         name   = a.get('type_name', 'Event')
         src    = a.get('pump_label', 'System')
-        i      = alarms_24h.index(a)
         bg     = 'background:#f9f9f9;' if i % 2 == 0 else ''
         alarm_rows += (f'<tr style="{bg}">'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
-                       f'font-size:13px;color:#666;">{ts_str}</td>'
+                       f'font-size:13px;color:#666;white-space:nowrap;">{ts_str}</td>'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
                        f'font-size:13px;color:{color};">{name}</td>'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
                        f'font-size:13px;">{src}</td></tr>')
     if not alarm_rows:
+        msg = ('No alarms this period (routine Low-Flow Stop/Boost operation is not listed).'
+               if not active_now else 'No new alarm events this period.')
         alarm_rows = ('<tr><td colspan="3" style="padding:10px 16px;'
-                      'font-family:Arial,sans-serif;font-size:14px;color:#999;">'
-                      'No alarms or events</td></tr>')
-
-    TH = ('padding:9px 16px;font-family:Arial,sans-serif;font-size:13px;'
-          'font-weight:bold;color:#fff;background:#003366;')
+                      f'font-family:Arial,sans-serif;font-size:14px;color:#999;">{msg}</td></tr>')
 
     return f'''<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#f0f0f0;font-family:Arial,sans-serif;">
@@ -252,8 +323,9 @@ def build_html(day_data, latest, period_label, alarms_24h):
 </table>
 
 <!-- Alarms -->
+{active_html}
 <table width="100%" cellpadding="0" cellspacing="0">
-{_section_heading("This Week's Alarms and Events")}
+{_section_heading("Alarm Events This Period")}
 <tr><td style="padding:0 32px 4px;">
 <table width="100%" cellpadding="0" cellspacing="0"
        style="border:1px solid #eee;border-radius:4px;">
@@ -372,9 +444,9 @@ def main():
 
     latest      = load_json(LATEST_FILE, {})
     alarms_data = load_json(ALARM_FILE, {})
-    all_events  = alarms_data.get('events', [])
+    all_events  = real_alarm_events(alarms_data.get('events', []))
 
-    # Alarms across the week (AEST)
+    # Real alarms across the week (Sydney local); Low-Flow churn already removed
     w_start = datetime(week_start.year, week_start.month, week_start.day, tzinfo=SYDNEY_TZ)
     w_end   = datetime(week_end.year, week_end.month, week_end.day, tzinfo=SYDNEY_TZ) + timedelta(days=1)
     alarms_week = []
@@ -387,13 +459,14 @@ def main():
         except Exception:
             pass
     alarms_week.sort(key=lambda e: e.get('timestamp_iso', ''))
+    active_now = active_alarms_from_latest(latest)
 
     if week_start.month == week_end.month:
         period_label = f"{week_start.strftime('%-d')} - {week_end.strftime('%-d %B %Y')}"
     else:
         period_label = f"{week_start.strftime('%-d %b')} - {week_end.strftime('%-d %b %Y')}"
     subject = f'Pump Station Weekly Summary - {period_label}'
-    html    = build_html(day_data, latest, period_label, alarms_week)
+    html    = build_html(day_data, latest, period_label, alarms_week, active_now)
     send_email(subject, html)
 
 
