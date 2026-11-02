@@ -1202,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.5';
+const PUMP_VERSION = '4.6';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1275,6 +1275,7 @@ function statsRowToReading(r) {
         st: [r.p1_starts,     r.p2_starts,     r.p3_starts,     r.jockey_starts],
         se: r.spec_energy_avg ?? null,
         tm: [r.p1_temp_c,     r.p2_temp_c,     r.p3_temp_c,     r.jockey_temp_c],
+        ac: r.alarm_code ?? null,   // CU352 live alarm register (authoritative clear signal)
     };
 }
 
@@ -1307,25 +1308,32 @@ function buildLatestData(statsRows, eventsRows, alarmEvents) {
     const age = (Date.now() - new Date(row.ts).getTime()) / 60000;
     const connected = age < 10;
 
-    // Active alarm detection: walk newest-first events, first time we see a key wins.
-    // Use the dedicated sparse alarm stream when available (the mixed operational
-    // window spans only hours and routinely misses a still-active alarm whose onset
-    // is older); fall back to the mixed window for older cached callers.
+    // Active alarm detection - authoritative source is the CU352 itself.
+    // The newest stats row carries the controller's live alarm_code register (0 =
+    // clear), read by the poller every minute from the same poll as pressure, so it
+    // is always fresh and exactly mirrors the panel. We use it to decide WHETHER an
+    // alarm is active; the event log is used only to NAME it (which pump, what text).
+    //
+    // We must NOT decide "active" by replaying the event log: the CU352 routinely
+    // clears several alarms with a single reset but logs an 'off' for only one,
+    // leaving dangling alarm_on events. Replaying them showed a cleared alarm (e.g.
+    // "Limit exceeded" on P2, 1 Nov) as permanently active long after the panel
+    // read 0 - a false alarm on the page. Gating on the live register kills that.
     const recentEvents = (alarmEvents && alarmEvents.length) ? alarmEvents : eventsRows.slice(0, 50);
+    const liveAlarmCode = row.alarm_code || 0;   // CU352 live register (authoritative)
     let activeAlarmCode = 0, activeAlarmLabel = 'System', activeAlarmDesc = '';
-    const alarmSeen = {};
-    for (const e of recentEvents) {
-        const k = (e.alarm_code || 0) + '|' + (e.pump_label || '');
-        if (e.event_type === 'alarm_on'  && !alarmSeen[k]) alarmSeen[k] = 'on';
-        if ((e.event_type === 'alarm_off' || e.event_type === 'pump_alarm_off') && !alarmSeen[k]) alarmSeen[k] = 'off';
-    }
-    const activeAlarmEvent = recentEvents.find(e =>
-        e.event_type === 'alarm_on' &&
-        alarmSeen[(e.alarm_code || 0) + '|' + (e.pump_label || '')] === 'on');
-    if (activeAlarmEvent) {
-        activeAlarmCode  = activeAlarmEvent.alarm_code || 0;
-        activeAlarmLabel = activeAlarmEvent.pump_label || 'System';
-        activeAlarmDesc  = activeAlarmEvent.alarm_desc || '';
+    if (liveAlarmCode > 0) {
+        activeAlarmCode = liveAlarmCode;
+        // Name it from the most recent matching onset. Include pump_alarm_on, not
+        // just alarm_on: pump-level faults (Too many restarts, Limit exceeded) are
+        // often logged ONLY as pump_alarm_on with no alarm_on twin, so an alarm_on-
+        // only lookup missed them. Prefer a specific pump label over 'System'.
+        const onsets = recentEvents.filter(e =>
+            (e.event_type === 'alarm_on' || e.event_type === 'pump_alarm_on') &&
+            (e.alarm_code || 0) === liveAlarmCode);
+        const onset = onsets.find(e => e.pump_label && e.pump_label !== 'System') || onsets[0];
+        activeAlarmLabel = (onset && onset.pump_label) || 'System';
+        activeAlarmDesc  = (onset && onset.alarm_desc) || ('Alarm code ' + liveAlarmCode);
     }
 
     // Starts today per pump (Sydney local time, DST-aware)
@@ -1953,11 +1961,11 @@ async function loadData() {
         if (_alarmEvents && _alarmEvents.length) {
             const lastTs = _alarmEvents[0].ts;              // newest-first
             const fresh  = await supaFetch('pump_events_hires',
-                `event_type=in.(alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&ts=gt.${encodeURIComponent(lastTs)}&limit=100`);
+                `event_type=in.(alarm_on,pump_alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&ts=gt.${encodeURIComponent(lastTs)}&limit=100`);
             if (fresh.length) _alarmEvents = [...fresh, ..._alarmEvents].slice(0, 200);
         } else {
             _alarmEvents = await supaFetch('pump_events_hires',
-                'event_type=in.(alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&limit=200');
+                'event_type=in.(alarm_on,pump_alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&limit=200');
         }
         latestData = buildLatestData(_statsWindow, _eventsWindow, _alarmEvents);
     } catch(e) { latestData = null; }
@@ -1979,7 +1987,7 @@ const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,
     + 'p1_power_kw,p2_power_kw,p3_power_kw,jockey_power_kw,'
     + 'p1_run_hours,p2_run_hours,p3_run_hours,jockey_run_hours,'
     + 'p1_starts,p2_starts,p3_starts,jockey_starts,'
-    + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c';
+    + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c,alarm_code';
 
 async function ensureHistory(rangeH) {
     // Lazily load ONLY the span the selected range needs, then grow the cache on
@@ -2079,6 +2087,7 @@ let alarmHistoryData    = null;
 let _alarmPairsCache    = null;
 let _alarmEmailedCodes  = new Set();
 let _alarmEmailHistory  = new Map();
+let _liveAlarmCode      = 0;   // CU352 live alarm register at last render (authoritative)
 let alarmSevFilter      = 'all';
 let alarmDateFilter     = '7d';
 let alarmCustomFrom     = null;
@@ -2401,16 +2410,10 @@ async function renderOverview() {
     document.getElementById('ov-running').textContent = pumps.filter(p=>p.running).length;
     document.getElementById('ov-faults').textContent  = pumps.filter(p=>p.fault).length;
 
-    // Count active alarms from event_log (same logic as renderAlarms)
-    const eventLog = d && d.event_log ? d.event_log : [];
-    const lastByKey = {};
-    for (const e of [...eventLog].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso))) {
-        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
-        lastByKey[key] = e;
-    }
-    const logActiveCount = Object.values(lastByKey).filter(e => e.type_code===1||e.type_code===3).length;
-    const liveAlarmCount = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
-    document.getElementById('ov-alarms').textContent  = Math.max(logActiveCount, liveAlarmCount);
+    // Active-alarm count is the CU352 register only (d.alarms is register-gated in
+    // buildLatestData). Do NOT count 'appeared' events from the log - a superseded or
+    // cleared alarm whose 'off' was never logged would show as a phantom active alarm.
+    document.getElementById('ov-alarms').textContent  = (d&&d.alarms?d.alarms:[]).filter(a=>a.active).length;
     const ov_se = document.getElementById('ov-spec-e');
     if (ov_se) ov_se.textContent = sys.specific_energy_wh_m3 != null ? Math.round(sys.specific_energy_wh_m3) : '--';
 
@@ -3302,21 +3305,12 @@ async function renderAlarms() {
         }
     } catch(e) {}
 
-    // Find currently active events: for each code+source key the most recent event must be type 1 or 3
-    const lastByKey = {};
-    for (const e of [...eventLog].sort((a,b)=>new Date(a.timestamp_iso)-new Date(b.timestamp_iso))) {
-        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
-        lastByKey[key] = e;
-    }
-    const logActive = Object.values(lastByKey).filter(e => e.type_code===1||e.type_code===3)
-        .map(e => ({ code:e.code, description:e.description, pump:e.pump_label||e.source_name, timestamp:e.timestamp_iso, active:true }));
-
-    // Merge: live Modbus alarms + event-log derived active events (dedup by code+pump)
-    const combined = [...liveAlarms];
-    for (const e of logActive) {
-        if (!combined.some(a => a.code===e.code && a.pump===e.pump)) combined.push(e);
-    }
-    document.getElementById('active-alarms').innerHTML = combined.length ? combined.map(a=>alarmRow(a,emailedCodes)).join('') : '<div class="alarm-none">No active alarms</div>';
+    // Currently-active alarms come straight from the CU352 register (via latestData,
+    // which buildLatestData gates on the live alarm_code). We do NOT re-derive active
+    // alarms from the event log here: that replayed dangling 'appeared' events and
+    // showed cleared/superseded alarms as permanently active. The register is the panel.
+    _liveAlarmCode = (d && d.system && d.system.alarm_code) || 0;
+    document.getElementById('active-alarms').innerHTML = liveAlarms.length ? liveAlarms.map(a=>alarmRow(a,emailedCodes)).join('') : '<div class="alarm-none">No active alarms</div>';
 
     // Load alarm history, merge with live event_log, cache pairs for filter re-use
     await ensureAlarmHistory();
@@ -3331,7 +3325,7 @@ async function renderAlarms() {
     merged.sort((a,b) => new Date(b.timestamp_iso||0) - new Date(a.timestamp_iso||0));
     _alarmEmailedCodes = emailedCodes;
     _alarmEmailHistory = emailHistory;
-    _alarmPairsCache   = pairAlarmEvents(merged.filter(e => e.type_code !== 5));
+    _alarmPairsCache   = reconcilePairsWithRegister(pairAlarmEvents(merged.filter(e => e.type_code !== 5)));
     applyAlarmFilters();
 }
 
@@ -3405,6 +3399,38 @@ function alarmRow(a, emailedCodes) {
     '</div>';
 }
 
+// ─── CU352 register-series clearing (authoritative) ──────────────────────────
+// The CU352 holds ONE active alarm at a time in its alarm_code register (0 = all
+// clear), mirrored every minute into pump_stats_v2.alarm_code. This series - NOT
+// the logged 'off' events - is the ground truth for when an alarm cleared. Logged
+// offs are unreliable: when one alarm supersedes another (e.g. 190 "Limit exceeded"
+// escalating to 4 "Too many restarts") the superseded code never gets an 'off', and
+// the final all-clear is logged only against the last active code. Replaying offs
+// therefore left superseded/cleared alarms showing as permanently active.
+function _alarmSeries() {
+    const out = [];
+    if (_statsWindow) for (const r of _statsWindow)
+        out.push({ t: new Date(r.ts).getTime(), c: r.alarm_code || 0 });
+    if (historyData && historyData.readings) for (const r of historyData.readings)
+        out.push({ t: new Date(r.ts).getTime(), c: r.ac || 0 });
+    out.sort((a, b) => a.t - b.t);
+    return out;
+}
+// First register sample at/after an alarm's onset where the register no longer holds
+// `code` (superseded by another code, or returned to 0). Returns that ms, or null if
+// the series still holds `code` through its latest sample (or does not cover it).
+function _registerClearTs(code, appearedMs) {
+    const s = _alarmSeries();
+    if (!s.length) return null;
+    let sawCode = false;
+    for (const p of s) {
+        if (p.t < appearedMs - 120000) continue;   // 2-min slack before the logged onset
+        if (p.c === code) { sawCode = true; continue; }
+        if (sawCode) return p.t;                    // register left this code here
+    }
+    return null;
+}
+
 function pairAlarmEvents(events) {
     // Exclude normal system-function info events (low-flow stop/boost = 6) and
     // pump run activity (start/stop = 7) - neither is an alarm.
@@ -3416,7 +3442,14 @@ function pairAlarmEvents(events) {
         const isApp = e.type_code===1||e.type_code===3;
         const isClr = e.type_code===2||e.type_code===4;
         if (isApp) {
-            if (pending[key]) paired.push({appeared:pending[key],cleared:null});
+            if (pending[key]) {
+                // The poller logs each onset twice (Pump copy + System copy, ~1s
+                // apart). Collapse them into one onset instead of emitting a dangling
+                // duplicate card; a genuine re-trigger (seconds apart is not one) keeps
+                // the earlier pair open for the register to clear.
+                if (new Date(e.timestamp_iso) - new Date(pending[key].timestamp_iso) <= 5000) continue;
+                paired.push({appeared:pending[key],cleared:null});
+            }
             pending[key]=e;
         } else if (isClr && pending[key]) {
             paired.push({appeared:pending[key],cleared:e});
@@ -3432,6 +3465,36 @@ function pairAlarmEvents(events) {
     for (const k of Object.keys(pending)) paired.push({appeared:pending[k],cleared:null});
     paired.sort((a,b)=>new Date((b.appeared||b.cleared).timestamp_iso)-new Date((a.appeared||a.cleared).timestamp_iso));
     return paired;
+}
+
+// Reconcile event-log pairs against the CU352 register so active/cleared status is
+// exactly the panel. Exactly ONE alarm can be active - the most recent 'appeared'
+// whose code equals the live register. Every other still-open pair is force-cleared,
+// with its clear time taken from the register series (the minute the register left
+// that code: a supersession or an all-clear), since its logged 'off' is missing.
+function reconcilePairsWithRegister(pairs) {
+    let activeTs = null;
+    if (_liveAlarmCode > 0) {
+        for (const p of pairs) {
+            if (!p.appeared || p.cleared || (p.appeared.code || 0) !== _liveAlarmCode) continue;
+            const ts = new Date(p.appeared.timestamp_iso).getTime();
+            if (activeTs === null || ts > activeTs) activeTs = ts;
+        }
+    }
+    for (const p of pairs) {
+        if (p.cleared || !p.appeared) continue;
+        const code  = p.appeared.code || 0;
+        const appMs = new Date(p.appeared.timestamp_iso).getTime();
+        if (_liveAlarmCode > 0 && code === _liveAlarmCode && appMs === activeTs) continue; // truly active
+        const clrMs = _registerClearTs(code, appMs);
+        p.cleared = {
+            timestamp_iso: clrMs ? new Date(clrMs).toISOString() : null,
+            type_code: 2, code: code,
+            pump_label: p.appeared.pump_label, source_name: p.appeared.source_name,
+            _synthetic: true,
+        };
+    }
+    return pairs;
 }
 
 function sameDay(a,b) {
@@ -3477,7 +3540,14 @@ function renderAlarmPair(p, emailedCodes, emailHistory) {
 
     // Cleared row
     let clearRow = '';
-    if (p.cleared) {
+    if (p.cleared && !p.cleared.timestamp_iso) {
+        // Register-derived clear with no sample covering it (alarm older than the
+        // loaded data): we know it is no longer active, but not the exact minute.
+        clearRow = '<div class="ae-tl-row">'
+            +'<span class="ae-tl-lbl" style="color:#27ae60;">Cleared</span>'
+            +'<span class="ae-tl-time" style="color:#566573;font-size:.65em;">time not recorded</span>'
+            +'</div>';
+    } else if (p.cleared) {
         const t1 = p.appeared ? new Date(p.appeared.timestamp_iso) : null;
         const t2 = new Date(p.cleared.timestamp_iso);
         const dur = t1 ? ' ('+_durStr(t2-t1)+')' : '';
