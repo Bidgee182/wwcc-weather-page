@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.11';
+const PUMP_VERSION = '4.12';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -3008,6 +3008,14 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         spanGaps: true,
         stepped: d.stepped || false,
     }));
+
+    // Datasets of differing density (e.g. the sparse hourly WaterNSW line over the
+    // 1-minute pump flow) need 'x' interaction so the tooltip finds each series' own
+    // nearest point by x, instead of matching a shared array index that the sparse
+    // series has no entry for (which left it out of the hover tooltip).
+    if (ds.length > 1 && new Set(ds.map(d => (d.data || []).length)).size > 1) {
+        opts.interaction = { mode: 'x', intersect: false, axis: 'x' };
+    }
 
     if (charts[canvasId]) { charts[canvasId].destroy(); }
     charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
