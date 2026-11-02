@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.10';
+const PUMP_VERSION = '4.11';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2001,13 +2001,13 @@ const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,
     + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c,alarm_code';
 
 // Server-side down-sample bucket (seconds) for a given range; 0 = load raw minutes.
-// Mirrors bucketReadings' display thresholds so the fetched resolution already suits
-// the chart. Only large ranges are sampled - short ranges stay full 1-minute detail.
+// Only large ranges are sampled - short ranges keep full 1-minute detail. The bucket
+// is sized so the whole range comes back as ~900 points in ONE request: PostgREST
+// caps any response at 1000 rows, so a coarser-than-900 target would silently drop
+// the newest data. ~900 points is ample resolution for a multi-week overview.
 function serverBucketSec(rangeH) {
-    if (rangeH <= 48)  return 0;      // <=48h: raw 1-minute
-    if (rangeH <= 168) return 300;    // 7d:  5-minute
-    if (rangeH <= 720) return 900;    // 30d: 15-minute
-    return 3600;                      // 60-90d: hourly
+    if (rangeH <= 48) return 0;                     // <=48h: raw 1-minute
+    return Math.max(60, Math.ceil(rangeH * 3600 / 900));
 }
 
 async function ensureHistory(rangeH) {
