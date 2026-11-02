@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.9';
+const PUMP_VERSION = '4.10';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2000,6 +2000,16 @@ const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,
     + 'p1_starts,p2_starts,p3_starts,jockey_starts,'
     + 'p1_temp_c,p2_temp_c,p3_temp_c,jockey_temp_c,alarm_code';
 
+// Server-side down-sample bucket (seconds) for a given range; 0 = load raw minutes.
+// Mirrors bucketReadings' display thresholds so the fetched resolution already suits
+// the chart. Only large ranges are sampled - short ranges stay full 1-minute detail.
+function serverBucketSec(rangeH) {
+    if (rangeH <= 48)  return 0;      // <=48h: raw 1-minute
+    if (rangeH <= 168) return 300;    // 7d:  5-minute
+    if (rangeH <= 720) return 900;    // 30d: 15-minute
+    return 3600;                      // 60-90d: hourly
+}
+
 async function ensureHistory(rangeH) {
     // Lazily load ONLY the span the selected range needs, then grow the cache on
     // demand. The default view is 24h, so loading a fixed 90-day archive up front
@@ -2031,26 +2041,44 @@ async function ensureHistory(rangeH) {
     // Need a wider span than we hold (or nothing cached yet): (re)load it.
     try {
         document.getElementById('hist-loading').style.display = 'block';
-        // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate -
-        // but fetch pages in PARALLEL batches so a wide range (90d ~= 130 pages) loads
-        // in a handful of round-trips instead of ~130 serial ones. Same bytes (and the
-        // result is cached), so no egress regression - just far less waiting. Batch
-        // size is sized to the range so a 24h load doesn't fire a pile of empty pages.
         const cutoff = new Date(nowMs - wantMs).toISOString().slice(0, 19) + 'Z';
-        const PAGE = 1000;
-        const estPages = Math.ceil((wantMs / 60000) / PAGE) + 1;   // ~1 row/min, +1 safety
-        const BATCH = Math.min(8, Math.max(1, estPages));
-        let allRows = [], base = 0, done = false;
-        while (!done) {
-            const reqs = [];
-            for (let b = 0; b < BATCH; b++) {
-                reqs.push(supaFetch('pump_stats_v2',
-                    `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${base + b * PAGE}`));
+        let allRows = null;
+
+        // Large ranges: ask the server to down-sample to ~one point per time bucket, so
+        // a wide range transfers a few thousand rows instead of every raw minute (~130k
+        // for 90d). Needs the pump_stats_sampled() DB function; if it is absent or
+        // errors, allRows stays null and we fall through to the full raw load below.
+        const bucketSec = serverBucketSec(rangeH || 24);
+        if (bucketSec > 0) {
+            const tFrom = new Date(nowMs - wantMs).toISOString();
+            const tTo   = new Date(nowMs).toISOString();
+            const rows = await supaFetch('rpc/pump_stats_sampled',
+                `${STATS_COLS}&t_from=${encodeURIComponent(tFrom)}&t_to=${encodeURIComponent(tTo)}` +
+                `&bucket_seconds=${bucketSec}&order=ts.asc`);
+            if (Array.isArray(rows) && rows.length) allRows = rows;
+        }
+
+        if (allRows === null) {
+            // Raw load. PostgREST caps each response at ~1000 rows, so paginate - but
+            // fetch the pages in PARALLEL batches so a wide range loads in a handful of
+            // round-trips instead of ~130 serial ones. Same bytes, result is cached, so
+            // no egress regression. Batch size is sized to the range so a 24h load does
+            // not fire a pile of empty pages.
+            const PAGE = 1000;
+            const estPages = Math.ceil((wantMs / 60000) / PAGE) + 1;   // ~1 row/min, +1
+            const BATCH = Math.min(8, Math.max(1, estPages));
+            allRows = []; let base = 0, done = false;
+            while (!done) {
+                const reqs = [];
+                for (let b = 0; b < BATCH; b++) {
+                    reqs.push(supaFetch('pump_stats_v2',
+                        `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${base + b * PAGE}`));
+                }
+                const pages = await Promise.all(reqs);
+                for (const p of pages) allRows.push(...p);
+                if (pages[pages.length - 1].length < PAGE) done = true;   // reached the end
+                base += BATCH * PAGE;
             }
-            const pages = await Promise.all(reqs);
-            for (const p of pages) allRows.push(...p);
-            if (pages[pages.length - 1].length < PAGE) done = true;   // reached the end
-            base += BATCH * PAGE;
         }
         historyData  = { readings: allRows.map(statsRowToReading) };
         _histLoadedMs = wantMs;
@@ -2849,16 +2877,14 @@ async function renderPerfCharts() {
             }
         };
         const ds = [
-            { label:'Discharge Pressure (bar)', data: breakSeriesGaps(pts.map(r=>({x:tsMs(r),y:r.pa}))),
-              borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.12)',
+            { label:'Discharge Pressure (bar)', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
+              borderColor:'#e67e22', backgroundColor:'transparent',
               borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:5,
-              fill:true, spanGaps:false, yAxisID:'y' },
-            // Stroke-only (no fill): a filled tank band sits behind the pressure fill
-            // on a different scale and muddies the overlap.
-            { label:'Supply Tank Level (%)', data: breakSeriesGaps(fbPts),
+              fill:false, spanGaps:true, yAxisID:'y' },
+            { label:'Supply Tank Level (%)', data: fbPts,
               borderColor:'rgba(39,174,96,.9)', backgroundColor:'transparent',
               borderWidth:2, tension:0.3, pointRadius:0, pointHoverRadius:5,
-              fill:false, spanGaps:false, yAxisID:'y1' },
+              fill:false, spanGaps:true, yAxisID:'y1' },
         ];
         if (charts['c-tank']) { charts['c-tank'].destroy(); }
         charts['c-tank'] = new Chart(document.getElementById('c-tank').getContext('2d'), {
@@ -2923,33 +2949,6 @@ async function renderPerfCharts() {
 
 }
 
-// Insert an explicit {x,y:null} break wherever consecutive points are far apart in
-// x relative to the series' normal cadence. Without this, a filled line bridges a
-// data gap (e.g. a poller/Pi dropout, or pumps shut down) with one straight diagonal
-// and shades the area under it to the baseline - the spurious triangular wedge of
-// "background shading" over empty time. With the break + spanGaps:false the line and
-// its fill stop at the gap and resume after it. Operates on {x,y} arrays sorted asc.
-function breakSeriesGaps(data) {
-    if (!Array.isArray(data) || data.length < 3) return data;
-    const dx = [];
-    for (let i = 1; i < data.length; i++) {
-        const a = data[i-1], b = data[i];
-        if (a && b && a.x != null && b.x != null) dx.push(b.x - a.x);
-    }
-    if (!dx.length) return data;
-    const sorted = [...dx].sort((a,b)=>a-b);
-    const median = sorted[Math.floor(sorted.length/2)] || 0;
-    const thresh = Math.max(median * 3, 3 * 60000);   // >3x cadence, min 3 minutes
-    const out = [];
-    for (let i = 0; i < data.length; i++) {
-        out.push(data[i]);
-        const a = data[i], b = data[i+1];
-        if (a && b && a.x != null && b.x != null && (b.x - a.x) > thresh)
-            out.push({ x: a.x + (b.x - a.x) / 2, y: null });
-    }
-    return out;
-}
-
 // Moving-average smoothing for noisy series - used only where a dataset sets
 // `smooth`. Averages each point's y over a window of `win` samples, keeping x.
 function smoothSeries(data, win) {
@@ -2996,7 +2995,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
     const ds = datasets.map(d => ({
         label: d.label,
-        data:  breakSeriesGaps(d.smooth ? smoothSeries(d.data, d.smooth) : d.data),
+        data:  d.smooth ? smoothSeries(d.data, d.smooth) : d.data,
         borderColor: d.borderColor,
         backgroundColor: d.bg || 'transparent',
         borderWidth: d.thin ? 1.5 : 2,
@@ -3005,8 +3004,8 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         cubicInterpolationMode: d.smooth ? 'monotone' : 'default',
         pointRadius: 0,
         pointHoverRadius: d.noHover ? 0 : 5,
-        fill: !!(d.bg && d.bg !== 'transparent'),
-        spanGaps: false,   // real gaps break the line/fill (see breakSeriesGaps)
+        fill: false,        // clean lines - the area fill rendered a spurious shaded wedge
+        spanGaps: true,
         stepped: d.stepped || false,
     }));
 
@@ -3071,10 +3070,10 @@ async function render24hTrend() {
     charts['c-t24'] = new Chart(document.getElementById('c-t24').getContext('2d'), {
         type: 'line',
         data: { datasets: [
-            { label: 'Pressure (bar)', data: breakSeriesGaps(pdata), borderColor: '#e67e22', borderWidth: 2,
-              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y',  spanGaps: false },
-            { label: 'Flow (m³/h)',    data: breakSeriesGaps(fdata), borderColor: '#3498db', borderWidth: 1.5,
-              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: false },
+            { label: 'Pressure (bar)', data: pdata, borderColor: '#e67e22', borderWidth: 2,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y',  spanGaps: true },
+            { label: 'Flow (m³/h)',    data: fdata, borderColor: '#3498db', borderWidth: 1.5,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: true },
         ] },
         options: opts
     });
