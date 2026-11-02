@@ -1409,9 +1409,15 @@ async function lbHealthCheck() {
             + ` &middot; ${esc(h.competition || 'no comp')} ${esc(h.compDate || '')}`
             + ` &middot; ${h.playerCount ?? 0} players`
             + ` &middot; prizes: ${h.prizes?.ntp ?? 0} NTP / ${h.prizes?.ld ?? 0} LD / ${h.prizes?.balls ?? 0} balls`
-            + ` &middot; ` + (age > 25 && h.window !== 'night'
-                ? `<b style="color:#f39c12">&#9888; checked ${age} min ago - watchdog may be stalled</b>`
-                : `checked ${age} min ago${h.window === 'night' ? ' (overnight idle)' : ''}`);
+            // Match the health card's cadence-based tiers (GitHub cron jitter makes
+            // ~45 min gaps normal): amber 45-75 min, red only past ~75 min.
+            + ` &middot; ` + (h.window === 'night'
+                ? `checked ${age} min ago (overnight idle)`
+                : age > 75
+                    ? `<b style="color:#e74c3c">&#9888; checked ${age} min ago - watchdog may be stalled</b>`
+                    : age > 45
+                        ? `<b style="color:#f39c12">&#9888; checked ${age} min ago - running late</b>`
+                        : `checked ${age} min ago`);
         const ymap = { success: 'ok', partial: 'warn' };
         body.innerHTML = (h.checks || []).map(c =>
             `<tr><td>${esc(c.label)}</td>`
@@ -1563,7 +1569,10 @@ async function loadHealth() {
         const fRows = [
             ['Tank reading', tank.tank_date, 8 * 60, 16 * 60],
             ['Lake reading', lake.lake_date, 8 * 60, 16 * 60],
-            ['Poll committed', tank.updated_at, 30, 120],
+            // Poll crons */15 but GitHub's scheduler routinely slips it to 1-2 h
+            // between healthy runs, so only amber past ~45 min and red when it has
+            // clearly gone dead (> ~2.5 h), not after one missed nominal cycle.
+            ['Poll committed', tank.updated_at, 45, 150],
         ];
         const cls = fRows.map(([n, iso, ok, warn]) => {
             const c = light(ok, warn, iso);
@@ -1697,8 +1706,12 @@ async function loadHealth() {
         const ageMin = Math.round((Date.now() - new Date(lb.updatedAt)) / 60000);
         const map = { ok: 'lg', warn: 'ly', crit: 'lr', idle: 'lgrey' };
         const parts = [], cls = [];
-        // Watchdog's own heartbeat first - a stalled watchdog hides everything else
-        const hb = night ? 'lgrey' : ageMin > 25 ? 'lr' : 'lg';
+        // Watchdog's own heartbeat first - a stalled watchdog hides everything else.
+        // It crons */15, but GitHub's scheduler slips healthy gaps to ~45 min, so a
+        // flat 25-min red cried wolf constantly. Base it on the real spacing: green
+        // within normal jitter (<=45 min), amber when running late (45-75 min), red
+        // only past ~75 min = several genuinely missed cycles.
+        const hb = night ? 'lgrey' : ageMin > 75 ? 'lr' : ageMin > 45 ? 'ly' : 'lg';
         if (hb === 'lr') issues.push('Leaderboard watchdog stalled');
         cls.push(hb === 'lgrey' ? 'lg' : hb);
         parts.push(rowHtml('Watchdog check', hb,
