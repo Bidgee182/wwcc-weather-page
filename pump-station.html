@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.8';
+const PUMP_VERSION = '4.9';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2031,16 +2031,26 @@ async function ensureHistory(rangeH) {
     // Need a wider span than we hold (or nothing cached yet): (re)load it.
     try {
         document.getElementById('hist-loading').style.display = 'block';
-        // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate.
+        // PostgREST caps responses at ~1000 rows regardless of limit=, so paginate -
+        // but fetch pages in PARALLEL batches so a wide range (90d ~= 130 pages) loads
+        // in a handful of round-trips instead of ~130 serial ones. Same bytes (and the
+        // result is cached), so no egress regression - just far less waiting. Batch
+        // size is sized to the range so a 24h load doesn't fire a pile of empty pages.
         const cutoff = new Date(nowMs - wantMs).toISOString().slice(0, 19) + 'Z';
         const PAGE = 1000;
-        let allRows = [], offset = 0;
-        while (true) {
-            const page = await supaFetch('pump_stats_v2',
-                `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${offset}`);
-            allRows.push(...page);
-            if (page.length < PAGE) break;
-            offset += PAGE;
+        const estPages = Math.ceil((wantMs / 60000) / PAGE) + 1;   // ~1 row/min, +1 safety
+        const BATCH = Math.min(8, Math.max(1, estPages));
+        let allRows = [], base = 0, done = false;
+        while (!done) {
+            const reqs = [];
+            for (let b = 0; b < BATCH; b++) {
+                reqs.push(supaFetch('pump_stats_v2',
+                    `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${base + b * PAGE}`));
+            }
+            const pages = await Promise.all(reqs);
+            for (const p of pages) allRows.push(...p);
+            if (pages[pages.length - 1].length < PAGE) done = true;   // reached the end
+            base += BATCH * PAGE;
         }
         historyData  = { readings: allRows.map(statsRowToReading) };
         _histLoadedMs = wantMs;
