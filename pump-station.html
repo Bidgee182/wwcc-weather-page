@@ -1202,7 +1202,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.4';
+const PUMP_VERSION = '4.5';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1300,15 +1300,18 @@ function eventRowToLegacy(e) {
 }
 
 // Build the latestData object from Supabase rows (statsRows oldest-first, eventsRows newest-first)
-function buildLatestData(statsRows, eventsRows) {
+function buildLatestData(statsRows, eventsRows, alarmEvents) {
     if (!statsRows.length) return null;
     const row = statsRows[statsRows.length - 1];
 
     const age = (Date.now() - new Date(row.ts).getTime()) / 60000;
     const connected = age < 10;
 
-    // Active alarm detection: walk newest-first events, first time we see a key wins
-    const recentEvents = eventsRows.slice(0, 50);
+    // Active alarm detection: walk newest-first events, first time we see a key wins.
+    // Use the dedicated sparse alarm stream when available (the mixed operational
+    // window spans only hours and routinely misses a still-active alarm whose onset
+    // is older); fall back to the mixed window for older cached callers.
+    const recentEvents = (alarmEvents && alarmEvents.length) ? alarmEvents : eventsRows.slice(0, 50);
     let activeAlarmCode = 0, activeAlarmLabel = 'System', activeAlarmDesc = '';
     const alarmSeen = {};
     for (const e of recentEvents) {
@@ -1651,6 +1654,9 @@ let historyData    = null;
 let dailyData      = null;
 let _statsWindow   = null;   // live 24h stats rows (oldest-first), topped up incrementally
 let _eventsWindow  = null;   // recent events (newest-first), topped up incrementally
+let _alarmEvents   = null;   // alarm transitions only (newest-first): sparse, so a small
+                             // window spans weeks - the operational window above spans only
+                             // hours and routinely misses a still-active alarm's older onset
 let farmbotTankData   = null;
 let farmbotLatestData = null;
 let hwConfigData   = null;
@@ -1919,7 +1925,7 @@ async function loadData() {
         // miss the recent data - so drop the cache and do a fresh 24h load.
         if (_statsWindow && _statsWindow.length &&
             _now - new Date(_statsWindow[_statsWindow.length - 1].ts).getTime() > 2 * 3600000) {
-            _statsWindow = null; _eventsWindow = null;
+            _statsWindow = null; _eventsWindow = null; _alarmEvents = null;
         }
         if (_statsWindow && _statsWindow.length) {
             const lastTs = _statsWindow[_statsWindow.length - 1].ts;
@@ -1941,7 +1947,19 @@ async function loadData() {
         } else {
             _eventsWindow = await supaFetch('pump_events_hires', 'order=ts.desc&limit=200');
         }
-        latestData = buildLatestData(_statsWindow, _eventsWindow);
+        // Alarm transitions are sparse but can be many hours old while still active;
+        // the operational window above spans only ~hours, so fetch alarm events on
+        // their own (a small limit covers weeks) for reliable active-alarm detection.
+        if (_alarmEvents && _alarmEvents.length) {
+            const lastTs = _alarmEvents[0].ts;              // newest-first
+            const fresh  = await supaFetch('pump_events_hires',
+                `event_type=in.(alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&ts=gt.${encodeURIComponent(lastTs)}&limit=100`);
+            if (fresh.length) _alarmEvents = [...fresh, ..._alarmEvents].slice(0, 200);
+        } else {
+            _alarmEvents = await supaFetch('pump_events_hires',
+                'event_type=in.(alarm_on,alarm_off,pump_alarm_off)&order=ts.desc&limit=200');
+        }
+        latestData = buildLatestData(_statsWindow, _eventsWindow, _alarmEvents);
     } catch(e) { latestData = null; }
     if (hwConfigData === null) {
         try {
