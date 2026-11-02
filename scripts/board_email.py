@@ -526,6 +526,174 @@ def _tank_chart_html(readings):
             f' style="display:block;border-radius:6px;max-width:100%;">')
 
 
+def _tank_chart_range(readings, d_from, d_to):
+    """QuickChart.io PNG - daily average tank fill % across [d_from, d_to].
+
+    The month-span twin of _tank_chart_html (which is fixed to the past 7 days),
+    used by the monthly report so the tank graph covers the whole reporting month."""
+    f_iso, t_iso = d_from.isoformat(), d_to.isoformat()
+    by_day = defaultdict(list)
+    for r in readings:
+        try:
+            d = _syd_date(r['date'])
+            if f_iso <= d <= t_iso and r.get('pct') is not None:
+                by_day[d].append(float(r['pct']))
+        except Exception:
+            pass
+    days   = sorted(by_day)
+    vals   = [round(sum(by_day[d]) / len(by_day[d]), 1) for d in days]
+    labels = [f'{datetime.fromisoformat(d).day} {datetime.fromisoformat(d).strftime("%b")}' for d in days]
+    if not vals:
+        return ''
+    ymin = max(0,   round(min(vals) - 5))
+    ymax = min(100, round(max(vals) + 5))
+    config = {
+        'type': 'line',
+        'data': {'labels': labels, 'datasets': [
+            {'label': 'Tank Level', 'data': vals,
+             'borderColor': '#2980b9', 'backgroundColor': 'rgba(41,128,185,0.15)',
+             'fill': True, 'lineTension': 0.3, 'pointRadius': 2, 'borderWidth': 2},
+            {'data': [20] * len(days), 'borderColor': '#e67e22', 'borderWidth': 1,
+             'borderDash': [5, 4], 'fill': False, 'pointRadius': 0, 'lineTension': 0},
+        ]},
+        'options': {
+            'legend': {'display': False},
+            'scales': {
+                'xAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'maxRotation': 0,
+                                     'autoSkip': True, 'maxTicksLimit': 10}}],
+                'yAxes': [{'gridLines': {'color': '#1e3040'},
+                           'ticks': {'fontColor': '#4a6070', 'min': ymin, 'max': ymax,
+                                     'callback': '|function(v){return v+"%"}'}}],
+            },
+        },
+    }
+    cfg_str = json.dumps(config, separators=(',', ':'))
+    cfg_str = cfg_str.replace('"callback":"|function(v){return v+\\"%\\"}"',
+                               '"callback":function(v){return v+"%"}')
+    url = f'https://quickchart.io/chart?bkg=%230d1b2a&w=560&h=200&c={_up.quote(cfg_str)}'
+    return (f'<img src="{url}" width="100%" alt="Tank level - month"'
+            f' style="display:block;border-radius:6px;max-width:100%;">')
+
+
+def _tank_daily_table(readings, d_from, d_to, title):
+    """Per-day tank movement table (first vs last reading each Sydney day) across
+    [d_from, d_to]. Returns '' if there is nothing in range."""
+    f_iso, t_iso = d_from.isoformat(), d_to.isoformat()
+    firsts, lasts = {}, {}
+    for r in readings:
+        try:
+            d = _syd_date(r['date'])
+        except Exception:
+            continue
+        if not (f_iso <= d <= t_iso) or r.get('volume_l') is None:
+            continue
+        ts = str(r['date'])
+        v  = (ts, float(r['volume_l']))
+        if d not in firsts or ts < firsts[d][0]:
+            firsts[d] = v
+        if d not in lasts or ts > lasts[d][0]:
+            lasts[d] = v
+    days = sorted(firsts)
+    if not days:
+        return ''
+    td = ('padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;'
+          'color:#1b2631;border-right:1px solid ' + _BORDER + ';')
+    th = ('background-color:' + _HDR_BG + ';padding:7px 10px;font-family:Arial,sans-serif;'
+          'font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid ' + _BORDER + ';')
+    rows = ''
+    for i, d in enumerate(days):
+        bg  = _ROW_A if i % 2 == 0 else _ROW_B
+        s   = firsts[d][1]
+        e   = lasts[d][1]
+        chg = e - s
+        col = '#1e8449' if chg > 0 else ('#b83c3c' if chg < 0 else '#475569')
+        dt  = datetime.fromisoformat(d)
+        lbl = f'{dt.strftime("%a")} {dt.day} {dt.strftime("%b")}'
+        rows += f"""
+  <tr bgcolor="{bg}">
+    <td style="{td}">{lbl}</td>
+    <td style="{td}text-align:right;">{s:,.0f}&nbsp;L</td>
+    <td style="{td}text-align:right;">{e:,.0f}&nbsp;L</td>
+    <td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;
+        text-align:right;"><span style="color:{col};font-weight:700;">{chg:+,.0f}&nbsp;L</span></td>
+  </tr>"""
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td colspan="4" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">{title}</p>
+    </td>
+  </tr>
+  <tr>
+    <th style="{th}text-align:left;">Day</th>
+    <th style="{th}text-align:right;">Start</th>
+    <th style="{th}text-align:right;">End</th>
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Change</th>
+  </tr>{rows}
+</table>"""
+
+
+def _daily_lake_table(dl_rows, title):
+    """Per-day lake movement table (Start/End/Rain/Evap/Change) for an arbitrary
+    span. Standalone twin of the weekly report's inline daily-movement table, so
+    the monthly report can show the same table for the whole month."""
+    if not dl_rows or not any(r['start'] is not None for r in dl_rows):
+        return ''
+
+    def _f3(v):
+        return f'{v:.3f}' if v is not None else '-'
+
+    td = ('padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;'
+          'color:#1b2631;border-right:1px solid ' + _BORDER + ';')
+    th = ('background-color:' + _HDR_BG + ';padding:7px 10px;font-family:Arial,sans-serif;'
+          'font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid ' + _BORDER + ';')
+    cells = ''
+    for i, r in enumerate(dl_rows):
+        bg = _ROW_A if i % 2 == 0 else _ROW_B
+        dt = datetime.fromisoformat(r['date'])
+        lbl = f'{dt.strftime("%a")} {dt.day} {dt.strftime("%b")}'
+        if r['chg'] is None:
+            chg_html = '-'
+        else:
+            col = ('#1e8449' if r['chg'] > 0.5 else '#b83c3c' if r['chg'] < -0.5 else '#475569')
+            chg_html = f'<span style="color:{col};font-weight:700;">{r["chg"]:+.0f}&nbsp;mm</span>'
+        cells += f"""
+  <tr bgcolor="{bg}">
+    <td style="{td}">{lbl}</td>
+    <td style="{td}text-align:right;">{_f3(r['start'])}</td>
+    <td style="{td}text-align:right;">{_f3(r['end'])}</td>
+    <td style="{td}text-align:right;">{r['rain']:.1f}</td>
+    <td style="{td}text-align:right;">{r['evap']:.1f}</td>
+    <td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;
+        text-align:right;">{chg_html}</td>
+  </tr>"""
+    return f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    <td colspan="6" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+        border-top:1px solid #cbd5e1;">
+      <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+          color:#475569;letter-spacing:0.5px;text-transform:uppercase;">{title}</p>
+    </td>
+  </tr>
+  <tr>
+    <th style="{th}text-align:left;">Day</th>
+    <th style="{th}text-align:right;">Start (m)</th>
+    <th style="{th}text-align:right;">End (m)</th>
+    <th style="{th}text-align:right;">Rain (mm)</th>
+    <th style="{th}text-align:right;">Evap (mm)</th>
+    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
+        font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Change</th>
+  </tr>{cells}
+</table>"""
+
+
 # ── Email body ─────────────────────────────────────────────────────────────────
 
 def _load_json(path):
@@ -894,8 +1062,9 @@ def _season_outlook_chart(start_level, start_date, cease_ahd, cur_cease,
                  'pointRadius': 0, 'lineTension': 0},
             ]},
             'options': {
-                'legend': {'display': True,
-                           'labels': {'fontColor': '#cfd8dc', 'boxWidth': 18, 'fontSize': 11}},
+                # Chart.js draws legend keys as filled boxes; we want LINE swatches,
+                # so the legend is rendered in HTML below the image instead.
+                'legend': {'display': False},
                 'scales': {
                     'xAxes': [{'gridLines': {'color': '#1e3040'},
                                'ticks': {'fontColor': '#4a6070', 'maxRotation': 0,
@@ -1058,10 +1227,25 @@ def _season_outlook_panel(now_syd, ahd, cease_date, readings):
             img = _season_outlook_chart(start_level, start_date, cease_ahd,
                                         cease_date, ahd, now_syd, readings)
             if img:
+                def _lk(style, color, label, w=3):
+                    return (f'<span style="white-space:nowrap;">'
+                            f'<span style="display:inline-block;width:26px;'
+                            f'border-top:{w}px {style} {color};vertical-align:middle;'
+                            f'line-height:0;">&nbsp;</span>'
+                            f'<span style="color:#475569;">&nbsp;{label}</span></span>')
+                legend = (
+                    '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;'
+                    'line-height:2.1;text-align:center;">'
+                    + _lk('dashed', '#9aa7b0', 'Plan (season start)') + '&nbsp;&nbsp;&nbsp;'
+                    + _lk('solid',  '#48c9b0', 'Actual (measured)')   + '&nbsp;&nbsp;&nbsp;'
+                    + _lk('dotted', '#48c9b0', 'Projected')           + '&nbsp;&nbsp;&nbsp;'
+                    + _lk('dashed', '#e74c3c', 'Cease to pump', 2)
+                    + '</p>')
                 chart_html = f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
   <tr><td style="padding:4px 0 6px 0;">{img}</td></tr>
+  <tr><td style="padding:0 6px 4px 6px;">{legend}</td></tr>
   <tr><td style="padding:0 6px 6px 6px;font-family:Arial,sans-serif;font-size:11px;
       color:#64748b;line-height:1.5;text-align:center;">
     Dashed grey = the level we estimated at the start of the season &middot;
@@ -1375,6 +1559,9 @@ def build_html(now_syd):
     tank_cap_l  = tank.get('tank_total_volume') or 250000
     tank_status = tank.get('tank_status', '')
     tank_chart  = _tank_chart_html(tank_readings)
+    tank_week_table = _tank_daily_table(
+        tank_readings, now_syd.date() - timedelta(days=6), now_syd.date(),
+        'Daily Tank Movement - Past 7 Days')
 
     tank_pct_str = f'{tank_pct:.1f}%' if tank_pct is not None else '-'
     tank_vol_str = (f'{tank_vol_l:,.0f}&nbsp;L&nbsp;({tank_vol_l/1000:.1f}&nbsp;kL)'
@@ -1505,6 +1692,26 @@ def build_html(now_syd):
                                          f'actual evaporation ~{_pct}% of estimate)')
             _pb_cost_str  = (f'${cost_to_march:,.0f}' if cost_to_march is not None else '-')
             _pb_cost_sub  = f'{_cease_str} to 30 Apr {_end_yr} (season end)'
+
+        # Status-driven banner palette: the cease projection reads alarm-red only
+        # when cease is imminent (<=30 days or already reached); a comfortable or
+        # measured-holds outlook reads green, the middle ground amber. (Previously
+        # this top section was hard-coded red regardless of how healthy the outlook
+        # was, which over-alarmed the board.)
+        _holds_season = ('holds above cease' in (_pb_measured_html or '')) if cease_date is not None else False
+        _da = _days_away if cease_date is not None else None
+        if cease_date is None or (_da is not None and _da <= 30):
+            _pbc = {'accent': '#b83c3c', 'border': '#fca5a5', 'bg': '#fef2f2',
+                    'band': '#fee2e2', 'soft': '#fff5f5', 'big': '#b83c3c',
+                    'label': '#991b1b', 'net': '#7f1d1d'}
+        elif _holds_season or (_da is not None and _da > 90):
+            _pbc = {'accent': '#1e8449', 'border': '#a7d7bd', 'bg': '#f0f9f4',
+                    'band': '#dcf0e5', 'soft': '#f3fbf6', 'big': '#1e7a46',
+                    'label': '#1a6b3d', 'net': '#14532d'}
+        else:
+            _pbc = {'accent': '#d68910', 'border': '#f5d6a8', 'bg': '#fff8ef',
+                    'band': '#fdebd0', 'soft': '#fffaf2', 'big': '#b45309',
+                    'label': '#92400e', 'net': '#7c3a06'}
 
         # Rainfall, evaporation and ET - always shown when a cease date is known
         _rain_row = ''
@@ -1658,31 +1865,31 @@ def build_html(now_syd):
 
             _rain_row = f"""
       <tr>
-        <td colspan="2" style="padding:0;border-top:1px solid #fca5a5;">
+        <td colspan="2" style="padding:0;border-top:1px solid {_pbc['border']};">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
-                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+              <td colspan="2" bgcolor="{_pbc['band']}" style="background-color:{_pbc['band']};
+                  padding:6px 16px;border-bottom:1px solid {_pbc['border']};">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                    color:{_pbc['label']};text-transform:uppercase;letter-spacing:0.5px;">
                   Impact on the Lake This Week
                 </p>
               </td>
             </tr>
             <tr>
-              <td width="50%" style="background:#fef2f2;padding:10px 16px;
-                  border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;vertical-align:top;">
+              <td width="50%" style="background:{_pbc['bg']};padding:10px 16px;
+                  border-right:1px solid {_pbc['border']};border-bottom:1px solid {_pbc['border']};vertical-align:top;">
                 <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;">Rainfall Added to Lake</p>
+                    color:{_pbc['label']};text-transform:uppercase;">Rainfall Added to Lake</p>
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#1b2631;line-height:1.6;">
                   {rain_7:.1f}&nbsp;mm rain &times; {_lk_area_km2:.2f}&nbsp;km&sup2; lake<br>
                   <strong>= {rain_on_lake_ml:.1f}&nbsp;ML added</strong>
                 </p>
               </td>
-              <td width="50%" style="background:#fef2f2;padding:10px 16px;
-                  border-bottom:1px solid #fca5a5;vertical-align:top;">
+              <td width="50%" style="background:{_pbc['bg']};padding:10px 16px;
+                  border-bottom:1px solid {_pbc['border']};vertical-align:top;">
                 <p style="margin:0 0 3px 0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;">Evaporation Lost from Lake</p>
+                    color:{_pbc['label']};text-transform:uppercase;">Evaporation Lost from Lake</p>
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#1b2631;line-height:1.6;">
                   {_evap_mm_day:.2f}&nbsp;mm/day (sun &amp; wind) &times; 7&nbsp;days<br>
                   <strong>= {_weekly_evap_ml:.1f}&nbsp;ML lost</strong> (always occurs)
@@ -1690,40 +1897,40 @@ def build_html(now_syd):
               </td>
             </tr>
             <tr>
-              <td colspan="2" style="background:#fff5f5;padding:8px 16px;
-                  border-bottom:1px solid #fca5a5;">
-                <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#7f1d1d;">
+              <td colspan="2" style="background:{_pbc['soft']};padding:8px 16px;
+                  border-bottom:1px solid {_pbc['border']};">
+                <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:{_pbc['net']};">
                   <strong>Net: {_net_lake_str}</strong>
                 </p>
               </td>
             </tr>{_sensor_row}
             <tr>
-              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
-                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+              <td colspan="2" bgcolor="{_pbc['band']}" style="background-color:{_pbc['band']};
+                  padding:6px 16px;border-bottom:1px solid {_pbc['border']};">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                    color:{_pbc['label']};text-transform:uppercase;letter-spacing:0.5px;">
                   Impact on Course Irrigation This Week
                 </p>
               </td>
             </tr>
             <tr>
-              <td colspan="2" style="background:#fff5f5;padding:10px 16px;
-                  border-bottom:1px solid #fca5a5;">
+              <td colspan="2" style="background:{_pbc['soft']};padding:10px 16px;
+                  border-bottom:1px solid {_pbc['border']};">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
                     color:#1b2631;line-height:1.7;">{_course_html}</p>
               </td>
             </tr>
             <tr>
-              <td colspan="2" bgcolor="#fee2e2" style="background-color:#fee2e2;
-                  padding:6px 16px;border-bottom:1px solid #fca5a5;">
+              <td colspan="2" bgcolor="{_pbc['band']}" style="background-color:{_pbc['band']};
+                  padding:6px 16px;border-bottom:1px solid {_pbc['border']};">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                    color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">
+                    color:{_pbc['label']};text-transform:uppercase;letter-spacing:0.5px;">
                   What This Means for the Club
                 </p>
               </td>
             </tr>
             <tr>
-              <td colspan="2" style="background:#fff5f5;padding:10px 16px;">
+              <td colspan="2" style="background:{_pbc['soft']};padding:10px 16px;">
                 <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;
                     color:#1b2631;line-height:1.7;">{_fin_html}</p>
               </td>
@@ -1736,27 +1943,27 @@ def build_html(now_syd):
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;margin-top:8px;">
   <tr>
-    <td style="padding:0;border:1px solid #fca5a5;border-left:4px solid #b83c3c;">
+    <td style="padding:0;border:1px solid {_pbc['border']};border-left:4px solid {_pbc['accent']};">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td width="50%" style="background:#fef2f2;padding:12px 16px;
-              border-right:1px solid #fca5a5;vertical-align:top;">
+          <td width="50%" style="background:{_pbc['bg']};padding:12px 16px;
+              border-right:1px solid {_pbc['border']};vertical-align:top;">
             <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">Projected Cease Date</p>
+                color:{_pbc['label']};text-transform:uppercase;letter-spacing:0.5px;">Projected Cease Date</p>
             <p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:20px;
-                font-weight:700;color:#b83c3c;">{_pb_date_html}</p>
+                font-weight:700;color:{_pbc['big']};">{_pb_date_html}</p>
             <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
-                color:#991b1b;">{_pb_days_html}</p>
+                color:{_pbc['label']};">{_pb_days_html}</p>
             {f'<p style="margin:3px 0 0 0;font-family:Arial,sans-serif;font-size:10px;color:#b45309;">{_pb_move_html}</p>' if _pb_move_html else ''}
             {f'<p style="margin:5px 0 0 0;font-family:Arial,sans-serif;font-size:10px;color:#1e8449;">{_pb_measured_html}</p>' if _pb_measured_html else ''}
           </td>
-          <td width="50%" style="background:#fef2f2;padding:12px 16px;vertical-align:top;">
+          <td width="50%" style="background:{_pbc['bg']};padding:12px 16px;vertical-align:top;">
             <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;font-weight:700;
-                color:#991b1b;text-transform:uppercase;letter-spacing:0.5px;">Est. Town Water Cost</p>
+                color:{_pbc['label']};text-transform:uppercase;letter-spacing:0.5px;">Est. Town Water Cost</p>
             <p style="margin:4px 0 2px 0;font-family:Arial,sans-serif;font-size:20px;
-                font-weight:700;color:#b83c3c;">{_pb_cost_str}</p>
+                font-weight:700;color:{_pbc['big']};">{_pb_cost_str}</p>
             <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
-                color:#991b1b;">{_pb_cost_sub}</p>
+                color:{_pbc['label']};">{_pb_cost_sub}</p>
           </td>
         </tr>{_rain_row}
       </table>
@@ -2125,6 +2332,7 @@ def build_html(now_syd):
     </td>
   </tr>
 </table>""" if tank_chart else '')
+        + tank_week_table
         + _card_close()
 
         # ── Weather section ────────────────────────────────────────────────────
@@ -2673,6 +2881,34 @@ def build_monthly_html(now_syd):
     # ── Chart ─────────────────────────────────────────────────────────────────
     lake_chart = _month_lake_chart(readings_raw, month_start, month_end, zone_cfg)
 
+    # ── Month-span lake movement table + tank graph/table (whole reporting month)
+    wx_month      = [r for r in wx_rows if ms_iso <= str(r.get('date', ''))[:10] <= me_iso]
+    month_dl_rows = _build_daily_lake_rows(wx_month)
+    lake_month_table = (_daily_lake_table(month_dl_rows, f'Daily Lake Movement - {month_label}')
+                        if month_dl_rows else '')
+    tank_month_chart = _tank_chart_range(tank_readings, month_start, month_end)
+    tank_month_table = _tank_daily_table(tank_readings, month_start, month_end,
+                                         f'Daily Tank Movement - {month_label}')
+
+    # Current tank state + month net change (first vs last reading in the month).
+    tank_pct   = tank.get('tank_pct')
+    tank_vol_l = tank.get('tank_volume_l')
+    tank_cap_l = tank.get('tank_total_volume') or 250000
+    _tm = sorted([r for r in tank_readings
+                  if ms_iso <= _syd_date(r.get('date', '')) <= me_iso
+                  and r.get('volume_l') is not None],
+                 key=lambda r: r['date'])
+    if len(_tm) >= 2:
+        _tchg = float(_tm[-1]['volume_l']) - float(_tm[0]['volume_l'])
+        if _tchg < 0:
+            tank_month_str, tank_month_sub, tank_month_col = (
+                f'{abs(_tchg):,.0f}&nbsp;L used', f'net drawdown ({abs(_tchg)/1000:.1f}&nbsp;kL)', _HDR_BG)
+        else:
+            tank_month_str, tank_month_sub, tank_month_col = (
+                f'+{_tchg:,.0f}&nbsp;L', f'net gain ({_tchg/1000:.1f}&nbsp;kL)', '#00762A')
+    else:
+        tank_month_str, tank_month_sub, tank_month_col = '-', 'insufficient data', '#64748b'
+
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _fmt_ahd(v):
         return f'{v:.3f}&nbsp;m&nbsp;AHD' if v is not None else '-'
@@ -2804,8 +3040,41 @@ def build_monthly_html(now_syd):
     </td>
   </tr>
 </table>"""
+        + lake_month_table
         + _card_close()
     )
+
+    # 3b. Water Tank card (whole month: graph + daily movement table)
+    tank_pct_str = f'{tank_pct:.1f}%' if tank_pct is not None else '-'
+    tank_vol_str = (f'{tank_vol_l:,.0f}&nbsp;L&nbsp;({tank_vol_l/1000:.1f}&nbsp;kL)'
+                    if tank_vol_l is not None else '-')
+    tank_cap_str = f'{tank_cap_l:,.0f}&nbsp;L&nbsp;({tank_cap_l/1000:.0f}&nbsp;kL)'
+    body += (
+        _card_open(f'Water Tank - {month_label}')
+        + f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr>
+    {_stat_cell(25, _ROW_A, 'Tank Level Now', tank_pct_str, 'current fill')}
+    {_stat_cell(25, _ROW_B, 'Water Available',
+        f'<span style="font-size:14px;">{tank_vol_str}</span>', 'in tank now')}
+    {_stat_cell(25, _ROW_A, f'{month_label[:3]} Change',
+        f'<span style="color:{tank_month_col};">{tank_month_str}</span>', tank_month_sub)}
+    {_stat_cell(25, _ROW_B, 'Total Capacity',
+        f'<span style="font-size:14px;">{tank_cap_str}</span>', 'tank capacity')}
+  </tr>
+</table>"""
+        + (f"""
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;margin-top:8px;">
+  <tr><td style="background:#0d1b2a;padding:12px;">{tank_month_chart}</td></tr>
+</table>""" if tank_month_chart else '')
+        + tank_month_table
+        + _card_close()
+    )
+
+    # 3c. Season Outlook - Estimated vs Actual (plan-vs-actual chart + tiles)
+    body += _season_outlook_panel(now_syd, ahd, cease_date, readings_raw)
 
     # 4. Water cost & savings card
     irrig_note = ('<p style="margin:8px 12px 0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;">'
