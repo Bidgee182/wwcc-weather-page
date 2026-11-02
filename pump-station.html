@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.12';
+const PUMP_VERSION = '4.13';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2852,9 +2852,9 @@ async function renderPerfCharts() {
         const tkMax = tkVals.length ? Math.min(100, Math.ceil( Math.max(...tkVals)) + 5) : 100;
 
         const opts = JSON.parse(JSON.stringify(CHART_OPT_BASE));
-        // Two datasets with very different x-densities: use 'x' mode so each
-        // dataset finds its own nearest point rather than matching by array index
-        opts.interaction = { mode:'x', intersect:false, axis:'x' };
+        // Keep the default 'index' interaction: the tank level is aligned onto the
+        // pressure minute grid below, so a shared index pairs one point per dataset.
+        // ('x' mode returned two points of the dense pressure line and dropped tank.)
         opts.scales.y.min = 0;
         opts.scales.y.ticks.callback = v => v.toFixed(0)+' bar';
         opts.scales.y1 = {
@@ -2874,14 +2874,25 @@ async function renderPerfCharts() {
             label: ctx => {
                 if (ctx.datasetIndex===0) return ' Pressure: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(2)+' bar':'--');
                 return ' Tank: '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'--');
-            }
+            },
+            labelColor: ctx => ({ borderColor: ctx.dataset.borderColor, backgroundColor: ctx.dataset.borderColor }),
         };
+        // Align the sparse (hourly) farmbot tank readings onto the pressure minute grid
+        // by forward-fill, so the two datasets share an index (tooltip pairs them) and
+        // the tank value holds steady between readings instead of tracking the cursor.
+        let _fi = 0;
+        const tankAligned = pts.map(r => {
+            const t = tsMs(r);
+            while (_fi + 1 < fbPts.length && fbPts[_fi + 1].x <= t) _fi++;
+            const w = fbPts[_fi];
+            return { x: t, y: (w && w.x <= t) ? w.y : null };
+        });
         const ds = [
             { label:'Discharge Pressure (bar)', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
               borderColor:'#e67e22', backgroundColor:'transparent',
               borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:5,
               fill:false, spanGaps:true, yAxisID:'y' },
-            { label:'Supply Tank Level (%)', data: fbPts,
+            { label:'Supply Tank Level (%)', data: tankAligned,
               borderColor:'rgba(39,174,96,.9)', backgroundColor:'transparent',
               borderWidth:2, tension:0.3, pointRadius:0, pointHoverRadius:5,
               fill:false, spanGaps:true, yAxisID:'y1' },
@@ -2898,9 +2909,15 @@ async function renderPerfCharts() {
         { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
     ];
     if (wnFlow.length) {
-        // Same axis as pump flow on purpose: comparing metered extraction against pump
-        // output side by side is the whole point of the overlay.
-        flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnFlow,
+        // Align the hourly metered rate onto the pump-flow minute grid (one value per
+        // hour bucket) so the two datasets share an index: the tooltip then lists BOTH
+        // lines and the metered value reads flat across each hour (its real resolution)
+        // instead of tracking the cursor. Same axis as pump flow for a direct compare.
+        const HOUR = 3600000;
+        const wnByHour = new Map(wnFlow.map(p => [Math.floor(p.x / HOUR), p.y]));
+        const wnAligned = pts.map(r => { const t = tsMs(r); const k = Math.floor(t / HOUR);
+            return { x: t, y: wnByHour.has(k) ? wnByHour.get(k) : null }; });
+        flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnAligned,
             borderColor:'#9b59b6', stepped:true, thin:true, noHover:false });
     }
     renderLineChart('c-flow', noData, pts, flowDatasets, v=>v!=null?v.toFixed(1)+' m³/h':null);
@@ -2989,7 +3006,8 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     opts.scales.x.ticks.callback = v => fmtChartTime(new Date(v).toISOString(), perfRangeH);
     opts.plugins.tooltip.callbacks = {
         title: ctxArr => ctxArr.length ? fmtTooltipTime(new Date(ctxArr[0].parsed.x).toISOString()) : '',
-        label: ctx => { const v = tooltipFmt ? tooltipFmt(ctx.parsed.y) : null; return v ? ' '+ctx.dataset.label+': '+v : null; }
+        label: ctx => { const v = tooltipFmt ? tooltipFmt(ctx.parsed.y) : null; return v ? ' '+ctx.dataset.label+': '+v : null; },
+        labelColor: ctx => ({ borderColor: ctx.dataset.borderColor, backgroundColor: ctx.dataset.borderColor }),
     };
 
     const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
@@ -3008,14 +3026,6 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         spanGaps: true,
         stepped: d.stepped || false,
     }));
-
-    // Datasets of differing density (e.g. the sparse hourly WaterNSW line over the
-    // 1-minute pump flow) need 'x' interaction so the tooltip finds each series' own
-    // nearest point by x, instead of matching a shared array index that the sparse
-    // series has no entry for (which left it out of the hover tooltip).
-    if (ds.length > 1 && new Set(ds.map(d => (d.data || []).length)).size > 1) {
-        opts.interaction = { mode: 'x', intersect: false, axis: 'x' };
-    }
 
     if (charts[canvasId]) { charts[canvasId].destroy(); }
     charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
