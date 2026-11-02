@@ -12,7 +12,7 @@ Required env vars:
   EMAIL_FROM
   PUMP_EMAIL_RECIPIENTS  (comma-separated addresses)
 """
-import json, logging, os, re, sys
+import csv, json, logging, os, re, sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -34,6 +34,9 @@ LATEST_FILE = DATA_DIR / 'pump_station_latest.json'
 DAILY_FILE  = DATA_DIR / 'pump_station_daily.json'
 ALARM_FILE  = DATA_DIR / 'pump_alarm_history.json'
 EMCFG_FILE  = DATA_DIR / 'email_config.json'
+HISTORY_FILE    = DATA_DIR / 'pump_station_history.json'
+WATER_USAGE_FILE = DATA_DIR / 'water_usage.json'
+DAILY_LOG_FILE  = DATA_DIR / 'daily_log.csv'
 
 PUMP_PAGE_URL  = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
 LOGO_URL       = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
@@ -167,9 +170,230 @@ def active_alarms_from_latest(latest):
     return list(by_code.values())
 
 
-def build_html(day_data, latest, period_label, alarms_24h, active_now=None):
+def water_pumped(d_from, d_to):
+    """Irrigation water drawn in [d_from, d_to], split by source:
+      lake_ml - WaterNSW-metered dam extraction (corrected meter, ML)
+      tank_l  - tank drawdown from the daily log's tank_used_l (litres)
+    1 ML = 1,000,000 L, so total_ml = lake_ml + tank_l/1e6."""
+    f, t = d_from.isoformat(), d_to.isoformat()
+    wu = load_json(WATER_USAGE_FILE, {})
+    lake_ml = round(sum(ml for d, ml in (wu.get('daily') or []) if f <= d <= t), 3)
+    tank_l = 0.0
+    try:
+        with open(DAILY_LOG_FILE, encoding='utf-8') as fh:
+            for r in csv.DictReader(fh):
+                d = (r.get('date') or '')[:10]
+                if f <= d <= t:
+                    try:
+                        tank_l += float(r.get('tank_used_l') or 0)
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+    return lake_ml, tank_l
+
+
+def _hist_readings(d_from, d_to):
+    """pump_station_history readings whose Sydney date is in [d_from, d_to],
+    returned as (sydney_datetime, reading) and oldest-first."""
+    h = load_json(HISTORY_FILE, {})
+    rows = h.get('readings') if isinstance(h, dict) else (h or [])
+    f, t = d_from.isoformat(), d_to.isoformat()
+    out = []
+    for r in rows:
+        try:
+            dt = datetime.fromisoformat(str(r['ts']).replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+        except Exception:
+            continue
+        if f <= dt.date().isoformat() <= t:
+            out.append((dt, r))
+    out.sort(key=lambda x: x[0])
+    return out
+
+
+def overnight_pressure(readings):
+    """Average discharge pressure vs setpoint during night hours (19:00-07:00
+    Sydney, when the course irrigates) while at least one pump is running."""
+    pa, ps = [], []
+    for dt, r in readings:
+        night = dt.hour >= 19 or dt.hour < 7
+        if night and (r.get('nr') or 0) > 0:
+            if r.get('pa') is not None:
+                pa.append(r['pa'])
+            if r.get('ps') is not None:
+                ps.append(r['ps'])
+    if not pa:
+        return None
+    avg_pa = sum(pa) / len(pa)
+    avg_ps = (sum(ps) / len(ps)) if ps else None
+    return {'avg_pa': round(avg_pa, 2),
+            'avg_ps': round(avg_ps, 2) if avg_ps is not None else None,
+            'n': len(pa),
+            'deficit': round(avg_ps - avg_pa, 2) if avg_ps is not None else None}
+
+
+def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, days):
+    """All the health + water figures for the period, plus an overall verdict."""
+    f, t = d_from.isoformat(), d_to.isoformat()
+    lake_ml, tank_l = water_pumped(d_from, d_to)
+    total_ml = round(lake_ml + tank_l / 1e6, 3)
+
+    readings = _hist_readings(d_from, d_to)
+    press = overnight_pressure(readings)
+
+    # Per-pump run hours and energy summed from the daily rollups (per-day deltas,
+    # same source as the run-hours table).
+    run_hours = [0.0, 0.0, 0.0, 0.0]
+    kwh = 0.0
+    for d in days:
+        if not (f <= (d.get('date') or '') <= t):
+            continue
+        for i, h in enumerate((d.get('hrs') or [])[:4]):
+            run_hours[i] += h or 0
+        kwh += sum(v for v in (d.get('kwh') or []) if v)
+    run_hours = [round(x, 1) for x in run_hours]
+    kwh = round(kwh)
+
+    # Starts per pump: st[] is a cumulative "starts today" meter that resets at
+    # midnight, so each Sydney day's total is the day's MAX; sum those per pump
+    # (the daily rollup's sts field is not populated).
+    daymax = {}
+    for dt, r in readings:
+        st = r.get('st')
+        if not st:
+            continue
+        cur = daymax.setdefault(dt.date().isoformat(), [0, 0, 0, 0])
+        for i in range(min(4, len(st))):
+            if st[i] is not None and st[i] > cur[i]:
+                cur[i] = st[i]
+    starts = [0, 0, 0, 0]
+    for v in daymax.values():
+        for i in range(4):
+            starts[i] += v[i]
+    kwh_per_ml = round(kwh / lake_ml) if lake_ml > 0 else None
+
+    # Low-flow stops (SystemFunction 'activated') - frequent cycling can mean a
+    # leak or zero-demand running; counted from the RAW events before filtering.
+    low_flow = 0
+    for e in raw_events:
+        if e.get('source_name') == 'SystemFunction' and e.get('type_code') == 3 \
+                and 'Stop' in (e.get('type_name') or ''):
+            try:
+                dt = datetime.fromisoformat(e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+            except Exception:
+                continue
+            if f <= dt.date().isoformat() <= t:
+                low_flow += 1
+
+    alarms_count = sum(1 for e in alarms_period if e.get('type_code') == 1)
+    total_starts = sum(starts)
+
+    # Overall verdict: struggling if a fault is active, pressure is well under
+    # setpoint, or alarms are many; watch for milder signs. Low-flow stops and
+    # starts are normal operation, so they only flag at high per-day rates.
+    days_n = max((d_to - d_from).days + 1, 1)
+    bad, warn = [], []
+    if active_now:
+        bad.append(f"{len(active_now)} active fault(s)")
+    if press and press.get('deficit') is not None and press['deficit'] >= 0.5:
+        bad.append(f"overnight pressure {press['deficit']:.1f} bar under setpoint")
+    elif press and press.get('deficit') is not None and press['deficit'] >= 0.25:
+        warn.append("overnight pressure slightly under setpoint")
+    if alarms_count >= 8:
+        bad.append(f"{alarms_count} alarms")
+    elif alarms_count >= 3:
+        warn.append(f"{alarms_count} alarms")
+    if low_flow / days_n >= 8:
+        warn.append(f"{low_flow} low-flow stops (frequent cycling)")
+    if bad:
+        verdict = ('struggling', '#c0392b', 'Needs attention: ' + '; '.join(bad + warn))
+    elif warn:
+        verdict = ('watch', '#e67e22', 'Mostly OK, worth a look: ' + '; '.join(warn))
+    else:
+        verdict = ('healthy', '#27ae60', 'Running normally - pressure held and no significant alarms.')
+
+    return {
+        'lake_ml': lake_ml, 'tank_l': tank_l, 'total_ml': total_ml,
+        'press': press, 'run_hours': run_hours, 'starts': starts, 'total_starts': total_starts,
+        'kwh': kwh, 'kwh_per_ml': kwh_per_ml, 'low_flow': low_flow,
+        'alarms_count': alarms_count, 'active_count': len(active_now),
+        'setpoint': (latest.get('system') or {}).get('pressure_setpoint_bar'),
+        'verdict': verdict,
+    }
+
+
+def _metrics_html(m):
+    """Render the Water / Pressure / Health section from gather_metrics()."""
+    v_name, v_col, v_text = m['verdict']
+    tank_kl = m['tank_l'] / 1000.0
+
+    def tile(label, value, sub):
+        return (f'<td width="33%" style="padding:10px 14px;vertical-align:top;'
+                f'border:1px solid #eee;">'
+                f'<div style="font-family:Arial,sans-serif;font-size:11px;color:#888;'
+                f'text-transform:uppercase;letter-spacing:.4px;">{label}</div>'
+                f'<div style="font-family:Arial,sans-serif;font-size:19px;font-weight:bold;'
+                f'color:#003366;margin:3px 0 1px;">{value}</div>'
+                f'<div style="font-family:Arial,sans-serif;font-size:11px;color:#999;">{sub}</div></td>')
+
+    # Pressure tile
+    if m['press']:
+        p = m['press']
+        if p['avg_ps'] is not None:
+            pcol = '#27ae60' if (p['deficit'] or 0) < 0.25 else ('#e67e22' if p['deficit'] < 0.5 else '#c0392b')
+            press_val = f'<span style="color:{pcol};">{p["avg_pa"]:.2f} bar</span>'
+            press_sub = f'setpoint {p["avg_ps"]:.2f} bar ({"+" if -p["deficit"]>=0 else ""}{-p["deficit"]:.2f})'
+        else:
+            press_val = f'{p["avg_pa"]:.2f} bar'
+            press_sub = 'setpoint n/a'
+    else:
+        press_val, press_sub = '-', 'no overnight pumping recorded'
+
+    # Water tiles
+    water = (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>'
+        + tile('Water Pumped (total)', f'{m["total_ml"]:.2f} ML', 'lake meter + tank')
+        + tile('From Lake (metered)', f'{m["lake_ml"]:.2f} ML', 'WaterNSW compliance meter')
+        + tile('From Tank', f'{tank_kl:,.0f} kL', f'{m["tank_l"]/1e6:.3f} ML equivalent')
+        + '</tr></table>')
+
+    # Performance tiles
+    eff_sub = (f'{m["kwh_per_ml"]:,} kWh per ML' if m['kwh_per_ml'] else 'no metered flow')
+    perf = (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:6px;"><tr>'
+        + tile('Overnight Pressure', press_val, press_sub)
+        + tile('Energy Used', f'{m["kwh"]:,} kWh', eff_sub)
+        + tile('Pump Starts', f'{m["total_starts"]:,}', f'{m["alarms_count"]} alarm(s), {m["low_flow"]} low-flow stops')
+        + '</tr></table>')
+
+    # Run-hour split
+    rh = ''
+    if m['run_hours'] and any(m['run_hours']):
+        parts = []
+        for i, h in enumerate(m['run_hours']):
+            parts.append(f'{PUMP_LABELS[i]} {h:.1f} h')
+        rh = ('<div style="font-family:Arial,sans-serif;font-size:12px;color:#666;'
+              'padding:8px 2px 0;">Run hours this period: ' + ' &middot; '.join(parts) + '</div>')
+
+    verdict_box = (
+        f'<div style="margin:0 0 10px;padding:10px 14px;border-radius:4px;'
+        f'background:{v_col}14;border-left:4px solid {v_col};">'
+        f'<span style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:{v_col};">'
+        f'Pump status: {v_name.upper()}</span>'
+        f'<span style="font-family:Arial,sans-serif;font-size:12px;color:#555;"> - {v_text}</span></div>')
+
+    return (
+        '<table width="100%" cellpadding="0" cellspacing="0">'
+        f'{_section_heading("Water & Pump Health")}'
+        '<tr><td style="padding:0 32px 4px;">'
+        f'{verdict_box}{water}{perf}{rh}'
+        '</td></tr></table>')
+
+
+def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metrics=None):
     date_label = period_label
     active_now = active_now or []
+    metrics_html = _metrics_html(metrics) if metrics else ''
 
     p_min    = day_data.get('p_min')
     p_max    = day_data.get('p_max')
@@ -322,6 +546,9 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None):
 </td></tr>
 </table>
 
+<!-- Water & Pump Health -->
+{metrics_html}
+
 <!-- Alarms -->
 {active_html}
 <table width="100%" cellpadding="0" cellspacing="0">
@@ -425,48 +652,58 @@ def aggregate_week(days, start_date, end_date):
     return agg, len(in_range)
 
 
+def _alarms_in(all_events, d_from, d_to):
+    """Real alarm events whose Sydney time falls in [d_from, d_to], oldest-first."""
+    f = datetime(d_from.year, d_from.month, d_from.day, tzinfo=SYDNEY_TZ)
+    t = datetime(d_to.year, d_to.month, d_to.day, tzinfo=SYDNEY_TZ) + timedelta(days=1)
+    out = []
+    for e in all_events:
+        try:
+            ts = datetime.fromisoformat(e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+            if f <= ts < t:
+                out.append(e)
+        except Exception:
+            pass
+    out.sort(key=lambda e: e.get('timestamp_iso', ''))
+    return out
+
+
+def build_period_html(d_from, d_to, period_label, days, latest, raw_events):
+    """Assemble one pump summary (weekly or monthly) for [d_from, d_to]."""
+    day_data, _ = aggregate_week(days, d_from, d_to)
+    alarms = _alarms_in(real_alarm_events(raw_events), d_from, d_to)
+    active_now = active_alarms_from_latest(latest)
+    metrics = gather_metrics(d_from, d_to, latest, raw_events, alarms, active_now, days)
+    return build_html(day_data or {}, latest, period_label, alarms, active_now, metrics)
+
+
 def main():
+    monthly = '--monthly' in sys.argv or os.environ.get('PUMP_MONTHLY', 'false').lower() == 'true'
+
     if not FORCE_SEND and not TEST_SEND and not daily_enabled():
         log.info('pump_daily disabled in email_config.json - skipping.')
         return
 
-    now_syd    = datetime.now(tz=SYDNEY_TZ)
-    week_end   = (now_syd - timedelta(days=1)).date()    # yesterday (Sunday)
-    week_start = week_end - timedelta(days=6)            # previous Monday
+    now_syd = datetime.now(tz=SYDNEY_TZ)
+    days       = load_json(DAILY_FILE, {}).get('days', [])
+    latest     = load_json(LATEST_FILE, {})
+    raw_events = (load_json(ALARM_FILE, {}) or {}).get('events', [])
 
-    # Weekly stats aggregated from the daily rollups
-    daily_data      = load_json(DAILY_FILE, {})
-    days            = daily_data.get('days', [])
-    day_data, ndays = aggregate_week(days, week_start, week_end)
-    if not day_data:
-        log.warning(f'No daily data for {week_start}..{week_end} - using empty defaults.')
-        day_data = {}
-
-    latest      = load_json(LATEST_FILE, {})
-    alarms_data = load_json(ALARM_FILE, {})
-    all_events  = real_alarm_events(alarms_data.get('events', []))
-
-    # Real alarms across the week (Sydney local); Low-Flow churn already removed
-    w_start = datetime(week_start.year, week_start.month, week_start.day, tzinfo=SYDNEY_TZ)
-    w_end   = datetime(week_end.year, week_end.month, week_end.day, tzinfo=SYDNEY_TZ) + timedelta(days=1)
-    alarms_week = []
-    for e in all_events:
-        try:
-            ts = datetime.fromisoformat(
-                e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
-            if w_start <= ts < w_end:
-                alarms_week.append(e)
-        except Exception:
-            pass
-    alarms_week.sort(key=lambda e: e.get('timestamp_iso', ''))
-    active_now = active_alarms_from_latest(latest)
-
-    if week_start.month == week_end.month:
-        period_label = f"{week_start.strftime('%-d')} - {week_end.strftime('%-d %B %Y')}"
+    if monthly:
+        d_to   = now_syd.date().replace(day=1) - timedelta(days=1)   # last day of prior month
+        d_from = d_to.replace(day=1)                                 # first day of prior month
+        period_label = d_from.strftime('%B %Y')
+        subject = f'Pump Station Monthly Summary - {period_label}'
     else:
-        period_label = f"{week_start.strftime('%-d %b')} - {week_end.strftime('%-d %b %Y')}"
-    subject = f'Pump Station Weekly Summary - {period_label}'
-    html    = build_html(day_data, latest, period_label, alarms_week, active_now)
+        d_to   = (now_syd - timedelta(days=1)).date()                # yesterday (Sunday)
+        d_from = d_to - timedelta(days=6)                            # previous Monday
+        if d_from.month == d_to.month:
+            period_label = f"{d_from.strftime('%-d')} - {d_to.strftime('%-d %B %Y')}"
+        else:
+            period_label = f"{d_from.strftime('%-d %b')} - {d_to.strftime('%-d %b %Y')}"
+        subject = f'Pump Station Weekly Summary - {period_label}'
+
+    html = build_period_html(d_from, d_to, period_label, days, latest, raw_events)
     send_email(subject, html)
 
 
