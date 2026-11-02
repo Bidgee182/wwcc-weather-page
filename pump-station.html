@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.14';
+const PUMP_VERSION = '4.15';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2912,7 +2912,7 @@ async function renderPerfCharts() {
     // Flow - pump output, plus the WaterNSW compliance meter (hourly) when present.
     const wnFlow = waterNswSeries();
     const flowDatasets = [
-        { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
+        { label:'Pump Flow - estimated (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
     ];
     if (wnFlow.length) {
         // Align the hourly metered rate onto the pump-flow minute grid (one value per
@@ -2923,7 +2923,7 @@ async function renderPerfCharts() {
         const wnByHour = new Map(wnFlow.map(p => [Math.floor(p.x / HOUR), p.y]));
         const wnAligned = pts.map(r => { const t = tsMs(r); const k = Math.floor(t / HOUR);
             return { x: t, y: wnByHour.has(k) ? wnByHour.get(k) : null }; });
-        flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnAligned,
+        flowDatasets.push({ label:'WaterNSW - actual (m³/h)', data: wnAligned,
             borderColor:'#9b59b6', stepped:true, thin:true, noHover:false });
     }
     renderLineChart('c-flow', noData, pts, flowDatasets, v=>v!=null?v.toFixed(1)+' m³/h':null);
