@@ -49,6 +49,13 @@ SUPA_KEY = os.environ.get('SUPABASE_KEY') or (
 # The greenkeeper mailbox - alarm "emailed?" status reflects alerts that reached it.
 GREENKEEPER_ADDR = os.environ.get('PUMP_GK_ADDR', 'greenshed@wwcc.com.au').lower()
 
+# Overnight pressure-dip thresholds (a small loss at the pump multiplies out to the
+# last sprinkler, so overnight pressure matters). A "missed irrigation event" is a
+# sustained collapse; a "dip" is a milder shortfall under the setpoint.
+MISSED_BAR = 4.5     # pressure below this ...
+MISSED_MIN = 5       # ... for more than this many minutes = a missed irrigation event
+DIP_UNDER_BAR = 1.0  # more than this many bar under setpoint counts as a dip
+
 PUMP_PAGE_URL  = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
 LOGO_URL       = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
 PUMP_LABELS    = ['P1', 'P2', 'P3', 'Jockey']
@@ -404,6 +411,102 @@ def overnight_pressure_chart(readings, setpoint):
             f' style="display:block;border-radius:4px;max-width:100%;border:1px solid #eee;">')
 
 
+def _dip_runs(pump, pred):
+    """Lengths (minutes) of consecutive runs where pred(pressure) holds, allowing a
+    small data gap (<=3 min) within a run. pump is [(syd_dt, pa, setpoint)]."""
+    runs, cur, prev = [], 0, None
+    for t, pa, _ in pump:
+        if pred(pa) and prev is not None and (t - prev).total_seconds() <= 180:
+            cur += 1
+        elif pred(pa):
+            if cur:
+                runs.append(cur)
+            cur = 1
+        else:
+            if cur:
+                runs.append(cur)
+            cur = 0
+        prev = t
+    if cur:
+        runs.append(cur)
+    return runs
+
+
+def _night_dip_stats(morning):
+    """Overnight (7pm the prior evening to 7am on `morning`) pressure stats, from
+    1-minute pump_stats_v2. The night is labelled by its MORNING date (how the
+    irrigation that finishes at dawn is referred to).
+
+    A MISSED IRRIGATION EVENT is pressure below MISSED_BAR for more than MISSED_MIN
+    minutes anywhere in the window - counted over ALL minutes, not just pumping ones,
+    because a pump fault/shutdown means the pumps are not running at all and pressure
+    collapses (e.g. ~0.7 bar all night). Pressure DIPS (a milder shortfall more than
+    DIP_UNDER_BAR under setpoint) are measured only while the main pumps are running,
+    since a dip is about delivery pressure during active irrigation."""
+    ev = morning - timedelta(days=1)
+    lo = datetime(ev.year, ev.month, ev.day, 19, 0, tzinfo=SYDNEY_TZ).astimezone(timezone.utc)
+    hi = datetime(morning.year, morning.month, morning.day, 7, 0, tzinfo=SYDNEY_TZ).astimezone(timezone.utc)
+    q = ('select=ts,pressure_avg,p1_run_secs,p2_run_secs,p3_run_secs,setpoint_bar'
+         f'&ts=gte.{urllib.parse.quote(lo.isoformat())}&ts=lt.{urllib.parse.quote(hi.isoformat())}'
+         '&order=ts.asc&limit=1000')
+    rows = _supa('pump_stats_v2', q)
+    allp, pump = [], []
+    sp = 7.8
+    for r in rows:
+        pa = r.get('pressure_avg')
+        if pa is None:
+            continue
+        t = datetime.fromisoformat(r['ts'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+        sp = r.get('setpoint_bar') or sp
+        allp.append((t, pa, sp))
+        run = (r.get('p1_run_secs') or 0) + (r.get('p2_run_secs') or 0) + (r.get('p3_run_secs') or 0)
+        if run > 30:
+            pump.append((t, pa, sp))
+    if not allp:
+        return None
+    thr = sp - DIP_UNDER_BAR
+    under_runs = _dip_runs(pump, lambda pa: pa < thr)
+    miss_runs = _dip_runs(allp, lambda pa: pa < MISSED_BAR)
+    return {
+        'night': morning.isoformat(),
+        'lowest': round(min(p[1] for p in allp), 2),
+        'pumpmin': len(pump),
+        'under': sum(under_runs),
+        'longest': max(under_runs) if under_runs else 0,
+        'missed': 1 if any(r > MISSED_MIN for r in miss_runs) else 0,
+        'sp': sp,
+    }
+
+
+def overnight_dip_stats(d_from, d_to):
+    """Per-night overnight pressure stats across the period (nights labelled by
+    morning date, so a report for [d_from, d_to] covers the irrigation finishing on
+    each of those mornings), plus totals. None if Supabase is unavailable / no data."""
+    per, d = [], d_from
+    try:
+        while d <= d_to:
+            s = _night_dip_stats(d)
+            if s:
+                per.append(s)
+            d += timedelta(days=1)
+    except Exception as e:
+        log.warning(f'overnight dip stats failed: {e}')
+        return None
+    if not per:
+        return None
+    worst = max(per, key=lambda p: p['longest'])
+    return {
+        'per_night': per,
+        'total_under': sum(p['under'] for p in per),
+        'missed': sum(p['missed'] for p in per),
+        'longest': worst['longest'],
+        'longest_night': worst['night'],
+        'longest_low': worst['lowest'],
+        'lowest': round(min(p['lowest'] for p in per), 2),
+        'setpoint': per[0]['sp'],
+    }
+
+
 def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, days):
     """All the health + water figures for the period, plus an overall verdict."""
     f, t = d_from.isoformat(), d_to.isoformat()
@@ -412,6 +515,7 @@ def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, 
 
     readings = _hist_readings(d_from, d_to)
     press = overnight_pressure(readings)
+    dips = overnight_dip_stats(d_from, d_to)
 
     # Per-pump run hours and energy summed from the daily rollups (per-day deltas,
     # same source as the run-hours table).
@@ -470,6 +574,8 @@ def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, 
     bad, warn = [], []
     if active_now:
         bad.append(f"{len(active_now)} active fault(s)")
+    if dips and dips.get('missed'):
+        bad.append(f"{dips['missed']} missed irrigation night(s)")
     if press and press.get('deficit') is not None and press['deficit'] >= 0.5:
         bad.append(f"overnight pressure {press['deficit']:.1f} bar under setpoint")
     elif press and press.get('deficit') is not None and press['deficit'] >= 0.25:
@@ -495,11 +601,84 @@ def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, 
         'alarms_count': alarms_count, 'active_count': len(active_now),
         'setpoint': setpoint,
         'pressure_chart': overnight_pressure_chart(readings, setpoint),
+        'dips': dips,
         'verdict': verdict,
     }
 
 
-def _metrics_html(m):
+def _dips_html(dips, report_kind='Weekly'):
+    """Overnight pressure-dip + missed-irrigation panel (tiles + per-night table)."""
+    if not dips:
+        return ''
+    sp = dips.get('setpoint', 7.8)
+    missed = dips['missed']
+    mcol = '#c0392b' if missed else '#27ae60'
+
+    def _nl(iso):
+        d = datetime.fromisoformat(iso)
+        return f'{d.strftime("%a")} {d.day} {d.strftime("%b")}'
+
+    def tile(label, value, sub, vcol='#003366'):
+        return (f'<td width="33%" style="padding:10px 14px;vertical-align:top;border:1px solid #eee;">'
+                f'<div style="font-family:Arial,sans-serif;font-size:11px;color:#888;text-transform:uppercase;'
+                f'letter-spacing:.4px;">{label}</div>'
+                f'<div style="font-family:Arial,sans-serif;font-size:19px;font-weight:bold;color:{vcol};'
+                f'margin:3px 0 1px;">{value}</div>'
+                f'<div style="font-family:Arial,sans-serif;font-size:11px;color:#999;">{sub}</div></td>')
+
+    um = dips['total_under']
+    under_val = f'{um} min' if um < 120 else f'{um / 60:.1f} h'
+    longest_sub = (f"lowest {dips['longest_low']:.1f} bar, {_nl(dips['longest_night'])}"
+                   if dips['longest'] else 'no dips while pumping')
+    tiles = (
+        '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>'
+        + tile('Missed Irrigation', str(missed), f'pressure under {MISSED_BAR:g} bar for {MISSED_MIN}+ min', mcol)
+        + tile('Time Under Pressure', under_val, f'more than {DIP_UNDER_BAR:g} bar under setpoint')
+        + tile('Longest Dip', f"{dips['longest']} min", longest_sub)
+        + '</tr></table>')
+
+    src = dips['per_night']
+    if report_kind == 'Weekly':
+        shown, omitted = src, 0
+    else:
+        shown = [n for n in src if n['missed'] or n['under'] > 0]
+        omitted = len(src) - len(shown)
+    td = 'padding:6px 12px;font-family:Arial,sans-serif;font-size:12px;'
+    trs = ''
+    for i, n in enumerate(shown):
+        bg = 'background:#f9f9f9;' if i % 2 == 0 else ''
+        miss_html = ('<span style="color:#c0392b;font-weight:bold;">MISSED</span>' if n['missed']
+                     else '<span style="color:#ccc;">-</span>')
+        lowcol = ('#c0392b' if n['lowest'] < MISSED_BAR else
+                  '#e67e22' if n['lowest'] < sp - DIP_UNDER_BAR else '#1b2631')
+        trs += (f'<tr style="{bg}">'
+                f'<td style="{td}">{_nl(n["night"])}</td>'
+                f'<td style="{td}color:{lowcol};text-align:right;">{n["lowest"]:.2f} bar</td>'
+                f'<td style="{td}text-align:right;">{n["under"]} min</td>'
+                f'<td style="{td}text-align:right;">{n["longest"]} min</td>'
+                f'<td style="{td}text-align:center;">{miss_html}</td></tr>')
+    if not trs:
+        trs = ('<tr><td colspan="5" style="padding:10px 12px;font-family:Arial,sans-serif;'
+               'font-size:13px;color:#999;">Pressure held above setpoint every night - no dips.</td></tr>')
+    TH = 'padding:8px 12px;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;color:#fff;background:#003366;'
+    note = ('<p style="margin:6px 2px 0;font-family:Arial,sans-serif;font-size:11px;color:#999;">'
+            f'Each row is the night finishing that morning (7pm-7am). "Missed" = pressure under {MISSED_BAR:g} bar '
+            f'for over {MISSED_MIN} min (a pump fault/shutdown stops irrigation). A small loss at the pump '
+            'multiplies out to the furthest sprinkler.'
+            + (f' {omitted} other night(s) ran normally.' if omitted else '') + '</p>')
+    return (
+        '<div style="font-family:Arial,sans-serif;font-size:12px;font-weight:bold;color:#003366;'
+        'margin:16px 2px 6px;">Overnight Pressure Dips &amp; Missed Irrigation</div>'
+        + tiles
+        + f'<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eee;'
+        'border-radius:4px;margin-top:6px;">'
+        f'<tr><td style="{TH}">Night (to morning)</td><td style="{TH}text-align:right;">Lowest</td>'
+        f'<td style="{TH}text-align:right;">Min under {sp - DIP_UNDER_BAR:g} bar</td>'
+        f'<td style="{TH}text-align:right;">Longest dip</td><td style="{TH}text-align:center;">Missed</td></tr>'
+        f'{trs}</table>{note}')
+
+
+def _metrics_html(m, report_kind='Weekly'):
     """Render the Water / Pressure / Health section from gather_metrics()."""
     v_name, v_col, v_text = m['verdict']
     tank_kl = m['tank_l'] / 1000.0
@@ -578,11 +757,12 @@ def _metrics_html(m):
             'Discharge pressure while pumping, 7pm-7am each night, vs the setpoint.</div>'
             + m['pressure_chart'] + legend)
 
+    dips_html = _dips_html(m.get('dips'), report_kind)
     return (
         '<table width="100%" cellpadding="0" cellspacing="0">'
         f'{_section_heading("Water & Pump Health")}'
         '<tr><td style="padding:0 32px 4px;">'
-        f'{verdict_box}{water}{perf}{rh}{chart}'
+        f'{verdict_box}{water}{perf}{rh}{chart}{dips_html}'
         '</td></tr></table>')
 
 
@@ -591,7 +771,7 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metr
     date_label = period_label
     active_now = active_now or []
     gk_addr = GREENKEEPER_ADDR
-    metrics_html = _metrics_html(metrics) if metrics else ''
+    metrics_html = _metrics_html(metrics, report_kind) if metrics else ''
 
     p_min    = day_data.get('p_min')
     p_max    = day_data.get('p_max')
