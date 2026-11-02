@@ -27,6 +27,7 @@ RUN_ID = os.environ["WF_RUN_ID"]
 RUN_ATTEMPT = int(os.environ["WF_RUN_ATTEMPT"])
 CONCLUSION = os.environ["WF_CONCLUSION"]
 WF_NAME = os.environ["WF_NAME"]
+WF_EVENT = os.environ.get("WF_EVENT", "")   # event that triggered the watched run
 RUN_URL = os.environ["WF_RUN_URL"]
 WORKFLOW_ID = os.environ.get("WF_WORKFLOW_ID", "")
 MAX_ATTEMPTS = 3
@@ -131,10 +132,21 @@ def main():
         if any(j.get("steps") for j in jobs):
             print("cancelled mid-run (likely by a person) - leaving it alone")
             return
+        # Only recover a cancelled SCHEDULED send. A re-dispatch carries NO inputs,
+        # so it runs the default (real, full-list) send. For a scheduled run that is
+        # correct - the "Decide mode" step picks the mode by date and the sent-guard
+        # blocks a double-send. But for a cancelled manual/test/one-off
+        # workflow_dispatch (e.g. a --test or --to sample), re-dispatching would turn
+        # it into a real send to the whole board. That caused a duplicate real board
+        # email on 2 Nov 2026, so those are left alone - the person re-runs if needed.
+        if WF_EVENT != "schedule":
+            print("cancelled %s run - not re-dispatching "
+                  "(a re-dispatch would default to a real send)" % (WF_EVENT or "non-schedule"))
+            return
         if WORKFLOW_ID:
             gh("/repos/%s/actions/workflows/%s/dispatches" % (REPO, WORKFLOW_ID),
                method="POST", body={"ref": "main"})
-            print("re-dispatched: run was cancelled from the queue before starting")
+            print("re-dispatched: scheduled run was cancelled from the queue before starting")
         return
 
     if CONCLUSION != "failure":

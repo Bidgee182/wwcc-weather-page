@@ -47,6 +47,7 @@ jobs:
           WF_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_EVENT: ${{ github.event.workflow_run.event }}
           WF_RUN_URL: ${{ github.event.workflow_run.html_url }}
           WF_WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
