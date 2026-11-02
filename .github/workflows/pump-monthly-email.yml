@@ -10,11 +10,16 @@ on:
   workflow_dispatch:
     inputs:
       test:
-        description: 'Send test email to Andrew only (real data, single recipient)'
+        description: 'Send test email to a single recipient (real data)'
         required: false
         default: 'false'
         type: choice
         options: ['false', 'true']
+      test_to:
+        description: 'Test recipient (blank = Andrew). Only used when test = true.'
+        required: false
+        default: ''
+        type: string
       force:
         description: 'Send regardless of email_config.json toggle'
         required: false
@@ -56,6 +61,7 @@ jobs:
           PUMP_EMAIL_BCC: ${{ secrets.PUMP_EMAIL_BCC }}
           PUMP_MONTHLY: 'true'
           TEST_SEND: ${{ github.event.inputs.test || 'false' }}
+          PUMP_TEST_TO: ${{ github.event.inputs.test_to || '' }}
           FORCE_SEND: ${{ github.event.inputs.force || 'false' }}
         run: python3 scripts/pump_daily_email.py --monthly
 

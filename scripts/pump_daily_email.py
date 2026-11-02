@@ -1046,7 +1046,9 @@ def daily_enabled():
 
 def send_email(subject, html):
     if TEST_SEND:
-        to_list, cc_list, bcc_list = [TEST_RECIPIENT], [], []
+        # One-off test goes to a single address: PUMP_TEST_TO if set, else Andrew.
+        _test_to = os.environ.get('PUMP_TEST_TO', '').strip() or TEST_RECIPIENT
+        to_list, cc_list, bcc_list = [_test_to], [], []
         subject = '[TEST] ' + subject
     else:
         to_list  = _addr(_TO_RAW)
