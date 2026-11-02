@@ -151,6 +151,18 @@ def all_boards(live):
     return boards
 
 
+# Competitions that run as a separate multi-week series (e.g. Navigate 9, which
+# runs over 16 weeks) never publish a daily official-results PDF, so they must
+# not be flagged as "no results published" - that is normal for them, not a
+# fault. Matched by name so each new season's board is covered automatically.
+_MULTIWEEK_RE = re.compile(r'navigate\s*9', re.I)
+
+
+def is_multiweek_comp(comp):
+    """True for a comp that runs as a multi-week series with no daily results."""
+    return bool(comp) and _MULTIWEEK_RE.search(comp) is not None
+
+
 def classify_results(b):
     """(status, summary) for a board with officialResultsReady=True.
 
@@ -406,6 +418,8 @@ def run_checks(live, state, within):
                 row(key, label, "warn", summary)
             else:
                 row(key, label, "ok", summary)
+        elif is_multiweek_comp(comp):
+            row(key, label, "idle", "Multi-week series - no daily official results")
         else:
             row(key, label, "idle",
                 "Awaiting official results" if b.get("started") else "Comp not started")
@@ -635,7 +649,9 @@ def main():
         if today_local not in daily:
             # comps that ran but never published results get a log row too
             for b, role in all_boards(live):
-                if not b.get("competition"):
+                # Multi-week series (Navigate 9) never publish daily results, so a
+                # "none-published" row would wrongly show red every night - skip them.
+                if not b.get("competition") or is_multiweek_comp(b.get("competition")):
                     continue
                 key = f"{comp_date}:{b.get('leaderboardId')}"
                 if key not in (state.get("resultsLogged") or {}) and b.get("started"):
@@ -666,6 +682,9 @@ def main():
              "summary": r.get("summary"), "role": r.get("role")}
             for r in read_results_log_for(
                 (datetime.now(TZ).date() - timedelta(days=1)).isoformat())
+            # Multi-week series never publish daily results - keep them off the
+            # yesterday outcomes so an old none-published row can't read as red.
+            if not is_multiweek_comp(r.get("competition"))
         ][:4],
     }
     HEALTH_PATH.write_text(json.dumps(health, indent=1), encoding="utf-8")
