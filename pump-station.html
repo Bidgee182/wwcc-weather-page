@@ -69,7 +69,7 @@
         .nav-btn.nav-control:not(.active) { color:#e74c3c; border-color:rgba(231,76,60,.35); }
         .nav-icon { font-size:1em; width:15px; text-align:center; flex-shrink:0; opacity:0.8; }
         .nav-divider { height:1px; background:#2c3e50; margin:6px 4px; }
-        .content-area { flex:1; min-width:0; }
+        .content-area { flex:1; min-width:0; max-width:1500px; margin:0 auto; }
         /* Hamburger (mobile only) */
         .hamburger-btn { display:none; background:none; border:1px solid #3d5166; color:#ecf0f1; border-radius:7px; padding:7px 13px; font-size:1.3em; cursor:pointer; line-height:1; flex-shrink:0; }
         /* Sidebar slide-in overlay */
@@ -358,6 +358,8 @@
         .range-row { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
         .range-btn { background:#1a252f; border:1px solid #3d5166; color:#7f8c8d; border-radius:6px; padding:5px 13px; font-size:0.78em; font-weight:600; cursor:pointer; transition:all 0.2s; }
         .range-btn.active, .range-btn:hover { background:#e67e22; border-color:#e67e22; color:white; }
+        .lock-btn { background:#2c3e50; border:1px solid #3d5166; color:#e74c3c; border-radius:7px; font-weight:bold; letter-spacing:.5px; cursor:pointer; font-family:inherit; transition:all .15s; }
+        .lock-btn:hover { background:#e74c3c; border-color:#e74c3c; color:#fff; }
 
         /* Chart loader */
         .chart-loader { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:22px 0; }
@@ -721,8 +723,8 @@
             <button class="range-btn"        onclick="openCustomRange(this)">Custom</button>
         </div>
         <div id="custom-range-row" style="display:none;margin-top:8px;align-items:center;gap:8px;flex-wrap:wrap;">
-            <label style="font-size:.85em">From <input type="datetime-local" id="custom-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
-            <label style="font-size:.85em">To <input type="datetime-local" id="custom-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <label style="font-size:.85em">From <input type="datetime-local" id="custom-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:inherit"></label>
+            <label style="font-size:.85em">To <input type="datetime-local" id="custom-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:inherit"></label>
             <button class="range-btn" onclick="applyCustomRange()">Go</button>
             <button class="range-btn" style="background:#444;color:#ccc" onclick="closeCustomRange()">Cancel</button>
         </div>
@@ -799,7 +801,7 @@
     </div>
 
     <!-- Motor temperatures -->
-    <div class="card">
+    <div class="card" id="card-temp">
         <h2>Motor Temperatures - PT100 (°C)</h2>
         <div class="pump-legend" id="temp-legend"></div>
         <div class="chart-loader" id="c-temp-loader"><div class="chart-loader-bar"><div class="chart-loader-water"><svg class="chart-loader-wave" viewBox="0 0 200 20" preserveAspectRatio="none"><path fill="rgba(231,76,60,.55)" d="M0,10 C25,3 50,17 75,10 C100,3 125,17 150,10 C175,3 200,17 200,10 L200,20 L0,20 Z"/></svg></div><div class="chart-loader-label">LOADING</div></div><div class="chart-loader-dots"><span></span><span></span><span></span></div></div>
@@ -867,8 +869,8 @@
             <button class="metric-btn" id="wn-btn-custom" onclick="toggleWnCustom()">Custom</button>
         </div>
         <div id="wn-custom-row" style="display:none;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-            <label style="font-size:.85em">From <input type="date" id="wn-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
-            <label style="font-size:.85em">To <input type="date" id="wn-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #555;background:#222;color:inherit"></label>
+            <label style="font-size:.85em">From <input type="date" id="wn-from" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:inherit"></label>
+            <label style="font-size:.85em">To <input type="date" id="wn-to" style="font-size:.85em;padding:3px 6px;border-radius:4px;border:1px solid #3d5166;background:#1a252f;color:inherit"></label>
             <button class="metric-btn" onclick="applyWnCustom()">Apply</button>
         </div>
         <div style="font-size:.78em;color:#7f8c8d;margin-bottom:10px;">
@@ -1132,7 +1134,7 @@
     <!-- Per-pump run hours -->
     <div class="card">
         <h2>Pump Run Hours</h2>
-        <div id="su-pump-hours-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
+        <div id="su-pump-hours-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;"></div>
         <div style="font-size:.68em;color:#566573;margin-top:8px;">Lifetime hours from CU352 GENIbus pump registers. Resets only if pump controller memory is cleared.</div>
     </div>
 
@@ -1202,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.6';
+const PUMP_VERSION = '4.7';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1482,10 +1484,19 @@ function buildDailyStats(rows) {
         // to shape the time-of-use cost, then scaled to the counter delta so the
         // gap energy is still costed at the right rate.
         const ctrDelta = col => {
-            const v = rs.map(r => r[col]).filter(x => x != null);
-            return v.length ? Math.max(0, Math.max(...v) - Math.min(...v)) : 0;
+            // Sum positive increments of the cumulative counter so a mid-day controller
+            // memory reset (counter drops) can't overcount via a naive max-min span.
+            let prev = null, sum = 0;
+            for (const r of rs) {
+                const v = r[col];
+                if (v == null) continue;
+                if (prev != null && v > prev) sum += v - prev;
+                prev = v;
+            }
+            return sum;
         };
-        const kwhInt = c => rs.reduce((s, r) => s + (r[c] || 0) * (r.samples || 60) / 3600, 0);
+        // Each stats row is one wall-clock MINUTE (samples is a poll COUNT, not seconds).
+        const kwhInt = c => rs.reduce((s, r) => s + (r[c] || 0) * 60 / 3600, 0);
         const powCols = ['p1_power_kw', 'p2_power_kw', 'p3_power_kw', 'jockey_power_kw'];
         const ctrCols = ['p1_kwh', 'p2_kwh', 'p3_kwh', 'jockey_kwh'];
         const kwhInteg = powCols.map(kwhInt);
@@ -1496,7 +1507,7 @@ function buildDailyStats(rows) {
         const costInt = [0, 0, 0, 0];
         for (const r of rs) {
             const rate = (tariff.rates_c_per_kwh[touPeriod(new Date(r.ts).getTime())] || 0) / 100;
-            const h = (r.samples || 60) / 3600;
+            const h = 60 / 3600;   // each stats row = 1 minute
             costInt[0] += (r.p1_power_kw     || 0) * h * rate;
             costInt[1] += (r.p2_power_kw     || 0) * h * rate;
             costInt[2] += (r.p3_power_kw     || 0) * h * rate;
@@ -1530,7 +1541,7 @@ function buildDailyStats(rows) {
 // ─── Pump electricity cost (marginal energy cost from the tariff) ──────────────
 function _fmtWin(a, b) {
     const f = h => { const hr=((h%24)+24)%24, ap=hr<12?'am':'pm', h12=hr%12||12; return h12+ap; };
-    return f(a)+'&ndash;'+f(b);
+    return f(a)+'-'+f(b);
 }
 function renderCostCard() {
     const el = document.getElementById('cost-tiles');
@@ -1565,7 +1576,7 @@ function renderCostCard() {
 
     const r = tariff.rates_c_per_kwh;
     document.getElementById('cost-basis').innerHTML =
-      `<b>Basis:</b> marginal energy cost only &mdash; excludes site demand &amp; supply charges (shared club meter). Rates incl GST: `
+      `<b>Basis:</b> marginal energy cost only - excludes site demand &amp; supply charges (shared club meter). Rates incl GST: `
       + `<b>Peak</b> (${_fmtWin(tariff.peak_start,tariff.peak_end)} wkdy) ${r.peak}c &middot; `
       + `<b>Shoulder</b> ${r.shoulder}c &middot; `
       + `<b>Off-peak</b> (${_fmtWin(tariff.offpeak_start,tariff.offpeak_end)} + weekends) ${r.off}c per kWh. `
@@ -2260,21 +2271,11 @@ function renderBanner() {
         return;
     }
 
-    // Collect active alarms: merge live Modbus alarms + event-log active events
-    const liveAlarms = (d.alarms || []).filter(a => a.active);
-    const eventLog   = d.event_log || [];
-    const lastByKey  = {};
-    for (const e of [...eventLog].sort((a,b) => new Date(a.timestamp_iso) - new Date(b.timestamp_iso))) {
-        const key = (e.code||0)+'|'+(e.pump_label||'')+'|'+(e.source_name||'');
-        lastByKey[key] = e;
-    }
-    const logActive = Object.values(lastByKey)
-        .filter(e => e.type_code===1 || e.type_code===3)
-        .map(e => ({ code:e.code, description:e.description, type_name:e.type_name, type_code:e.type_code, pump:e.pump_label||e.source_name, active:true }));
-    const combined = [...liveAlarms];
-    for (const e of logActive) {
-        if (!combined.some(a => a.code===e.code && a.pump===e.pump)) combined.push(e);
-    }
+    // Active alarms come straight from the CU352 register (d.alarms is register-gated
+    // in buildLatestData). Do NOT merge event-log "appeared" events here: a superseded
+    // or cleared alarm whose "off" was never logged would light this banner red as a
+    // phantom SYSTEM FAULT while the alarms card below correctly reads none (see v4.6).
+    const combined = (d.alarms || []).filter(a => a.active);
 
     // Pick display text: prefer short type_name, fall back to description before " - "
     function alarmLabel(a) {
@@ -2643,7 +2644,7 @@ function pumpAnimCard(p, connected, isJockey) {
                 <input type="range" min="0" max="100" value="${p.speed_pct||0}" disabled aria-label="Manual speed (unavailable)">
                 <span class="sk-pct">${sp}</span><button class="sk-set" disabled>Set</button>
             </div>
-            <div class="sk-manual-note">Manual % needs the FM310 path &mdash; display only</div>
+            <div class="sk-manual-note">Manual % needs the FM310 path - display only</div>
         </div>
     </div>`;
 }
@@ -2838,14 +2839,16 @@ async function renderPerfCharts() {
             }
         };
         const ds = [
-            { label:'Discharge Pressure (bar)', data: pts.map(r=>({x:tsMs(r),y:r.pa})),
+            { label:'Discharge Pressure (bar)', data: breakSeriesGaps(pts.map(r=>({x:tsMs(r),y:r.pa}))),
               borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.12)',
               borderWidth:2, tension:0, pointRadius:0, pointHoverRadius:5,
-              fill:true, spanGaps:true, yAxisID:'y' },
-            { label:'Supply Tank Level (%)', data: fbPts,
-              borderColor:'rgba(39,174,96,.9)', backgroundColor:'rgba(39,174,96,.15)',
+              fill:true, spanGaps:false, yAxisID:'y' },
+            // Stroke-only (no fill): a filled tank band sits behind the pressure fill
+            // on a different scale and muddies the overlap.
+            { label:'Supply Tank Level (%)', data: breakSeriesGaps(fbPts),
+              borderColor:'rgba(39,174,96,.9)', backgroundColor:'transparent',
               borderWidth:2, tension:0.3, pointRadius:0, pointHoverRadius:5,
-              fill:true, spanGaps:true, yAxisID:'y1' },
+              fill:false, spanGaps:false, yAxisID:'y1' },
         ];
         if (charts['c-tank']) { charts['c-tank'].destroy(); }
         charts['c-tank'] = new Chart(document.getElementById('c-tank').getContext('2d'), {
@@ -2859,8 +2862,11 @@ async function renderPerfCharts() {
         { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
     ];
     if (wnFlow.length) {
+        // Metered flow is an hourly average on a different scale to instantaneous pump
+        // flow - put it on its own right axis so it can't rescale/swamp the pump trace.
         flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnFlow,
-            borderColor:'#9b59b6', stepped:true, thin:true, noHover:false });
+            borderColor:'#9b59b6', stepped:true, thin:true, noHover:false,
+            rightAxis:true, rightTitle:'Metered m³/h' });
     }
     renderLineChart('c-flow', noData, pts, flowDatasets, v=>v!=null?v.toFixed(1)+' m³/h':null);
     if (!noData) {
@@ -2891,14 +2897,48 @@ async function renderPerfCharts() {
             borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
         })), v=>v!=null?v.toFixed(1)+' kW':null);
 
-    // Motor temperatures
-    buildPumpLegend('temp-legend');
-    renderLineChart('c-temp', noData, pts,
-        PUMP_LABELS.map((lbl,i) => ({
-            label: lbl, data: xy(pts, r => r.tm ? r.tm[i] : null),
-            borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
-        })), v=>v!=null?v.toFixed(0)+'°C':null, {min:0});
+    // Motor temperatures - only when PT100 sensors are actually fitted. With no
+    // sensors every value is null, so an always-empty plot looked broken; hide the
+    // whole card instead.
+    const tempHasData = pts.some(r => r.tm && r.tm.some(v => v != null));
+    const tempCard = document.getElementById('card-temp');
+    if (tempCard) tempCard.style.display = tempHasData ? '' : 'none';
+    if (tempHasData) {
+        buildPumpLegend('temp-legend');
+        renderLineChart('c-temp', noData, pts,
+            PUMP_LABELS.map((lbl,i) => ({
+                label: lbl, data: xy(pts, r => r.tm ? r.tm[i] : null),
+                borderColor: PUMP_COLORS[i], bg: PUMP_BG[i], dashed:false
+            })), v=>v!=null?v.toFixed(0)+'°C':null, {min:0});
+    }
 
+}
+
+// Insert an explicit {x,y:null} break wherever consecutive points are far apart in
+// x relative to the series' normal cadence. Without this, a filled line bridges a
+// data gap (e.g. a poller/Pi dropout, or pumps shut down) with one straight diagonal
+// and shades the area under it to the baseline - the spurious triangular wedge of
+// "background shading" over empty time. With the break + spanGaps:false the line and
+// its fill stop at the gap and resume after it. Operates on {x,y} arrays sorted asc.
+function breakSeriesGaps(data) {
+    if (!Array.isArray(data) || data.length < 3) return data;
+    const dx = [];
+    for (let i = 1; i < data.length; i++) {
+        const a = data[i-1], b = data[i];
+        if (a && b && a.x != null && b.x != null) dx.push(b.x - a.x);
+    }
+    if (!dx.length) return data;
+    const sorted = [...dx].sort((a,b)=>a-b);
+    const median = sorted[Math.floor(sorted.length/2)] || 0;
+    const thresh = Math.max(median * 3, 3 * 60000);   // >3x cadence, min 3 minutes
+    const out = [];
+    for (let i = 0; i < data.length; i++) {
+        out.push(data[i]);
+        const a = data[i], b = data[i+1];
+        if (a && b && a.x != null && b.x != null && (b.x - a.x) > thresh)
+            out.push({ x: a.x + (b.x - a.x) / 2, y: null });
+    }
+    return out;
 }
 
 // Moving-average smoothing for noisy series - used only where a dataset sets
@@ -2945,9 +2985,10 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     };
 
     const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
+    const hasRight = datasets.some(d => d.rightAxis);
     const ds = datasets.map(d => ({
         label: d.label,
-        data:  d.smooth ? smoothSeries(d.data, d.smooth) : d.data,
+        data:  breakSeriesGaps(d.smooth ? smoothSeries(d.data, d.smooth) : d.data),
         borderColor: d.borderColor,
         backgroundColor: d.bg || 'transparent',
         borderWidth: d.thin ? 1.5 : 2,
@@ -2957,9 +2998,19 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         pointRadius: 0,
         pointHoverRadius: d.noHover ? 0 : 5,
         fill: !!(d.bg && d.bg !== 'transparent'),
-        spanGaps: true,
+        spanGaps: false,   // real gaps break the line/fill (see breakSeriesGaps)
         stepped: d.stepped || false,
+        yAxisID: d.rightAxis ? 'y1' : 'y',
     }));
+    // A second (right) y-axis for a secondary-scale overlay, e.g. the WaterNSW
+    // metered flow on the pump-flow chart - so it doesn't rescale the primary trace.
+    if (hasRight) {
+        const rd = datasets.find(d => d.rightAxis);
+        opts.scales.y1 = { type:'linear', position:'right', min:0,
+            grid:{ drawOnChartArea:false },
+            ticks:{ color: rd.borderColor, font:{size:9} },
+            title:{ display:true, text: rd.rightTitle || '', color: rd.borderColor, font:{size:9} } };
+    }
 
     if (charts[canvasId]) { charts[canvasId].destroy(); }
     charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
@@ -2978,7 +3029,10 @@ function buildPumpLegend(id) {
 // ─── Trends charts ────────────────────────────────────────────────────────────
 async function setTrendsMetric(metric, btn) {
     trendsMetric = metric;
-    document.querySelectorAll('.metric-btn').forEach(b=>b.classList.remove('active'));
+    // Scope to this button's own group so the Water tab's .metric-btn row (same class)
+    // isn't cleared as a side-effect.
+    const grp = btn && btn.parentNode ? btn.parentNode : document;
+    grp.querySelectorAll('.metric-btn').forEach(b=>b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderTrendCharts();
 }
@@ -3012,16 +3066,17 @@ async function render24hTrend() {
     opts.scales.x.max = Date.now();
     opts.scales.x.ticks.callback = v => String(new Date(v).getHours()).padStart(2, '0') + ':00';
     opts.scales.y.ticks.callback = v => v.toFixed(1) + ' bar';
-    opts.scales.y1 = { position: 'right', min: 0, grid: { display: false },
-        ticks: { color: '#7f8c8d', font: { size: 9 }, callback: v => v.toFixed(0) + ' m³/h' } };
+    opts.scales.y1 = { type: 'linear', position: 'right', min: 0, grid: { display: false },
+        ticks: { color: '#3498db', font: { size: 9 }, callback: v => v.toFixed(0) + ' m³/h' },
+        title: { display: true, text: 'Flow (m³/h)', color: '#3498db', font: { size: 9 } } };
     if (charts['c-t24']) charts['c-t24'].destroy();
     charts['c-t24'] = new Chart(document.getElementById('c-t24').getContext('2d'), {
         type: 'line',
         data: { datasets: [
-            { label: 'Pressure (bar)', data: pdata, borderColor: '#e67e22', borderWidth: 2,
-              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y',  spanGaps: true },
-            { label: 'Flow (m³/h)',    data: fdata, borderColor: '#3498db', borderWidth: 1.5,
-              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: true },
+            { label: 'Pressure (bar)', data: breakSeriesGaps(pdata), borderColor: '#e67e22', borderWidth: 2,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y',  spanGaps: false },
+            { label: 'Flow (m³/h)',    data: breakSeriesGaps(fdata), borderColor: '#3498db', borderWidth: 1.5,
+              pointRadius: 0, pointHoverRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: false },
         ] },
         options: opts
     });
@@ -4253,7 +4308,7 @@ function ctrlQueueOrConfirm(act, val) {
     } else if (act === 'alarm_reset') {
         const curMode = sys.mode ? sys.mode.toUpperCase() : 'unknown';
         const curSp   = sys.pressure_setpoint_bar != null ? sys.pressure_setpoint_bar.toFixed(2)+' bar' : 'unknown';
-        const activeAlarms = (latestData && latestData.event_log ? latestData.event_log.filter(e=>e.type_code===1||e.type_code===3) : []).length;
+        const activeAlarms = (latestData && latestData.alarms ? latestData.alarms.filter(a=>a.active) : []).length;
         curEl.textContent  = 'Current: mode=' + curMode + ', setpoint=' + curSp + ', active alarms=' + activeAlarms;
         chgEl.textContent  = 'Resets all alarms. Mode and setpoint will be restored.';
         regEl.textContent  = 'Writes: addr 100 (alarm-reset bit), then restores addr 103 + addr 101';
