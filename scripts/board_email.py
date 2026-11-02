@@ -639,44 +639,90 @@ def _tank_daily_table(readings, d_from, d_to, title):
 
 
 def _daily_lake_table(dl_rows, title):
-    """Per-day lake movement table (Start/End/Rain/Evap/Change) for an arbitrary
-    span. Standalone twin of the weekly report's inline daily-movement table, so
-    the monthly report can show the same table for the whole month."""
+    """Per-day lake movement table for an arbitrary span, showing the BOM estimated
+    evaporation beside the ACTUAL open-water evaporation derived from the weather
+    station (measured ET x the open-water factor) and the difference between them.
+
+    Difference = actual - estimate: negative (green) is an easier day than the BOM
+    average predicts, positive (red) is harsher - same convention as the Season
+    Outlook card. A TOTAL row sums the month so the net est-vs-actual gap is clear.
+    'Evap - Station' is '-' on any day the station did not record ET."""
     if not dl_rows or not any(r['start'] is not None for r in dl_rows):
         return ''
 
     def _f3(v):
         return f'{v:.3f}' if v is not None else '-'
 
-    td = ('padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;'
+    def _diff_html(act, est):
+        if act is None:
+            return '-'
+        d = act - est
+        col = '#1e8449' if d <= 0 else '#b83c3c'
+        return f'<span style="color:{col};font-weight:700;">{d:+.1f}</span>'
+
+    td = ('padding:5px 7px;font-family:Arial,sans-serif;font-size:11px;'
           'color:#1b2631;border-right:1px solid ' + _BORDER + ';')
-    th = ('background-color:' + _HDR_BG + ';padding:7px 10px;font-family:Arial,sans-serif;'
+    th = ('background-color:' + _HDR_BG + ';padding:7px 7px;font-family:Arial,sans-serif;'
           'font-size:11px;color:#ffffff;font-weight:700;border-right:1px solid ' + _BORDER + ';')
     cells = ''
+    sum_rain = sum_est = sum_act = sum_chg = 0.0
+    act_days = 0
     for i, r in enumerate(dl_rows):
-        bg = _ROW_A if i % 2 == 0 else _ROW_B
-        dt = datetime.fromisoformat(r['date'])
+        bg  = _ROW_A if i % 2 == 0 else _ROW_B
+        dt  = datetime.fromisoformat(r['date'])
         lbl = f'{dt.strftime("%a")} {dt.day} {dt.strftime("%b")}'
+        est = r['evap']
+        act = r.get('evap_wx')
+        sum_rain += r['rain']; sum_est += est
+        if act is not None:
+            sum_act += act; act_days += 1
         if r['chg'] is None:
             chg_html = '-'
         else:
+            sum_chg += r['chg']
             col = ('#1e8449' if r['chg'] > 0.5 else '#b83c3c' if r['chg'] < -0.5 else '#475569')
             chg_html = f'<span style="color:{col};font-weight:700;">{r["chg"]:+.0f}&nbsp;mm</span>'
+        act_str = f'{act:.1f}' if act is not None else '-'
         cells += f"""
   <tr bgcolor="{bg}">
     <td style="{td}">{lbl}</td>
     <td style="{td}text-align:right;">{_f3(r['start'])}</td>
     <td style="{td}text-align:right;">{_f3(r['end'])}</td>
     <td style="{td}text-align:right;">{r['rain']:.1f}</td>
-    <td style="{td}text-align:right;">{r['evap']:.1f}</td>
-    <td style="padding:6px 10px;font-family:Arial,sans-serif;font-size:11px;
+    <td style="{td}text-align:right;">{est:.1f}</td>
+    <td style="{td}text-align:right;">{act_str}</td>
+    <td style="{td}text-align:right;">{_diff_html(act, est)}</td>
+    <td style="padding:5px 7px;font-family:Arial,sans-serif;font-size:11px;
         text-align:right;">{chg_html}</td>
   </tr>"""
+
+    # Month totals: estimated vs actual evaporation and the net gap.
+    tot_act_str  = f'{sum_act:.1f}' if act_days else '-'
+    tot_diff     = (sum_act - sum_est) if act_days else None
+    tot_diff_col = '#1e8449' if (tot_diff is not None and tot_diff <= 0) else '#b83c3c'
+    tot_diff_str = (f'<span style="color:{tot_diff_col};">{tot_diff:+.1f}</span>'
+                    if tot_diff is not None else '-')
+    tt = ('padding:7px 7px;font-family:Arial,sans-serif;font-size:11px;font-weight:700;'
+          'color:#1b2631;background-color:#e8eef5;border-top:2px solid ' + _HDR_BG + ';'
+          'border-right:1px solid ' + _BORDER + ';')
+    totals = f"""
+  <tr>
+    <td style="{tt}">TOTAL</td>
+    <td style="{tt}text-align:right;">-</td>
+    <td style="{tt}text-align:right;">-</td>
+    <td style="{tt}text-align:right;">{sum_rain:.1f}</td>
+    <td style="{tt}text-align:right;">{sum_est:.1f}</td>
+    <td style="{tt}text-align:right;">{tot_act_str}</td>
+    <td style="{tt}text-align:right;">{tot_diff_str}</td>
+    <td style="padding:7px 7px;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
+        background-color:#e8eef5;border-top:2px solid {_HDR_BG};text-align:right;">{sum_chg:+.0f}&nbsp;mm</td>
+  </tr>"""
+
     return f"""
 <table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
        style="border-collapse:collapse;">
   <tr>
-    <td colspan="6" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
+    <td colspan="8" bgcolor="#f1f5f9" style="background-color:#f1f5f9;padding:8px 16px;
         border-top:1px solid #cbd5e1;">
       <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;
           color:#475569;letter-spacing:0.5px;text-transform:uppercase;">{title}</p>
@@ -687,10 +733,22 @@ def _daily_lake_table(dl_rows, title):
     <th style="{th}text-align:right;">Start (m)</th>
     <th style="{th}text-align:right;">End (m)</th>
     <th style="{th}text-align:right;">Rain (mm)</th>
-    <th style="{th}text-align:right;">Evap (mm)</th>
-    <th style="background-color:{_HDR_BG};padding:7px 10px;font-family:Arial,sans-serif;
+    <th style="{th}text-align:right;">Est. Evap (mm)</th>
+    <th style="{th}text-align:right;">Act. Evap (mm)</th>
+    <th style="{th}text-align:right;">Diff (mm)</th>
+    <th style="background-color:{_HDR_BG};padding:7px 7px;font-family:Arial,sans-serif;
         font-size:11px;color:#ffffff;font-weight:700;text-align:right;">Change</th>
-  </tr>{cells}
+  </tr>{cells}{totals}
+</table>
+<table width="600" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="border-collapse:collapse;">
+  <tr><td style="padding:6px 16px 2px;">
+    <p style="margin:0;font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;line-height:1.5;">
+      Est. Evap is the BOM seasonal-average open-water evaporation (constant per month) that
+      drives the cease-to-pump estimate. Act. Evap is from the weather station's measured ET
+      (x the open-water factor). Diff = actual - estimate: <span style="color:#1e8449;">green</span>
+      is an easier day than the average; <span style="color:#b83c3c;">red</span> is harsher.</p>
+  </td></tr>
 </table>"""
 
 
