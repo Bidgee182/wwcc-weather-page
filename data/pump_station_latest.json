@@ -1,14 +1,14 @@
 {
   "connected": true,
-  "timestamp": "2026-11-02T11:00:43.303261+00:00",
-  "last_seen": "2026-11-02T11:00:43.303261+00:00",
-  "last_connected": "2026-11-02T11:00:43.303261+00:00",
+  "timestamp": "2026-11-02T11:05:31.807397+00:00",
+  "last_seen": "2026-11-02T11:05:31.807397+00:00",
+  "last_connected": "2026-11-02T11:05:31.807397+00:00",
   "system": {
-    "pressure_actual_bar": 6.11,
-    "pressure_suction_bar": -0.824,
+    "pressure_actual_bar": 7.054,
+    "pressure_suction_bar": -0.847,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 28.0,
-    "power_kw": 9.1,
+    "flow_m3h": 173.4,
+    "power_kw": 45.9,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
@@ -49,9 +49,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 79.9,
-      "power_kw": 4.1,
-      "current_a": 10.2,
+      "speed_pct": 100.0,
+      "power_kw": 15.5,
+      "current_a": 25.8,
       "run_hours": 5398.0,
       "starts_today": 6,
       "temp_c": null,
@@ -64,14 +64,14 @@
       "rated_kw": 18.5,
       "block": 410,
       "bit": 1,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 100.0,
+      "power_kw": 14.4,
+      "current_a": 24.2,
       "run_hours": 5396.0,
-      "starts_today": 1,
+      "starts_today": 2,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 100.0,
+      "power_kw": 16.0,
+      "current_a": 26.6,
       "run_hours": 5398.0,
-      "starts_today": 7,
+      "starts_today": 8,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -100,12 +100,12 @@
       "rated_kw": 5.5,
       "block": 460,
       "bit": 6,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 5.0,
-      "current_a": 7.2,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 1416.0,
       "starts_today": 11,
       "temp_c": null,
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 6082,
+      "raw": 6979,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 176,
+      "raw": 153,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-11-01T12:07:12.149312+00:00",
-      "pa": 6.93,
-      "ps": 7.8,
-      "pi": -0.847,
-      "fl": 173.4,
-      "nr": 3,
-      "pk": 45.7,
-      "sp": [
-        100.0,
-        100.0,
-        100.0,
-        0.0
-      ],
-      "pw": [
-        15.4,
-        14.4,
-        16.0,
-        0.0
-      ],
-      "rh": [
-        5392.0,
-        5390.0,
-        5392.0,
-        1414.0
-      ],
-      "st": [
-        3,
-        4,
-        3,
-        3
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-11-01T12:11:52.982930+00:00",
       "pa": 6.93,
@@ -11668,6 +11628,46 @@
         6,
         1,
         7,
+        11
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-11-02T11:05:31.807397+00:00",
+      "pa": 7.054,
+      "ps": 7.8,
+      "pi": -0.847,
+      "fl": 173.4,
+      "nr": 3,
+      "pk": 45.9,
+      "sp": [
+        100.0,
+        100.0,
+        100.0,
+        0.0
+      ],
+      "pw": [
+        15.5,
+        14.4,
+        16.0,
+        0.0
+      ],
+      "rh": [
+        5398.0,
+        5396.0,
+        5398.0,
+        1416.0
+      ],
+      "st": [
+        6,
+        2,
+        8,
         11
       ],
       "tm": [
