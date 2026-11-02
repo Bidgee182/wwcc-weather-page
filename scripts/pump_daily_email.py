@@ -288,6 +288,23 @@ def supa_alarm_events(d_from, d_to):
     return out
 
 
+def supa_low_flow_count(d_from, d_to):
+    """Low-Flow Stop activations in the period from Supabase (full coverage; the
+    repo events file only spans ~2 weeks). Returns None on failure so the caller
+    can fall back to the repo count."""
+    lo = datetime(d_from.year, d_from.month, d_from.day, tzinfo=SYDNEY_TZ).astimezone(timezone.utc)
+    hi = (datetime(d_to.year, d_to.month, d_to.day, tzinfo=SYDNEY_TZ)
+          + timedelta(days=1)).astimezone(timezone.utc)
+    try:
+        q = ('select=ts&event_type=eq.func_low-flow_stop_on'
+             f'&ts=gte.{urllib.parse.quote(lo.isoformat())}'
+             f'&ts=lt.{urllib.parse.quote(hi.isoformat())}&limit=10000')
+        return len(_supa('pump_events_hires', q))
+    except Exception as e:
+        log.warning(f'Supabase low-flow fetch failed: {e}')
+        return None
+
+
 def emailed_index():
     """Per-code list of (appeared_dt, emailed_at_iso) from pump_email_state.json -
     the record of which alarms triggered an alert email. Pump alerts always include
@@ -427,18 +444,21 @@ def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, 
             starts[i] += v[i]
     kwh_per_ml = round(kwh / lake_ml) if lake_ml > 0 else None
 
-    # Low-flow stops (SystemFunction 'activated') - frequent cycling can mean a
-    # leak or zero-demand running; counted from the RAW events before filtering.
-    low_flow = 0
-    for e in raw_events:
-        if e.get('source_name') == 'SystemFunction' and e.get('type_code') == 3 \
-                and 'Stop' in (e.get('type_name') or ''):
-            try:
-                dt = datetime.fromisoformat(e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
-            except Exception:
-                continue
-            if f <= dt.date().isoformat() <= t:
-                low_flow += 1
+    # Low-flow stops - frequent cycling can mean a leak or zero-demand running.
+    # Count from Supabase for full-month coverage; fall back to the repo events
+    # (which only span ~2 weeks, so a monthly count would be undercounted).
+    low_flow = supa_low_flow_count(d_from, d_to)
+    if low_flow is None:
+        low_flow = 0
+        for e in raw_events:
+            if e.get('source_name') == 'SystemFunction' and e.get('type_code') == 3 \
+                    and 'Stop' in (e.get('type_name') or ''):
+                try:
+                    dt = datetime.fromisoformat(e['timestamp_iso'].replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+                except Exception:
+                    continue
+                if f <= dt.date().isoformat() <= t:
+                    low_flow += 1
 
     alarms_count = sum(1 for e in alarms_period if e.get('type_code') == 1)
     total_starts = sum(starts)
