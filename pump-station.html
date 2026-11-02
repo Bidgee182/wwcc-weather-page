@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.13';
+const PUMP_VERSION = '4.14';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2185,6 +2185,12 @@ async function ensureWaterNsw() {
         const reg = hr && hr.register ? hr.register : null;
         if (!reg) { waterNswHourly = []; return; }
         const scale = (pm && pm.das && typeof pm.das.scale === 'number') ? pm.das.scale : 0.1;
+        // The meter logs a cumulative register at each hour boundary, so a per-hour
+        // delta (water used DURING the hour) lands ~1h after it was actually drawn.
+        // Shift every point earlier by das.offset_min (default 60) to line it up with
+        // the pump flow. Editable in data/pump_meter.json; 0 disables. Applies to all
+        // past and future hours since it is computed here from the raw register.
+        const offMs = ((pm && pm.das && typeof pm.das.offset_min === 'number') ? pm.das.offset_min : 60) * 60000;
         const keys = Object.keys(reg).sort();
         const out = []; let prev = null;
         for (const k of keys) {
@@ -2192,7 +2198,7 @@ async function ensureWaterNsw() {
             if (prev !== null) {
                 let m3 = (v - prev) * scale;   // kL == m3, 10x-corrected
                 if (m3 < 0) m3 = 0;            // meter resets/partial reads never go negative
-                out.push({ t: _wnHourMs(k), v: m3 });
+                out.push({ t: _wnHourMs(k) - offMs, v: m3 });
             }
             prev = v;
         }
