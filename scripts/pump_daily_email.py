@@ -13,6 +13,7 @@ Required env vars:
   PUMP_EMAIL_RECIPIENTS  (comma-separated addresses)
 """
 import csv, json, logging, os, re, sys
+import urllib.parse, urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -37,6 +38,16 @@ EMCFG_FILE  = DATA_DIR / 'email_config.json'
 HISTORY_FILE    = DATA_DIR / 'pump_station_history.json'
 WATER_USAGE_FILE = DATA_DIR / 'water_usage.json'
 DAILY_LOG_FILE  = DATA_DIR / 'daily_log.csv'
+EMAIL_LOG_FILE  = DATA_DIR / 'email_log.csv'
+PUMP_STATE_FILE = DATA_DIR / 'pump_email_state.json'
+
+SUPA_URL = os.environ.get('SUPABASE_URL') or 'https://sduzxijjvpbfgvlwcwpp.supabase.co'
+SUPA_KEY = os.environ.get('SUPABASE_KEY') or (
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+    '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0'
+    '.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8')
+# The greenkeeper mailbox - alarm "emailed?" status reflects alerts that reached it.
+GREENKEEPER_ADDR = os.environ.get('PUMP_GK_ADDR', 'greenshed@wwcc.com.au').lower()
 
 PUMP_PAGE_URL  = 'https://bidgee182.github.io/wwcc-weather-page/pump-station.html'
 LOGO_URL       = 'https://bidgee182.github.io/wwcc-weather-page/assets/images/logo-white.png'
@@ -232,6 +243,150 @@ def overnight_pressure(readings):
             'deficit': round(avg_ps - avg_pa, 2) if avg_ps is not None else None}
 
 
+def _supa(table, query):
+    url = f'{SUPA_URL}/rest/v1/{table}?{query}'
+    req = urllib.request.Request(url, headers={
+        'apikey': SUPA_KEY, 'Authorization': f'Bearer {SUPA_KEY}', 'Accept': 'application/json'})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read() or b'[]')
+
+
+def supa_alarm_events(d_from, d_to):
+    """Real alarm transitions for the whole period from Supabase pump_events_hires,
+    in the repo event schema, oldest-first. The repo pump_alarm_history.json keeps
+    only ~200 events (about two weeks), so a monthly report needs this for full
+    coverage. Returns [] on any failure (the caller falls back to the repo file)."""
+    lo = datetime(d_from.year, d_from.month, d_from.day, tzinfo=SYDNEY_TZ).astimezone(timezone.utc)
+    hi = (datetime(d_to.year, d_to.month, d_to.day, tzinfo=SYDNEY_TZ)
+          + timedelta(days=1)).astimezone(timezone.utc)
+    try:
+        q = ('event_type=in.(alarm_on,alarm_off,pump_alarm_off)'
+             f'&ts=gte.{urllib.parse.quote(lo.isoformat())}'
+             f'&ts=lt.{urllib.parse.quote(hi.isoformat())}'
+             '&order=ts.asc&limit=3000')
+        rows = _supa('pump_events_hires', q)
+    except Exception as e:
+        log.warning(f'Supabase alarm fetch failed: {e}')
+        return []
+    out, seen = [], set()
+    for r in rows:
+        appeared = r.get('event_type') == 'alarm_on'
+        label = r.get('pump_label') or 'System'
+        ev = {
+            'timestamp_iso': r.get('ts'),
+            'code': r.get('alarm_code'),
+            'type_code': 1 if appeared else 2,
+            'type_name': 'Alarm appeared' if appeared else 'Alarm cleared',
+            'pump_label': label,
+            'description': r.get('alarm_desc') or '',
+            'source_name': 'Pump' if str(label).startswith('P') else 'System',
+        }
+        k = (str(ev['timestamp_iso'])[:19], ev['code'], ev['type_code'])
+        if k not in seen:
+            seen.add(k)
+            out.append(ev)
+    return out
+
+
+def emailed_index():
+    """Per-code list of (appeared_dt, emailed_at_iso) from pump_email_state.json -
+    the record of which alarms triggered an alert email. Pump alerts always include
+    the greenkeeper mailbox, so an alert emailed = emailed to the greenkeeper."""
+    st = load_json(PUMP_STATE_FILE, {})
+    idx = {}
+
+    def add(code, appeared, emailed):
+        if not emailed:
+            return
+        try:
+            ad = datetime.fromisoformat(str(appeared).replace('Z', '+00:00'))
+        except Exception:
+            return
+        idx.setdefault(str(code), []).append((ad, emailed))
+
+    for h in st.get('alarm_email_history', []):
+        add(h.get('code'), h.get('appeared_at'), h.get('appear_emailed_at'))
+    for code, a in (st.get('active_alarms') or {}).items():
+        add(code, a.get('appeared_at'), a.get('first_alerted_at'))
+    return idx
+
+
+def emailed_for(ev, idx):
+    """The emailed-at timestamp for an alarm 'appeared' event, or None."""
+    if ev.get('type_code') != 1:
+        return None
+    try:
+        t = datetime.fromisoformat(str(ev['timestamp_iso']).replace('Z', '+00:00'))
+    except Exception:
+        return None
+    for ad, em in idx.get(str(ev.get('code')), []):
+        if abs((ad - t).total_seconds()) <= 120:
+            return em
+    return None
+
+
+def overnight_pressure_by_day(readings):
+    """Per-night discharge pressure (min/avg/max) while pumping, keyed to the night's
+    start date: readings from 00:00-06:59 count toward the previous evening."""
+    by_day = {}
+    for dt, r in readings:
+        night = dt.hour >= 19 or dt.hour < 7
+        if night and (r.get('nr') or 0) > 0 and r.get('pa') is not None:
+            nd = dt.date() if dt.hour >= 19 else (dt.date() - timedelta(days=1))
+            by_day.setdefault(nd.isoformat(), []).append(r['pa'])
+    rows = []
+    for d in sorted(by_day):
+        v = by_day[d]
+        rows.append((d, round(min(v), 2), round(sum(v) / len(v), 2), round(max(v), 2)))
+    return rows
+
+
+def overnight_pressure_chart(readings, setpoint):
+    """QuickChart.io PNG - each night's overnight pumping pressure (min/avg/max)
+    across the period, with the setpoint line. Light theme to suit the email."""
+    rows = overnight_pressure_by_day(readings)
+    if len(rows) < 2:
+        return ''
+    labels = [f'{datetime.fromisoformat(d).day} {datetime.fromisoformat(d).strftime("%b")}'
+              for d, _, _, _ in rows]
+    mn = [r[1] for r in rows]
+    av = [r[2] for r in rows]
+    mx = [r[3] for r in rows]
+    allv = mn + mx + ([setpoint] if setpoint else [])
+    ymin = round(min(allv) - 0.2, 1)
+    ymax = round(max(allv) + 0.2, 1)
+    datasets = [
+        {'label': 'Highest', 'data': mx, 'borderColor': '#2980b9', 'backgroundColor': 'rgba(0,0,0,0)',
+         'borderWidth': 2, 'fill': False, 'pointRadius': 2, 'lineTension': 0.3},
+        {'label': 'Average', 'data': av, 'borderColor': '#27ae60', 'backgroundColor': 'rgba(39,174,96,0.10)',
+         'borderWidth': 2, 'fill': True, 'pointRadius': 2, 'lineTension': 0.3},
+        {'label': 'Lowest', 'data': mn, 'borderColor': '#e67e22', 'backgroundColor': 'rgba(0,0,0,0)',
+         'borderWidth': 2, 'fill': False, 'pointRadius': 2, 'lineTension': 0.3},
+    ]
+    if setpoint:
+        datasets.append({'label': f'Setpoint {setpoint:g} bar', 'data': [setpoint] * len(labels),
+                         'borderColor': '#c0392b', 'backgroundColor': 'rgba(0,0,0,0)', 'borderWidth': 1,
+                         'borderDash': [5, 4], 'fill': False, 'pointRadius': 0, 'lineTension': 0})
+    config = {
+        'type': 'line',
+        'data': {'labels': labels, 'datasets': datasets},
+        'options': {
+            # Legend rendered as line swatches in HTML below the image, not boxes.
+            'legend': {'display': False},
+            'scales': {
+                'xAxes': [{'gridLines': {'color': '#eee'},
+                           'ticks': {'fontColor': '#888', 'maxRotation': 0, 'autoSkip': True, 'maxTicksLimit': 10}}],
+                'yAxes': [{'gridLines': {'color': '#eee'},
+                           'ticks': {'fontColor': '#888', 'min': ymin, 'max': ymax}}],
+            },
+        },
+    }
+    cfg = json.dumps(config, separators=(',', ':'))
+    url = f'https://quickchart.io/chart?bkg=%23ffffff&w=560&h=230&c={urllib.parse.quote(cfg)}'
+    return (f'<img src="{url}" width="100%" alt="Overnight pumping pressure by day"'
+            f' style="display:block;border-radius:4px;max-width:100%;border:1px solid #eee;">')
+
+
 def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, days):
     """All the health + water figures for the period, plus an overall verdict."""
     f, t = d_from.isoformat(), d_to.isoformat()
@@ -312,12 +467,14 @@ def gather_metrics(d_from, d_to, latest, raw_events, alarms_period, active_now, 
     else:
         verdict = ('healthy', '#27ae60', 'Running normally - pressure held and no significant alarms.')
 
+    setpoint = (latest.get('system') or {}).get('pressure_setpoint_bar')
     return {
         'lake_ml': lake_ml, 'tank_l': tank_l, 'total_ml': total_ml,
         'press': press, 'run_hours': run_hours, 'starts': starts, 'total_starts': total_starts,
         'kwh': kwh, 'kwh_per_ml': kwh_per_ml, 'low_flow': low_flow,
         'alarms_count': alarms_count, 'active_count': len(active_now),
-        'setpoint': (latest.get('system') or {}).get('pressure_setpoint_bar'),
+        'setpoint': setpoint,
+        'pressure_chart': overnight_pressure_chart(readings, setpoint),
         'verdict': verdict,
     }
 
@@ -382,17 +539,38 @@ def _metrics_html(m):
         f'Pump status: {v_name.upper()}</span>'
         f'<span style="font-family:Arial,sans-serif;font-size:12px;color:#555;"> - {v_text}</span></div>')
 
+    chart = ''
+    if m.get('pressure_chart'):
+        def _lk(style, color, label, w=3):
+            return (f'<span style="white-space:nowrap;"><span style="display:inline-block;width:22px;'
+                    f'border-top:{w}px {style} {color};vertical-align:middle;line-height:0;">&nbsp;</span>'
+                    f'<span style="color:#555;">&nbsp;{label}</span></span>')
+        legend = (
+            '<div style="font-family:Arial,sans-serif;font-size:11px;text-align:center;line-height:2;margin-top:4px;">'
+            + _lk('solid', '#2980b9', 'Highest') + '&nbsp;&nbsp;&nbsp;'
+            + _lk('solid', '#27ae60', 'Average') + '&nbsp;&nbsp;&nbsp;'
+            + _lk('solid', '#e67e22', 'Lowest') + '&nbsp;&nbsp;&nbsp;'
+            + _lk('dashed', '#c0392b', 'Setpoint', 2) + '</div>')
+        chart = (
+            '<div style="font-family:Arial,sans-serif;font-size:12px;font-weight:bold;'
+            'color:#003366;margin:14px 2px 4px;">Overnight Pumping Pressure by Day</div>'
+            '<div style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin:0 2px 6px;">'
+            'Discharge pressure while pumping, 7pm-7am each night, vs the setpoint.</div>'
+            + m['pressure_chart'] + legend)
+
     return (
         '<table width="100%" cellpadding="0" cellspacing="0">'
         f'{_section_heading("Water & Pump Health")}'
         '<tr><td style="padding:0 32px 4px;">'
-        f'{verdict_box}{water}{perf}{rh}'
+        f'{verdict_box}{water}{perf}{rh}{chart}'
         '</td></tr></table>')
 
 
-def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metrics=None):
+def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metrics=None,
+               report_kind='Weekly'):
     date_label = period_label
     active_now = active_now or []
+    gk_addr = GREENKEEPER_ADDR
     metrics_html = _metrics_html(metrics) if metrics else ''
 
     p_min    = day_data.get('p_min')
@@ -459,31 +637,48 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metr
             f'{arows}</table></td></tr></table>')
 
     # Alarm event table rows (real alarms only; Low-Flow churn already removed).
-    # Show the DATE as well as the time since the period spans a week/month.
+    # Columns: When, Error (what it was), Source, Emailed to the greenkeeper.
+    idx = emailed_index()
     alarm_rows = ''
-    for i, a in enumerate(alarms_24h[:20]):
+    for i, a in enumerate(alarms_24h[:40]):
         ts = a.get('timestamp_iso', '')
         try:
             dt = datetime.fromisoformat(ts.replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
             ts_str = dt.strftime('%a %-d %b, %-I:%M %p')
         except Exception:
             ts_str = ts[:16]
-        t_code = a.get('type_code', 3)
-        color  = '#c0392b' if t_code == 1 else '#e67e22'
-        name   = a.get('type_name', 'Event')
-        src    = a.get('pump_label', 'System')
-        bg     = 'background:#f9f9f9;' if i % 2 == 0 else ''
+        appeared = a.get('type_code', 3) == 1
+        color    = '#c0392b' if appeared else '#27ae60'
+        err      = a.get('description') or a.get('type_name', 'Event')
+        if not appeared:
+            err += ' (cleared)'
+        src = a.get('pump_label', 'System')
+        if appeared:
+            em = emailed_for(a, idx)
+            if em:
+                try:
+                    edt = datetime.fromisoformat(str(em).replace('Z', '+00:00')).astimezone(SYDNEY_TZ)
+                    em_html = f'<span style="color:#27ae60;">Yes - {edt.strftime("%-d %b")}</span>'
+                except Exception:
+                    em_html = '<span style="color:#27ae60;">Yes</span>'
+            else:
+                em_html = '<span style="color:#c0392b;">No</span>'
+        else:
+            em_html = '<span style="color:#ccc;">-</span>'
+        bg = 'background:#f9f9f9;' if i % 2 == 0 else ''
         alarm_rows += (f'<tr style="{bg}">'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
                        f'font-size:13px;color:#666;white-space:nowrap;">{ts_str}</td>'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
-                       f'font-size:13px;color:{color};">{name}</td>'
+                       f'font-size:13px;color:{color};">{err}</td>'
                        f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
-                       f'font-size:13px;">{src}</td></tr>')
+                       f'font-size:13px;">{src}</td>'
+                       f'<td style="padding:7px 16px;font-family:Arial,sans-serif;'
+                       f'font-size:13px;white-space:nowrap;">{em_html}</td></tr>')
     if not alarm_rows:
         msg = ('No alarms this period (routine Low-Flow Stop/Boost operation is not listed).'
                if not active_now else 'No new alarm events this period.')
-        alarm_rows = ('<tr><td colspan="3" style="padding:10px 16px;'
+        alarm_rows = ('<tr><td colspan="4" style="padding:10px 16px;'
                       f'font-family:Arial,sans-serif;font-size:14px;color:#999;">{msg}</td></tr>')
 
     return f'''<!DOCTYPE html>
@@ -499,7 +694,7 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metr
        style="background:#003366;padding:28px 32px;">
 <tr><td>{_logo()}</td></tr>
 <tr><td style="padding-top:14px;font-family:Arial,sans-serif;font-size:20px;
-               font-weight:bold;color:#ffffff;">Pump Station Weekly Summary</td></tr>
+               font-weight:bold;color:#ffffff;">Pump Station {report_kind} Summary</td></tr>
 <tr><td style="padding-top:4px;font-family:Arial,sans-serif;font-size:14px;
                color:#99bbdd;">{date_label}</td></tr>
 </table>
@@ -518,7 +713,7 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metr
 
 <!-- Pressure -->
 <table width="100%" cellpadding="0" cellspacing="0">
-{_section_heading("This Week's System Pressure")}
+{_section_heading("System Pressure (all hours)")}
 <tr><td style="padding:0 32px 4px;">
 {_key_value_table([
     ('Minimum', fmt_bar(p_min)),
@@ -557,12 +752,16 @@ def build_html(day_data, latest, period_label, alarms_24h, active_now=None, metr
 <table width="100%" cellpadding="0" cellspacing="0"
        style="border:1px solid #eee;border-radius:4px;">
 <tr>
-<td style="{TH}">Time</td>
-<td style="{TH}">Event</td>
+<td style="{TH}">When</td>
+<td style="{TH}">Error</td>
 <td style="{TH}">Source</td>
+<td style="{TH}">Emailed to greens shed</td>
 </tr>
 {alarm_rows}
 </table>
+<p style="margin:6px 2px 0;font-family:Arial,sans-serif;font-size:11px;color:#999;">
+"Emailed to greens shed" shows whether a fault alert for that alarm was emailed to
+the greenkeeper ({gk_addr}). Routine Low-Flow Stop/Boost operation is not listed.</p>
 </td></tr>
 </table>
 
@@ -668,13 +867,18 @@ def _alarms_in(all_events, d_from, d_to):
     return out
 
 
-def build_period_html(d_from, d_to, period_label, days, latest, raw_events):
+def build_period_html(d_from, d_to, period_label, days, latest, raw_events, report_kind='Weekly'):
     """Assemble one pump summary (weekly or monthly) for [d_from, d_to]."""
     day_data, _ = aggregate_week(days, d_from, d_to)
-    alarms = _alarms_in(real_alarm_events(raw_events), d_from, d_to)
+    # Full-period alarms from Supabase (the repo pump_alarm_history.json keeps only
+    # ~200 events / ~2 weeks, which made a monthly report show only part of the
+    # month). Fall back to the repo file if Supabase is unavailable.
+    alarms = supa_alarm_events(d_from, d_to)
+    if not alarms:
+        alarms = _alarms_in(real_alarm_events(raw_events), d_from, d_to)
     active_now = active_alarms_from_latest(latest)
     metrics = gather_metrics(d_from, d_to, latest, raw_events, alarms, active_now, days)
-    return build_html(day_data or {}, latest, period_label, alarms, active_now, metrics)
+    return build_html(day_data or {}, latest, period_label, alarms, active_now, metrics, report_kind)
 
 
 def main():
@@ -703,7 +907,8 @@ def main():
             period_label = f"{d_from.strftime('%-d %b')} - {d_to.strftime('%-d %b %Y')}"
         subject = f'Pump Station Weekly Summary - {period_label}'
 
-    html = build_period_html(d_from, d_to, period_label, days, latest, raw_events)
+    html = build_period_html(d_from, d_to, period_label, days, latest, raw_events,
+                             'Monthly' if monthly else 'Weekly')
     send_email(subject, html)
 
 
