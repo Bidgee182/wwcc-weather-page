@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.7';
+const PUMP_VERSION = '4.8';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2862,11 +2862,10 @@ async function renderPerfCharts() {
         { label:'Flow (m³/h)', data: xy(pts, r=>r.fl), borderColor:'#3498db', bg:'rgba(52,152,219,.1)', dashed:false }
     ];
     if (wnFlow.length) {
-        // Metered flow is an hourly average on a different scale to instantaneous pump
-        // flow - put it on its own right axis so it can't rescale/swamp the pump trace.
+        // Same axis as pump flow on purpose: comparing metered extraction against pump
+        // output side by side is the whole point of the overlay.
         flowDatasets.push({ label:'WaterNSW metered (m³/h)', data: wnFlow,
-            borderColor:'#9b59b6', stepped:true, thin:true, noHover:false,
-            rightAxis:true, rightTitle:'Metered m³/h' });
+            borderColor:'#9b59b6', stepped:true, thin:true, noHover:false });
     }
     renderLineChart('c-flow', noData, pts, flowDatasets, v=>v!=null?v.toFixed(1)+' m³/h':null);
     if (!noData) {
@@ -2985,7 +2984,6 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
     };
 
     const nPts = pts ? pts.length : (datasets[0] && datasets[0].data ? datasets[0].data.length : 0);
-    const hasRight = datasets.some(d => d.rightAxis);
     const ds = datasets.map(d => ({
         label: d.label,
         data:  breakSeriesGaps(d.smooth ? smoothSeries(d.data, d.smooth) : d.data),
@@ -3000,17 +2998,7 @@ function renderLineChart(id, noData, pts, datasets, tooltipFmt, yOpts) {
         fill: !!(d.bg && d.bg !== 'transparent'),
         spanGaps: false,   // real gaps break the line/fill (see breakSeriesGaps)
         stepped: d.stepped || false,
-        yAxisID: d.rightAxis ? 'y1' : 'y',
     }));
-    // A second (right) y-axis for a secondary-scale overlay, e.g. the WaterNSW
-    // metered flow on the pump-flow chart - so it doesn't rescale the primary trace.
-    if (hasRight) {
-        const rd = datasets.find(d => d.rightAxis);
-        opts.scales.y1 = { type:'linear', position:'right', min:0,
-            grid:{ drawOnChartArea:false },
-            ticks:{ color: rd.borderColor, font:{size:9} },
-            title:{ display:true, text: rd.rightTitle || '', color: rd.borderColor, font:{size:9} } };
-    }
 
     if (charts[canvasId]) { charts[canvasId].destroy(); }
     charts[canvasId] = new Chart(document.getElementById(canvasId).getContext('2d'), {
@@ -3462,23 +3450,33 @@ function alarmRow(a, emailedCodes) {
 // escalating to 4 "Too many restarts") the superseded code never gets an 'off', and
 // the final all-clear is logged only against the last active code. Replaying offs
 // therefore left superseded/cleared alarms showing as permanently active.
+let _alarmSeriesCache = null, _alarmSeriesKey = '';
 function _alarmSeries() {
+    // Cache the (sorted) register series between renders; rebuild only when the data
+    // actually changed. Keyed on the newest stats ts + history length/tail so a new
+    // minute or a wider loaded history invalidates it, but repeat renders within the
+    // same data (tab switches, filters) reuse it instead of re-sorting ~130k points.
+    const sw = _statsWindow || [];
+    const hr = (historyData && historyData.readings) || [];
+    const key = (sw.length ? sw[sw.length-1].ts : '') + '|' + hr.length + '|' +
+                (hr.length ? hr[hr.length-1].ts : '');
+    if (_alarmSeriesCache && _alarmSeriesKey === key) return _alarmSeriesCache;
     const out = [];
-    if (_statsWindow) for (const r of _statsWindow)
-        out.push({ t: new Date(r.ts).getTime(), c: r.alarm_code || 0 });
-    if (historyData && historyData.readings) for (const r of historyData.readings)
-        out.push({ t: new Date(r.ts).getTime(), c: r.ac || 0 });
+    for (const r of sw) out.push({ t: new Date(r.ts).getTime(), c: r.alarm_code || 0 });
+    for (const r of hr) out.push({ t: new Date(r.ts).getTime(), c: r.ac || 0 });
     out.sort((a, b) => a.t - b.t);
+    _alarmSeriesCache = out; _alarmSeriesKey = key;
     return out;
 }
 // First register sample at/after an alarm's onset where the register no longer holds
 // `code` (superseded by another code, or returned to 0). Returns that ms, or null if
 // the series still holds `code` through its latest sample (or does not cover it).
-function _registerClearTs(code, appearedMs) {
-    const s = _alarmSeries();
-    if (!s.length) return null;
+// Takes a prebuilt series (built once per reconcile pass) - building+sorting it here
+// per alarm over a large loaded history was O(pairs x N log N) and janked the 60s tick.
+function _registerClearTs(series, code, appearedMs) {
+    if (!series || !series.length) return null;
     let sawCode = false;
-    for (const p of s) {
+    for (const p of series) {
         if (p.t < appearedMs - 120000) continue;   // 2-min slack before the logged onset
         if (p.c === code) { sawCode = true; continue; }
         if (sawCode) return p.t;                    // register left this code here
@@ -3536,12 +3534,14 @@ function reconcilePairsWithRegister(pairs) {
             if (activeTs === null || ts > activeTs) activeTs = ts;
         }
     }
+    let series = null, built = false;   // build the register series at most ONCE per pass
     for (const p of pairs) {
         if (p.cleared || !p.appeared) continue;
         const code  = p.appeared.code || 0;
         const appMs = new Date(p.appeared.timestamp_iso).getTime();
         if (_liveAlarmCode > 0 && code === _liveAlarmCode && appMs === activeTs) continue; // truly active
-        const clrMs = _registerClearTs(code, appMs);
+        if (!built) { series = _alarmSeries(); built = true; }
+        const clrMs = _registerClearTs(series, code, appMs);
         p.cleared = {
             timestamp_iso: clrMs ? new Date(clrMs).toISOString() : null,
             type_code: 2, code: code,
