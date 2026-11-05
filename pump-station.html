@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.16';
+const PUMP_VERSION = '4.17';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -2007,8 +2007,41 @@ const STATS_COLS = 'select=ts,pressure_avg,setpoint_bar,pressure_inlet,flow_avg,
 // caps any response at 1000 rows, so a coarser-than-900 target would silently drop
 // the newest data. ~900 points is ample resolution for a multi-week overview.
 function serverBucketSec(rangeH) {
-    if (rangeH <= 48) return 0;                     // <=48h: raw 1-minute
+    if (rangeH <= 72) return 0;                     // <=72h: raw 1-minute (incl custom spans)
     return Math.max(60, Math.ceil(rangeH * 3600 / 900));
+}
+
+// Load pump_stats rows for [fromMs, toMs] at the given resolution. bucketSec>0 asks
+// the server to down-sample (one point per bucket) via the RPC; 0, or an RPC that is
+// absent/empty, falls back to raw 1-minute rows paginated in PARALLEL batches (PostgREST
+// caps each response at ~1000 rows). Returns {rows, bucket} where bucket is the
+// resolution actually used (0 = raw) so callers can track the cache resolution.
+async function fetchStatsRows(fromMs, toMs, bucketSec) {
+    const tFrom = new Date(fromMs).toISOString();
+    const tTo   = new Date(toMs).toISOString();
+    if (bucketSec > 0) {
+        const rows = await supaFetch('rpc/pump_stats_sampled',
+            `${STATS_COLS}&t_from=${encodeURIComponent(tFrom)}&t_to=${encodeURIComponent(tTo)}` +
+            `&bucket_seconds=${bucketSec}&order=ts.asc`);
+        if (Array.isArray(rows) && rows.length) return { rows, bucket: bucketSec };
+    }
+    const fromIso = tFrom.slice(0, 19) + 'Z', toIso = tTo.slice(0, 19) + 'Z';
+    const PAGE = 1000;
+    const estPages = Math.ceil(((toMs - fromMs) / 60000) / PAGE) + 1;
+    const BATCH = Math.min(8, Math.max(1, estPages));
+    let all = [], base = 0, done = false;
+    while (!done) {
+        const reqs = [];
+        for (let b = 0; b < BATCH; b++) {
+            reqs.push(supaFetch('pump_stats_v2',
+                `${STATS_COLS}&order=ts.asc&ts=gte.${fromIso}&ts=lte.${toIso}&limit=${PAGE}&offset=${base + b * PAGE}`));
+        }
+        const pages = await Promise.all(reqs);
+        for (const p of pages) all.push(...p);
+        if (pages[pages.length - 1].length < PAGE) done = true;
+        base += BATCH * PAGE;
+    }
+    return { rows: all, bucket: 0 };
 }
 
 async function ensureHistory(rangeH) {
@@ -2042,49 +2075,12 @@ async function ensureHistory(rangeH) {
         return;
     }
 
-    // Need a wider span than we hold (or nothing cached yet): (re)load it.
+    // Need a wider span than we hold (or nothing cached yet): (re)load it. Large ranges
+    // down-sample server-side; <=72h loads raw 1-minute rows (parallel-paginated).
     try {
         document.getElementById('hist-loading').style.display = 'block';
-        const cutoff = new Date(nowMs - wantMs).toISOString().slice(0, 19) + 'Z';
-        let allRows = null;
-
-        // Large ranges: ask the server to down-sample to ~one point per time bucket, so
-        // a wide range transfers a few thousand rows instead of every raw minute (~130k
-        // for 90d). Needs the pump_stats_sampled() DB function; if it is absent or
-        // errors, allRows stays null and we fall through to the full raw load below.
-        const bucketSec = serverBucketSec(rangeH || 24);
-        let usedBucketSec = 0;   // 0 until a sampled load actually succeeds
-        if (bucketSec > 0) {
-            const tFrom = new Date(nowMs - wantMs).toISOString();
-            const tTo   = new Date(nowMs).toISOString();
-            const rows = await supaFetch('rpc/pump_stats_sampled',
-                `${STATS_COLS}&t_from=${encodeURIComponent(tFrom)}&t_to=${encodeURIComponent(tTo)}` +
-                `&bucket_seconds=${bucketSec}&order=ts.asc`);
-            if (Array.isArray(rows) && rows.length) { allRows = rows; usedBucketSec = bucketSec; }
-        }
-
-        if (allRows === null) {
-            // Raw load. PostgREST caps each response at ~1000 rows, so paginate - but
-            // fetch the pages in PARALLEL batches so a wide range loads in a handful of
-            // round-trips instead of ~130 serial ones. Same bytes, result is cached, so
-            // no egress regression. Batch size is sized to the range so a 24h load does
-            // not fire a pile of empty pages.
-            const PAGE = 1000;
-            const estPages = Math.ceil((wantMs / 60000) / PAGE) + 1;   // ~1 row/min, +1
-            const BATCH = Math.min(8, Math.max(1, estPages));
-            allRows = []; let base = 0, done = false;
-            while (!done) {
-                const reqs = [];
-                for (let b = 0; b < BATCH; b++) {
-                    reqs.push(supaFetch('pump_stats_v2',
-                        `${STATS_COLS}&order=ts.asc&ts=gte.${cutoff}&limit=${PAGE}&offset=${base + b * PAGE}`));
-                }
-                const pages = await Promise.all(reqs);
-                for (const p of pages) allRows.push(...p);
-                if (pages[pages.length - 1].length < PAGE) done = true;   // reached the end
-                base += BATCH * PAGE;
-            }
-        }
+        const { rows: allRows, bucket: usedBucketSec } =
+            await fetchStatsRows(nowMs - wantMs, nowMs, serverBucketSec(rangeH || 24));
         historyData  = { readings: allRows.map(statsRowToReading) };
         _histLoadedMs = wantMs;
         _histBucketSec = usedBucketSec;
@@ -2232,7 +2228,7 @@ async function getPerfReadings() {
 // Downsample readings into time buckets for longer ranges
 function bucketReadings(readings, rangeH) {
     let bucketMs;
-    if      (rangeH <= 48)  bucketMs = 0;
+    if      (rangeH <= 72)  bucketMs = 0;   // <=72h: full 1-minute detail (no downsample)
     else if (rangeH <= 168) bucketMs = 5  * 60000;
     else if (rangeH <= 720) bucketMs = 15 * 60000;
     else                    bucketMs = 60 * 60000;
@@ -2746,13 +2742,12 @@ async function applyCustomRange() {
     perfRangeH = (toMs - fromMs) / 3600000;
     customRangeFrom = fromMs;
     customRangeTo   = toMs;
-    const fromIso = new Date(fromMs).toISOString().slice(0, 19) + 'Z';
-    const toIso   = new Date(toMs).toISOString().slice(0, 19) + 'Z';
 
     document.getElementById('hist-loading').style.display = 'block';
     try {
-        const rows = await supaFetch('pump_stats_v2',
-            `order=ts.asc&ts=gte.${fromIso}&ts=lte.${toIso}&limit=150000`);
+        // Same loader as the presets: <=72h gets raw 1-minute detail (parallel-paginated,
+        // not the old single capped request), wider spans down-sample server-side.
+        const { rows } = await fetchStatsRows(fromMs, toMs, serverBucketSec(perfRangeH));
         customRangeReadings = bucketReadings(rows.map(statsRowToReading), perfRangeH);
     } catch(e) { customRangeReadings = []; }
     document.getElementById('hist-loading').style.display = 'none';
