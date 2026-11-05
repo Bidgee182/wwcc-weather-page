@@ -1204,7 +1204,7 @@
 // ─── Build version ────────────────────────────────────────────────────────────
 // Bump on ANY change to this page OR the pollers. Keep POLLER_VERSION (in
 // pi_pump_poller.py) equal to this so the Pi reports the same number.
-const PUMP_VERSION = '4.15';
+const PUMP_VERSION = '4.16';
 // Remote refresh: raise min_version in monitor_state (key pump_page) and every
 // open copy of this page shows a banner and reloads itself within a minute.
 // Built 9 Sep 2026 after stale tabs had to be cut off at the database instead.
@@ -1922,6 +1922,7 @@ function wnDownloadCsv() {
 // ─── Data loading ─────────────────────────────────────────────────────────────
 let _histFetchedAt = 0, _dailyFetchedAt = 0, _alarmFetchedAt = 0;
 let _histLoadedMs = 0;   // how much history is currently cached (ms span); grows on demand
+let _histBucketSec = 0;  // resolution the cache was loaded at (0 = raw 1-min, >0 = server-sampled)
 const CACHE_TTL_MS   = 10 * 60000;   // alarm cache refreshes at most every 10 min
 const DAILY_TTL_MS   = 60 * 60000;   // daily aggregates change once a day - hourly is plenty
 
@@ -2020,8 +2021,11 @@ async function ensureHistory(rangeH) {
     const wantMs = Math.min(rangeH || 24, 2160) * 3600000;   // cap at 90 days
     const haveRows = historyData !== null && historyData.readings.length > 0;
 
-    // We already hold at least the requested span: just keep it fresh incrementally.
-    if (haveRows && _histLoadedMs >= wantMs) {
+    // We already hold at least the requested span AND at a fine enough resolution:
+    // just keep it fresh incrementally. The resolution check stops a coarse, server-
+    // sampled wide-range cache (e.g. 90d) being reused for a 24h/48h view, which needs
+    // raw 1-minute points - without it, switching back from 90d dropped 24h to ~248 pts.
+    if (haveRows && _histLoadedMs >= wantMs && _histBucketSec <= serverBucketSec(rangeH || 24)) {
         if (nowMs - _histFetchedAt < 55000) return;
         try {
             const lastTs = historyData.readings[historyData.readings.length - 1].ts;
@@ -2049,13 +2053,14 @@ async function ensureHistory(rangeH) {
         // for 90d). Needs the pump_stats_sampled() DB function; if it is absent or
         // errors, allRows stays null and we fall through to the full raw load below.
         const bucketSec = serverBucketSec(rangeH || 24);
+        let usedBucketSec = 0;   // 0 until a sampled load actually succeeds
         if (bucketSec > 0) {
             const tFrom = new Date(nowMs - wantMs).toISOString();
             const tTo   = new Date(nowMs).toISOString();
             const rows = await supaFetch('rpc/pump_stats_sampled',
                 `${STATS_COLS}&t_from=${encodeURIComponent(tFrom)}&t_to=${encodeURIComponent(tTo)}` +
                 `&bucket_seconds=${bucketSec}&order=ts.asc`);
-            if (Array.isArray(rows) && rows.length) allRows = rows;
+            if (Array.isArray(rows) && rows.length) { allRows = rows; usedBucketSec = bucketSec; }
         }
 
         if (allRows === null) {
@@ -2082,6 +2087,7 @@ async function ensureHistory(rangeH) {
         }
         historyData  = { readings: allRows.map(statsRowToReading) };
         _histLoadedMs = wantMs;
+        _histBucketSec = usedBucketSec;
         _histFetchedAt = nowMs;
     } catch(e) {
         if (historyData === null) historyData = { readings:[] };
