@@ -1,10 +1,10 @@
 {
-  "connected": false,
-  "timestamp": "2026-11-07T00:05:43.802376+00:00",
-  "last_seen": "2026-11-07T00:00:17.887444+00:00",
-  "last_connected": "2026-11-06T23:33:07.934747+00:00",
+  "connected": true,
+  "timestamp": "2026-11-07T00:10:28.302185+00:00",
+  "last_seen": "2026-11-07T00:10:28.302185+00:00",
+  "last_connected": "2026-11-07T00:10:28.302185+00:00",
   "system": {
-    "pressure_actual_bar": 7.181,
+    "pressure_actual_bar": 7.118,
     "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
     "flow_m3h": 0.0,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7210,
+      "raw": 7118,
       "temp_c": null
     },
     {
@@ -10197,6 +10197,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-11-07T00:10:28.302185+00:00",
+      "pa": 7.118,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5428.0,
+        5426.0,
+        5426.0,
+        1416.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -10572,20 +10612,5 @@
     null,
     null,
     null
-  ],
-  "offline_diagnosis": {
-    "code": "unreachable",
-    "dns_ip": "123.209.97.96",
-    "detail": "",
-    "summary": "bidgee-pumps.duckdns.org -> 123.209.97.96: nothing answers on 80/443/502 - modem offline or IP released",
-    "checked_at": "2026-11-07T00:05:43.802376+00:00"
-  },
-  "selfheal": {
-    "checked_at": "2026-11-07T00:05:54.913310+00:00",
-    "candidate_ip": null,
-    "source": null,
-    "dns_ip": "123.209.97.96",
-    "action": "none",
-    "detail": "no IP source available - configure the Pi heartbeat (on-site), JASPER_* secrets, or re-run this workflow with router_ip from the Telstra/Jasper portal"
-  }
+  ]
 }
