@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-11-07T15:26:35.207973+00:00",
-  "last_seen": "2026-11-07T15:26:35.207973+00:00",
-  "last_connected": "2026-11-07T15:26:35.207973+00:00",
+  "timestamp": "2026-11-07T15:31:24.860339+00:00",
+  "last_seen": "2026-11-07T15:31:24.860339+00:00",
+  "last_connected": "2026-11-07T15:31:24.860339+00:00",
   "system": {
-    "pressure_actual_bar": 7.496,
-    "pressure_suction_bar": -0.841,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.838,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 163.3,
-    "power_kw": 45.6,
+    "flow_m3h": 150.0,
+    "power_kw": 42.6,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 100.0,
+    "relative_performance_pct": 99.2,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 210704,
+    "energy_kwh": 210706,
     "run_hours": 42700,
     "powered_hours": null,
     "power_ons": 82,
@@ -49,9 +49,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 15.7,
-      "current_a": 25.8,
+      "speed_pct": 99.6,
+      "power_kw": 14.8,
+      "current_a": 25.4,
       "run_hours": 5432.0,
       "starts_today": 0,
       "temp_c": null,
@@ -67,9 +67,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 13.9,
-      "current_a": 23.4,
+      "speed_pct": 99.6,
+      "power_kw": 12.7,
+      "current_a": 22.4,
       "run_hours": 5430.0,
       "starts_today": 0,
       "temp_c": null,
@@ -85,9 +85,9 @@
       "running": true,
       "fault": false,
       "standby": false,
-      "speed_pct": 100.0,
-      "power_kw": 16.2,
-      "current_a": 26.4,
+      "speed_pct": 99.6,
+      "power_kw": 15.5,
+      "current_a": 25.8,
       "run_hours": 5430.0,
       "starts_today": 0,
       "temp_c": null,
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7440,
+      "raw": 7854,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 159,
+      "raw": 162,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-11-06T15:29:04.940180+00:00",
-      "pa": 7.496,
-      "ps": 7.8,
-      "pi": -0.844,
-      "fl": 160.7,
-      "nr": 3,
-      "pk": 45.0,
-      "sp": [
-        100.0,
-        100.0,
-        100.0,
-        0.0
-      ],
-      "pw": [
-        15.7,
-        14.0,
-        16.2,
-        0.0
-      ],
-      "rh": [
-        5426.0,
-        5424.0,
-        5424.0,
-        1416.0
-      ],
-      "st": [
-        0,
-        0,
-        0,
-        0
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-11-06T15:34:44.794298+00:00",
       "pa": 7.496,
@@ -11677,6 +11637,46 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-11-07T15:31:24.860339+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.838,
+      "fl": 150.0,
+      "nr": 3,
+      "pk": 42.6,
+      "sp": [
+        99.6,
+        99.6,
+        99.6,
+        0.0
+      ],
+      "pw": [
+        14.8,
+        12.7,
+        15.5,
+        0.0
+      ],
+      "rh": [
+        5432.0,
+        5430.0,
+        5430.0,
+        1416.0
+      ],
+      "st": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
@@ -12044,7 +12044,7 @@
   "pump_energy_kwh": [
     4672,
     64282,
-    6898,
+    6900,
     3858
   ],
   "mge_temps": [
