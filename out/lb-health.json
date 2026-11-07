@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-11-07T09:38:23.483790+00:00",
- "window": "day",
+ "updatedAt": "2026-11-07T14:56:53.116660+00:00",
+ "window": "night",
  "alertsActive": [],
- "competition": "Saturday Mens Monthly Medal",
- "compDate": "2026-11-07",
- "playerCount": 180,
- "pollAgeMin": 0.9,
- "officialResultsReady": true,
+ "competition": "Sunday Medley Stableford",
+ "compDate": "2026-11-08",
+ "playerCount": 120,
+ "pollAgeMin": 0.3,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 11,
+  "ntp": 0,
   "ld": 0,
-  "balls": 77
+  "balls": 0
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
-   "status": "ok",
-   "detail": "5 board(s) listed"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
-   "status": "ok",
-   "detail": "Updated 1 min ago"
+   "status": "idle",
+   "detail": "Outside daylight window"
   },
   {
    "key": "creds",
@@ -35,44 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "180 players"
+   "detail": "120 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
+   "status": "idle",
+   "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414496",
-   "label": "Results: Saturday Mens Monthly Medal",
-   "status": "ok",
-   "detail": "3 grades, 103 players, 11 NTP, 0 LD, 77 balls"
-  },
-  {
-   "key": "pdf:10414470",
-   "label": "Results: Saturday 4BBB Stableford",
+   "key": "pdf:10414473",
+   "label": "Results PDF",
    "status": "idle",
    "detail": "Comp not started"
-  },
-  {
-   "key": "pdf:10414497",
-   "label": "Results: Saturday Ladies Monthly Me\u2026",
-   "status": "idle",
-   "detail": "Awaiting official results"
-  },
-  {
-   "key": "pdf:10414498",
-   "label": "Results: Navigate 9's Front 9",
-   "status": "idle",
-   "detail": "Multi-week series - no daily official results"
   }
  ],
  "yesterday": [
   {
-   "competition": "Friday Medley Stableford",
+   "competition": "Saturday Ladies Monthly Medal Womens",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Saturday Mens Monthly Medal",
    "status": "success",
-   "summary": "3 grades, 98 players, 4 NTP, 0 LD, 28 balls",
+   "summary": "3 grades, 103 players, 11 NTP, 0 LD, 77 balls",
    "role": "primary"
   }
  ]
