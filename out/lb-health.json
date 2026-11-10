@@ -1,16 +1,16 @@
 {
- "updatedAt": "2026-11-10T09:01:58.593931+00:00",
+ "updatedAt": "2026-11-10T15:57:41.929729+00:00",
  "window": "day",
  "alertsActive": [],
- "competition": "Ladies 18 Hole Stableford Womens",
- "compDate": "2026-11-10",
- "playerCount": 35,
- "pollAgeMin": 0.4,
- "officialResultsReady": true,
+ "competition": "Mens Wednesday Stableford",
+ "compDate": "2026-11-11",
+ "playerCount": 162,
+ "pollAgeMin": 0.5,
+ "officialResultsReady": false,
  "prizes": {
-  "ntp": 3,
+  "ntp": 0,
   "ld": 0,
-  "balls": 14
+  "balls": 0
  },
  "checks": [
   {
@@ -23,7 +23,7 @@
    "key": "stale",
    "label": "Poller freshness",
    "status": "ok",
-   "detail": "Updated 0 min ago"
+   "detail": "Updated 1 min ago"
   },
   {
    "key": "creds",
@@ -35,38 +35,32 @@
    "key": "players",
    "label": "Field size",
    "status": "ok",
-   "detail": "35 players"
+   "detail": "162 players"
   },
   {
    "key": "accuracy",
    "label": "Matches MiScore",
-   "status": "ok",
-   "detail": "10 finished top-10 row(s) verified"
-  },
-  {
-   "key": "pdf:10414475",
-   "label": "Results: Ladies 18 Hole Stableford \u2026",
-   "status": "ok",
-   "detail": "2 grades, 19 players, 3 NTP, 0 LD, 14 balls"
-  },
-  {
-   "key": "pdf:10414476",
-   "label": "Results: Ladies 9 Hole Stableford F\u2026",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Checked while comp is live"
   },
   {
-   "key": "pdf:10414504",
-   "label": "Results: Navigate 9's Front 9",
+   "key": "pdf:10414269",
+   "label": "Results PDF",
    "status": "idle",
-   "detail": "Multi-week series - no daily official results"
+   "detail": "Comp not started"
   }
  ],
  "yesterday": [
   {
-   "competition": "Veterans 9 Hole Stableford Front 9",
+   "competition": "Ladies 9 Hole Stableford Front 9 Womens",
+   "status": "none-published",
+   "summary": "no official results by 7:30pm",
+   "role": "companion"
+  },
+  {
+   "competition": "Ladies 18 Hole Stableford Womens",
    "status": "success",
-   "summary": "single field, 67 players, 1 NTP, 0 LD, 21 balls",
+   "summary": "2 grades, 19 players, 3 NTP, 0 LD, 14 balls",
    "role": "primary"
   }
  ]
