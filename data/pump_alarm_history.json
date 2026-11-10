@@ -1,6 +1,15 @@
 {
   "events": [
     {
+      "timestamp_iso": "2026-11-10T00:28:18.540969+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
       "timestamp_iso": "2026-11-10T00:23:28.431060+00:00",
       "type_code": 4,
       "type_name": "Low-Flow Stop deactivated",
@@ -1790,15 +1799,6 @@
       "description": "Too many restarts",
       "pump_label": "P2 - CRNE45",
       "source_name": "Pump"
-    },
-    {
-      "timestamp_iso": "2026-10-22T10:24:48.214362+00:00",
-      "type_code": 2,
-      "type_name": "Alarm cleared",
-      "code": 4,
-      "description": "Too many restarts",
-      "pump_label": "System",
-      "source_name": "System"
     }
   ]
 }
