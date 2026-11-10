@@ -1,8 +1,8 @@
 {
   "connected": true,
-  "timestamp": "2026-11-10T03:44:06.397383+00:00",
-  "last_seen": "2026-11-10T03:44:06.397383+00:00",
-  "last_connected": "2026-11-10T03:44:06.397383+00:00",
+  "timestamp": "2026-11-10T03:48:52.310188+00:00",
+  "last_seen": "2026-11-10T03:48:52.310188+00:00",
+  "last_connected": "2026-11-10T03:48:52.310188+00:00",
   "system": {
     "pressure_actual_bar": 7.874,
     "pressure_suction_bar": -0.818,
@@ -117,7 +117,7 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7854,
+      "raw": 7900,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-11-09T03:46:14.290836+00:00",
-      "pa": 8.126,
-      "ps": 7.8,
-      "pi": -0.815,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5442.0,
-        5440.0,
-        5440.0,
-        1416.0
-      ],
-      "st": [
-        0,
-        0,
-        2,
-        4
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-11-09T03:50:57.227184+00:00",
       "pa": 8.126,
@@ -10757,18 +10717,49 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-11-10T03:48:52.310188+00:00",
+      "pa": 7.874,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rh": [
+        5450.0,
+        5448.0,
+        5448.0,
+        1420.0
+      ],
+      "st": [
+        6,
+        3,
+        8,
+        20
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
-    {
-      "timestamp_iso": "2026-11-10T03:44:06.397383+00:00",
-      "type_code": 3,
-      "type_name": "Low-Flow Stop activated",
-      "code": 12,
-      "description": "Low-flow stop active - possible system leak or zero demand",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
-    },
     {
       "timestamp_iso": "2026-11-10T03:37:46.543711+00:00",
       "type_code": 4,
@@ -11117,6 +11108,15 @@
       "type_name": "Low-Flow Stop deactivated",
       "code": 12,
       "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
+    {
+      "timestamp_iso": "2026-11-09T20:01:11.921475+00:00",
+      "type_code": 3,
+      "type_name": "Low-Flow Stop activated",
+      "code": 12,
+      "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
     }
