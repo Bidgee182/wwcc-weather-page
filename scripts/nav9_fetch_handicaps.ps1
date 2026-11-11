@@ -69,19 +69,13 @@ Say "feed OK: season $($data.season), week $week, $count players ($($data.basis)
 
 if ($WhatIf) { Say "WhatIf: would write $outFile and commit if changed"; exit 0 }
 
-# ---- write only if the handicaps/week/course actually changed. Compare with the
-#      generatedAt timestamp removed, since it moves on every fetch and would
-#      otherwise force a commit every run. ----
-function Normalize([string]$json) {
-    if (-not $json) { return "" }
-    try {
-        $o = $json | ConvertFrom-Json
-        if ($o.PSObject.Properties.Name -contains 'generatedAt') { $o.PSObject.Properties.Remove('generatedAt') }
-        return ($o | ConvertTo-Json -Depth 30 -Compress)
-    } catch { return $json }
-}
+# ---- write only if the handicaps/week/course actually changed. Blank the
+#      generatedAt timestamp (it moves on every fetch) before comparing, so an
+#      unchanged week is a true no-op. The feed is single-line JSON from the same
+#      serialiser every time, so a plain string compare is reliable here. ----
+$reGen = '"generatedAt"\s*:\s*"[^"]*"'
 $old = if (Test-Path $outFile) { Get-Content -Raw -Encoding UTF8 $outFile } else { "" }
-if ((Normalize $old) -eq (Normalize $body)) { Say "handicaps unchanged since last run - nothing to commit"; exit 0 }
+if (($old -replace $reGen, '') -eq ($body -replace $reGen, '')) { Say "handicaps unchanged since last run - nothing to commit"; exit 0 }
 Set-Content -Path $outFile -Value $body -Encoding UTF8 -NoNewline
 
 # ---- commit + push, with a short rebase-retry for the leaderboard poller ----
