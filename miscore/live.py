@@ -4206,17 +4206,34 @@ def _apply_nav9(blob: dict) -> dict:
                 played += 1
                 to_par += sc - par
         p["thru"] = played if played < hc else hc
-        if played >= hc and handi is not None:
+        if handi is None:
+            # No handicap match: we cannot compute a nett, so show gross-to-par
+            # and flag the player (reported below) rather than silently passing a
+            # gross score off as the nett board.
+            p["points"] = to_par
+            p["_nav9_unmatched"] = True
+            inprog.append(p)
+        elif played >= hc:
             nett = gross - handi
             p["_nav9_nett"] = nett
-            p["points"] = nett - full_par          # NETT-TO-PAR (option A)
+            p["points"] = nett - full_par          # final NETT-TO-PAR
             finished.append(p)
         else:
-            p["points"] = to_par                   # running gross-to-par while out
+            # Still out on the course: show PROJECTED nett-to-par so the live
+            # board reads as a nett board, not raw gross-to-par. Prorate the
+            # full-round handicap across the holes played (the kiosk has no
+            # stroke index here to deal shots hole-by-hole, so share them evenly).
+            shots = round(handi * played / hc) if (played and hc) else 0
+            p["points"] = to_par - shots
+            p["_nav9_proj"] = True
             inprog.append(p)
     finished.sort(key=lambda p: (p["_nav9_nett"], -p["thru"], p.get("player") or ""))
     inprog.sort(key=lambda p: (p["points"], -p["thru"], p.get("player") or ""))
     ordered = finished + inprog
+    unmatched = sorted(p.get("player") or "?" for p in ordered if p.get("_nav9_unmatched"))
+    if unmatched:
+        print(f"[nav9] {len(unmatched)} on the board with no handicap match "
+              f"(shown as gross, not nett): {', '.join(unmatched)}")
     for i, p in enumerate(ordered):
         p["pos"] = i + 1
     # Board par = the men's par for the nine in play, so the kiosk's gross-in-
