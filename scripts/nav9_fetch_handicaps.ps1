@@ -69,9 +69,19 @@ Say "feed OK: season $($data.season), week $week, $count players ($($data.basis)
 
 if ($WhatIf) { Say "WhatIf: would write $outFile and commit if changed"; exit 0 }
 
-# ---- write only if it actually changed (idempotent) ----
+# ---- write only if the handicaps/week/course actually changed. Compare with the
+#      generatedAt timestamp removed, since it moves on every fetch and would
+#      otherwise force a commit every run. ----
+function Normalize([string]$json) {
+    if (-not $json) { return "" }
+    try {
+        $o = $json | ConvertFrom-Json
+        if ($o.PSObject.Properties.Name -contains 'generatedAt') { $o.PSObject.Properties.Remove('generatedAt') }
+        return ($o | ConvertTo-Json -Depth 30 -Compress)
+    } catch { return $json }
+}
 $old = if (Test-Path $outFile) { Get-Content -Raw -Encoding UTF8 $outFile } else { "" }
-if ($old.Trim() -eq $body.Trim()) { Say "no change since last run - nothing to commit"; exit 0 }
+if ((Normalize $old) -eq (Normalize $body)) { Say "handicaps unchanged since last run - nothing to commit"; exit 0 }
 Set-Content -Path $outFile -Value $body -Encoding UTF8 -NoNewline
 
 # ---- commit + push, with a short rebase-retry for the leaderboard poller ----
