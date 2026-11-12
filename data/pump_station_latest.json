@@ -1,18 +1,18 @@
 {
   "connected": true,
-  "timestamp": "2026-11-12T23:11:58.251621+00:00",
-  "last_seen": "2026-11-12T23:11:58.251621+00:00",
-  "last_connected": "2026-11-12T23:11:58.251621+00:00",
+  "timestamp": "2026-11-12T23:16:43.620153+00:00",
+  "last_seen": "2026-11-12T23:16:43.620153+00:00",
+  "last_connected": "2026-11-12T23:16:43.620153+00:00",
   "system": {
-    "pressure_actual_bar": 7.307,
-    "pressure_suction_bar": -0.832,
+    "pressure_actual_bar": 8.0,
+    "pressure_suction_bar": -0.818,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 8.8,
-    "power_kw": 1.2,
+    "flow_m3h": 0.0,
+    "power_kw": 0.0,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 85.4,
+    "relative_performance_pct": 0.0,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
     "energy_kwh": 212432,
@@ -100,12 +100,12 @@
       "rated_kw": 5.5,
       "block": 460,
       "bit": 6,
-      "running": true,
+      "running": false,
       "fault": false,
-      "standby": false,
-      "speed_pct": 84.3,
-      "power_kw": 1.2,
-      "current_a": 2.6,
+      "standby": true,
+      "speed_pct": 0.0,
+      "power_kw": 0.0,
+      "current_a": 0.0,
       "run_hours": 1420.0,
       "starts_today": 1,
       "temp_c": null,
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 7302,
+      "raw": 8015,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 173,
+      "raw": 182,
       "temp_c": null
     },
     {
@@ -11577,6 +11577,46 @@
         0.0,
         0.0,
         1.2
+      ],
+      "rh": [
+        5472.0,
+        5470.0,
+        5472.0,
+        1420.0
+      ],
+      "st": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
+    },
+    {
+      "ts": "2026-11-12T23:16:43.620153+00:00",
+      "pa": 8.0,
+      "ps": 7.8,
+      "pi": -0.818,
+      "fl": 0.0,
+      "nr": 0,
+      "pk": 0.0,
+      "sp": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
       ],
       "rh": [
         5472.0,
