@@ -61,8 +61,11 @@ def save_sha(sha):
         f.write(sha)
 
 
-def download_new_version():
-    url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_FILE}"
+def download_new_version(sha):
+    # Fetch the exact commit, not /main/: raw.githubusercontent.com caches /main/
+    # for up to 5 min, so right after a push it served the OLD file while the SHA
+    # was recorded as installed (16 Nov 2026: Pi stuck on v2.8 after the v2.9 push).
+    url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{sha}/{GITHUB_FILE}"
     req = urllib.request.Request(url, headers={"User-Agent": "pi-auto-update/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
@@ -101,7 +104,7 @@ def main():
                     f" (was {(local_sha or 'none')[:8]})",
                     flush=True,
                 )
-                if download_new_version():
+                if download_new_version(remote_sha):
                     print("[updater] Download OK - restarting service ...", flush=True)
                     if restart_service():
                         save_sha(remote_sha)
