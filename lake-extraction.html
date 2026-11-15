@@ -5,28 +5,31 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WWCC Lake Albert extraction: meter use</title>
 <style>
-:root{--fg:#1f2a24;--muted:#5f6b64;--bg:#f6f7f5;--panel:#fff;--line:#dfe3df;--grid:#eceeec;--axis:#b9c0bb;--ref:#4a524d;--bar:#2e6fa8;--sel:#173f63;--crit:#c0392b;--part:#b8c2bd;--green:#1F4E3D}
+/* Dark theme matched to the board dashboard (board.html): bg #1a252f, cards
+   #2c3e50, borders #3d5166, muted #7f8c8d, headings #ecf0f1, accent #2471a3. */
+:root{--fg:#ecf0f1;--muted:#7f8c8d;--bg:#1a252f;--panel:#2c3e50;--line:#3d5166;--grid:#34495e;--axis:#566573;--ref:#95a5a6;--bar:#5dade2;--sel:#2471a3;--crit:#e74c3c;--part:#7f8c8d;--green:#1e8449}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI",Aptos,Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Arial,Helvetica,sans-serif}
 .wrap{max-width:1200px;margin:0 auto;padding:0 20px 40px}
-.mast{background:var(--green);color:#fff;padding:22px 20px 18px;margin-bottom:16px}
+.mast{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:0 0 16px}
 .mast .in{max-width:1160px;margin:0 auto}
-.mast h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:28px}
-.mast p{margin:8px 0 0;opacity:.92;font-size:14px;max-width:64rem;line-height:1.5}
-.mast b{font-weight:700}
-.filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:14px}
+.mast h1{margin:0;font-weight:bold;font-size:1.3em;letter-spacing:1px;color:#ecf0f1;text-transform:uppercase}
+.mast p{margin:8px 0 0;color:var(--muted);font-size:13px;max-width:64rem;line-height:1.5}
+.mast b{font-weight:700;color:#ecf0f1}
+.filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:16px}
 .filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
-input,select,button{font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--fg)}
+input,select,button{font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:#1a252f;color:var(--fg)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.7)}
 button{cursor:pointer}
-button:hover{background:#eef3ef}
-button.on{background:var(--green);color:#fff;border-color:var(--green)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:14px;margin-bottom:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;position:relative}
-.lab{font-size:12px;color:var(--muted)}
-.big{font-family:Georgia,"Times New Roman",serif;font-size:30px;margin-top:6px;font-variant-numeric:tabular-nums}
+button:hover{background:#3d5166}
+button.on{background:var(--sel);color:#fff;border-color:var(--sel);font-weight:bold}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:14px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;position:relative}
+.lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.big{font-weight:bold;font-size:1.9em;margin-top:6px;color:#ecf0f1;font-variant-numeric:tabular-nums}
 .sub{font-size:12px;color:var(--muted);margin-top:4px}
-section.card{margin-bottom:14px}
-h2{font-size:17px;font-weight:600;margin:0}
+section.card{margin-bottom:16px}
+h2{font-size:0.95em;font-weight:bold;margin:0;color:#ecf0f1;text-transform:uppercase;letter-spacing:1px}
 .note{font-size:12.5px;color:var(--muted);margin:6px 0 10px;line-height:1.45}
 .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-bottom:8px}
@@ -34,19 +37,19 @@ h2{font-size:17px;font-weight:600;margin:0}
 .sw{width:12px;height:12px;border-radius:2px;display:inline-block}
 .chart{min-height:300px;position:relative}
 .chart.short{min-height:240px}
-.tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:6px 10px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+.tip{position:absolute;pointer-events:none;background:#1a252f;border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.4);padding:6px 10px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5;color:var(--fg)}
 .tip .d{color:var(--muted);margin-bottom:2px}
-.tablebox{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.tablebox{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:8px}
 table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
-th,td{padding:6px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
-th{position:sticky;top:0;background:#f1f4f1;cursor:pointer;font-weight:600;user-select:none}
+th{position:sticky;top:0;background:#34495e;cursor:pointer;font-weight:bold;user-select:none;color:#ecf0f1}
 th[aria-sort=ascending]::after{content:" ▲";font-size:10px}
 th[aria-sort=descending]::after{content:" ▼";font-size:10px}
-tr:hover td{background:#f7faf7}
-tr.over td{color:var(--crit);font-weight:600}
+tr:hover td{background:rgba(255,255,255,0.04)}
+tr.over td{color:#ff6b5e;font-weight:600}
 .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;color:#fff}
-details{font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px}
+details{font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
 summary{cursor:pointer;color:var(--fg);font-weight:600}
 dt{font-weight:600;color:var(--fg);margin-top:10px}dd{margin:2px 0 0;line-height:1.45}
 .foot{font-size:11px;color:var(--muted);margin-top:14px}
@@ -126,9 +129,9 @@ svg text{font-family:inherit}
 <details>
   <summary>How these figures were worked out</summary>
   <dl>
-    <dt>Source</dt><dd>WaterNSW DAS export for logger 120922-3-LID01, <span id="srcrange"></span>. Flow is worked out from the meter register (flow), not the delta column, because the delta column was recorded in different units before late 2022. Each change in the register is shared across the hours it covers. Times are local, with daylight saving.</dd>
-    <dt>Data gaps</dt><dd>The logger sent no readings from 1 October to 3 November 2021 and for about a day on 2 to 3 September 2024. Water recorded across a gap is spread evenly over it, so those days are marked as gaps in the table.</dd>
-    <dt>Daily total</dt><dd>Sum of the hourly flow for each calendar day, midnight to midnight. A night's irrigation that runs past midnight is split across two days. The last day in the export is only shown when all its hours are in.</dd>
+    <dt>Source</dt><dd>The board's WaterNSW meter register for logger 120922-3-LID01, <span id="srcrange"></span> - the same data the WaterNSW tab uses, updated with each DAS upload. Daily usage is taken from that register; the hour-by-hour and nightly views come from its hourly readings. Times are local, with daylight saving.</dd>
+    <dt>Data gaps</dt><dd>A day missing more than three hours of readings is flagged as a gap in the table. The main outages were 1 October to 3 November 2021 and about a day on 2 to 3 September 2024.</dd>
+    <dt>Daily total</dt><dd>Each day's usage is the metered register change for that day, taken straight from the board's WaterNSW data, so this page always matches the WaterNSW tab exactly. Figures are the corrected (divided by ten) volumes.</dd>
     <dt>Nightly run hours</dt><dd>An hour counts as full flow when more than 125 m³ went through the meter in it. Each telemetry reading is the flow since the previous reading, so the 11:00 pm reading is the 10 to 11 pm hour. The daily housekeeping reading part-way through an hour is shared back into that hour. A night is only counted when every hour from 10 pm to 7 am is in the export.</dd>
     <dt>Correction</dt><dd>The telemetry's busiest hours reach about 1,360 kL, which would be 1,360 m³/h, ten times what the pump station can deliver. Divided by 10 they match three CRNE45 pumps at about 135 m³/h. The telemetry is known to be misconfigured and is due to be replaced.</dd>
     <dt>Licence limits</dt><dd>Licence 40SL070163: 1.5 ML/day above 190.25 m AHD, 1.0 ML from 190.05, 0.75 ML from 189.85, 0.5 ML from 189.65, none below. Zone history (level, time of change and lake AHD) from the club's lake dashboard, starting 20 May 2026, with the last recorded change on 2 November 2026; Level 2 is assumed to continue after that. Before 20 May 2026 the licence level is not known, so those days have no shading and are not counted against a limit.</dd>
@@ -138,10 +141,13 @@ svg text{font-family:inherit}
 </div>
 <script src="assets/d3.v7.min.js"></script>
 <script>
-// Live data: the meter file is rebuilt by a GitHub Action after each DAS CSV
-// upload; the zone history is the dashboard's own append-only CSV. Both are
-// fetched fresh (cache-busted) every time the page opens, so the explorer stays
-// current. Everything below runExplorer is the tested reference, unchanged.
+// Live data, fetched fresh on every open so the page stays current:
+//  - data/water_usage.json        = the WaterNSW tab's SOURCE OF TRUTH for daily
+//    usage (register deltas, 10x-corrected). Used for all daily/monthly/water-
+//    year/compliance figures so this page can never disagree with that tab.
+//  - data/water_register_hourly.json = the hourly register, for the nightly and
+//    hour-by-hour views and "hours with flow".
+//  - data/lake_zone_history.csv   = the dashboard's own licence-zone history.
 function reportHeight(){ try{ if(parent!==window) parent.postMessage({lakeExplorerHeight:document.documentElement.scrollHeight},'*'); }catch(e){} }
 function parseZones(text){
   const lines=text.trim().split(/\r?\n/), rows=[];
@@ -156,43 +162,64 @@ function parseZones(text){
 }
 (async function(){
   const cb='?_='+Date.now();
-  let DATA, ZONES;
+  let USAGE, REG, ZONES;
   try{
-    const [mRes,zRes]=await Promise.all([fetch('data/lake_meter.json'+cb), fetch('data/lake_zone_history.csv'+cb)]);
-    if(!mRes.ok) throw new Error('lake_meter.json '+mRes.status);
+    const [uRes,rRes,zRes]=await Promise.all([
+      fetch('data/water_usage.json'+cb),
+      fetch('data/water_register_hourly.json'+cb),
+      fetch('data/lake_zone_history.csv'+cb)
+    ]);
+    if(!uRes.ok) throw new Error('water_usage.json '+uRes.status);
+    if(!rRes.ok) throw new Error('water_register_hourly.json '+rRes.status);
     if(!zRes.ok) throw new Error('lake_zone_history.csv '+zRes.status);
-    DATA=await mRes.json();
+    USAGE=await uRes.json();
+    REG=(await rRes.json()).register||{};
     ZONES=parseZones(await zRes.text());
   }catch(e){
-    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Could not load the meter data ('+e.message+'). It rebuilds automatically after a DAS CSV upload; please try again in a minute.</p>';
+    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Could not load the meter data ('+e.message+'). Please try again in a minute.</p>';
     reportHeight(); return;
   }
-  if(!DATA||!DATA.days||!Object.keys(DATA.days).length||!ZONES||!ZONES.length){
-    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Meter data is not ready yet. It will appear after the next DAS CSV upload.</p>';
+  if(!USAGE||!Array.isArray(USAGE.daily)||!USAGE.daily.length||!ZONES||!ZONES.length){
+    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Meter data is not ready yet.</p>';
     reportHeight(); return;
   }
-  runExplorer(DATA, ZONES);
+  runExplorer(USAGE, REG, ZONES);
 })();
-function runExplorer(DATA, ZONES){
-const GAPS=new Set(DATA.gaps);
+function runExplorer(USAGE, REG, ZONES){
 const LEVEL_COLOURS={L1:'#0b7a2e',L2:'#8cc63f',L3:'#ffd60a',L4:'#f7931e'};
 const FULL=125;
 const fmt1=d3.format(',.1f'), fmt2=d3.format('.2f'), fmt0=d3.format(','), pct=d3.format('.0%'), dfmt=d3.utcFormat('%a %-d %b'), lfmt=d3.utcFormat('%-d %B %Y'), iso=d3.utcFormat('%Y-%m-%d');
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const addDays=(s,n)=>iso(new Date(Date.parse(s+'T00:00Z')+n*864e5));
 
-// hourly map, corrected m3
-const H=new Map();Object.entries(DATA.days).forEach(([d,a])=>a.forEach((v,h)=>{if(v!==null)H.set(d+'T'+String(h).padStart(2,'0'),v/10);}));
+// hourly map, corrected m3 - from the board's hourly register. Flow in a clock
+// hour = the register's rise across that hour, /10 for the 10x over-read. Only
+// consecutive hours count; a 1h+ jump means the logger missed readings. The key
+// is the clock hour the water flowed IN (register key H minus H-1 -> hour H-1).
+const H=new Map();
+const HRPRESENT=new Set(Object.keys(REG).map(k=>k.replace(' ','T').slice(0,13)));
+{
+  const hk=Object.keys(REG).sort();
+  for(let i=1;i<hk.length;i++){
+    const a=hk[i-1], b=hk[i];
+    const ta=Date.parse(a.replace(' ','T')+':00:00Z'), tb=Date.parse(b.replace(' ','T')+':00:00Z');
+    if(tb-ta===3600000){ const f=REG[b]-REG[a]; if(f>=0) H.set(a.replace(' ','T'), f/10); }
+  }
+}
 // zones
 const Z=ZONES.map(r=>({t:r.start.slice(0,16),level:r.level,rate:+r.rate})).sort((a,b)=>a.t<b.t?-1:1);
 const ZSTART=Z[0].t.slice(0,10);
 function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+'T00:00',next=addDays(day,1)+'T00:00';
   const f=Z.filter((q,i)=>q.t<next&&(i===Z.length-1||Z[i+1].t>start));
   return f.reduce((a,q)=>!a||q.rate<a.rate?q:a,null)||{level:'',rate:NaN};}
-// days
-const ALLDAYS=Object.entries(DATA.days).map(([d,a])=>{
-  const raw=d3.sum(a,v=>v||0); const lv=levelFor(d);
-  return {date:d,day:new Date(d),c:raw/10000,t:raw/1000,hrs:a.filter(v=>v>0.5).length,level:lv.level,allowed:lv.rate,gap:GAPS.has(d)};
+// days - the USED figure comes straight from water_usage.json (the WaterNSW
+// tab's source of truth), so this page cannot disagree with it. hours-with-flow
+// and the data-gap flag come from the hourly register (a day missing more than
+// 3 of its 24 hours is a gap).
+const ALLDAYS=USAGE.daily.map(([d,ml])=>{
+  const lv=levelFor(d); let hrs=0,miss=0;
+  for(let h=0;h<24;h++){const hh=d+'T'+String(h).padStart(2,'0'); if(HRPRESENT.has(hh)){if((H.get(hh)||0)>0.05)hrs++;}else miss++;}
+  return {date:d,day:new Date(d),c:ml,t:ml*10,hrs,level:lv.level,allowed:lv.rate,gap:miss>3};
 });
 // nights
 const ALLNIGHTS=ALLDAYS.map(d=>{
@@ -288,7 +315,7 @@ function drawDaily(){
   const rows=days.map(d=>({...d,key:d.date,label:dayLabel(d.day)})),val=d=>rawMode?d.t:d.c,ml=44,mr=12;
   const f=frame(el,300,Math.max(1.5,d3.max(rows,val))*1.08,v=>d3.format('.2~f')(v),ml,mr,rows,12),{svg,x,y}=f;
   const half=x.step()*x.paddingInner()/2;
-  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)-half).attr('width',x.step()).attr('y',8).attr('height',300-34).attr('fill',d=>LEVEL_COLOURS[d.level]||'transparent').attr('opacity',.22);
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)-half).attr('width',x.step()).attr('y',8).attr('height',300-34).attr('fill',d=>LEVEL_COLOURS[d.level]||'transparent').attr('opacity',.32);
   const pts=[];rows.forEach(d=>{if(isFinite(d.allowed)){const x0=x(d.key)-half;pts.push([x0,y(d.allowed)],[x0+x.step(),y(d.allowed)]);}});
   svg.append('path').attr('d',d3.line()(pts)).attr('fill','none').attr('stroke',css('--ref')).attr('stroke-width',1.5).attr('stroke-dasharray','4 3');
   const bw=Math.min(32,x.bandwidth());
@@ -302,7 +329,7 @@ function drawNightly(){
   const rows=nights.map(n=>({...n,key:n.date,label:dayLabel(n.day)}));
   const f=frame(el,300,Math.max(9,d3.max(rows,n=>n.full+n.part)),v=>v+' h',ml,mr,rows,12),{svg,x,y}=f;
   const bw=Math.min(32,x.bandwidth()),off=(x.bandwidth()-bw)/2,g=svg.append('g');
-  g.selectAll('rect.s').data(rows.filter(n=>n.date===state.sel)).join('rect').attr('x',n=>x(n.key)-2).attr('width',x.bandwidth()+4).attr('y',8).attr('height',300-34).attr('fill','#e8eef6');
+  g.selectAll('rect.s').data(rows.filter(n=>n.date===state.sel)).join('rect').attr('x',n=>x(n.key)-2).attr('width',x.bandwidth()+4).attr('y',8).attr('height',300-34).attr('fill','rgba(93,173,226,0.18)');
   g.selectAll('rect.f').data(rows).join('rect').attr('class','f').attr('x',n=>x(n.key)+off).attr('width',bw).attr('y',n=>y(n.full)).attr('height',n=>y(0)-y(n.full)).attr('fill',css('--crit'));
   g.selectAll('rect.p').data(rows).join('rect').attr('class','p').attr('x',n=>x(n.key)+off).attr('width',bw).attr('y',n=>y(n.full+n.part)).attr('height',n=>y(n.full)-y(n.full+n.part)).attr('fill',css('--part'));
   hover(el,f,ml,mr,rows,n=>['Night of '+dfmt(n.day),`${n.full} h at full flow`,`${n.part} h below full flow`,`${n.full+n.part} h running in total`,`${fmt0(Math.round(n.m3))} m³ pumped`],n=>{state.sel=n.date;drawDaily();drawNightly();drawHours();});

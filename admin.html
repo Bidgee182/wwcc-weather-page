@@ -613,9 +613,8 @@
         <div class="status" id="wncsv-status"></div>
         <p class="note">Writes data/water_register_daily.json (raw register) and rebuilds data/water_usage.json,
         and also stores the full <strong>per-hour</strong> register in data/water_register_hourly.json for the pump
-        flow chart's WaterNSW overlay. It also saves the raw export for the board's <strong>Lake Extraction</strong>
-        explorer, which rebuilds a minute or two later. Upload the full history each time so every day stays current.
-        The 10x telemetry over-read is corrected automatically.</p>
+        flow chart's WaterNSW overlay and the board's <strong>Lake Extraction</strong> tab. The 10x telemetry
+        over-read is corrected automatically.</p>
     </div>
 
     <div class="card">
@@ -2939,15 +2938,6 @@ async function meterCsvUpload() {
         for (const hh of hours) hout.register[hh] = hreg[hh];
         await ghPut('data/water_register_hourly.json', JSON.stringify(hout),
             `WaterNSW hourly register upload ${file.name} (+${hAdded} new, ${hOver} overlap) (by ${SES.email})`, hf.sha);
-
-        // Raw CSV for the Lake Extraction explorer. A GitHub Action rebuilds
-        // data/lake_meter.json from this with build_lake_data.py (the exact,
-        // verified figures; overlapping exports de-duped). One rolling file,
-        // overwritten each upload, so upload the full history each time.
-        st('Saving raw export for the extraction explorer...');
-        const df = await ghGet('data/das_exports/das_latest.csv');
-        await ghPut('data/das_exports/das_latest.csv', text,
-            `DAS raw export ${file.name} for the lake extraction explorer (by ${SES.email})`, df.sha);
 
         logAction('water_csv_upload', `${file.name}: +${added} new, ${overlap} overlap, through ${usage.lastDay}; hourly +${hAdded}/${hOver}`);
         st(`Done. ${days.length} days total (+${added} new, ${overlap} overlapping kept), through ${usage.lastDay}. ` +
