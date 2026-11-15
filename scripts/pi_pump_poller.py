@@ -29,7 +29,9 @@ hostname pointed at the modem when Telstra reissues the SIM IP.
 
 import json
 import os
+import socket
 import sqlite3
+import sys
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -49,7 +51,7 @@ GRUNDFOS_PORT = int(os.environ.get("GRUNDFOS_PORT", "502"))
 SUPABASE_URL = "https://sduzxijjvpbfgvlwcwpp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8"
 
-POLLER_VERSION = "2.8"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
+POLLER_VERSION = "2.9"   # keep == PUMP_VERSION in pump-station.html; bump on ANY pump page/poller change
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pump_local.db")
 
@@ -61,6 +63,22 @@ POLL_INTERVAL_S   = 1.0
 # moment anything happens. Set IDLE_POLL_INTERVAL_S=1 to disable the back-off.
 IDLE_POLL_INTERVAL_S = float(os.environ.get("IDLE_POLL_INTERVAL_S", "5"))
 RECONNECT_WAIT    = 5
+
+# ── Primary / standby failover (v2.9, 16 Nov 2026) ────────────────────────────
+# The Pi is the PRIMARY (default - behaviour unchanged). A second machine
+# (andrew-new) runs this same file with POLLER_ROLE=standby: it stays idle (no
+# Modbus connection, no SIM data) while the primary's 1-minute rows keep landing
+# in Supabase, takes over once they are STANDBY_TAKEOVER_MIN old, and stands
+# down as soon as the primary logs an "online" event again. Duplicate minutes
+# during the brief overlap are rejected by Supabase (409) - harmless.
+# Built after the Pi got stuck for 3 days (13-16 Nov 2026) and lost the data.
+POLLER_NAME          = (os.environ.get("POLLER_NAME") or socket.gethostname()).strip()
+POLLER_ROLE          = os.environ.get("POLLER_ROLE", "primary").strip().lower()
+STANDBY_TAKEOVER_MIN = float(os.environ.get("STANDBY_TAKEOVER_MIN", "5"))
+STANDBY_CHECK_S      = 60
+# Self-restart when the station has been unreachable this long: a fresh process
+# (systemd / the Windows runner restarts it) clears a stuck socket. 0 = never.
+STUCK_RESTART_MIN    = float(os.environ.get("STUCK_RESTART_MIN", "15"))
 SLOW_POLL_EVERY   = 60    # polls: CIM + analog inputs + MGE motor temps
 CONFIG_SNAP_EVERY = 3600  # polls: hourly config snapshot to Supabase
 NA = 65535
@@ -1113,10 +1131,61 @@ class MinuteBuffer:
         return stat
 
 
+# ── Failover helpers ───────────────────────────────────────────────────────────
+
+def _supa_get(session, table, params):
+    """GET from Supabase with the anon key; parsed JSON list, or None on failure."""
+    try:
+        r = session.get(f"{SUPABASE_URL}/rest/v1/{table}", params=params, timeout=15,
+                        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"})
+        return r.json() if r.status_code == 200 else None
+    except Exception as e:
+        print(f"  [failover] Supabase read failed: {e}", flush=True)
+        return None
+
+
+def primary_data_age_s(session):
+    """Seconds since the newest 1-minute row in Supabase (None = unknown)."""
+    rows = _supa_get(session, "pump_stats_v2", {"select": "ts", "order": "ts.desc", "limit": "1"})
+    if not rows:
+        return None
+    try:
+        ts = datetime.fromisoformat(rows[0]["ts"].replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - ts).total_seconds()
+    except Exception:
+        return None
+
+
+def primary_back_since(session, since_iso):
+    """True if another, non-standby poller has logged "online" after since_iso."""
+    rows = _supa_get(session, "pump_events_hires", {
+        "select": "ts,details", "event_type": "eq.online",
+        "ts": f"gt.{since_iso}", "order": "ts.desc", "limit": "20"})
+    for r in rows or []:
+        d = r.get("details") or {}
+        if d.get("role", "primary") != "standby" and d.get("poller") != POLLER_NAME:
+            return True
+    return False
+
+
+def _stuck_check(offline_since_m, con, session):
+    """Exit (the service manager restarts us) after STUCK_RESTART_MIN offline."""
+    if not (STUCK_RESTART_MIN and offline_since_m):
+        return
+    if time.monotonic() - offline_since_m >= STUCK_RESTART_MIN * 60:
+        print(f"[stuck] station unreachable {STUCK_RESTART_MIN:.0f}+ min - restarting process", flush=True)
+        try:
+            flush_supabase_queue(con, session)
+        except Exception:
+            pass
+        sys.exit(3)
+
+
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
 def main():
-    print(f"Starting Grundfos poller v{POLLER_VERSION} -> {GRUNDFOS_HOST}:{GRUNDFOS_PORT}")
+    print(f"Starting Grundfos poller v{POLLER_VERSION} -> {GRUNDFOS_HOST}:{GRUNDFOS_PORT}"
+          f"  [{POLLER_NAME}, role={POLLER_ROLE}]")
     print(f"Local DB: {DB_PATH}")
     print(f"Supabase: {SUPABASE_URL}")
 
@@ -1143,9 +1212,40 @@ def main():
     config_snap_counter = 0
     slow_state  = {}  # cached slow-poll results (CIM, analog inputs, MGE temps)
     spike_state = {}  # pressure threshold crossing state
+    standby_active   = False  # standby only: currently covering for the primary
+    standby_since    = None   # ISO ts the standby took over
+    last_role_check  = 0.0
+    offline_since_m  = None   # monotonic time the station became unreachable
 
     while True:
         loop_start = time.monotonic()
+
+        # ── Standby: idle until the primary goes quiet, stand down when it is back ─
+        if POLLER_ROLE == "standby" and session is not None:
+            if not standby_active:
+                age = primary_data_age_s(session)
+                if age is None or age < STANDBY_TAKEOVER_MIN * 60:
+                    time.sleep(STANDBY_CHECK_S)
+                    continue
+                standby_active  = True
+                standby_since   = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                last_role_check = time.monotonic()
+                print(f"[failover] TAKEOVER at {standby_since}: primary data {age/60:.0f} min old", flush=True)
+            elif time.monotonic() - last_role_check >= STANDBY_CHECK_S:
+                last_role_check = time.monotonic()
+                if primary_back_since(session, standby_since):
+                    print("[failover] primary is back online - standing down", flush=True)
+                    flush_supabase_queue(con, session)
+                    if client is not None:
+                        try:
+                            client.close()
+                        except Exception:
+                            pass
+                    client, was_online, prev_state = None, False, None
+                    standby_active, offline_since_m = False, None
+                    buf.reset()
+                    time.sleep(STANDBY_CHECK_S)
+                    continue
 
         # ── Connect / reconnect ────────────────────────────────────────────────
         if client is None or not client.connected:
@@ -1162,6 +1262,8 @@ def main():
                     queue_event(con, ts_iso, "offline", details={"host": GRUNDFOS_HOST})
                     flush_supabase_queue(con, session)   # make the outage visible now, not on reconnect
                     was_online = False
+                _stuck_check(offline_since_m, con, session)
+                offline_since_m = offline_since_m or time.monotonic()
                 time.sleep(RECONNECT_WAIT)
                 continue
 
@@ -1176,12 +1278,16 @@ def main():
                 queue_event(con, ts_iso, "offline", details={"host": GRUNDFOS_HOST})
                 flush_supabase_queue(con, session)   # make the outage visible now, not on reconnect
                 was_online = False
+            _stuck_check(offline_since_m, con, session)
+            offline_since_m = offline_since_m or time.monotonic()
             time.sleep(RECONNECT_WAIT)
             continue
 
+        offline_since_m = None
         if not was_online:
             print(f"ONLINE at {ts_iso}")
-            queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST, "version": POLLER_VERSION})
+            queue_event(con, ts_iso, "online", details={"host": GRUNDFOS_HOST, "version": POLLER_VERSION,
+                                                         "poller": POLLER_NAME, "role": POLLER_ROLE})
             was_online = True
             prev_state = None
             slow_poll_counter = SLOW_POLL_EVERY  # trigger slow poll immediately on first connect

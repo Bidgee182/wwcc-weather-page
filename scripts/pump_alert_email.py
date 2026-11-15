@@ -668,20 +668,65 @@ def check_ip_change(state, latest, now):
 # Raspberry Pi poller watchdog
 # ---------------------------------------------------------------------------
 
-def pi_last_data_ts():
-    """Timestamp of the newest Pi row in Supabase, or None if the lookup failed
-    (a failed lookup must never raise an alert on its own)."""
+def _supa_rows(query):
+    """GET rows from Supabase (anon read); None if the lookup failed."""
     import urllib.request
-    url = f'{SUPABASE_URL}/rest/v1/pump_stats_v2?select=ts&order=ts.desc&limit=1'
-    req = urllib.request.Request(url, headers={
+    req = urllib.request.Request(f'{SUPABASE_URL}/rest/v1/{query}', headers={
         'apikey': SUPABASE_ANON_KEY, 'Authorization': f'Bearer {SUPABASE_ANON_KEY}'})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            rows = json.loads(r.read().decode())
-        return parse_iso(rows[0]['ts']) if rows else None
+            return json.loads(r.read().decode())
     except Exception as e:
-        log.warning(f'Pi check: Supabase lookup failed: {e}')
+        log.warning(f'Supabase lookup failed ({query.split("?")[0]}): {e}')
         return None
+
+
+def pi_last_data_ts():
+    """Timestamp of the newest poller row in Supabase, or None if the lookup
+    failed (a failed lookup must never raise an alert on its own)."""
+    rows = _supa_rows('pump_stats_v2?select=ts&order=ts.desc&limit=1')
+    return parse_iso(rows[0]['ts']) if rows else None
+
+
+def failover_html(active, poller, when_dt):
+    if active:
+        title, bg = 'PUMP STATION - STANDBY POLLER TOOK OVER', '#e67e22'
+        status = (f'<span style="color:#e67e22;font-weight:bold;">{poller} is now polling '
+                  'the pumps</span>')
+        note = ('The Raspberry Pi stopped sending pump data, so the standby computer '
+                f'({poller}) took over automatically. The pump page is still live and no '
+                'data is being lost. The Pi still needs looking at: power-cycle it, or log in '
+                'and run <code>sudo systemctl restart pump-poller</code>. The standby hands '
+                'back on its own as soon as the Pi is polling again.')
+    else:
+        title, bg = 'PUMP STATION - RASPBERRY PI BACK AS PRIMARY', '#27ae60'
+        status = ('<span style="color:#27ae60;font-weight:bold;">Raspberry Pi is polling '
+                  'again</span>')
+        note = 'The standby computer has handed back to the Pi and gone idle. No action needed.'
+    tbl = _table([('Status', status, True), ('At', fmt_aest(when_dt), False)])
+    return _wrap(_header(bg, title), _body_section(tbl, note))
+
+
+def check_failover(state, now):
+    """Email when the standby poller (andrew-new) takes over from the Pi, and
+    when the Pi takes back. The newest "online" event says who is polling."""
+    rows = _supa_rows('pump_events_hires?select=ts,details&event_type=eq.online'
+                      '&order=ts.desc&limit=1')
+    if not rows:
+        return False
+    d      = rows[0].get('details') or {}
+    on_sb  = d.get('role') == 'standby'
+    poller = d.get('poller') or 'standby computer'
+    when   = parse_iso(rows[0].get('ts')) or now
+    if on_sb == bool(state.get('failover_active')):
+        return False
+    subject = (f'PUMP STATION - Pi down, {poller} took over polling' if on_sb
+               else 'PUMP STATION - Raspberry Pi back as primary poller')
+    log.info(f'Failover state change: standby_active={on_sb} ({poller})')
+    if send_email(subject, failover_html(on_sb, poller, when), 'pump_pi_alert'):
+        state['failover_active'] = on_sb
+        return True
+    return False
 
 
 def pi_stale_html(last_dt, dur, station_ok):
@@ -806,6 +851,11 @@ def main():
             changed = True
     except Exception as e:
         log.error(f'Pi poller check failed: {e}')
+    try:
+        if check_failover(state, now):
+            changed = True
+    except Exception as e:
+        log.error(f'Failover check failed: {e}')
 
     # -- Offline / recovery -------------------------------------------------
     if not connected:
