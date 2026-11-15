@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WWCC Lake Albert extraction: meter use</title>
+<style>
+:root{--fg:#1f2a24;--muted:#5f6b64;--bg:#f6f7f5;--panel:#fff;--line:#dfe3df;--grid:#eceeec;--axis:#b9c0bb;--ref:#4a524d;--bar:#2e6fa8;--sel:#173f63;--crit:#c0392b;--part:#b8c2bd;--green:#1F4E3D}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI",Aptos,Arial,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px 40px}
+.mast{background:var(--green);color:#fff;padding:22px 20px 18px;margin-bottom:16px}
+.mast .in{max-width:1160px;margin:0 auto}
+.mast h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:28px}
+.mast p{margin:8px 0 0;opacity:.92;font-size:14px;max-width:64rem;line-height:1.5}
+.mast b{font-weight:700}
+.filters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:14px}
+.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:4px}
+input,select,button{font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--fg)}
+button{cursor:pointer}
+button:hover{background:#eef3ef}
+button.on{background:var(--green);color:#fff;border-color:var(--green)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:14px;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;position:relative}
+.lab{font-size:12px;color:var(--muted)}
+.big{font-family:Georgia,"Times New Roman",serif;font-size:30px;margin-top:6px;font-variant-numeric:tabular-nums}
+.sub{font-size:12px;color:var(--muted);margin-top:4px}
+section.card{margin-bottom:14px}
+h2{font-size:17px;font-weight:600;margin:0}
+.note{font-size:12.5px;color:var(--muted);margin:6px 0 10px;line-height:1.45}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-bottom:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+.chart{min-height:300px;position:relative}
+.chart.short{min-height:240px}
+.tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:6px 10px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:5}
+.tip .d{color:var(--muted);margin-bottom:2px}
+.tablebox{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{position:sticky;top:0;background:#f1f4f1;cursor:pointer;font-weight:600;user-select:none}
+th[aria-sort=ascending]::after{content:" ▲";font-size:10px}
+th[aria-sort=descending]::after{content:" ▼";font-size:10px}
+tr:hover td{background:#f7faf7}
+tr.over td{color:var(--crit);font-weight:600}
+.pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;color:#fff}
+details{font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px}
+summary{cursor:pointer;color:var(--fg);font-weight:600}
+dt{font-weight:600;color:var(--fg);margin-top:10px}dd{margin:2px 0 0;line-height:1.45}
+.foot{font-size:11px;color:var(--muted);margin-top:14px}
+svg text{font-family:inherit}
+@media print{.filters,#tablecard{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="mast"><div class="in">
+<h1>Lake Albert extraction: meter use</h1>
+<p><span id="t-range"></span>, from the WaterNSW telemetry on meter 120922-3 (work approval 40CA413688). The telemetry over-reads by a factor of ten, so figures here are divided by 10. On that basis the club took <b id="t-total"></b> ML over <b id="t-days"></b> days, and took more than the licence allowed on <b id="t-over"></b> days<span id="t-known"></span>.</p>
+</div></div>
+<div class="wrap">
+
+<div class="filters">
+  <label>From<input type="date" id="from"></label>
+  <label>To<input type="date" id="to"></label>
+  <button data-q="month">This month</button>
+  <button data-q="7">Last 7 days</button>
+  <button data-q="30">Last 30 days</button>
+  <button data-q="season">This season (from 1 Jul)</button>
+  <button data-q="lastseason">Last season</button>
+  <button data-q="all">All data</button>
+  <span class="lab" id="avail" style="margin-left:auto"></span>
+</div>
+
+<div class="tiles">
+  <div class="card"><div class="lab">Total taken in the period</div><div class="big"><span id="k-total"></span> ML</div><div class="sub">Telemetry showed <span id="k-raw"></span> ML</div></div>
+  <div class="card"><div class="lab">Average on days the pumps ran</div><div class="big"><span id="k-avg"></span> ML</div><div class="sub"><span id="k-active"></span> days with more than 10 kL</div></div>
+  <div class="card"><div class="lab">Highest day</div><div class="big"><span id="k-peak"></span> ML</div><div class="sub" id="k-peakday"></div></div>
+  <div class="card"><div class="lab">Days over the allowed rate</div><div class="big" id="k-over"></div><div class="sub">Highest use against the limit: <span id="k-share"></span></div><div class="sub" id="k-known"></div></div>
+</div>
+
+<section class="card">
+  <h2>Monthly totals</h2>
+  <p class="note">Water taken from the lake each month in the selected period, corrected. Months cut by the period's start or end show only the days inside it. Click a month to open it.</p>
+  <div class="chart short" id="monthly"></div>
+  <h2 style="margin-top:16px">Water years (1 July to 30 June)</h2>
+  <p class="note">All data, not just the selected period. Licence 193 ML a year, with up to three times that over three years. Click a year to open it.</p>
+  <div class="tablebox" style="max-height:none"><table id="wy"><thead><tr><th>Water year</th><th>Days of data</th><th>Taken (ML)</th><th>Share of 193 ML</th><th>Busiest month</th><th>Highest day (ML)</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="card">
+  <div class="head">
+    <div><h2>Water taken from the lake each day</h2>
+    <p class="note">Shading shows the licence level in force each day. The dashed step is the rate allowed that day; where the level changed during a day, the lower rate is shown. Hover for each day's figures; click a day to see its night hour by hour below.</p>
+    <div class="legend"><span><i class="sw" style="background:#0b7a2e"></i>L1 Normal, 1.5 ML/day</span><span><i class="sw" style="background:#8cc63f"></i>L2 Monitoring, 1.0 ML/day</span><span><i class="sw" style="background:#ffd60a"></i>L3 Conservation, 0.75 ML/day</span><span><i class="sw" style="background:#f7931e"></i>L4 Critical, 0.5 ML/day</span></div></div>
+    <select id="mode" aria-label="Figures shown"><option value="corrected">Corrected (telemetry ÷ 10)</option><option value="raw">As reported by telemetry</option></select>
+  </div>
+  <div class="chart" id="daily"></div>
+</section>
+
+<section class="card">
+  <h2>How long the pumps ran at full flow each night</h2>
+  <p class="note">Counted by the hour from 10 pm to 7 am, dated by the evening the night starts. Dark bars are hours at full flow (more than 125 m³/h, close to three pumps' 135 m³/h); light bars are hours the pumps ran at 125 m³/h or less. Click a night to see it hour by hour.</p>
+  <div class="legend"><span><i class="sw" style="background:var(--crit)"></i>At full flow</span><span><i class="sw" style="background:var(--part)"></i>Running below full flow</span></div>
+  <div class="chart" id="nightly"></div>
+</section>
+
+<section class="card">
+  <h2 id="h-title">Hour by hour</h2>
+  <p class="note">Flow through the meter in each hour from noon to noon, corrected. The dashed line is 125 m³/h, the full-flow cut-off.</p>
+  <div class="chart short" id="hours"></div>
+</section>
+
+<section class="card" id="tablecard">
+  <div class="head" style="margin-bottom:10px">
+    <div><h2>Daily figures</h2><p class="note">Search any text or number (for example a date, a month such as "March 2024", L2, or "gap"). Click a column heading to sort. Rows over the allowed rate are shown in red.</p></div>
+    <div style="display:flex;gap:8px;align-items:center"><input type="search" id="q" placeholder="Search" aria-label="Search the table"><button id="csv">Download CSV</button></div>
+  </div>
+  <div class="tablebox"><table id="tbl"><thead><tr>
+    <th data-k="date">Date</th><th data-k="level">Level</th><th data-k="allowed">Allowed (ML)</th><th data-k="used">Used (ML)</th><th data-k="share">Share of limit</th><th data-k="raw">Telemetry (ML)</th><th data-k="hrs">Hours with flow</th><th data-k="nfull">Night: h at full flow</th><th data-k="npart">Night: h below full flow</th><th data-k="gap">Data gap</th>
+  </tr></thead><tbody></tbody></table></div>
+  <div class="sub" id="tcount"></div>
+</section>
+
+<details>
+  <summary>How these figures were worked out</summary>
+  <dl>
+    <dt>Source</dt><dd>WaterNSW DAS export for logger 120922-3-LID01, <span id="srcrange"></span>. Flow is worked out from the meter register (flow), not the delta column, because the delta column was recorded in different units before late 2022. Each change in the register is shared across the hours it covers. Times are local, with daylight saving.</dd>
+    <dt>Data gaps</dt><dd>The logger sent no readings from 1 October to 3 November 2021 and for about a day on 2 to 3 September 2024. Water recorded across a gap is spread evenly over it, so those days are marked as gaps in the table.</dd>
+    <dt>Daily total</dt><dd>Sum of the hourly flow for each calendar day, midnight to midnight. A night's irrigation that runs past midnight is split across two days. The last day in the export is only shown when all its hours are in.</dd>
+    <dt>Nightly run hours</dt><dd>An hour counts as full flow when more than 125 m³ went through the meter in it. Each telemetry reading is the flow since the previous reading, so the 11:00 pm reading is the 10 to 11 pm hour. The daily housekeeping reading part-way through an hour is shared back into that hour. A night is only counted when every hour from 10 pm to 7 am is in the export.</dd>
+    <dt>Correction</dt><dd>The telemetry's busiest hours reach about 1,360 kL, which would be 1,360 m³/h, ten times what the pump station can deliver. Divided by 10 they match three CRNE45 pumps at about 135 m³/h. The telemetry is known to be misconfigured and is due to be replaced.</dd>
+    <dt>Licence limits</dt><dd>Licence 40SL070163: 1.5 ML/day above 190.25 m AHD, 1.0 ML from 190.05, 0.75 ML from 189.85, 0.5 ML from 189.65, none below. Zone history (level, time of change and lake AHD) from the club's lake dashboard, starting 20 May 2026, with the last recorded change on 2 November 2026; Level 2 is assumed to continue after that. Before 20 May 2026 the licence level is not known, so those days have no shading and are not counted against a limit.</dd>
+  </dl>
+</details>
+<div class="foot">Prepared from the WaterNSW DAS export and the club's lake dashboard zone history.</div>
+</div>
+<script src="assets/d3.v7.min.js"></script>
+<script>
+// Live data: the meter file is rebuilt by a GitHub Action after each DAS CSV
+// upload; the zone history is the dashboard's own append-only CSV. Both are
+// fetched fresh (cache-busted) every time the page opens, so the explorer stays
+// current. Everything below runExplorer is the tested reference, unchanged.
+function reportHeight(){ try{ if(parent!==window) parent.postMessage({lakeExplorerHeight:document.documentElement.scrollHeight},'*'); }catch(e){} }
+function parseZones(text){
+  const lines=text.trim().split(/\r?\n/), rows=[];
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(',');
+    if(c.length<5) continue;
+    const ts=(c[0]||'').trim(), nz=(c[2]||'').trim(), nr=(c[4]||'').trim();
+    if(!ts||!nz) continue;                       // new_zone -> level, new_rate -> ML/day
+    rows.push({start:ts.replace(' ','T'), level:'L'+nz, rate:parseFloat(nr)});
+  }
+  return rows;
+}
+(async function(){
+  const cb='?_='+Date.now();
+  let DATA, ZONES;
+  try{
+    const [mRes,zRes]=await Promise.all([fetch('data/lake_meter.json'+cb), fetch('data/lake_zone_history.csv'+cb)]);
+    if(!mRes.ok) throw new Error('lake_meter.json '+mRes.status);
+    if(!zRes.ok) throw new Error('lake_zone_history.csv '+zRes.status);
+    DATA=await mRes.json();
+    ZONES=parseZones(await zRes.text());
+  }catch(e){
+    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Could not load the meter data ('+e.message+'). It rebuilds automatically after a DAS CSV upload; please try again in a minute.</p>';
+    reportHeight(); return;
+  }
+  if(!DATA||!DATA.days||!Object.keys(DATA.days).length||!ZONES||!ZONES.length){
+    document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Meter data is not ready yet. It will appear after the next DAS CSV upload.</p>';
+    reportHeight(); return;
+  }
+  runExplorer(DATA, ZONES);
+})();
+function runExplorer(DATA, ZONES){
+const GAPS=new Set(DATA.gaps);
+const LEVEL_COLOURS={L1:'#0b7a2e',L2:'#8cc63f',L3:'#ffd60a',L4:'#f7931e'};
+const FULL=125;
+const fmt1=d3.format(',.1f'), fmt2=d3.format('.2f'), fmt0=d3.format(','), pct=d3.format('.0%'), dfmt=d3.utcFormat('%a %-d %b'), lfmt=d3.utcFormat('%-d %B %Y'), iso=d3.utcFormat('%Y-%m-%d');
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const addDays=(s,n)=>iso(new Date(Date.parse(s+'T00:00Z')+n*864e5));
+
+// hourly map, corrected m3
+const H=new Map();Object.entries(DATA.days).forEach(([d,a])=>a.forEach((v,h)=>{if(v!==null)H.set(d+'T'+String(h).padStart(2,'0'),v/10);}));
+// zones
+const Z=ZONES.map(r=>({t:r.start.slice(0,16),level:r.level,rate:+r.rate})).sort((a,b)=>a.t<b.t?-1:1);
+const ZSTART=Z[0].t.slice(0,10);
+function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+'T00:00',next=addDays(day,1)+'T00:00';
+  const f=Z.filter((q,i)=>q.t<next&&(i===Z.length-1||Z[i+1].t>start));
+  return f.reduce((a,q)=>!a||q.rate<a.rate?q:a,null)||{level:'',rate:NaN};}
+// days
+const ALLDAYS=Object.entries(DATA.days).map(([d,a])=>{
+  const raw=d3.sum(a,v=>v||0); const lv=levelFor(d);
+  return {date:d,day:new Date(d),c:raw/10000,t:raw/1000,hrs:a.filter(v=>v>0.5).length,level:lv.level,allowed:lv.rate,gap:GAPS.has(d)};
+});
+// nights
+const ALLNIGHTS=ALLDAYS.map(d=>{
+  const keys=[22,23].map(h=>d.date+'T'+String(h).padStart(2,'0')).concat([0,1,2,3,4,5,6].map(h=>addDays(d.date,1)+'T'+String(h).padStart(2,'0')));
+  const vals=keys.map(k=>H.get(k)); const present=vals.filter(v=>v!==undefined).length;
+  if(present<8) return null;
+  const v=vals.filter(v=>v!==undefined);
+  return {date:d.date,day:d.day,full:v.filter(x=>x>FULL).length,part:v.filter(x=>x<=FULL&&x>=5).length,m3:d3.sum(v)};
+}).filter(Boolean);
+const NMAP=new Map(ALLNIGHTS.map(n=>[n.date,n]));
+const FIRST=ALLDAYS[0].date, LAST=ALLDAYS[ALLDAYS.length-1].date;
+document.getElementById('avail').textContent='Data available '+lfmt(new Date(FIRST))+' to '+lfmt(new Date(LAST));
+document.getElementById('srcrange').textContent=lfmt(new Date(FIRST))+' to '+lfmt(new Date(LAST));
+
+let state={from:LAST.slice(0,8)+'01',to:LAST,sel:null,sortK:'date',sortDir:1,q:''};
+const fromEl=document.getElementById('from'),toEl=document.getElementById('to');
+[fromEl,toEl].forEach(e=>{e.min=FIRST;e.max=LAST;});
+function quick(q){
+  if(q==='month'){state.from=LAST.slice(0,8)+'01';state.to=LAST;}
+  else if(q==='7'){state.from=addDays(LAST,-6);state.to=LAST;}
+  else if(q==='30'){state.from=addDays(LAST,-29);state.to=LAST;}
+  else if(q==='season'){const y=+LAST.slice(0,4)-(+LAST.slice(5,7)<7?1:0);state.from=y+'-07-01';state.to=LAST;}
+  else if(q==='lastseason'){const y=+LAST.slice(0,4)-(+LAST.slice(5,7)<7?1:0)-1;state.from=y+'-07-01';state.to=(y+1)+'-06-30';}
+  else {state.from=FIRST;state.to=LAST;}
+  if(state.from<FIRST)state.from=FIRST; state.sel=null; render(q);
+}
+document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>quick(b.dataset.q)));
+fromEl.addEventListener('change',()=>{state.from=fromEl.value||FIRST;if(state.from>state.to)state.to=state.from;state.sel=null;render();});
+toEl.addEventListener('change',()=>{state.to=toEl.value||LAST;if(state.to<state.from)state.from=state.to;state.sel=null;render();});
+document.getElementById('mode').addEventListener('change',()=>render());
+document.getElementById('q').addEventListener('input',e=>{state.q=e.target.value.toLowerCase();drawTable();});
+document.querySelectorAll('#tbl th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;state.sortDir=state.sortK===k?-state.sortDir:1;state.sortK=k;drawTable();}));
+
+const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+let days=[],nights=[];
+function render(q){
+  fromEl.value=state.from;toEl.value=state.to;
+  document.querySelectorAll('[data-q]').forEach(b=>b.classList.toggle('on',b.dataset.q===q));
+  days=ALLDAYS.filter(d=>d.date>=state.from&&d.date<=state.to);
+  nights=ALLNIGHTS.filter(n=>n.date>=state.from&&n.date<=state.to);
+  if(!state.sel){const ran=nights.filter(n=>n.m3>10);state.sel=(ran.length?ran[ran.length-1]:nights[nights.length-1]||{}).date||state.to;}
+  const total=d3.sum(days,d=>d.c), raw=d3.sum(days,d=>d.t), active=days.filter(d=>d.c>0.01);
+  const peak=days.reduce((a,d)=>!a||d.c>a.c?d:a,null), known=days.filter(d=>isFinite(d.allowed)), over=known.filter(d=>d.c>d.allowed).length;
+  const top=known.reduce((a,d)=>!a||d.c/d.allowed>a.c/a.allowed?d:a,null);
+  set('k-known',known.length===days.length?'':'Licence level only known from 20 May 2026 ('+known.length+' of '+days.length+' days).');
+  set('t-range',(state.from===state.to?lfmt(new Date(state.from)):lfmt(new Date(state.from))+' to '+lfmt(new Date(state.to))));
+  set('t-total',fmt1(total));set('t-days',fmt0(days.length));set('t-over',fmt0(over));set('t-known',known.length<days.length?' (the licence level is only known for '+fmt0(known.length)+' of them, from 20 May 2026)':'');
+  set('k-total',fmt1(total));set('k-raw',fmt0(Math.round(raw)));set('k-avg',active.length?fmt2(d3.mean(active,d=>d.c)):'0.00');set('k-active',fmt0(active.length));
+  set('k-peak',peak?fmt2(peak.c):'-');set('k-peakday',peak?dfmt(peak.day):'');set('k-over',fmt0(over));set('k-share',top?pct(top.c/top.allowed)+' on '+dfmt(top.day):'-');
+  drawMonthly();drawDaily();drawNightly();drawHours();drawTable();
+}
+function axisStyle(g){g.attr('font-size',null).attr('font-family',null);g.selectAll('text').attr('fill',css('--muted')).style('font-size','11px');g.selectAll('.domain').attr('stroke',css('--axis'));g.selectAll('.tick line').attr('stroke',css('--grid'));}
+function frame(el,H,ymax,fmtY,ml,mr,cats,tickEvery){
+  el.innerHTML='';const W=Math.max(320,el.clientWidth);
+  const svg=d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`);
+  const y=d3.scaleLinear([0,ymax],[H-26,8]).nice();
+  const x=d3.scaleBand(cats.map(c=>c.key),[ml,W-mr]).padding(0.2);
+  const grid=svg.append('g').attr('transform',`translate(${ml},0)`).call(d3.axisLeft(y).ticks(5).tickSize(-(W-mr-ml)).tickFormat(fmtY));axisStyle(grid);grid.select('.domain').remove();
+  const step=Math.max(1,Math.ceil(cats.length/tickEvery));
+  const gx=svg.append('g').attr('transform',`translate(0,${H-26})`).call(d3.axisBottom(x).tickValues(cats.filter((c,i)=>i%step===0).map(c=>c.key)).tickFormat(k=>cats.find(c=>c.key===k).label).tickSize(0).tickPadding(8));axisStyle(gx);
+  return {svg,x,y,W,H};
+}
+function hover(el,f,ml,mr,rows,lines,onClick){
+  const {svg,x,W,H}=f; const tip=d3.select(el).append('div').attr('class','tip').style('display','none');
+  svg.append('rect').attr('x',ml).attr('y',0).attr('width',W-mr-ml).attr('height',H-26).attr('fill','#000').attr('fill-opacity',0).style('pointer-events','all');
+  const pick=ev=>{const [mx]=d3.pointer(ev,svg.node());if(mx<ml||mx>W-mr)return null;return rows[Math.max(0,Math.min(rows.length-1,Math.floor((mx-ml)/x.step())))];};
+  svg.style('cursor',onClick?'pointer':'crosshair').on('pointermove',ev=>{const r=pick(ev);if(!r){tip.style('display','none');return;}
+    tip.style('display',null).html('');const L=lines(r);tip.append('div').attr('class','d').text(L[0]);L.slice(1).forEach(t=>tip.append('div').text(t));
+    const w=el.clientWidth,tw=tip.node().offsetWidth,px=(x(r.key)+x.bandwidth()/2)/W*w;tip.style('left',Math.max(0,Math.min(w-tw,px-tw/2))+'px').style('top','0px');})
+   .on('pointerleave',()=>tip.style('display','none'));
+  if(onClick)svg.on('click',ev=>{const r=pick(ev);if(r)onClick(r);});
+}
+const dayLabel=d=>d3.utcFormat('%-d %b')(d);
+function drawMonthly(){
+  const el=document.getElementById('monthly'),ml=50,mr=12;
+  const m=d3.rollups(days,v=>d3.sum(v,d=>d.c),d=>d.date.slice(0,7)).map(([k,v])=>({key:k,label:d3.utcFormat('%b %y')(new Date(k+'-01')),v}));
+  if(!m.length){el.innerHTML='';return;}
+  const f=frame(el,240,Math.max(1,d3.max(m,r=>r.v)),v=>v+' ML',ml,mr,m,12),{svg,x,y}=f;const bw=Math.min(40,x.bandwidth());
+  svg.append('g').selectAll('rect').data(m).join('rect').attr('x',r=>x(r.key)+(x.bandwidth()-bw)/2).attr('width',bw).attr('y',r=>y(r.v)).attr('height',r=>y(0)-y(r.v)).attr('rx',2).attr('fill',css('--bar'));
+  hover(el,f,ml,mr,m,r=>[d3.utcFormat('%B %Y')(new Date(r.key+'-01')),`${fmt1(r.v)} ML`],r=>{state.from=r.key+'-01';const e=iso(new Date(Date.UTC(+r.key.slice(0,4),+r.key.slice(5,7),0)));state.to=e>LAST?LAST:e;if(state.from<FIRST)state.from=FIRST;state.sel=null;render();});
+}
+function drawWY(){
+  const g=d3.groups(ALLDAYS,d=>+d.date.slice(0,4)-(+d.date.slice(5,7)<7?1:0));
+  const tb=d3.select('#wy tbody');tb.html('');
+  g.forEach(([y,v])=>{const tot=d3.sum(v,d=>d.c);const mm=d3.rollups(v,a=>d3.sum(a,d=>d.c),d=>d.date.slice(0,7)).sort((a,b)=>b[1]-a[1])[0];const pk=v.reduce((a,d)=>d.c>a.c?d:a,v[0]);
+    const tr=tb.append('tr').style('cursor','pointer').on('click',()=>{state.from=v[0].date;state.to=v[v.length-1].date;state.sel=null;render();});
+    [y+'-'+String((y+1)%100).padStart(2,'0'),v.length+(v.length<365?' (part year)':''),fmt1(tot),pct(tot/193),d3.utcFormat('%b %Y')(new Date(mm[0]+'-01'))+' ('+fmt1(mm[1])+' ML)',fmt2(pk.c)+' on '+d3.utcFormat('%-d %b %Y')(pk.day)].forEach(t=>tr.append('td').text(t));});
+}
+drawWY();
+function drawDaily(){
+  const el=document.getElementById('daily'),rawMode=document.getElementById('mode').value==='raw';
+  if(!days.length){el.innerHTML='<p class="note">No data in this period.</p>';return;}
+  const rows=days.map(d=>({...d,key:d.date,label:dayLabel(d.day)})),val=d=>rawMode?d.t:d.c,ml=44,mr=12;
+  const f=frame(el,300,Math.max(1.5,d3.max(rows,val))*1.08,v=>d3.format('.2~f')(v),ml,mr,rows,12),{svg,x,y}=f;
+  const half=x.step()*x.paddingInner()/2;
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)-half).attr('width',x.step()).attr('y',8).attr('height',300-34).attr('fill',d=>LEVEL_COLOURS[d.level]||'transparent').attr('opacity',.22);
+  const pts=[];rows.forEach(d=>{if(isFinite(d.allowed)){const x0=x(d.key)-half;pts.push([x0,y(d.allowed)],[x0+x.step(),y(d.allowed)]);}});
+  svg.append('path').attr('d',d3.line()(pts)).attr('fill','none').attr('stroke',css('--ref')).attr('stroke-width',1.5).attr('stroke-dasharray','4 3');
+  const bw=Math.min(32,x.bandwidth());
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)+(x.bandwidth()-bw)/2).attr('width',bw).attr('y',d=>y(val(d))).attr('height',d=>y(0)-y(val(d))).attr('rx',2)
+    .attr('fill',d=>val(d)>d.allowed?css('--crit'):(d.date===state.sel?css('--sel'):css('--bar')));
+  hover(el,f,ml,mr,rows,d=>[dfmt(d.day),`${fmt2(d.c)} ML corrected`,`${fmt2(d.t)} ML as reported`,`Allowed ${fmt2(d.allowed)} ML (${d.level})`,`${d.hrs} hours with flow`],d=>{state.sel=d.date;drawDaily();drawNightly();drawHours();});
+}
+function drawNightly(){
+  const el=document.getElementById('nightly'),ml=34,mr=12;
+  if(!nights.length){el.innerHTML='<p class="note">No complete nights in this period.</p>';return;}
+  const rows=nights.map(n=>({...n,key:n.date,label:dayLabel(n.day)}));
+  const f=frame(el,300,Math.max(9,d3.max(rows,n=>n.full+n.part)),v=>v+' h',ml,mr,rows,12),{svg,x,y}=f;
+  const bw=Math.min(32,x.bandwidth()),off=(x.bandwidth()-bw)/2,g=svg.append('g');
+  g.selectAll('rect.s').data(rows.filter(n=>n.date===state.sel)).join('rect').attr('x',n=>x(n.key)-2).attr('width',x.bandwidth()+4).attr('y',8).attr('height',300-34).attr('fill','#e8eef6');
+  g.selectAll('rect.f').data(rows).join('rect').attr('class','f').attr('x',n=>x(n.key)+off).attr('width',bw).attr('y',n=>y(n.full)).attr('height',n=>y(0)-y(n.full)).attr('fill',css('--crit'));
+  g.selectAll('rect.p').data(rows).join('rect').attr('class','p').attr('x',n=>x(n.key)+off).attr('width',bw).attr('y',n=>y(n.full+n.part)).attr('height',n=>y(n.full)-y(n.full+n.part)).attr('fill',css('--part'));
+  hover(el,f,ml,mr,rows,n=>['Night of '+dfmt(n.day),`${n.full} h at full flow`,`${n.part} h below full flow`,`${n.full+n.part} h running in total`,`${fmt0(Math.round(n.m3))} m³ pumped`],n=>{state.sel=n.date;drawDaily();drawNightly();drawHours();});
+}
+function drawHours(){
+  const el=document.getElementById('hours'),ml=44,mr=12,d=state.sel;
+  const keys=[];for(let h=12;h<24;h++)keys.push(d+'T'+String(h).padStart(2,'0'));for(let h=0;h<12;h++)keys.push(addDays(d,1)+'T'+String(h).padStart(2,'0'));
+  const rows=keys.map(k=>({key:k,label:(+k.slice(11)%12||12)+(+k.slice(11)<12?' am':' pm'),v:H.get(k)})).filter(r=>r.v!==undefined);
+  set('h-title','Hour by hour: night of '+dfmt(new Date(d))+' (noon to noon)');
+  if(!rows.length){el.innerHTML='<p class="note">No hourly data for this night.</p>';return;}
+  const f=frame(el,240,Math.max(140,d3.max(rows,r=>r.v)),v=>v+' m³',ml,mr,rows,12),{svg,x,y,W}=f;
+  const bw=Math.min(28,x.bandwidth());
+  svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',r=>x(r.key)+(x.bandwidth()-bw)/2).attr('width',bw).attr('y',r=>y(r.v)).attr('height',r=>y(0)-y(r.v)).attr('rx',2).attr('fill',r=>r.v>FULL?css('--crit'):css('--part'));
+  svg.append('line').attr('x1',ml).attr('x2',W-mr).attr('y1',y(FULL)).attr('y2',y(FULL)).attr('stroke',css('--ref')).attr('stroke-dasharray','4 3');
+  hover(el,f,ml,mr,rows,r=>[r.key.slice(0,10).split('-').reverse().join('/')+' '+r.label,`${fmt1(r.v)} m³ in the hour`,r.v>FULL?'Full flow':'Below full flow']);
+}
+function tableRows(){
+  return days.map(d=>{const n=NMAP.get(d.date);return {date:d.date,level:d.level,allowed:d.allowed,used:d.c,share:d.c/d.allowed,raw:d.t,hrs:d.hrs,nfull:n?n.full:null,npart:n?n.part:null,over:d.c>d.allowed,gap:d.gap};});
+}
+function drawTable(){
+  let rows=tableRows();
+  const txt=r=>[r.date,dfmt(new Date(r.date)),d3.utcFormat('%B %Y')(new Date(r.date)),r.level,r.gap?'gap':'',fmt2(r.allowed),fmt2(r.used),pct(r.share),fmt2(r.raw),r.hrs,r.nfull??'',r.npart??''].join(' ').toLowerCase();
+  if(state.q)rows=rows.filter(r=>txt(r).includes(state.q));
+  const k=state.sortK;rows.sort((a,b)=>{const nn=v=>(typeof v==='number'&&!isFinite(v))?null:v;const A=nn(a[k]),B=nn(b[k]);return (A===B?0:(A===null?1:B===null?-1:A<B?-1:1))*state.sortDir;});
+  document.querySelectorAll('#tbl th').forEach(th=>th.setAttribute('aria-sort',th.dataset.k===k?(state.sortDir>0?'ascending':'descending'):'none'));
+  const tb=d3.select('#tbl tbody');tb.html('');
+  rows.forEach(r=>{const tr=tb.append('tr').classed('over',r.over).style('cursor','pointer').on('click',()=>{state.sel=r.date;drawDaily();drawNightly();drawHours();document.getElementById('h-title').scrollIntoView({behavior:'smooth',block:'center'});});
+    tr.append('td').text(dfmt(new Date(r.date))+' '+r.date.slice(0,4));
+    if(r.level)tr.append('td').append('span').attr('class','pill').style('background',LEVEL_COLOURS[r.level]).style('color',r.level==='L3'||r.level==='L2'?'#1f2a24':'#fff').text(r.level);else tr.append('td').text('-');
+    [isFinite(r.allowed)?fmt2(r.allowed):'-',fmt2(r.used),isFinite(r.share)?pct(r.share):'-',fmt2(r.raw),r.hrs,r.nfull??'-',r.npart??'-',r.gap?'Yes':''].forEach(v=>tr.append('td').text(v));});
+  set('tcount',rows.length+' of '+days.length+' days shown');
+  window._rows=rows;
+}
+document.getElementById('csv').addEventListener('click',()=>{
+  const rows=window._rows||[];const head=['date','level','allowed_ML','used_ML_corrected','share_of_limit','telemetry_ML','hours_with_flow','night_hours_full_flow','night_hours_below_full','data_gap'];
+  const lines=[head.join(',')].concat(rows.map(r=>[r.date,r.level,r.allowed,r.used.toFixed(3),r.share.toFixed(3),r.raw.toFixed(3),r.hrs,r.nfull??'',r.npart??'',r.gap?'gap':''].join(',')));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));a.download='wwcc_lake_meter_'+state.from+'_to_'+state.to+'.csv';a.click();
+});
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{render(document.querySelector('[data-q].on')?.dataset.q);reportHeight();},150);});
+render('month');
+reportHeight();
+try{ new ResizeObserver(()=>reportHeight()).observe(document.body); }catch(e){}
+}
+</script>
+</body>
+</html>

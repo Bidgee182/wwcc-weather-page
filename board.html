@@ -217,6 +217,7 @@
     <button class="tab-btn"        onclick="showTab('history')">Zone History</button>
     <button class="tab-btn"        onclick="showTab('rainfall')">Rainfall</button>
     <button class="tab-btn"        onclick="showTab('wnsw')">WaterNSW</button>
+    <button class="tab-btn"        onclick="showTab('extraction')">Lake Extraction</button>
 </div>
 
 <div class="err-bar" id="err-bar"></div>
@@ -1096,6 +1097,17 @@
     </div>
 </div>
 
+<!-- ── Lake Extraction tab ──────────────────────────────────────────────────────
+     The tested standalone explorer (lake-extraction.html), embedded so it keeps
+     its exact look and behaviour. It loads its own data (data/lake_meter.json,
+     rebuilt from each DAS upload, plus data/lake_zone_history.csv) and reports
+     its height so the iframe sizes to its content. Loaded only when first opened.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-extraction" class="tab-panel">
+    <iframe id="lake-xf" title="Lake Albert extraction explorer" scrolling="no"
+            style="width:100%;border:0;display:block;min-height:820px;background:#f6f7f5;border-radius:8px"></iframe>
+</div>
+
 <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
 <div class="page-footer">
     Wagga Wagga Country Club &bull; Board Dashboard &bull; Data refreshes every 15 minutes
@@ -1132,6 +1144,26 @@ function _initTabFromHash() {
     const id = location.hash.slice(1);
     if (id && !_activateTab(id)) location.hash = '';   // unknown tab -> leave default
 }
+
+// Lake Extraction tab: load the explorer (its own d3 + data) only when first
+// opened, and size the iframe to the content height it posts back.
+function _ensureLakeXf() {
+    const f = document.getElementById('lake-xf');
+    if (f && !f.getAttribute('src')) f.src = 'lake-extraction.html?_=' + Date.now();
+}
+const _activateTab_base = _activateTab;
+_activateTab = function (id) {
+    const ok = _activateTab_base(id);
+    if (ok && id === 'extraction') _ensureLakeXf();
+    return ok;
+};
+window.addEventListener('message', e => {
+    if (e.data && typeof e.data.lakeExplorerHeight === 'number') {
+        const f = document.getElementById('lake-xf');
+        if (f) f.style.height = (e.data.lakeExplorerHeight + 24) + 'px';
+    }
+});
+if (location.hash.slice(1) === 'extraction') _ensureLakeXf();   // deep-link
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id);
