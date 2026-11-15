@@ -6,6 +6,8 @@ Sends alert emails when:
   - Station goes offline (after 15+ min of failed polls)
   - Station recovers after an outage
   - A new fault-level alarm appears (type_code == 1)
+  - The on-site Raspberry Pi poller stops feeding Supabase for 30+ min
+    while the station is reachable (6-hourly reminders + recovery email)
 
 Runs as a step in poll-grundfos.yml after each poll.
 State is persisted in data/pump_email_state.json so dedup
@@ -53,6 +55,17 @@ EMAIL_FROM       = os.environ.get('EMAIL_FROM', '')
 _TO_RAW          = os.environ.get('PUMP_EMAIL_RECIPIENTS', '')
 _CC_RAW          = os.environ.get('PUMP_EMAIL_CC', '')
 _BCC_RAW         = os.environ.get('PUMP_EMAIL_BCC', '')
+
+# On-site Raspberry Pi poller (pi_pump_poller.py) feeds Supabase pump_stats_v2
+# one row a minute; the pump page live view + charts read ONLY from there. If the
+# Pi dies the page goes stale while this GitHub poll still reaches the CU352, so
+# nothing else notices (13 Nov 2026: 3 days of 1-minute data lost unnoticed).
+# Anon key is the public read key already embedded in pump-station.html.
+SUPABASE_URL      = os.environ.get('SUPABASE_URL', 'https://sduzxijjvpbfgvlwcwpp.supabase.co')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkdXp4aWpqdnBiZmd2bHdjd3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODE2NzgsImV4cCI6MjA5MjE1NzY3OH0.fbYf9-F987DUSlsibuGnqGYEQe6tsQsOf7NMmNMrBT8')
+PI_STALE_MIN      = 30  # alert when the Pi has sent no data for this long
+PI_REMIND_H       = 6   # while still stale, re-send every N hours
 
 OFFLINE_GRACE_MIN = 15  # alert after this many minutes offline
 OFFLINE_REMIND_H  = 6   # while still offline, re-send the alert every N hours
@@ -652,6 +665,107 @@ def check_ip_change(state, latest, now):
 
 
 # ---------------------------------------------------------------------------
+# Raspberry Pi poller watchdog
+# ---------------------------------------------------------------------------
+
+def pi_last_data_ts():
+    """Timestamp of the newest Pi row in Supabase, or None if the lookup failed
+    (a failed lookup must never raise an alert on its own)."""
+    import urllib.request
+    url = f'{SUPABASE_URL}/rest/v1/pump_stats_v2?select=ts&order=ts.desc&limit=1'
+    req = urllib.request.Request(url, headers={
+        'apikey': SUPABASE_ANON_KEY, 'Authorization': f'Bearer {SUPABASE_ANON_KEY}'})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            rows = json.loads(r.read().decode())
+        return parse_iso(rows[0]['ts']) if rows else None
+    except Exception as e:
+        log.warning(f'Pi check: Supabase lookup failed: {e}')
+        return None
+
+
+def pi_stale_html(last_dt, dur, station_ok):
+    station = ('<span style="color:#27ae60;font-weight:bold;">Online</span> - the pumps '
+               'are reachable, only the Pi has stopped' if station_ok else
+               '<span style="color:#c0392b;font-weight:bold;">Unreachable</span>')
+    tbl = _table([
+        ('Status',          '<span style="color:#c0392b;font-weight:bold;">'
+                            'Raspberry Pi poller not sending data</span>', True),
+        ('Last Pi data',    fmt_aest(last_dt), False),
+        ('No data for',     dur,               True),
+        ('Pump station',    station,           False),
+    ])
+    note = ('The on-site Raspberry Pi has stopped sending 1-minute pump data to the '
+            'database, so the pump page live view and charts are frozen and this data '
+            'is being lost. The pumps themselves are not affected.<br><br>'
+            '<b>To fix:</b> power-cycle the Pi, or log in and run '
+            '<code>sudo systemctl status pump-poller</code> then '
+            '<code>sudo systemctl restart pump-poller</code>. '
+            'If it will not boot, check the power supply and SD card.')
+    return _wrap(_header('#c0392b', 'PUMP STATION - RASPBERRY PI POLLER STOPPED'),
+                 _body_section(tbl, note))
+
+
+def pi_recovered_html(stale_since, back_dt, dur):
+    tbl = _table([
+        ('Status',        '<span style="color:#27ae60;font-weight:bold;">'
+                          'Raspberry Pi poller sending data again</span>', True),
+        ('Data stopped',  fmt_aest(stale_since), False),
+        ('Data resumed',  fmt_aest(back_dt),     True),
+        ('Gap',           dur,                   False),
+    ])
+    note = ('The pump page live view and charts are updating again. 1-minute data '
+            'for the gap above was not recorded.')
+    return _wrap(_header('#27ae60', 'PUMP STATION - RASPBERRY PI POLLER RECOVERED'),
+                 _body_section(tbl, note))
+
+
+def check_pi_poller(state, connected, now):
+    """Email when the Pi stops feeding Supabase (station still reachable), a
+    reminder every PI_REMIND_H hours, and a recovery email. Returns True if
+    state changed."""
+    last_dt = pi_last_data_ts()
+    if last_dt is None:
+        return False
+    stale_sec = (now - last_dt).total_seconds()
+    changed = False
+
+    if stale_sec >= PI_STALE_MIN * 60:
+        if not connected and not state.get('pi_alert_sent'):
+            # Station itself unreachable: the OFFLINE alert covers it and the Pi
+            # cannot reach the pumps either. Re-check once the station is back.
+            return False
+        dur = duration_str(stale_sec)
+        if not state.get('pi_alert_sent'):
+            log.info(f'Pi poller stale {stale_sec/60:.0f} min - sending alert')
+            subject = f'PUMP STATION - Raspberry Pi poller stopped - since {fmt_aest(last_dt)}'
+            if send_email(subject, pi_stale_html(last_dt, dur, connected), 'pump_pi_alert'):
+                state['pi_alert_sent']    = True
+                state['pi_stale_since']   = last_dt.isoformat()
+                state['pi_last_alert_at'] = now.isoformat()
+                changed = True
+        else:
+            last_alert = parse_iso(state.get('pi_last_alert_at'))
+            if not last_alert or (now - last_alert).total_seconds() >= PI_REMIND_H * 3600:
+                log.info(f'Pi poller still stale ({dur}) - sending reminder')
+                subject = f'PUMP STATION - Raspberry Pi poller STILL stopped - {dur}'
+                if send_email(subject, pi_stale_html(last_dt, dur, connected), 'pump_pi_alert'):
+                    state['pi_last_alert_at'] = now.isoformat()
+                    changed = True
+    elif state.get('pi_alert_sent'):
+        stale_since = parse_iso(state.get('pi_stale_since'))
+        gap = duration_str((now - stale_since).total_seconds()) if stale_since else 'unknown'
+        log.info('Pi poller recovered - sending recovery email')
+        if send_email('PUMP STATION - Raspberry Pi poller recovered',
+                      pi_recovered_html(stale_since, last_dt, gap), 'pump_pi_alert'):
+            state['pi_alert_sent']    = False
+            state['pi_stale_since']   = None
+            state['pi_last_alert_at'] = None
+            changed = True
+    return changed
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -685,6 +799,13 @@ def main():
     connected = latest.get('connected', False)
     last_conn = parse_iso(latest.get('last_connected') or latest.get('last_seen'))
     changed   = ip_changed
+
+    # -- Raspberry Pi poller watchdog ----------------------------------------
+    try:
+        if check_pi_poller(state, connected, now):
+            changed = True
+    except Exception as e:
+        log.error(f'Pi poller check failed: {e}')
 
     # -- Offline / recovery -------------------------------------------------
     if not connected:
