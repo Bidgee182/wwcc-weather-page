@@ -13,10 +13,15 @@
 # Installed and started at boot by setup_pump_standby.ps1 - do not run by hand
 # unless testing.
 
+param(
+    [string]$Dir = "C:\Apps\pump_poller",
+    [string]$Py  = ""
+)
 $ErrorActionPreference = "Continue"
-$Dir     = "C:\Apps\pump_poller"
 $Script  = Join-Path $Dir "pi_pump_poller.py"
-$Py      = Join-Path $Dir "venv\Scripts\python.exe"
+if (-not $Py) { $Py = Join-Path $Dir "venv\Scripts\python.exe" }
+$Out     = Join-Path $Dir "poller.out.log"
+$Err     = Join-Path $Dir "poller.err.log"
 $Log     = Join-Path $Dir "standby.log"
 $RawUrl  = "https://raw.githubusercontent.com/Bidgee182/wwcc-weather-page/main/scripts/pi_pump_poller.py"
 $CheckS  = 300
@@ -53,6 +58,16 @@ function Update-Poller {
     return $false
 }
 
+function Sync-Output([int]$shown) {
+    # Copy any new poller stdout lines into the main log; returns lines copied so far.
+    if (-not (Test-Path $Out)) { return $shown }
+    $lines = @(Get-Content $Out -ErrorAction SilentlyContinue)
+    if ($lines.Count -gt $shown) {
+        Add-Content -Path $Log -Value ($lines[$shown..($lines.Count - 1)]) -Encoding utf8
+    }
+    return [Math]::Max($shown, $lines.Count)
+}
+
 Write-Log "runner starting"
 while ($true) {
     if ((Test-Path $Log) -and (Get-Item $Log).Length -gt 10MB) {
@@ -61,14 +76,19 @@ while ($true) {
     [void](Update-Poller)
     if (-not (Test-Path $Script)) { Write-Log "no poller script yet - retrying in 60 s"; Start-Sleep 60; continue }
 
-    $cmd  = "`"$Py`" -u `"$Script`" >> `"$Log`" 2>&1"
-    $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $cmd `
-                -WorkingDirectory $Dir -WindowStyle Hidden -PassThru
+    # Launch python directly (no cmd.exe - its quote-stripping broke the 16 Nov
+    # first install). Output goes to per-run files that are appended to the
+    # main log when the run ends, so crash tracebacks are never lost.
+    $proc = Start-Process -FilePath $Py -ArgumentList @("-u", "`"$Script`"") `
+                -WorkingDirectory $Dir -WindowStyle Hidden -PassThru `
+                -RedirectStandardOutput $Out -RedirectStandardError $Err
     Write-Log "poller started (pid $($proc.Id))"
 
     $nextCheck = (Get-Date).AddSeconds($CheckS)
+    $shown = 0
     while (-not $proc.HasExited) {
         Start-Sleep 5
+        $shown = Sync-Output $shown
         if ((Get-Date) -ge $nextCheck) {
             $nextCheck = (Get-Date).AddSeconds($CheckS)
             if (Update-Poller) {
@@ -78,6 +98,9 @@ while ($true) {
             }
         }
     }
-    Write-Log "poller exited - restarting in 10 s"
+    Start-Sleep 1
+    [void](Sync-Output $shown)
+    if (Test-Path $Err) { $e = Get-Content $Err -Raw -ErrorAction SilentlyContinue; if ($e) { Add-Content -Path $Log -Value $e.TrimEnd() -Encoding utf8 } }
+    Write-Log "poller exited (code $($proc.ExitCode)) - restarting in 10 s"
     Start-Sleep 10
 }

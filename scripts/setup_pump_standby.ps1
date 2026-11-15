@@ -43,6 +43,15 @@ if (-not (Test-Path "$Dir\venv\Scripts\python.exe")) {
 & "$Dir\venv\Scripts\python.exe" -m pip install --quiet "pymodbus==3.14.0" requests
 if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
 
+# ── Stop any previous install (safe to re-run this script to upgrade) ────────
+if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+    Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    Write-Host "Stopped the existing '$taskName' task." -ForegroundColor Cyan
+}
+Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='powershell.exe'" |
+    Where-Object { $_.CommandLine -match [regex]::Escape($Dir) -and $_.ProcessId -ne $PID } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 $runnerSrc = Join-Path $PSScriptRoot "pump_standby_runner.ps1"
 if (-not (Test-Path $runnerSrc)) { throw "not found: $runnerSrc" }
