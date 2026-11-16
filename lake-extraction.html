@@ -138,7 +138,7 @@ svg text{font-family:inherit}
     <dt>Nightly run hours</dt><dd>An hour counts as full flow when more than 125 m³ went through the meter in it. Each telemetry reading is the flow since the previous reading, so the 11:00 pm reading is the 10 to 11 pm hour. The daily housekeeping reading part-way through an hour is shared back into that hour. A night is only counted when every hour from 10 pm to 7 am is in the export.</dd>
     <dt>Correction</dt><dd>The telemetry's busiest hours reach about 1,360 kL, which would be 1,360 m³/h, ten times what the pump station can deliver. Divided by 10 they match three CRNE45 pumps at about 135 m³/h. The telemetry is known to be misconfigured and is due to be replaced.</dd>
     <dt>Licence limits</dt><dd>Licence 40SL070163: 1.5 ML/day above 190.25 m AHD, 1.0 ML from 190.05, 0.75 ML from 189.85, 0.5 ML from 189.65, none below. Zone history (level, time of change and lake AHD) from the club's lake dashboard, starting 20 May 2026, with the last recorded change on 2 November 2026; Level 2 is assumed to continue after that. Before 20 May 2026 the licence level is not known, so those days have no shading and are not counted against a limit.</dd>
-    <dt>Tank water</dt><dd>With "Include tank water on top" ticked, each day's bar is topped with the irrigation tank drawdown for that day, measured over the same Sydney calendar day as the lake figure (the net fall in the FarmBot tank level across the day; a day the tank was refilled net shows nothing) so the two segments cover the same window and the total is the water that went onto the course. Tank readings begin 10 February 2026, so earlier days show lake water only, and the overlay is hidden in the "as reported by telemetry" view. The licence limit line and the over-limit counts apply to lake water only.</dd>
+    <dt>Tank water</dt><dd>With "Include tank water on top" ticked, each day's bar is topped with the irrigation tank drawdown for that day, measured over the same Sydney calendar day as the lake figure (the sum of the tank's draw-downs that day from the FarmBot level sensor; the refills are not counted, so a day the tank refills while the pumps run still shows the water actually pumped out) so the two segments cover the same window and the total is the water that went onto the course. Tank readings begin 10 February 2026, so earlier days show lake water only, and the overlay is hidden in the "as reported by telemetry" view. The licence limit line and the over-limit counts apply to lake water only.</dd>
   </dl>
 </details>
 <div class="foot">Prepared from the WaterNSW DAS export and the club's lake dashboard zone history.</div>
@@ -221,22 +221,19 @@ const ZSTART=Z[0].t.slice(0,10);
 function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+'T00:00',next=addDays(day,1)+'T00:00';
   const f=Z.filter((q,i)=>q.t<next&&(i===Z.length-1||Z[i+1].t>start));
   return f.reduce((a,q)=>!a||q.rate<a.rate?q:a,null)||{level:'',rate:NaN};}
-// Tank water drawn down per Sydney calendar day, built the SAME way the lake daily
-// series is (water_usage_build.py): the net fall in tank volume across the Sydney
-// local day (end-of-day value vs the previous day's), clamped at zero so a refill day
-// shows nothing. Same net-delta-over-the-day method as the lake register, which also
-// keeps it immune to the +/-250 L step flicker in the level sensor. Readings begin
-// 10 Feb 2026.
+// Tank water pumped onto the course per Sydney calendar day. The tank both refills
+// AND draws down (unlike the monotonic lake register), so usage = the SUM of every
+// drop in tank volume (pumps onto the course); the rises (refilling) are ignored.
+// Each drop is attributed to the later reading's Sydney day so the window matches the
+// lake. A plain start-to-end net would hide draws that refilled the same day (e.g.
+// 28 Apr 2026: 0.39 ML pumped out while 0.19 ML refilled). Readings begin 10 Feb 2026.
 const _sydDF=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'});
 const sydDate=s=>{try{return _sydDF.format(new Date(s));}catch(e){return null;}};
 const TANKML=(function(readings){
   if(!Array.isArray(readings))return null;
   const rs=readings.filter(r=>r&&r.volume_l!=null).slice().sort((a,b)=>a.date<b.date?-1:1);
-  const endVol={};
-  for(const r of rs){const d=sydDate(r.date);if(d)endVol[d]=r.volume_l;}
-  const days=Object.keys(endVol).sort();
-  const out={};let prev=null;
-  for(const d of days){if(prev!==null){const u=prev-endVol[d];out[d]=u>0?u/1e6:0;}prev=endVol[d];}
+  const out={};
+  for(let i=1;i<rs.length;i++){const drop=rs[i-1].volume_l-rs[i].volume_l;if(drop>0){const d=sydDate(rs[i].date);if(d)out[d]=(out[d]||0)+drop/1e6;}}
   return out;
 })(TANK);
 // days - the USED figure comes straight from water_usage.json (the WaterNSW

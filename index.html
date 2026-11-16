@@ -2317,19 +2317,20 @@ let _wnTank = false;                 // "include tank water" toggle - OFF by def
 let _wnTankDaily = null;             // {YYYY-MM-DD: ML drawn from the tank that day}, aligned to the lake day
 const _wnSydDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney', year: 'numeric', month: '2-digit', day: '2-digit' });
 function _wnSydDate(iso) { try { return _wnSydDateFmt.format(new Date(iso)); } catch (e) { return null; } }
-// Tank water pumped onto the course per Sydney calendar day, built the SAME way the
-// lake daily series is (water_usage_build.py): the net fall in tank volume across the
-// Sydney local day (end-of-day value vs the previous day's), clamped at zero so a
-// refill day shows nothing. Same net-delta-over-the-day method as the lake register,
-// which also keeps it immune to the +/-250 L step flicker in the level sensor.
+// Tank water pumped onto the course per Sydney calendar day. The tank both refills
+// AND draws down (unlike the monotonic lake register), so usage = the SUM of every
+// drop in tank volume (pumps running onto the course); the rises (refilling) are
+// ignored. Each drop is attributed to the Sydney calendar day of the later reading,
+// so the day window still matches the lake series. A plain start-to-end net would
+// hide draws that refilled the same day (e.g. 28 Apr 2026: 0.39 ML pumped out while
+// 0.19 ML refilled). The +/-250 L level-sensor step is tiny next to irrigation days.
 function _wnBuildTankDaily(readings) {
     const rs = readings.filter(r => r && r.volume_l != null).slice().sort((a, b) => (a.date < b.date ? -1 : 1));
-    const endVol = {};
-    for (const r of rs) { const d = _wnSydDate(r.date); if (d) endVol[d] = r.volume_l; }   // last reading of the day wins
-    const days = Object.keys(endVol).sort();
     const out = {};
-    let prev = null;
-    for (const d of days) { if (prev !== null) { const u = prev - endVol[d]; out[d] = u > 0 ? u / 1e6 : 0; } prev = endVol[d]; }
+    for (let i = 1; i < rs.length; i++) {
+        const drop = rs[i - 1].volume_l - rs[i].volume_l;   // litres pumped from the tank since the previous reading
+        if (drop > 0) { const d = _wnSydDate(rs[i].date); if (d) out[d] = (out[d] || 0) + drop / 1e6; }
+    }
     return out;
 }
 async function _wnLoadTank() {
