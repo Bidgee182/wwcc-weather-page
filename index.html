@@ -888,6 +888,14 @@
                 <div class="irr-metric"><div class="lbl">Allocation</div><div class="val" id="wn-lic-alloc" style="color:#7f8c8d;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">per water year</div></div>
                 <div class="irr-metric"><div class="lbl">Used</div><div class="val" id="wn-lic-pct" style="color:#27ae60;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">of allocation</div></div>
             </div>
+            <!-- Licence usage shading: used (accent) vs remaining of the annual allocation -->
+            <div id="wn-lic-bar-wrap" style="margin-top:12px;">
+                <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:#243444;">
+                    <div id="wn-lic-bar-used" style="height:100%;width:0%;background:#27ae60;transition:width .3s;"></div>
+                    <div id="wn-lic-bar-rem" style="height:100%;width:100%;background:#34495e;"></div>
+                </div>
+                <div id="wn-lic-bar-caption" style="font-size:.78em;color:#7f8c8d;margin-top:6px;"></div>
+            </div>
             <div style="margin-top:12px;">
                 <div class="wn-row">
                     <button class="wn-btn active" id="wn-btn-g-daily"   onclick="setWnGran('daily')">Daily</button>
@@ -2342,6 +2350,12 @@ function _wnRenderLicence() {
     set('wn-lic-remaining', _wnMlG(remaining), null);
     set('wn-lic-alloc', _wnMlG(alloc), null);
     set('wn-lic-pct', pct.toFixed(1) + '%', accent);
+    // Usage shading bar (mirrors the board email's used/remaining bar)
+    const barUsed = Math.max(1, Math.min(100, Math.round(pct)));
+    const bu = _g('wn-lic-bar-used'); if (bu) { bu.style.width = barUsed + '%'; bu.style.background = accent; }
+    const br = _g('wn-lic-bar-rem'); if (br) br.style.width = (100 - barUsed) + '%';
+    const cap = _g('wn-lic-bar-caption');
+    if (cap) cap.innerHTML = `${_wnMlG(used)} used &middot; ${_wnMlG(remaining)} remaining of ${_wnMlG(alloc)} (${pct.toFixed(1)}% of this year's entitlement)`;
 }
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
 function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
@@ -2427,19 +2441,31 @@ function _wnRenderChart() {
         if (_wnGran === 'wy') return (v / alloc * 100) > 90 ? _WN_RED : (v / alloc * 100) > 75 ? _WN_AMBER : _WN_BLUE;
         return _WN_BLUE;
     });
+    // Allocation reference line: only in per-year view, where annual totals are
+    // directly comparable to the licence allocation (matches the board email chart).
+    const showAllocLine = _wnGran === 'wy' && !_wnCum && s.labels.length > 0;
+    const datasets = [{
+        label: _wnCum ? 'Cumulative ML' : 'ML used', data: values,
+        backgroundColor: _wnCum ? _WN_BLUE : colors, borderRadius: 3, maxBarThickness: 46, order: 2,
+    }];
+    if (showAllocLine) {
+        datasets.push({
+            type: 'line', label: 'Allocation ' + alloc + ' ML', data: s.labels.map(() => alloc),
+            borderColor: _WN_RED, borderWidth: 1.5, borderDash: [5, 4],
+            fill: false, pointRadius: 0, tension: 0, order: 1,
+        });
+    }
     const ctx = _g('wn-chart').getContext('2d');
     if (_wnChart) _wnChart.destroy();
     _wnChart = new Chart(ctx, {
         type: 'bar',
-        data: { labels: s.labels, datasets: [{
-            label: _wnCum ? 'Cumulative ML' : 'ML used', data: values,
-            backgroundColor: _wnCum ? _WN_BLUE : colors, borderRadius: 3, maxBarThickness: 46,
-        }] },
+        data: { labels: s.labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: { display: showAllocLine, labels: { color: '#7f8c8d', boxWidth: 12, usePointStyle: false } },
                 tooltip: { callbacks: { label: c => {
+                    if (c.dataset.type === 'line') return 'Allocation: ' + alloc + ' ML';
                     const v = c.parsed.y;
                     let t = (_wnCum ? 'Cumulative: ' : '') + v.toFixed(2) + ' ML';
                     if (_wnGran === 'wy' && !_wnCum) t += '  (' + (v / alloc * 100).toFixed(1) + '% of ' + alloc + ' ML)';
