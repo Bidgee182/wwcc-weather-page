@@ -1,21 +1,21 @@
 {
   "connected": true,
-  "timestamp": "2026-11-16T00:04:15.686719+00:00",
-  "last_seen": "2026-11-16T00:04:15.686719+00:00",
-  "last_connected": "2026-11-16T00:04:15.686719+00:00",
+  "timestamp": "2026-11-16T00:16:42.007588+00:00",
+  "last_seen": "2026-11-16T00:16:42.007588+00:00",
+  "last_connected": "2026-11-16T00:16:42.007588+00:00",
   "system": {
-    "pressure_actual_bar": 8.566,
-    "pressure_suction_bar": -0.818,
+    "pressure_actual_bar": 7.811,
+    "pressure_suction_bar": -0.827,
     "pressure_setpoint_bar": 7.8,
-    "flow_m3h": 0.0,
-    "power_kw": 0.0,
+    "flow_m3h": 34.1,
+    "power_kw": 8.9,
     "mode": "constant head",
     "fault": false,
     "system_on": true,
-    "relative_performance_pct": 0.0,
+    "relative_performance_pct": 92.5,
     "specific_energy_wh_m3": null,
     "specific_energy_avg_wh_m3": null,
-    "energy_kwh": 212778,
+    "energy_kwh": 212782,
     "run_hours": 42900,
     "powered_hours": null,
     "power_ons": 82,
@@ -33,7 +33,7 @@
     "alarm_code": 0,
     "warning_code": 0,
     "pumps_comm_fault": 0,
-    "sys_active_funcs": 4096,
+    "sys_active_funcs": 0,
     "pid_kp": 10.5,
     "pid_ti": 1.0,
     "sensor_max_bar": 16.0
@@ -51,7 +51,7 @@
       "standby": true,
       "speed_pct": 0.0,
       "power_kw": 0.0,
-      "current_a": 0.0,
+      "current_a": 0.8,
       "run_hours": 5482.0,
       "starts_today": 2,
       "temp_c": null,
@@ -82,14 +82,14 @@
       "rated_kw": 18.5,
       "block": 420,
       "bit": 2,
-      "running": false,
+      "running": true,
       "fault": false,
-      "standby": true,
-      "speed_pct": 0.0,
-      "power_kw": 0.0,
-      "current_a": 0.0,
+      "standby": false,
+      "speed_pct": 92.9,
+      "power_kw": 8.9,
+      "current_a": 17.0,
       "run_hours": 5480.0,
-      "starts_today": 3,
+      "starts_today": 4,
       "temp_c": null,
       "alarm_code": 0
     },
@@ -117,13 +117,13 @@
     {
       "index": 1,
       "unit": 255,
-      "raw": 8568,
+      "raw": 7808,
       "temp_c": null
     },
     {
       "index": 2,
       "unit": 255,
-      "raw": 182,
+      "raw": 176,
       "temp_c": null
     },
     {
@@ -158,46 +158,6 @@
     }
   ],
   "history": [
-    {
-      "ts": "2026-11-15T00:57:28.170874+00:00",
-      "pa": 7.245,
-      "ps": 7.8,
-      "pi": -0.818,
-      "fl": 0.0,
-      "nr": 0,
-      "pk": 0.0,
-      "sp": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "pw": [
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ],
-      "rh": [
-        5474.0,
-        5472.0,
-        5474.0,
-        1422.0
-      ],
-      "st": [
-        1,
-        1,
-        1,
-        1
-      ],
-      "tm": [
-        null,
-        null,
-        null,
-        null
-      ],
-      "se": null
-    },
     {
       "ts": "2026-11-15T01:02:10.713743+00:00",
       "pa": 7.245,
@@ -11677,9 +11637,58 @@
         null
       ],
       "se": null
+    },
+    {
+      "ts": "2026-11-16T00:16:42.007588+00:00",
+      "pa": 7.811,
+      "ps": 7.8,
+      "pi": -0.827,
+      "fl": 34.1,
+      "nr": 1,
+      "pk": 8.9,
+      "sp": [
+        0.0,
+        0.0,
+        92.9,
+        0.0
+      ],
+      "pw": [
+        0.0,
+        0.0,
+        8.9,
+        0.0
+      ],
+      "rh": [
+        5482.0,
+        5480.0,
+        5480.0,
+        1422.0
+      ],
+      "st": [
+        2,
+        1,
+        4,
+        2
+      ],
+      "tm": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "se": null
     }
   ],
   "event_log": [
+    {
+      "timestamp_iso": "2026-11-16T00:16:42.007588+00:00",
+      "type_code": 4,
+      "type_name": "Low-Flow Stop deactivated",
+      "code": 12,
+      "description": "Low-Flow Stop no longer active",
+      "pump_label": "System",
+      "source_name": "SystemFunction"
+    },
     {
       "timestamp_iso": "2026-11-16T00:04:15.686719+00:00",
       "type_code": 3,
@@ -12030,22 +12039,13 @@
       "description": "Low-flow stop active - possible system leak or zero demand",
       "pump_label": "System",
       "source_name": "SystemFunction"
-    },
-    {
-      "timestamp_iso": "2026-11-12T03:13:33.300242+00:00",
-      "type_code": 4,
-      "type_name": "Low-Flow Stop deactivated",
-      "code": 12,
-      "description": "Low-Flow Stop no longer active",
-      "pump_label": "System",
-      "source_name": "SystemFunction"
     }
   ],
   "pump_energy_kwh": [
     5386,
     64928,
-    7600,
-    3870
+    7602,
+    3872
   ],
   "mge_temps": [
     null,
