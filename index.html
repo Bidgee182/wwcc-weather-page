@@ -890,9 +890,9 @@
             </div>
             <!-- Licence usage shading: used (accent) vs remaining of the annual allocation -->
             <div id="wn-lic-bar-wrap" style="margin-top:12px;">
-                <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:#d6eaf8;border:1px solid #3d5166;">
+                <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;background:#243444;">
                     <div id="wn-lic-bar-used" style="height:100%;width:0%;background:#27ae60;transition:width .3s;"></div>
-                    <div id="wn-lic-bar-rem" style="height:100%;width:100%;background:#d6eaf8;"></div>
+                    <div id="wn-lic-bar-rem" style="height:100%;width:100%;background:#34495e;"></div>
                 </div>
                 <div id="wn-lic-bar-caption" style="font-size:.78em;color:#7f8c8d;margin-top:6px;"></div>
             </div>
@@ -921,6 +921,14 @@
                 <div style="font-size:.78em;color:#7f8c8d;margin-bottom:10px;">
                     <strong style="color:#5dade2;">Showing:</strong> <span id="wn-chart-note">loading...</span>
                     &bull; metered lake extraction for irrigation (hover a bar for the exact figure).
+                </div>
+                <!-- Licence-level legend (Daily view): shading = level in force each day, dashed line = rate allowed -->
+                <div id="wn-level-legend" style="display:none;font-size:.73em;color:#9fb3c8;margin-bottom:8px;gap:14px;flex-wrap:wrap;align-items:center;">
+                    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#0b7a2e;vertical-align:middle;"></i> L1 Normal 1.5 ML/day</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#8cc63f;vertical-align:middle;"></i> L2 Monitoring 1.0 ML/day</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#ffd60a;vertical-align:middle;"></i> L3 Conservation 0.75 ML/day</span>
+                    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#f7931e;vertical-align:middle;"></i> L4 Critical 0.5 ML/day</span>
+                    <span style="color:#7f8c8d;">- - - dashed = rate allowed that day</span>
                 </div>
                 <div style="position:relative;height:280px;"><canvas id="wn-chart"></canvas></div>
             </div>
@@ -2329,6 +2337,7 @@ async function renderWaterUsage() {
     // NOT touched by _wnRenderChart's granularity/range selector.
     _wnRenderLicence();
     _wnRenderMeterInfo();
+    await _wnLoadZones();   // licence-level history for the chart shading + rate line
     _wnRenderChart();
 }
 // Used/Remaining/Allocation/% for the current water year, straight from
@@ -2357,6 +2366,66 @@ function _wnRenderLicence() {
     const cap = _g('wn-lic-bar-caption');
     if (cap) cap.innerHTML = `${_wnMlG(used)} used &middot; ${_wnMlG(remaining)} remaining of ${_wnMlG(alloc)} (${pct.toFixed(1)}% of this year's entitlement)`;
 }
+
+// ── Licence-level zone shading + allowed-rate step line (ported from the board
+//    Lake Extraction chart). Reads data/lake_zone_history.csv and, in the Daily
+//    view, shades each day by the licence level in force and draws the dashed
+//    rate line. Mirrors lake-extraction.html's levelFor/LEVEL_COLOURS. ──────────
+const _WN_LEVEL_COLOURS = { L1: '#0b7a2e', L2: '#8cc63f', L3: '#ffd60a', L4: '#f7931e' };
+let _wnZones = null, _wnZonesLoaded = false, _wnZ = null, _wnZSTART = null, _wnDayLevels = null;
+function _wnParseZones(text) {
+    // CSV cols: [0]=timestamp_aest, [2]=new_zone, [4]=new_rate (e.g. "1.00 ML/day")
+    const lines = text.trim().split(/\r?\n/), rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const c = lines[i].split(',');
+        if (c.length < 5) continue;
+        const ts = (c[0] || '').trim(), nz = (c[2] || '').trim(), nr = (c[4] || '').trim();
+        if (!ts || !nz) continue;
+        rows.push({ start: ts.replace(' ', 'T'), level: 'L' + nz, rate: parseFloat(nr) });
+    }
+    return rows;
+}
+async function _wnLoadZones() {
+    if (_wnZonesLoaded) return;
+    try {
+        const r = await fetch('data/lake_zone_history.csv?_=' + Date.now());
+        _wnZones = r.ok ? _wnParseZones(await r.text()) : null;
+    } catch { _wnZones = null; }
+    if (_wnZones && _wnZones.length) {
+        _wnZ = _wnZones.map(z => ({ t: z.start.slice(0, 16), level: z.level, rate: +z.rate })).sort((a, b) => a.t < b.t ? -1 : 1);
+        _wnZSTART = _wnZ[0].t.slice(0, 10);
+    }
+    _wnZonesLoaded = true;
+}
+function _wnAddDays(s, n) { return new Date(Date.parse(s + 'T00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+// Licence level/rate in force on a given day; if the level changed mid-day, the
+// lower (stricter) rate applies. Days before the zone history starts are unknown.
+function _wnLevelFor(day) {
+    if (!_wnZ || !_wnZ.length || day < _wnZSTART) return { level: '', rate: NaN };
+    const start = day + 'T00:00', next = _wnAddDays(day, 1) + 'T00:00';
+    const f = _wnZ.filter((q, i) => q.t < next && (i === _wnZ.length - 1 || _wnZ[i + 1].t > start));
+    return f.reduce((a, q) => !a || q.rate < a.rate ? q : a, null) || { level: '', rate: NaN };
+}
+// Per-chart plugin: shade each day's column with its licence-level colour behind
+// the bars. Reads _wnDayLevels (set only in the Daily view; null disables it).
+const _wnShadePlugin = {
+    id: 'wnShade',
+    beforeDatasetsDraw(chart) {
+        const levels = _wnDayLevels;
+        if (!levels || !levels.length) return;
+        const { ctx, chartArea, scales } = chart, x = scales.x;
+        if (!x) return;
+        const band = levels.length > 1 ? Math.abs(x.getPixelForValue(1) - x.getPixelForValue(0)) : (chartArea.right - chartArea.left);
+        ctx.save(); ctx.globalAlpha = 0.30;
+        for (let i = 0; i < levels.length; i++) {
+            const col = _WN_LEVEL_COLOURS[levels[i]]; if (!col) continue;
+            const cx = x.getPixelForValue(i);
+            ctx.fillStyle = col;
+            ctx.fillRect(cx - band / 2, chartArea.top, band, chartArea.bottom - chartArea.top);
+        }
+        ctx.restore();
+    }
+};
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
 function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
 function toggleWnCum() { _wnCum = !_wnCum; _wnRenderChart(); }
@@ -2437,8 +2506,21 @@ function _wnRenderChart() {
         ? `${s.labels[0]} to ${s.labels[s.labels.length - 1]} (${s.labels.length} ${s.unit}${s.labels.length === 1 ? '' : 's'}${_wnCum ? ', cumulative' : ''})`
         : 'No data in the selected period';
 
-    const colors = s.values.map(v => {
+    // Daily view: per-day licence level + allowed rate (from lake_zone_history.csv)
+    // drive the background shading, the dashed rate line and the over-limit colour.
+    let rates = null;
+    _wnDayLevels = null;
+    if (_wnGran === 'daily' && !_wnCum && _wnZ && (s.keys || []).length) {
+        const lv = s.keys.map(k => _wnLevelFor(k));
+        _wnDayLevels = lv.map(x => x.level);
+        rates = lv.map(x => isFinite(x.rate) ? x.rate : null);
+    }
+    const hasShade = !!_wnDayLevels && _wnDayLevels.some(Boolean);
+    const ll = _g('wn-level-legend'); if (ll) ll.style.display = hasShade ? 'flex' : 'none';
+
+    const colors = s.values.map((v, i) => {
         if (_wnGran === 'wy') return (v / alloc * 100) > 90 ? _WN_RED : (v / alloc * 100) > 75 ? _WN_AMBER : _WN_BLUE;
+        if (rates && rates[i] != null && v > rates[i]) return _WN_RED;   // over the allowed rate that day
         return _WN_BLUE;
     });
     // Allocation reference line: only in per-year view, where annual totals are
@@ -2455,20 +2537,34 @@ function _wnRenderChart() {
             fill: false, pointRadius: 0, tension: 0, order: 1,
         });
     }
+    // Dashed step line of the rate allowed each day (Daily view only)
+    if (rates && rates.some(r => r != null)) {
+        datasets.push({
+            type: 'line', label: 'Allowed rate (ML/day)', data: rates,
+            borderColor: '#cbd5e1', borderWidth: 1.5, borderDash: [4, 3], stepped: 'middle',
+            fill: false, pointRadius: 0, spanGaps: false, order: 1,
+        });
+    }
     const ctx = _g('wn-chart').getContext('2d');
     if (_wnChart) _wnChart.destroy();
     _wnChart = new Chart(ctx, {
         type: 'bar',
         data: { labels: s.labels, datasets },
+        plugins: [_wnShadePlugin],
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { display: showAllocLine, labels: { color: '#7f8c8d', boxWidth: 12, usePointStyle: false } },
                 tooltip: { callbacks: { label: c => {
-                    if (c.dataset.type === 'line') return 'Allocation: ' + alloc + ' ML';
+                    if (c.dataset.type === 'line') {
+                        if ((c.dataset.label || '').indexOf('Allowed rate') === 0)
+                            return c.parsed.y == null ? 'Allowed: n/a' : 'Allowed: ' + c.parsed.y + ' ML/day';
+                        return 'Allocation: ' + alloc + ' ML';
+                    }
                     const v = c.parsed.y;
                     let t = (_wnCum ? 'Cumulative: ' : '') + v.toFixed(2) + ' ML';
                     if (_wnGran === 'wy' && !_wnCum) t += '  (' + (v / alloc * 100).toFixed(1) + '% of ' + alloc + ' ML)';
+                    else if (rates && rates[c.dataIndex] != null) t += '  (allowed ' + rates[c.dataIndex] + ' ML' + (_wnDayLevels && _wnDayLevels[c.dataIndex] ? ', ' + _wnDayLevels[c.dataIndex] : '') + ')';
                     return t;
                 } } },
             },
