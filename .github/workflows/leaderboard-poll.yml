@@ -2,7 +2,7 @@ name: Live Golf Leaderboard Poll
 
 on:
   schedule:
-    # Fallback cron - self-chaining keeps it running every ~5 min during the day.
+    # Fallback cron - self-chaining keeps it polling every 2 min during the day.
     # Cron fires on startup each morning and as a safety net if the chain breaks.
     - cron: '*/10 17-23,0-11 * * *'
 
@@ -93,11 +93,11 @@ jobs:
           git config user.name  "WWCC Weather Bot"
           git config user.email "bot@wwcc.com.au"
 
-      - name: Poll and commit (8 rounds, ~20s apart)
+      - name: Poll and commit (4 rounds, 2 min apart)
         if: steps.window.outputs.within == 'true'
         run: |
-          for i in 1 2 3 4 5 6 7 8; do
-            echo "=== Poll $i/8 at $(date -u +%H:%M:%S) ==="
+          for i in 1 2 3 4; do
+            echo "=== Poll $i/4 at $(date -u +%H:%M:%S) ==="
             python -m miscore.live --once
 
             git add out/live-leaderboard.json out/last-results.json out/history/
@@ -123,5 +123,5 @@ jobs:
                 || echo "Chain dispatch failed (non-fatal)"
             fi
 
-            if [ "$i" -lt 8 ]; then sleep 20; fi
+            if [ "$i" -lt 4 ]; then sleep 120; fi
           done
