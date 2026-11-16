@@ -148,7 +148,8 @@ svg text{font-family:inherit}
 //  - data/water_register_hourly.json = the hourly register, for the nightly and
 //    hour-by-hour views and "hours with flow".
 //  - data/lake_zone_history.csv   = the dashboard's own licence-zone history.
-function reportHeight(){ try{ if(parent!==window) parent.postMessage({lakeExplorerHeight:document.documentElement.scrollHeight},'*'); }catch(e){} }
+let _lastReportedH=0;
+function reportHeight(){ try{ if(parent!==window){ const h=document.documentElement.scrollHeight; if(Math.abs(h-_lastReportedH)>2){ _lastReportedH=h; parent.postMessage({lakeExplorerHeight:h},'*'); } } }catch(e){} }
 function parseZones(text){
   const lines=text.trim().split(/\r?\n/), rows=[];
   for(let i=1;i<lines.length;i++){
@@ -368,7 +369,17 @@ document.getElementById('csv').addEventListener('click',()=>{
   const lines=[head.join(',')].concat(rows.map(r=>[r.date,r.level,r.allowed,r.used.toFixed(3),r.share.toFixed(3),r.raw.toFixed(3),r.hrs,r.nfull??'',r.npart??'',r.gap?'gap':''].join(',')));
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));a.download='wwcc_lake_meter_'+state.from+'_to_'+state.to+'.csv';a.click();
 });
-let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{render(document.querySelector('[data-q].on')?.dataset.q);reportHeight();},150);});
+// Re-render only when the WIDTH changes. The charts are responsive to width; a
+// height change (e.g. the parent resizing this iframe to fit the content, or a
+// tooltip nudging the page height) must not rebuild them, or it would wipe the
+// tooltip the moment you hover.
+let _lastW=0, rt;
+function _w(){ return (document.querySelector('.wrap')||{}).clientWidth||window.innerWidth; }
+window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{
+  const w=_w(); if(w!==_lastW){ _lastW=w; render(document.querySelector('[data-q].on')?.dataset.q); }
+  reportHeight();
+},150);});
+_lastW=_w();
 render('month');
 reportHeight();
 try{ new ResizeObserver(()=>reportHeight()).observe(document.body); }catch(e){}
