@@ -97,7 +97,10 @@ svg text{font-family:inherit}
     <div><h2>Water taken from the lake each day</h2>
     <p class="note">Shading shows the licence level in force each day. The dashed step is the rate allowed that day; where the level changed during a day, the lower rate is shown. Hover for each day's figures; click a day to see its night hour by hour below.</p>
     <div class="legend"><span><i class="sw" style="background:#0b7a2e"></i>L1 Normal, 1.5 ML/day</span><span><i class="sw" style="background:#8cc63f"></i>L2 Monitoring, 1.0 ML/day</span><span><i class="sw" style="background:#ffd60a"></i>L3 Conservation, 0.75 ML/day</span><span><i class="sw" style="background:#f7931e"></i>L4 Critical, 0.5 ML/day</span></div></div>
-    <select id="mode" aria-label="Figures shown"><option value="corrected">Corrected (telemetry ÷ 10)</option><option value="raw">As reported by telemetry</option></select>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:.9em;user-select:none"><input type="checkbox" id="tankToggle"><span><i class="sw" style="background:#a569bd"></i>Include tank water on top</span></label>
+      <select id="mode" aria-label="Figures shown"><option value="corrected">Corrected (telemetry ÷ 10)</option><option value="raw">As reported by telemetry</option></select>
+    </div>
   </div>
   <div class="chart" id="daily"></div>
 </section>
@@ -135,6 +138,7 @@ svg text{font-family:inherit}
     <dt>Nightly run hours</dt><dd>An hour counts as full flow when more than 125 m³ went through the meter in it. Each telemetry reading is the flow since the previous reading, so the 11:00 pm reading is the 10 to 11 pm hour. The daily housekeeping reading part-way through an hour is shared back into that hour. A night is only counted when every hour from 10 pm to 7 am is in the export.</dd>
     <dt>Correction</dt><dd>The telemetry's busiest hours reach about 1,360 kL, which would be 1,360 m³/h, ten times what the pump station can deliver. Divided by 10 they match three CRNE45 pumps at about 135 m³/h. The telemetry is known to be misconfigured and is due to be replaced.</dd>
     <dt>Licence limits</dt><dd>Licence 40SL070163: 1.5 ML/day above 190.25 m AHD, 1.0 ML from 190.05, 0.75 ML from 189.85, 0.5 ML from 189.65, none below. Zone history (level, time of change and lake AHD) from the club's lake dashboard, starting 20 May 2026, with the last recorded change on 2 November 2026; Level 2 is assumed to continue after that. Before 20 May 2026 the licence level is not known, so those days have no shading and are not counted against a limit.</dd>
+    <dt>Tank water</dt><dd>With "Include tank water on top" ticked, each day's bar is topped with the irrigation tank drawdown for that day, measured over the same Sydney calendar day as the lake figure (the net fall in the FarmBot tank level across the day; a day the tank was refilled net shows nothing) so the two segments cover the same window and the total is the water that went onto the course. Tank readings begin 10 February 2026, so earlier days show lake water only, and the overlay is hidden in the "as reported by telemetry" view. The licence limit line and the over-limit counts apply to lake water only.</dd>
   </dl>
 </details>
 <div class="foot">Prepared from the WaterNSW DAS export and the club's lake dashboard zone history.</div>
@@ -184,10 +188,14 @@ function parseZones(text){
     document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Meter data is not ready yet.</p>';
     reportHeight(); return;
   }
-  runExplorer(USAGE, REG, ZONES);
+  // Tank water readings (non-fatal: a missing/old file just hides the tank overlay).
+  let TANK=null;
+  try{ const fRes=await fetch('data/farmbot_readings.json'+cb); if(fRes.ok){ const fd=await fRes.json(); if(Array.isArray(fd)) TANK=fd; } }catch(e){}
+  runExplorer(USAGE, REG, ZONES, TANK);
 })();
-function runExplorer(USAGE, REG, ZONES){
+function runExplorer(USAGE, REG, ZONES, TANK){
 const LEVEL_COLOURS={L1:'#0b7a2e',L2:'#8cc63f',L3:'#ffd60a',L4:'#f7931e'};
+const TANKC='#a569bd';
 const FULL=125;
 const fmt1=d3.format(',.1f'), fmt2=d3.format('.2f'), fmt0=d3.format(','), pct=d3.format('.0%'), dfmt=d3.utcFormat('%a %-d %b'), lfmt=d3.utcFormat('%-d %B %Y'), iso=d3.utcFormat('%Y-%m-%d');
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -213,6 +221,24 @@ const ZSTART=Z[0].t.slice(0,10);
 function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+'T00:00',next=addDays(day,1)+'T00:00';
   const f=Z.filter((q,i)=>q.t<next&&(i===Z.length-1||Z[i+1].t>start));
   return f.reduce((a,q)=>!a||q.rate<a.rate?q:a,null)||{level:'',rate:NaN};}
+// Tank water drawn down per Sydney calendar day, built the SAME way the lake daily
+// series is (water_usage_build.py): the net fall in tank volume across the Sydney
+// local day (end-of-day value vs the previous day's), clamped at zero so a refill day
+// shows nothing. Same net-delta-over-the-day method as the lake register, which also
+// keeps it immune to the +/-250 L step flicker in the level sensor. Readings begin
+// 10 Feb 2026.
+const _sydDF=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'});
+const sydDate=s=>{try{return _sydDF.format(new Date(s));}catch(e){return null;}};
+const TANKML=(function(readings){
+  if(!Array.isArray(readings))return null;
+  const rs=readings.filter(r=>r&&r.volume_l!=null).slice().sort((a,b)=>a.date<b.date?-1:1);
+  const endVol={};
+  for(const r of rs){const d=sydDate(r.date);if(d)endVol[d]=r.volume_l;}
+  const days=Object.keys(endVol).sort();
+  const out={};let prev=null;
+  for(const d of days){if(prev!==null){const u=prev-endVol[d];out[d]=u>0?u/1e6:0;}prev=endVol[d];}
+  return out;
+})(TANK);
 // days - the USED figure comes straight from water_usage.json (the WaterNSW
 // tab's source of truth), so this page cannot disagree with it. hours-with-flow
 // and the data-gap flag come from the hourly register (a day missing more than
@@ -220,7 +246,7 @@ function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+
 const ALLDAYS=USAGE.daily.map(([d,ml])=>{
   const lv=levelFor(d); let hrs=0,miss=0;
   for(let h=0;h<24;h++){const hh=d+'T'+String(h).padStart(2,'0'); if(HRPRESENT.has(hh)){if((H.get(hh)||0)>0.05)hrs++;}else miss++;}
-  return {date:d,day:new Date(d),c:ml,t:ml*10,hrs,level:lv.level,allowed:lv.rate,gap:miss>3};
+  return {date:d,day:new Date(d),c:ml,t:ml*10,hrs,level:lv.level,allowed:lv.rate,gap:miss>3,tank:TANKML?(TANKML[d]||0):0};
 });
 // nights
 const ALLNIGHTS=ALLDAYS.map(d=>{
@@ -252,6 +278,7 @@ fromEl.addEventListener('change',()=>{state.from=fromEl.value||FIRST;if(state.fr
 toEl.addEventListener('change',()=>{state.to=toEl.value||LAST;if(state.to<state.from)state.from=state.to;state.sel=null;render();});
 document.getElementById('mode').addEventListener('change',()=>render());
 document.getElementById('q').addEventListener('input',e=>{state.q=e.target.value.toLowerCase();drawTable();});
+document.getElementById('tankToggle')&&document.getElementById('tankToggle').addEventListener('change',()=>drawDaily());
 document.querySelectorAll('#tbl th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;state.sortDir=state.sortK===k?-state.sortDir:1;state.sortK=k;drawTable();}));
 
 const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -314,7 +341,10 @@ function drawDaily(){
   const el=document.getElementById('daily'),rawMode=document.getElementById('mode').value==='raw';
   if(!days.length){el.innerHTML='<p class="note">No data in this period.</p>';return;}
   const rows=days.map(d=>({...d,key:d.date,label:dayLabel(d.day)})),val=d=>rawMode?d.t:d.c,ml=44,mr=12;
-  const f=frame(el,300,Math.max(1.5,d3.max(rows,val))*1.08,v=>d3.format('.2~f')(v),ml,mr,rows,12),{svg,x,y}=f;
+  // Tank water stacks only in the corrected view (the real-ML view); the raw x10
+  // telemetry view has no comparable tank figure, so the overlay is hidden there.
+  const tankOn=!rawMode&&!!TANKML&&!!(document.getElementById('tankToggle')&&document.getElementById('tankToggle').checked);
+  const f=frame(el,300,Math.max(1.5,d3.max(rows,d=>val(d)+(tankOn?(d.tank||0):0)))*1.08,v=>d3.format('.2~f')(v),ml,mr,rows,12),{svg,x,y}=f;
   const half=x.step()*x.paddingInner()/2;
   svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)-half).attr('width',x.step()).attr('y',8).attr('height',300-34).attr('fill',d=>LEVEL_COLOURS[d.level]||'transparent').attr('opacity',.32);
   const pts=[];rows.forEach(d=>{if(isFinite(d.allowed)){const x0=x(d.key)-half;pts.push([x0,y(d.allowed)],[x0+x.step(),y(d.allowed)]);}});
@@ -322,7 +352,10 @@ function drawDaily(){
   const bw=Math.min(32,x.bandwidth());
   svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)+(x.bandwidth()-bw)/2).attr('width',bw).attr('y',d=>y(val(d))).attr('height',d=>y(0)-y(val(d))).attr('rx',2)
     .attr('fill',d=>val(d)>d.allowed?css('--crit'):(d.date===state.sel?css('--sel'):css('--bar')));
-  hover(el,f,ml,mr,rows,d=>[dfmt(d.day),`${fmt2(d.c)} ML corrected`,`${fmt2(d.t)} ML as reported`,`Allowed ${fmt2(d.allowed)} ML (${d.level})`,`${d.hrs} hours with flow`],d=>{state.sel=d.date;drawDaily();drawNightly();drawHours();});
+  if(tankOn){
+    svg.append('g').selectAll('rect').data(rows).join('rect').attr('x',d=>x(d.key)+(x.bandwidth()-bw)/2).attr('width',bw).attr('y',d=>y(val(d)+(d.tank||0))).attr('height',d=>Math.max(0,y(val(d))-y(val(d)+(d.tank||0)))).attr('rx',2).attr('fill',TANKC);
+  }
+  hover(el,f,ml,mr,rows,d=>{const L=[dfmt(d.day),`${fmt2(d.c)} ML corrected`,`${fmt2(d.t)} ML as reported`,`Allowed ${fmt2(d.allowed)} ML (${d.level})`,`${d.hrs} hours with flow`];if(tankOn)L.splice(1,0,`Tank water ${fmt2(d.tank||0)} ML`,`Total onto course ${fmt2(d.c+(d.tank||0))} ML`);return L;},d=>{state.sel=d.date;drawDaily();drawNightly();drawHours();});
 }
 function drawNightly(){
   const el=document.getElementById('nightly'),ml=34,mr=12;

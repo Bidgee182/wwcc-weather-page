@@ -922,6 +922,11 @@
                     <strong style="color:#5dade2;">Showing:</strong> <span id="wn-chart-note">loading...</span>
                     &bull; metered lake extraction for irrigation (hover a bar for the exact figure).
                 </div>
+                <!-- Include tank water pumped onto the course (Daily view): stacks on top of each day's lake bar -->
+                <label id="wn-tank-row" style="font-size:.8em;color:#9fb3c8;margin-bottom:8px;display:flex;gap:7px;align-items:center;cursor:pointer;user-select:none;">
+                    <input type="checkbox" id="wn-tank-toggle" onchange="toggleWnTank()" style="cursor:pointer;">
+                    <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#8e44ad;vertical-align:middle;"></i> Include tank water pumped onto the course <span style="color:#7f8c8d;">(stacks on each day, Daily view - total water onto the course)</span></span>
+                </label>
                 <!-- Licence-level legend (Daily view): shading = level in force each day, dashed line = rate allowed -->
                 <div id="wn-level-legend" style="display:none;font-size:.73em;color:#9fb3c8;margin-bottom:8px;gap:14px;flex-wrap:wrap;align-items:center;">
                     <span><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#0b7a2e;vertical-align:middle;"></i> L1 Normal 1.5 ML/day</span>
@@ -2307,6 +2312,40 @@ function switchGKTab(tab) {
 let _wu = null, _wnGran = 'daily', _wnRange = 'wy', _wnCustom = null, _wnCum = false, _wnChart = null, _wnLoaded = false;
 let _pm = null, _pmLoaded = false;   // data/pump_meter.json (for the last physical read)
 const _WN_BLUE = '#2471a3', _WN_AMBER = '#e67e22', _WN_RED = '#e74c3c', _WN_GREEN = '#27ae60';
+const _WN_TANK = '#8e44ad';          // tank-water segment colour (distinct from lake blue / over-limit red)
+let _wnTank = false;                 // "include tank water" toggle - OFF by default
+let _wnTankDaily = null;             // {YYYY-MM-DD: ML drawn from the tank that day}, aligned to the lake day
+const _wnSydDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney', year: 'numeric', month: '2-digit', day: '2-digit' });
+function _wnSydDate(iso) { try { return _wnSydDateFmt.format(new Date(iso)); } catch (e) { return null; } }
+// Tank water pumped onto the course per Sydney calendar day, built the SAME way the
+// lake daily series is (water_usage_build.py): the net fall in tank volume across the
+// Sydney local day (end-of-day value vs the previous day's), clamped at zero so a
+// refill day shows nothing. Same net-delta-over-the-day method as the lake register,
+// which also keeps it immune to the +/-250 L step flicker in the level sensor.
+function _wnBuildTankDaily(readings) {
+    const rs = readings.filter(r => r && r.volume_l != null).slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const endVol = {};
+    for (const r of rs) { const d = _wnSydDate(r.date); if (d) endVol[d] = r.volume_l; }   // last reading of the day wins
+    const days = Object.keys(endVol).sort();
+    const out = {};
+    let prev = null;
+    for (const d of days) { if (prev !== null) { const u = prev - endVol[d]; out[d] = u > 0 ? u / 1e6 : 0; } prev = endVol[d]; }
+    return out;
+}
+async function _wnLoadTank() {
+    if (_wnTankDaily) return;
+    try {
+        const r = await fetch('data/farmbot_readings.json?_=' + Date.now());
+        if (!r.ok) return;
+        const data = await r.json();
+        if (Array.isArray(data)) _wnTankDaily = _wnBuildTankDaily(data);
+    } catch (e) { console.warn('[water usage] tank load failed:', e); }
+}
+function toggleWnTank() {
+    const el = _g('wn-tank-toggle');
+    _wnTank = !!(el && el.checked);
+    if (_wnTank) { _wnLoadTank().then(_wnRenderChart); } else { _wnRenderChart(); }
+}
 const _g = id => document.getElementById(id);
 function _wnFmtMl(v) { return v == null ? '--' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' ML'; }
 function _wnKl(v) { return v == null ? '--' : Number(v).toLocaleString('en-AU', { maximumFractionDigits: 1 }) + ' kL'; }
@@ -2523,13 +2562,22 @@ function _wnRenderChart() {
         if (rates && rates[i] != null && v > rates[i]) return _WN_RED;   // over the allowed rate that day
         return _WN_BLUE;
     });
+    // Tank water stacked on top of the lake bar (Daily view, per-period, toggle on).
+    // Same Sydney calendar-day window as the lake series, so each day's two segments
+    // cover the identical period (total height = total water onto the course).
+    const stackTank = _wnTank && _wnGran === 'daily' && !_wnCum && !!_wnTankDaily && (s.keys || []).length > 0;
+    const tankVals = stackTank ? s.keys.map(k => { const v = _wnTankDaily[k]; return (v && isFinite(v)) ? v : 0; }) : null;
     // Allocation reference line: only in per-year view, where annual totals are
     // directly comparable to the licence allocation (matches the board email chart).
     const showAllocLine = _wnGran === 'wy' && !_wnCum && s.labels.length > 0;
     const datasets = [{
-        label: _wnCum ? 'Cumulative ML' : 'ML used', data: values,
+        label: _wnCum ? 'Cumulative ML' : (stackTank ? 'Lake extraction' : 'ML used'), data: values,
         backgroundColor: _wnCum ? _WN_BLUE : colors, borderRadius: 3, maxBarThickness: 46, order: 2,
-    }];
+        stack: 'course',
+    }, ...(stackTank ? [{
+        label: 'Tank water', data: tankVals,
+        backgroundColor: _WN_TANK, borderRadius: 3, maxBarThickness: 46, order: 2, stack: 'course',
+    }] : [])];
     if (showAllocLine) {
         datasets.push({
             type: 'line', label: 'Allocation ' + alloc + ' ML', data: s.labels.map(() => alloc),
@@ -2540,7 +2588,7 @@ function _wnRenderChart() {
     // Dashed step line of the rate allowed each day (Daily view only)
     if (rates && rates.some(r => r != null)) {
         datasets.push({
-            type: 'line', label: 'Allowed rate (ML/day)', data: rates,
+            type: 'line', label: 'Allowed rate (ML/day)', data: rates, stack: 'rateline',
             borderColor: '#cbd5e1', borderWidth: 1.5, borderDash: [4, 3], stepped: 'middle',
             fill: false, pointRadius: 0, spanGaps: false, order: 1,
         });
@@ -2554,12 +2602,17 @@ function _wnRenderChart() {
         options: {
             responsive: true, maintainAspectRatio: false,
             plugins: {
-                legend: { display: showAllocLine, labels: { color: '#7f8c8d', boxWidth: 12, usePointStyle: false } },
+                legend: { display: showAllocLine || stackTank, labels: { color: '#7f8c8d', boxWidth: 12, usePointStyle: false } },
                 tooltip: { callbacks: { label: c => {
                     if (c.dataset.type === 'line') {
                         if ((c.dataset.label || '').indexOf('Allowed rate') === 0)
                             return c.parsed.y == null ? 'Allowed: n/a' : 'Allowed: ' + c.parsed.y + ' ML/day';
                         return 'Allocation: ' + alloc + ' ML';
+                    }
+                    if (c.dataset.label === 'Tank water') {
+                        const lake = (values[c.dataIndex] || 0);
+                        return ['Tank water: ' + c.parsed.y.toFixed(3) + ' ML',
+                                'Total onto course: ' + (lake + c.parsed.y).toFixed(2) + ' ML'];
                     }
                     const v = c.parsed.y;
                     let t = (_wnCum ? 'Cumulative: ' : '') + v.toFixed(2) + ' ML';
@@ -2569,8 +2622,8 @@ function _wnRenderChart() {
                 } } },
             },
             scales: {
-                x: { ticks: { color: '#7f8c8d', maxRotation: 60, autoSkip: true, maxTicksLimit: 24 }, grid: { color: '#1e3040' } },
-                y: { beginAtZero: true, ticks: { color: '#7f8c8d', callback: v => v + ' ML' }, grid: { color: '#1e3040' } },
+                x: { stacked: stackTank, ticks: { color: '#7f8c8d', maxRotation: 60, autoSkip: true, maxTicksLimit: 24 }, grid: { color: '#1e3040' } },
+                y: { stacked: stackTank, beginAtZero: true, ticks: { color: '#7f8c8d', callback: v => v + ' ML' }, grid: { color: '#1e3040' } },
             },
         },
     });
