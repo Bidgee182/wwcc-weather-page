@@ -879,11 +879,14 @@
 
         <div class="card">
             <h2>&#128167; Water Used for Irrigation</h2>
+            <!-- Licence/allocation view - mirrors the board email's WaterNSW panel
+                 (Used this water year / Remaining / Allocation / % used). Fixed to the
+                 current water year; independent of the chart's granularity/range below. -->
             <div class="irr-metrics irr-metrics-4">
-                <div class="irr-metric"><div class="lbl">Total (period)</div><div class="val" id="wn-stat-total" style="color:#5dade2;">--</div></div>
-                <div class="irr-metric"><div class="lbl">This Week</div><div class="val" id="wn-stat-week" style="color:#2ecc71;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">last 7 days</div></div>
-                <div class="irr-metric"><div class="lbl">Peak <span id="wn-stat-peak-unit">day</span></div><div class="val" id="wn-stat-peak" style="color:#e67e22;">--</div><div class="lbl" id="wn-stat-peak-when" style="text-transform:none;letter-spacing:0;"></div></div>
-                <div class="irr-metric"><div class="lbl">Avg / period</div><div class="val" id="wn-stat-avg" style="color:#7f8c8d;">--</div></div>
+                <div class="irr-metric"><div class="lbl">Used <span id="wn-lic-label">this year</span></div><div class="val" id="wn-lic-used" style="color:#27ae60;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">this water year</div></div>
+                <div class="irr-metric"><div class="lbl">Remaining</div><div class="val" id="wn-lic-remaining" style="color:#5dade2;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">of entitlement</div></div>
+                <div class="irr-metric"><div class="lbl">Allocation</div><div class="val" id="wn-lic-alloc" style="color:#7f8c8d;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">per water year</div></div>
+                <div class="irr-metric"><div class="lbl">Used</div><div class="val" id="wn-lic-pct" style="color:#27ae60;">--</div><div class="lbl" style="text-transform:none;letter-spacing:0;">of allocation</div></div>
             </div>
             <div style="margin-top:12px;">
                 <div class="wn-row">
@@ -2313,22 +2316,32 @@ async function renderWaterUsage() {
         _wnLoaded = true;
     }
     if (!_wu) { const n = _g('wn-chart-note'); if (n) n.textContent = 'water_usage.json unavailable'; return; }
-    // "This Week" pill: rolling last 7 days of extraction, fixed regardless of the
-    // graph's granularity/range selector (set once here, not in _wnRenderChart).
-    const we = _g('wn-stat-week'); if (we) we.textContent = _wnFmtMl(_wnThisWeek());
+    // Licence stat tiles: Used this water year / Remaining / Allocation / % used.
+    // Fixed figures (same as the board email's WaterNSW panel), set once here and
+    // NOT touched by _wnRenderChart's granularity/range selector.
+    _wnRenderLicence();
     _wnRenderMeterInfo();
     _wnRenderChart();
 }
-// Sum the most recent 7 calendar days (lastDay back 6 days, inclusive) from the
-// daily series - robust to gaps, since it filters by date rather than row count.
-function _wnThisWeek() {
-    if (!_wu || !_wu.daily || !_wu.daily.length) return null;
-    const last = _wu.lastDay || _wu.daily[_wu.daily.length - 1][0];
-    const d = new Date(last); d.setDate(d.getDate() - 6);
-    const from = d.toISOString().slice(0, 10);
-    let sum = 0;
-    for (const [k, v] of _wu.daily) { if (k >= from && k <= last) sum += v; }
-    return sum;
+// Used/Remaining/Allocation/% for the current water year, straight from
+// water_usage.json's waterYears[-1].usedMl + allocationMl - byte-for-byte the
+// same numbers board_email.py's _waternsw_panel() prints.
+function _wnMlG(v) { if (v == null) return '--'; return +Number(v).toPrecision(6) + ' ML'; }   // mirrors Python's :g
+function _wnRenderLicence() {
+    const wys = (_wu && _wu.waterYears) || [];
+    if (!wys.length) return;
+    const cur = wys[wys.length - 1];
+    const used = cur.usedMl;
+    const alloc = _wu.allocationMl || 193;
+    const remaining = Math.round((alloc - used) * 10) / 10;
+    const pct = alloc ? used / alloc * 100 : 0;
+    const accent = pct > 90 ? '#e74c3c' : pct > 75 ? '#e67e22' : '#27ae60';
+    const set = (id, txt, col) => { const e = _g(id); if (e) { e.textContent = txt; if (col) e.style.color = col; } };
+    set('wn-lic-label', cur.label, null);
+    set('wn-lic-used', _wnMlG(used), accent);
+    set('wn-lic-remaining', _wnMlG(remaining), null);
+    set('wn-lic-alloc', _wnMlG(alloc), null);
+    set('wn-lic-pct', pct.toFixed(1) + '%', accent);
 }
 function setWnGran(g)  { _wnGran = g; _wnRenderChart(); }
 function setWnRange(r) { _wnRange = r; _wnCustom = null; _g('wn-custom-row').style.display = 'none'; _wnRenderChart(); }
@@ -2404,18 +2417,8 @@ function _wnRenderChart() {
     let values = s.values.slice();
     if (_wnCum) { let run = 0; values = values.map(v => (run += v)); }
 
-    const total = s.values.reduce((a, b) => a + b, 0);
-    _g('wn-stat-total').textContent = _wnFmtMl(total);
-    _g('wn-stat-peak-unit').textContent = s.unit || 'period';
-    if (s.values.length) {
-        const mi = s.values.indexOf(Math.max(...s.values));
-        _g('wn-stat-peak').textContent = _wnFmtMl(s.values[mi]);
-        _g('wn-stat-peak-when').textContent = s.labels[mi] || '';
-        _g('wn-stat-avg').textContent = _wnFmtMl(total / s.values.length);
-    } else {
-        _g('wn-stat-peak').textContent = '--'; _g('wn-stat-peak-when').textContent = '';
-        _g('wn-stat-avg').textContent = '--';
-    }
+    // Stat tiles above are the fixed licence figures (see _wnRenderLicence);
+    // the chart/selector no longer drives them.
     _g('wn-chart-note').textContent = s.labels.length
         ? `${s.labels[0]} to ${s.labels[s.labels.length - 1]} (${s.labels.length} ${s.unit}${s.labels.length === 1 ? '' : 's'}${_wnCum ? ', cumulative' : ''})`
         : 'No data in the selected period';
