@@ -127,9 +127,24 @@ def import_export_zip(zip_path):
         cwd=ROOT, check=True)
 
 
+def sync_repo():
+    """Best-effort pull so the register max-merge and the tank rebuild both start from
+    the latest committed data (the poller PC may have pushed newer readings)."""
+    r = subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"], cwd=ROOT)
+    if r.returncode != 0:
+        log("WARNING: git pull before build failed; building from local files")
+
+
+def build_tank_daily():
+    """Record yesterday's tank water onto the course (sum of dips) -> water_tank_daily.json."""
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "tank_daily_build.py")],
+        cwd=ROOT, check=True)
+
+
 def commit_and_push():
     files = ["data/water_usage.json", "data/water_register_daily.json",
-             "data/water_register_hourly.json"]
+             "data/water_register_hourly.json", "data/water_tank_daily.json"]
     subprocess.run(["git", "add", *files], cwd=ROOT, check=True)
     changed = subprocess.run(["git", "diff", "--staged", "--quiet"], cwd=ROOT).returncode != 0
     if not changed:
@@ -172,10 +187,15 @@ def run(mode):
                 log("NOT logged in - emailed Andrew, stopping")
                 return 2
 
+            if mode == "run":
+                sync_repo()  # pull latest so imports + tank rebuild start current
+
             with tempfile.TemporaryDirectory() as td:
                 zip_path = pathlib.Path(td) / "das-export.zip"
                 export_download(page, zip_path)
                 import_export_zip(zip_path)
+
+            build_tank_daily()  # yesterday's tank water (sum of dips) -> water_tank_daily.json
 
             if mode == "run":
                 commit_and_push()

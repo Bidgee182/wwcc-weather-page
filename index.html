@@ -2335,6 +2335,22 @@ function _wnBuildTankDaily(readings) {
 }
 async function _wnLoadTank() {
     if (_wnTankDaily) return;
+    // Prefer the server-built daily series (data/water_tank_daily.json) - the exact
+    // same sum-of-dips calculation, run once a day by the DAS auto-export job - so the
+    // chart and the stored record always match. Fall back to building it from the raw
+    // readings if that file is unavailable.
+    try {
+        const r = await fetch('data/water_tank_daily.json?_=' + Date.now());
+        if (r.ok) {
+            const blob = await r.json();
+            if (blob && Array.isArray(blob.daily)) {
+                const out = {};
+                for (const row of blob.daily) out[row[0]] = row[1] / 1e6;   // [date, litres] -> ML
+                _wnTankDaily = out;
+                return;
+            }
+        }
+    } catch (e) { console.warn('[water usage] tank daily load failed, falling back:', e); }
     try {
         const r = await fetch('data/farmbot_readings.json?_=' + Date.now());
         if (!r.ok) return;

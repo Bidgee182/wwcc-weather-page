@@ -188,12 +188,15 @@ function parseZones(text){
     document.querySelector('.wrap').innerHTML='<p class="note" style="padding:20px 0">Meter data is not ready yet.</p>';
     reportHeight(); return;
   }
-  // Tank water readings (non-fatal: a missing/old file just hides the tank overlay).
-  let TANK=null;
-  try{ const fRes=await fetch('data/farmbot_readings.json'+cb); if(fRes.ok){ const fd=await fRes.json(); if(Array.isArray(fd)) TANK=fd; } }catch(e){}
-  runExplorer(USAGE, REG, ZONES, TANK);
+  // Tank water (non-fatal: a missing file just hides the tank overlay). Prefer the
+  // server-built daily series (data/water_tank_daily.json) - the same sum-of-dips
+  // figure run once a day - and fall back to building it from the raw readings.
+  let TANKDAILY=null, TANK=null;
+  try{ const tRes=await fetch('data/water_tank_daily.json'+cb); if(tRes.ok){ const tb=await tRes.json(); if(tb&&Array.isArray(tb.daily)){ TANKDAILY={}; for(const row of tb.daily) TANKDAILY[row[0]]=row[1]/1e6; } } }catch(e){}
+  if(!TANKDAILY){ try{ const fRes=await fetch('data/farmbot_readings.json'+cb); if(fRes.ok){ const fd=await fRes.json(); if(Array.isArray(fd)) TANK=fd; } }catch(e){} }
+  runExplorer(USAGE, REG, ZONES, TANK, TANKDAILY);
 })();
-function runExplorer(USAGE, REG, ZONES, TANK){
+function runExplorer(USAGE, REG, ZONES, TANK, TANKDAILY){
 const LEVEL_COLOURS={L1:'#0b7a2e',L2:'#8cc63f',L3:'#ffd60a',L4:'#f7931e'};
 const TANKC='#a569bd';
 const FULL=125;
@@ -229,7 +232,7 @@ function levelFor(day){if(day<ZSTART)return {level:'',rate:NaN};const start=day+
 // 28 Apr 2026: 0.39 ML pumped out while 0.19 ML refilled). Readings begin 10 Feb 2026.
 const _sydDF=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'});
 const sydDate=s=>{try{return _sydDF.format(new Date(s));}catch(e){return null;}};
-const TANKML=(function(readings){
+const TANKML=TANKDAILY||(function(readings){
   if(!Array.isArray(readings))return null;
   const rs=readings.filter(r=>r&&r.volume_l!=null).slice().sort((a,b)=>a.date<b.date?-1:1);
   const out={};
