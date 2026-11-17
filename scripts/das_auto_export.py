@@ -18,7 +18,8 @@ re-read of an already-loaded day is ignored / the more complete reading is kept)
 re-covering the last week every day is self-cleaning.
 
 Setup on andrew-new (one time):
-    pip install playwright
+    pip install playwright tzdata      # tzdata: Windows has no system tz db, and the
+                                       # tank step needs Australia/Sydney
     playwright install chromium
     python scripts/das_auto_export.py --login      # headed: sign in, then close the window
 
@@ -136,10 +137,16 @@ def sync_repo():
 
 
 def build_tank_daily():
-    """Record yesterday's tank water onto the course (sum of dips) -> water_tank_daily.json."""
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "tank_daily_build.py")],
-        cwd=ROOT, check=True)
+    """Record yesterday's tank water onto the course (sum of dips) -> water_tank_daily.json.
+
+    Non-fatal on purpose: the DAS import has already succeeded by this point, so a
+    tank-build hiccup (e.g. missing tzdata on Windows) must not abort the run and lose
+    that import."""
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "tank_daily_build.py")], cwd=ROOT)
+    if r.returncode != 0:
+        log("WARNING: tank_daily_build failed (continuing with the lake import). "
+            "On Windows this is usually the tz database: run  pip install tzdata")
 
 
 def commit_and_push():
