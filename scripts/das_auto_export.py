@@ -92,19 +92,23 @@ def open_export_dialog(page):
     """
     export_tab = 'a[href="#historic_export"]'
     page.goto(SOURCES_URL, wait_until="domcontentloaded")
-    # The Sources grid has loaded once the Historic data toolbar button is present.
-    page.get_by_text("Historic data").first.wait_for(timeout=30000)
-    page.wait_for_timeout(1500)
+    # Wait for the single source row (its Location cell), NOT the toolbar label - the
+    # toolbar labels are CSS-hidden at narrow widths and the button only appears once
+    # a row is selected, so anchor on the grid instead.
+    page.get_by_text("nswd510/40CA413688-120922-3").first.wait_for(timeout=30000)
+    page.wait_for_timeout(1000)
 
-    # Tick the source row (enables the Historic data menu actions). One data row.
+    # Tick the source row - this reveals/enables the Historic data menu.
+    cb = page.locator('input[type="checkbox"]').filter(visible=True).first
     try:
-        page.locator('input[type="checkbox"]').first.check()
+        cb.check()
     except Exception:
-        page.locator('input[type="checkbox"]').first.click()
+        cb.click()
 
-    # Historic data -> Export opens the dialog on the Export tab.
-    page.get_by_text("Historic data").first.click()
-    page.get_by_text("Export", exact=True).first.click()
+    # Historic data -> Export opens the dialog on the Export tab. The app renders
+    # hidden responsive duplicates of these labels, so always click the visible one.
+    page.get_by_text("Historic data").filter(visible=True).first.click()
+    page.get_by_text("Export", exact=True).filter(visible=True).first.click()
     page.wait_for_selector(export_tab, timeout=15000)
     page.click(export_tab)  # ensure the Export tab is the active one
 
@@ -117,14 +121,14 @@ def export_and_download(page, dest):
     except Exception:
         pass
 
-    page.get_by_role("button", name="Export", exact=True).click()
+    page.get_by_role("button", name="Export", exact=True).filter(visible=True).first.click()
     # The export history is a single row that updates in place; give it a moment to
     # flip to processing, then wait for this run to complete before downloading.
     page.wait_for_timeout(2000)
     page.wait_for_selector("text=Successfully completed", timeout=120000)
 
     with page.expect_download(timeout=120000) as dl:
-        page.get_by_role("link", name="Download", exact=True).click()
+        page.get_by_role("link", name="Download", exact=True).filter(visible=True).first.click()
     dl.value.save_as(str(dest))
     log("downloaded", dest, f"({dest.stat().st_size} bytes)")
 
@@ -163,7 +167,8 @@ def run(mode):
 
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(
-            str(PROFILE_DIR), headless=not headed, accept_downloads=True)
+            str(PROFILE_DIR), headless=not headed, accept_downloads=True,
+            viewport={"width": 1680, "height": 1000})
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         try:
             if mode == "login":
