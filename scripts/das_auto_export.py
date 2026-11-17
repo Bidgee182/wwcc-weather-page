@@ -24,8 +24,9 @@ Watch it run without committing (to tune/confirm the clicks):
     python scripts/das_auto_export.py --test
 
 If the Export/Download clicks ever stop matching the portal, re-record them with:
-    playwright codegen https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/120922-3-LID01/?m=show&v=map
-and update open_export_dialog() / export_and_download() below.
+    playwright codegen "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/120922-3-LID01/120922-3-LID01/?m=show&v=list&s=sources"
+and update open_export_dialog() / export_and_download() below. (The workspace caret
+menu next to 40CA413688-120922-3 reaches the same Export dialog as a fallback.)
 """
 import argparse
 import datetime
@@ -38,8 +39,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Browser profile lives OUTSIDE the repo so the login session is never committed.
 PROFILE_DIR = ROOT.parent / "das_profile"
 PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/"
-# Location (meter) view - the page the export dialog opens from.
-LOCATION_URL = PORTAL + "120922-3-LID01/?m=show&v=map"
+# The meter's "Sources" list - the page the Historic data -> Export dialog opens from.
+# (Verified path: Sources list -> tick the source row -> Historic data -> Export.)
+SOURCES_URL = PORTAL + "120922-3-LID01/120922-3-LID01/?m=show&v=list&s=sources"
 ALERT_TO = ["andrew@bidgeepumps.com.au"]
 
 
@@ -80,51 +82,45 @@ def is_logged_in(page):
 
 
 def open_export_dialog(page):
-    """Open Historic data and switch to its Export tab.
+    """Open the Historic data -> Export dialog for the meter.
 
-    The Export tab is a stable anchor (href="#historic_export"); getting there means
-    opening the "Historic data" dialog first. The dialog is a modal opened from the
-    location view - the exact trigger is confirmed on andrew-new via `playwright
-    codegen` if it ever changes. We try the known paths and fall back with guidance.
+    Verified path (17 Nov 2026): the meter's Sources list has a "Historic data"
+    toolbar menu; with the source row ticked, Historic data -> Export opens the
+    dialog on the Export tab (a[href="#historic_export"]). The dialog is a modal,
+    not URL-routed, so it must be clicked open. If the portal UI ever changes,
+    re-record with `playwright codegen <SOURCES_URL>` and update this.
     """
-    page.goto(LOCATION_URL, wait_until="domcontentloaded")
-    page.wait_for_timeout(4000)  # the SPA loads its chart over a WebSocket
-
     export_tab = 'a[href="#historic_export"]'
-    if page.locator(export_tab).count():
-        page.click(export_tab)
-        return
+    page.goto(SOURCES_URL, wait_until="domcontentloaded")
+    # The Sources grid has loaded once the Historic data toolbar button is present.
+    page.get_by_text("Historic data").first.wait_for(timeout=30000)
+    page.wait_for_timeout(1500)
 
-    # Open the "Historic data" dialog, then the Export tab.
-    for trigger in [
-        page.get_by_role("link", name="Historic data"),
-        page.get_by_role("button", name="Historic data"),
-        page.get_by_text("Historic data", exact=True),
-    ]:
-        try:
-            if trigger.count():
-                trigger.first.click()
-                page.wait_for_selector(export_tab, timeout=8000)
-                page.click(export_tab)
-                return
-        except Exception:
-            continue
+    # Tick the source row (enables the Historic data menu actions). One data row.
+    try:
+        page.locator('input[type="checkbox"]').first.check()
+    except Exception:
+        page.locator('input[type="checkbox"]').first.click()
 
-    raise RuntimeError(
-        "Could not find the Historic data / Export control. Re-record with "
-        "`playwright codegen " + LOCATION_URL + "` and update open_export_dialog().")
+    # Historic data -> Export opens the dialog on the Export tab.
+    page.get_by_text("Historic data").first.click()
+    page.get_by_text("Export", exact=True).first.click()
+    page.wait_for_selector(export_tab, timeout=15000)
+    page.click(export_tab)  # ensure the Export tab is the active one
 
 
 def export_and_download(page, dest):
     """On the Export tab: run the export job and save the resulting CSV to `dest`."""
     # Defaults are already Delimited Text / 7 Days / all 9 params. Be explicit on format.
     try:
-        page.select_option("select", value="DELIMITED_TEXT")
+        page.locator('select:has(option[value="DELIMITED_TEXT"])').first.select_option("DELIMITED_TEXT")
     except Exception:
         pass
 
     page.get_by_role("button", name="Export", exact=True).click()
-    # Wait for the job to finish (the Download link becomes active).
+    # The export history is a single row that updates in place; give it a moment to
+    # flip to processing, then wait for this run to complete before downloading.
+    page.wait_for_timeout(2000)
     page.wait_for_selector("text=Successfully completed", timeout=120000)
 
     with page.expect_download(timeout=120000) as dl:
