@@ -24,9 +24,9 @@ Watch it run without committing (to tune/confirm the clicks):
     python scripts/das_auto_export.py --test
 
 If the Export/Download clicks ever stop matching the portal, re-record them with:
-    playwright codegen "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/120922-3-LID01/120922-3-LID01/?m=show&v=list&s=sources"
-and update open_export_dialog() / export_and_download() below. (The workspace caret
-menu next to 40CA413688-120922-3 reaches the same Export dialog as a fallback.)
+    playwright codegen "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
+and update open_export_dialog() / export_and_download() below. (The flow: right-click
+the 40CA413688-120922-3 workspace node -> Historic data -> Export.)
 """
 import argparse
 import datetime
@@ -38,10 +38,10 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Browser profile lives OUTSIDE the repo so the login session is never committed.
 PROFILE_DIR = ROOT.parent / "das_profile"
-PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/"
-# The meter's "Sources" list - the page the Historic data -> Export dialog opens from.
-# (Verified path: Sources list -> tick the source row -> Historic data -> Export.)
-SOURCES_URL = PORTAL + "120922-3-LID01/120922-3-LID01/?m=show&v=list&s=sources"
+PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
+# The workspace tree node. Verified path: right-click it (or its caret) ->
+# Historic data -> Export opens the export dialog.
+WORKSPACE = "40CA413688-120922-3"
 ALERT_TO = ["andrew@bidgeepumps.com.au"]
 
 
@@ -84,31 +84,28 @@ def is_logged_in(page):
 def open_export_dialog(page):
     """Open the Historic data -> Export dialog for the meter.
 
-    Verified path (17 Nov 2026): the meter's Sources list has a "Historic data"
-    toolbar menu; with the source row ticked, Historic data -> Export opens the
-    dialog on the Export tab (a[href="#historic_export"]). The dialog is a modal,
-    not URL-routed, so it must be clicked open. If the portal UI ever changes,
-    re-record with `playwright codegen <SOURCES_URL>` and update this.
+    Verified path (17 Nov 2026): right-click the workspace node (same menu as its
+    hover caret) -> Historic data -> Export opens the dialog on the Export tab
+    (a[href="#historic_export"]). The dialog is a modal, not URL-routed, so it must
+    be clicked open (deep-linking the Sources list does not render the grid headless).
+    If the portal UI ever changes, re-record with `playwright codegen <PORTAL>`.
     """
     export_tab = 'a[href="#historic_export"]'
-    page.goto(SOURCES_URL, wait_until="domcontentloaded")
-    # Wait for the single source row (its Location cell), NOT the toolbar label - the
-    # toolbar labels are CSS-hidden at narrow widths and the button only appears once
-    # a row is selected, so anchor on the grid instead.
-    page.get_by_text("nswd510/40CA413688-120922-3").first.wait_for(timeout=30000)
-    page.wait_for_timeout(1000)
+    page.goto(PORTAL, wait_until="domcontentloaded")
 
-    # Tick the source row - this reveals/enables the Historic data menu.
-    cb = page.locator('input[type="checkbox"]').filter(visible=True).first
-    try:
-        cb.check()
-    except Exception:
-        cb.click()
+    # Open the workspace node's menu (the caret menu; right-click opens the same one)
+    # and go Historic data -> Export. The menu items are links with stable names, and
+    # right-click is resolution-independent (no hunting the hover-only caret icon).
+    ws = page.get_by_text(WORKSPACE, exact=True).filter(visible=True).first
+    ws.wait_for(timeout=30000)
+    page.wait_for_timeout(800)
+    ws.click(button="right")
 
-    # Historic data -> Export opens the dialog on the Export tab. The app renders
-    # hidden responsive duplicates of these labels, so always click the visible one.
-    page.get_by_text("Historic data").filter(visible=True).first.click()
-    page.get_by_text("Export", exact=True).filter(visible=True).first.click()
+    # Hover "Historic data" to open its submenu, then click "Export". The app renders
+    # hidden duplicate menus, so always act on the visible one.
+    page.get_by_role("link", name="Historic data").filter(visible=True).first.hover()
+    page.wait_for_timeout(400)
+    page.get_by_role("link", name="Export", exact=True).filter(visible=True).first.click()
     page.wait_for_selector(export_tab, timeout=15000)
     page.click(export_tab)  # ensure the Export tab is the active one
 
