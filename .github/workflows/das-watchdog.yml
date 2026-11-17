@@ -1,0 +1,49 @@
+name: DAS Auto-Export Watchdog
+
+on:
+  schedule:
+    # Once a day, ~8am Sydney. A single cron is fine: the check is a 48h staleness
+    # test, so the exact local hour does not matter (no DST twin needed).
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Send a [TEST] alert to Andrew regardless of freshness'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  # Own group - read-only, email only. Must NOT share the busy repo-writes queue
+  # where scheduled runs get cancelled.
+  group: das-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Check DAS auto-export freshness
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.test }}" = "true" ]; then ARGS="--test"; fi
+          echo "Running das_watchdog.py $ARGS"
+          python scripts/das_watchdog.py $ARGS

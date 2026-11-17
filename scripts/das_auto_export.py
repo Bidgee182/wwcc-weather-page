@@ -36,6 +36,7 @@ workspace node -> Historic data -> Export.)
 """
 import argparse
 import datetime
+import json
 import pathlib
 import subprocess
 import sys
@@ -49,6 +50,9 @@ PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
 # The workspace tree node. Right-click it -> Historic data -> Export (a 7-day ZIP).
 WORKSPACE = "40CA413688-120922-3"
 ALERT_TO = ["andrew@bidgeepumps.com.au"]
+# Heartbeat das_watchdog.py reads; committed with the data so a FAILED push leaves the
+# remote heartbeat stale, which is exactly what the 48h watchdog should catch.
+STATUS_FILE = ROOT / "data" / "das_auto_export_status.json"
 
 
 def log(*a):
@@ -149,9 +153,29 @@ def build_tank_daily():
             "On Windows this is usually the tz database: run  pip install tzdata")
 
 
+def write_status():
+    """Write the success heartbeat (last_success + a couple of figures for context)."""
+    info = {"last_success": datetime.datetime.now(datetime.timezone.utc)
+            .strftime("%Y-%m-%dT%H:%M:%SZ")}
+    try:
+        info["lake_last_day"] = json.loads(
+            (ROOT / "data" / "water_usage.json").read_text(encoding="utf-8")).get("lastDay")
+    except Exception:
+        pass
+    try:
+        td = json.loads((ROOT / "data" / "water_tank_daily.json").read_text(encoding="utf-8"))
+        info["tank_last_day"] = td.get("lastDay")
+        info["tank_total_ml"] = td.get("totalMl")
+    except Exception:
+        pass
+    STATUS_FILE.write_text(json.dumps(info, separators=(",", ":")) + "\n", encoding="utf-8")
+    log("heartbeat:", info["last_success"])
+
+
 def commit_and_push():
     files = ["data/water_usage.json", "data/water_register_daily.json",
-             "data/water_register_hourly.json", "data/water_tank_daily.json"]
+             "data/water_register_hourly.json", "data/water_tank_daily.json",
+             "data/das_auto_export_status.json"]
     subprocess.run(["git", "add", *files], cwd=ROOT, check=True)
     changed = subprocess.run(["git", "diff", "--staged", "--quiet"], cwd=ROOT).returncode != 0
     if not changed:
@@ -205,6 +229,7 @@ def run(mode):
             build_tank_daily()  # yesterday's tank water (sum of dips) -> water_tank_daily.json
 
             if mode == "run":
+                write_status()      # heartbeat for das_watchdog, committed with the data
                 commit_and_push()
             else:
                 log("--test: skipping git commit/push")
