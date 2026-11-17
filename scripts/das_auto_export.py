@@ -2,15 +2,20 @@
 """Automated WaterNSW DAS export -> water_usage.json import.
 
 Runs on andrew-new (the standby poller PC). It drives a real browser because the
-DAS portal builds the CSV in-browser over a WebSocket and the Download link is a
-JavaScript blob (href="#") - there is no plain URL/API to fetch. A dedicated
-browser profile holds the login session, so NO password is stored anywhere: you
-log in ONCE by hand (--login), and every daily run reuses that session. If the
-session ever expires it emails you to log in again instead of failing silently.
+DAS portal builds the export in-browser and hands it over as a download blob - there
+is no plain URL/API to fetch. A dedicated browser profile holds the login session, so
+NO password is stored anywhere: you log in ONCE by hand (--login), and every daily run
+reuses that session. If the session ever expires it emails you to log in again instead
+of failing silently.
 
-The export is "Delimited Text / 7 Days / all 9 params", so every run re-covers the
-last week; water_usage_build.py --import-csv max-merges it (a partial re-read never
-lowers a good day), exactly like the admin "Upload DAS CSV" button.
+THE EXPORT (verified 17 Nov 2026): right-click the workspace node -> Historic data ->
+Export downloads a ZIP of the LAST 7 DAYS (all 9 params, delimited text) DIRECTLY - no
+dialog, no format/range picker. The context-menu "Export" <a> carries an onclick
+handler that fires even though its submenu is CSS-hidden, so we just dispatch a native
+click on it and capture the download. The ZIP holds one CSV in the exact format the
+admin "Upload DAS CSV" button takes; water_usage_build.py --import-csv max-merges it (a
+re-read of an already-loaded day is ignored / the more complete reading is kept), so
+re-covering the last week every day is self-cleaning.
 
 Setup on andrew-new (one time):
     pip install playwright
@@ -23,24 +28,24 @@ Daily (Task Scheduler, headless):
 Watch it run without committing (to tune/confirm the clicks):
     python scripts/das_auto_export.py --test
 
-If the Export/Download clicks ever stop matching the portal, re-record them with:
+If the Export click ever stops matching the portal, re-record it with:
     playwright codegen "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
-and update open_export_dialog() / export_and_download() below. (The flow: right-click
-the 40CA413688-120922-3 workspace node -> Historic data -> Export.)
+and update export_download() below. (The flow: right-click the 40CA413688-120922-3
+workspace node -> Historic data -> Export.)
 """
 import argparse
 import datetime
-import os
 import pathlib
 import subprocess
 import sys
+import tempfile
+import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Browser profile lives OUTSIDE the repo so the login session is never committed.
 PROFILE_DIR = ROOT.parent / "das_profile"
 PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
-# The workspace tree node. Verified path: right-click it (or its caret) ->
-# Historic data -> Export opens the export dialog.
+# The workspace tree node. Right-click it -> Historic data -> Export (a 7-day ZIP).
 WORKSPACE = "40CA413688-120922-3"
 ALERT_TO = ["andrew@bidgeepumps.com.au"]
 
@@ -81,75 +86,44 @@ def is_logged_in(page):
         return False
 
 
-def open_export_dialog(page):
-    """Open the Historic data -> Export dialog for the meter.
+def export_download(page, zip_dest):
+    """Right-click the workspace node and fire Historic data -> Export, capturing the
+    7-day ZIP it downloads straight away (no dialog).
 
-    Verified path (17 Nov 2026): right-click the workspace node (same menu as its
-    hover caret) -> Historic data -> Export opens the dialog on the Export tab
-    (a[href="#historic_export"]). The dialog is a modal, not URL-routed, so it must
-    be clicked open (deep-linking the Sources list does not render the grid headless).
-    If the portal UI ever changes, re-record with `playwright codegen <PORTAL>`.
+    The context-menu items render into the DOM when the menu opens. The "Export" link
+    (an <a> with an icon-export icon) has an onclick handler that fires even while its
+    Bootstrap dropdown-submenu is CSS-hidden, so we dispatch a native click on it
+    rather than fighting the hover-only flyout. Playwright captures the resulting
+    download blob.
     """
-    export_tab = 'a[href="#historic_export"]'
     page.goto(PORTAL, wait_until="domcontentloaded")
 
-    # Open the workspace node's menu (the caret menu; right-click opens the same one)
-    # and go Historic data -> Export. The menu items are links with stable names, and
-    # right-click is resolution-independent (no hunting the hover-only caret icon).
-    ws = page.get_by_text(WORKSPACE, exact=True).filter(visible=True).first
-    ws.wait_for(timeout=30000)
+    node = page.get_by_text(WORKSPACE, exact=True).filter(visible=True).first
+    node.wait_for(timeout=30000)
     page.wait_for_timeout(800)
-    ws.click(button="right")
+    node.click(button="right")  # open the context menu so its items enter the DOM
 
-    # CLICK (not hover) "Historic data" - a click opens AND holds its submenu, where a
-    # hover flyout closes as the mouse travels to the submenu. Then click "Export".
-    # The app renders hidden duplicate menus, so always act on the visible one.
-    page.get_by_role("link", name="Historic data").filter(visible=True).first.click()
-    page.wait_for_timeout(300)
-    page.get_by_role("link", name="Export", exact=True).filter(visible=True).first.click()
-    page.wait_for_selector(export_tab, timeout=15000)
-    page.click(export_tab)  # ensure the Export tab is the active one
-
-
-def set_export_range_7days(page):
-    """Set the export range to 7 Days.
-
-    Opened at the workspace level the dialog defaults to "All data" (the entire
-    multi-year history), so this must be set every time or the export is huge. The
-    range toggle is a div.btn with a calendar icon; the options are <li> items and
-    the confirm is button.applyBtn.
-    """
-    page.locator("div.btn.pull-left:has(i.icon-calendar)").first.click()
-    page.wait_for_timeout(300)
-    page.locator("li", has_text="7 Days").first.click()
-    page.locator("button.applyBtn").first.click()
-    page.wait_for_timeout(500)
-
-
-def export_and_download(page, dest):
-    """On the Export tab: run the export job and save the resulting CSV to `dest`."""
-    # Defaults are already Delimited Text / 7 Days / all 9 params. Be explicit on format.
-    try:
-        page.locator('select:has(option[value="DELIMITED_TEXT"])').first.select_option("DELIMITED_TEXT")
-    except Exception:
-        pass
-
-    page.locator("#export").click()   # the dialog's Export button has a stable id
-    # The export history is a single row that updates in place; give it a moment to
-    # flip to processing, then wait for this run to complete before downloading.
-    page.wait_for_timeout(2000)
-    page.wait_for_selector("text=Successfully completed", timeout=120000)
-
+    # The Export <a> is present but hidden (submenu is hover-revealed). Wait for it to
+    # attach, then fire its click handler directly and catch the download.
+    page.wait_for_selector("a:has(i.icon-export)", state="attached", timeout=15000)
     with page.expect_download(timeout=120000) as dl:
-        page.get_by_role("link", name="Download", exact=True).filter(visible=True).first.click()
-    dl.value.save_as(str(dest))
-    log("downloaded", dest, f"({dest.stat().st_size} bytes)")
+        page.eval_on_selector("a:has(i.icon-export)", "el => el.click()")
+    dl.value.save_as(str(zip_dest))
+    log("downloaded", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
 
 
-def import_csv(dest):
+def import_export_zip(zip_path):
+    """Pull the CSV out of the export ZIP and feed it to the overlap-safe importer."""
+    with zipfile.ZipFile(zip_path) as z:
+        csvs = [n for n in z.namelist() if n.lower().endswith(".csv")]
+        if not csvs:
+            raise RuntimeError("no CSV inside export zip: " + ", ".join(z.namelist()))
+        out_csv = zip_path.parent / "das-export.csv"
+        with z.open(csvs[0]) as src, open(out_csv, "wb") as dst:
+            dst.write(src.read())
     subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "water_usage_build.py"),
-         "--import-csv", str(dest)],
+         "--import-csv", str(out_csv)],
         cwd=ROOT, check=True)
 
 
@@ -198,11 +172,11 @@ def run(mode):
                 log("NOT logged in - emailed Andrew, stopping")
                 return 2
 
-            dest = ROOT / f"export-nswd510-{datetime.date.today():%Y-%m-%d}.csv"
-            open_export_dialog(page)
-            set_export_range_7days(page)
-            export_and_download(page, dest)
-            import_csv(dest)
+            with tempfile.TemporaryDirectory() as td:
+                zip_path = pathlib.Path(td) / "das-export.zip"
+                export_download(page, zip_path)
+                import_export_zip(zip_path)
+
             if mode == "run":
                 commit_and_push()
             else:
