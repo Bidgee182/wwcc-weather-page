@@ -37,6 +37,7 @@ ALARM_FILE  = DATA_DIR / 'pump_alarm_history.json'
 EMCFG_FILE  = DATA_DIR / 'email_config.json'
 HISTORY_FILE    = DATA_DIR / 'pump_station_history.json'
 WATER_USAGE_FILE = DATA_DIR / 'water_usage.json'
+WATER_TANK_DAILY_FILE = DATA_DIR / 'water_tank_daily.json'
 DAILY_LOG_FILE  = DATA_DIR / 'daily_log.csv'
 EMAIL_LOG_FILE  = DATA_DIR / 'email_log.csv'
 PUMP_STATE_FILE = DATA_DIR / 'pump_email_state.json'
@@ -191,23 +192,33 @@ def active_alarms_from_latest(latest):
 def water_pumped(d_from, d_to):
     """Irrigation water drawn in [d_from, d_to], split by source:
       lake_ml - WaterNSW-metered dam extraction (corrected meter, ML)
-      tank_l  - tank drawdown from the daily log's tank_used_l (litres)
-    1 ML = 1,000,000 L, so total_ml = lake_ml + tank_l/1e6."""
+      tank_l  - tank water pumped onto the course (litres)
+    1 ML = 1,000,000 L, so total_ml = lake_ml + tank_l/1e6.
+
+    tank_l comes from the daily sum-of-dips series (data/water_tank_daily.json): each
+    day = the SUM of every drop in tank volume, so same-day refills do not hide water
+    pumped. This matches the chart overlays exactly. Falls back to the daily log's
+    tank_used_l only if that file is unavailable."""
     f, t = d_from.isoformat(), d_to.isoformat()
     wu = load_json(WATER_USAGE_FILE, {})
     lake_ml = round(sum(ml for d, ml in (wu.get('daily') or []) if f <= d <= t), 3)
     tank_l = 0.0
-    try:
-        with open(DAILY_LOG_FILE, encoding='utf-8') as fh:
-            for r in csv.DictReader(fh):
-                d = (r.get('date') or '')[:10]
-                if f <= d <= t:
-                    try:
-                        tank_l += float(r.get('tank_used_l') or 0)
-                    except ValueError:
-                        pass
-    except Exception:
-        pass
+    td = load_json(WATER_TANK_DAILY_FILE, {})
+    daily = td.get('daily') if isinstance(td, dict) else None
+    if daily:
+        tank_l = float(sum(litres for d, litres in daily if f <= d <= t))
+    else:
+        try:
+            with open(DAILY_LOG_FILE, encoding='utf-8') as fh:
+                for r in csv.DictReader(fh):
+                    d = (r.get('date') or '')[:10]
+                    if f <= d <= t:
+                        try:
+                            tank_l += float(r.get('tank_used_l') or 0)
+                        except ValueError:
+                            pass
+        except Exception:
+            pass
     return lake_ml, tank_l
 
 

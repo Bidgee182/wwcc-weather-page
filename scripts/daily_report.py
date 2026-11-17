@@ -1067,21 +1067,38 @@ def load_farmbot_history_day(target_date_iso):
             log.warning('farmbot_readings.json not found')
             return {}
         readings = json.loads(FARMBOT_READINGS_JSON.read_text())
-        day_readings = []
+        rows = []   # (sydney_ts, pct, volume_l) for every reading, oldest-first
         for r in readings:
-            ts = datetime.fromisoformat(r['date'].replace('Z', '+00:00')).astimezone(TZ)
-            if ts.date() == target and r.get('pct') is not None:
-                day_readings.append((ts, r['pct']))
-        if not day_readings:
+            try:
+                ts = datetime.fromisoformat(r['date'].replace('Z', '+00:00')).astimezone(TZ)
+            except Exception:
+                continue
+            rows.append((ts, r.get('pct'), r.get('volume_l')))
+        rows.sort(key=lambda x: x[0])
+
+        day_pcts = [(ts, p) for ts, p, v in rows if ts.date() == target and p is not None]
+        if not day_pcts:
             log.warning(f'No farmbot readings found for {target_date_iso}')
             return {}
-        day_readings.sort(key=lambda x: x[0])
-        pcts        = [p for _, p in day_readings]
+        pcts        = [p for _, p in day_pcts]
         morning_pct = pcts[0]
         evening_pct = pcts[-1]
-        used_pct    = max(0.0, morning_pct - evening_pct)
-        used_l      = round(used_pct / 100 * 250000)
-        refill      = evening_pct > morning_pct + 2
+
+        # Tank water pumped onto the course = the SUM of every drop (dip) in tank
+        # volume whose later reading falls on this Sydney day - the same calculation
+        # as data/water_tank_daily.json and the chart overlays. A plain morning-minus-
+        # evening net would hide water pumped while the tank also refilled that day
+        # (e.g. 28 Apr 2026: 0.394 ML pumped out while 0.187 ML refilled).
+        vrows = [(ts, v) for ts, p, v in rows if v is not None]
+        used_l = 0.0
+        for i in range(1, len(vrows)):
+            if vrows[i][0].date() == target:
+                drop = vrows[i - 1][1] - vrows[i][1]
+                if drop > 0:
+                    used_l += drop
+        used_l   = round(used_l)
+        used_pct = round(used_l / 250000 * 100, 1)
+        refill   = evening_pct > morning_pct + 2
         return {
             'date':        target_date_iso,
             'morning_pct': morning_pct,
@@ -1089,9 +1106,9 @@ def load_farmbot_history_day(target_date_iso):
             'min_pct':     round(min(pcts), 1),
             'max_pct':     round(max(pcts), 1),
             'used_l':      used_l,
-            'used_pct':    round(used_pct, 1),
+            'used_pct':    used_pct,
             'refill':      refill,
-            'readings':    len(day_readings),
+            'readings':    len(day_pcts),
         }
     except Exception as e:
         log.warning(f'Could not compute farmbot day summary: {e}')
