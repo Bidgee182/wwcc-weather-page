@@ -101,13 +101,29 @@ def open_export_dialog(page):
     page.wait_for_timeout(800)
     ws.click(button="right")
 
-    # Hover "Historic data" to open its submenu, then click "Export". The app renders
-    # hidden duplicate menus, so always act on the visible one.
-    page.get_by_role("link", name="Historic data").filter(visible=True).first.hover()
-    page.wait_for_timeout(400)
+    # CLICK (not hover) "Historic data" - a click opens AND holds its submenu, where a
+    # hover flyout closes as the mouse travels to the submenu. Then click "Export".
+    # The app renders hidden duplicate menus, so always act on the visible one.
+    page.get_by_role("link", name="Historic data").filter(visible=True).first.click()
+    page.wait_for_timeout(300)
     page.get_by_role("link", name="Export", exact=True).filter(visible=True).first.click()
     page.wait_for_selector(export_tab, timeout=15000)
     page.click(export_tab)  # ensure the Export tab is the active one
+
+
+def set_export_range_7days(page):
+    """Set the export range to 7 Days.
+
+    Opened at the workspace level the dialog defaults to "All data" (the entire
+    multi-year history), so this must be set every time or the export is huge. The
+    range toggle is a div.btn with a calendar icon; the options are <li> items and
+    the confirm is button.applyBtn.
+    """
+    page.locator("div.btn.pull-left:has(i.icon-calendar)").first.click()
+    page.wait_for_timeout(300)
+    page.locator("li", has_text="7 Days").first.click()
+    page.locator("button.applyBtn").first.click()
+    page.wait_for_timeout(500)
 
 
 def export_and_download(page, dest):
@@ -118,7 +134,7 @@ def export_and_download(page, dest):
     except Exception:
         pass
 
-    page.get_by_role("button", name="Export", exact=True).filter(visible=True).first.click()
+    page.locator("#export").click()   # the dialog's Export button has a stable id
     # The export history is a single row that updates in place; give it a moment to
     # flip to processing, then wait for this run to complete before downloading.
     page.wait_for_timeout(2000)
@@ -184,6 +200,7 @@ def run(mode):
 
             dest = ROOT / f"export-nswd510-{datetime.date.today():%Y-%m-%d}.csv"
             open_export_dialog(page)
+            set_export_range_7days(page)
             export_and_download(page, dest)
             import_csv(dest)
             if mode == "run":
