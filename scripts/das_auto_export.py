@@ -182,7 +182,14 @@ def commit_and_push():
         log("no water-usage changes to commit")
         return
     stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    subprocess.run(["git", "commit", "-m", f"DAS auto-export import {stamp}"], cwd=ROOT, check=True)
+    # Set the author inline so the commit never depends on a machine-level git identity
+    # (andrew-new had none -> 'unable to auto-detect email address'). Push auth is handled
+    # by the credential helper regardless of this author.
+    subprocess.run(
+        ["git", "-c", "user.name=WWCC DAS Auto Export",
+         "-c", "user.email=das-auto-export@wwcc.local",
+         "commit", "-m", f"DAS auto-export import {stamp}"],
+        cwd=ROOT, check=True)
     for attempt in range(1, 6):
         pull = subprocess.run(["git", "pull", "--rebase", "-X", "theirs", "origin", "main"], cwd=ROOT)
         push = subprocess.run(["git", "push", "origin", "main"], cwd=ROOT)
@@ -195,7 +202,12 @@ def commit_and_push():
 
 def run(mode):
     from playwright.sync_api import sync_playwright
-    headed = mode in ("login", "test")
+    # Always run headed. Under HEADLESS Chromium the DAS export's blob download never
+    # fires (expect_download times out at 120s - seen at the 6am run and a manual run),
+    # while headed downloads reliably. The scheduled task is "interactive only" so it
+    # runs inside Andrew's logged-on session and has a desktop to render to; a brief
+    # window each morning is the price of a download that actually arrives.
+    headed = True
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
