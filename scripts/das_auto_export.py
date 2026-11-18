@@ -98,13 +98,14 @@ def export_download(page, zip_dest):
     """Open Historic data -> Export, set the range to 7 Days, run the export and save
     the resulting ZIP to `zip_dest`.
 
-    The context-menu "Export" <a> (icon-export) OPENS the dialog - its onclick fires
-    even while the Bootstrap dropdown-submenu is CSS-hidden, so we dispatch a native
-    click rather than fight the hover flyout. The dialog does not download on its own:
-    the Selection defaults to "All data" (the whole multi-year history, which never
-    finishes), so we force 7 Days, click the dialog's Export (#export), wait for the
-    "Successfully completed" row, then click the Download link (#download) and capture
-    the blob. Selectors verified against the live portal 18 Nov 2026.
+    We open the dialog via the context-menu TABLE item then switch to the Export tab,
+    NOT via the context-menu Export: on a profile with a cached completed export, the
+    context-menu Export is a shortcut that directly re-downloads that stale job (an
+    S3 URL, odd filename) instead of opening the dialog. Table always opens the dialog.
+    The dialog does not download on its own: the Selection defaults to "All data" (the
+    whole multi-year history, which never finishes), so we force 7 Days, click the
+    dialog's Export (#export), wait for the "Successfully completed" row, then click the
+    Download link (#download) and capture the blob. Verified live 18 Nov 2026.
     """
     page.goto(PORTAL, wait_until="domcontentloaded")
 
@@ -112,10 +113,17 @@ def export_download(page, zip_dest):
     node.wait_for(timeout=30000)
     page.wait_for_timeout(800)
     node.click(button="right")  # open the context menu so its items enter the DOM
-    page.wait_for_selector("a:has(i.icon-export)", state="attached", timeout=15000)
-    page.eval_on_selector("a:has(i.icon-export)", "el => el.click()")  # open the dialog
-
-    page.wait_for_selector("#export", timeout=15000)  # dialog is open
+    # Open the Historic data dialog via the TABLE item, then switch to the Export tab -
+    # NOT via the context-menu Export. On a profile that already has a completed export,
+    # the context-menu Export is a shortcut that directly re-downloads that (stale) job
+    # and navigates to an S3 URL instead of opening the dialog (the #export timeout / the
+    # weird-named download). Table always just opens the dialog. Both menu <a>s fire via
+    # their onclick even while the submenu is CSS-hidden.
+    page.wait_for_selector("a:has(i.icon-table)", state="attached", timeout=15000)
+    page.eval_on_selector("a:has(i.icon-table)", "el => el.click()")
+    page.wait_for_selector('a[href="#historic_export"]', timeout=15000)
+    page.eval_on_selector('a[href="#historic_export"]', "el => el.click()")  # Export tab
+    page.wait_for_selector("#export", state="visible", timeout=15000)  # dialog is open
     # Force the range to 7 Days (it can default back to "All data"). The Selection toggle
     # is a div.btn with a calendar icon; the option is a plain <li>; confirm with Apply.
     page.locator("div.btn.pull-left:has(i.icon-calendar)").first.click()
