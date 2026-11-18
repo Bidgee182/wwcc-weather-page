@@ -258,13 +258,22 @@ def commit_and_push():
          "-c", "user.email=das-auto-export@wwcc.local",
          "commit", "-m", f"DAS auto-export import {stamp}"],
         cwd=ROOT, check=True)
+    # Push FIRST. When origin has not moved (the usual case) this just succeeds and we are
+    # done - do NOT pull/rebase first. The old "pull --rebase then push" order broke on the
+    # poller PCs: their working tree always has other unstaged data files (live pump/lake
+    # readings), so the pre-push rebase aborted with "You have unstaged changes" and the
+    # loop reported failure even though the push itself had gone through. Only when the push
+    # is actually REJECTED (origin moved) do we rebase our one commit on top - with
+    # --autostash so those unrelated dirty files are tucked away and restored - and retry.
     for attempt in range(1, 6):
-        pull = subprocess.run(["git", "pull", "--rebase", "-X", "theirs", "origin", "main"], cwd=ROOT)
         push = subprocess.run(["git", "push", "origin", "main"], cwd=ROOT)
-        if pull.returncode == 0 and push.returncode == 0:
+        if push.returncode == 0:
             log("pushed")
             return
-        log(f"push attempt {attempt} failed, retrying")
+        log(f"push attempt {attempt} rejected; rebasing on origin and retrying")
+        subprocess.run(
+            ["git", "pull", "--rebase", "--autostash", "-X", "theirs", "origin", "main"],
+            cwd=ROOT)
     log("WARNING: could not push after 5 attempts")
 
 
