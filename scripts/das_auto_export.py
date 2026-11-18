@@ -40,6 +40,7 @@ workspace node -> Historic data -> Export.)
 import argparse
 import datetime
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -47,6 +48,17 @@ import tempfile
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# Give git a full identity via the environment for EVERY git call the script makes. This
+# covers the commit AND the internal re-commit a rebase does - the poller PCs have no git
+# identity configured ('unable to auto-detect email address (got Andrew@Andrew-New.(none))'),
+# which broke the rebase mid-way and jammed the repo with a leftover CHERRY_PICK_HEAD.
+# Setting it in the env (not via git config) needs no change to the user's repo.
+GIT_ENV = {**os.environ,
+           "GIT_AUTHOR_NAME": "WWCC DAS Auto Export",
+           "GIT_AUTHOR_EMAIL": "das-auto-export@wwcc.local",
+           "GIT_COMMITTER_NAME": "WWCC DAS Auto Export",
+           "GIT_COMMITTER_EMAIL": "das-auto-export@wwcc.local"}
 # Browser profile lives OUTSIDE the repo so the login session is never committed.
 PROFILE_DIR = ROOT.parent / "das_profile"
 PORTAL = "https://das.waternsw.com.au/ui/nswd510/40CA413688-120922-3/?m=show"
@@ -203,9 +215,12 @@ def import_export_zip(zip_path):
 def sync_repo():
     """Best-effort pull so the register max-merge and the tank rebuild both start from
     the latest committed data (the poller PC may have pushed newer readings)."""
-    r = subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"], cwd=ROOT)
+    r = subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"],
+                       cwd=ROOT, env=GIT_ENV)
     if r.returncode != 0:
         log("WARNING: git pull before build failed; building from local files")
+        subprocess.run(["git", "rebase", "--abort"], cwd=ROOT, env=GIT_ENV,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def build_tank_daily():
@@ -241,6 +256,12 @@ def write_status():
 
 
 def commit_and_push():
+    # Self-heal a leftover broken rebase/cherry-pick/merge from an earlier failed run (a
+    # stuck CHERRY_PICK_HEAD otherwise jams every future run). No-op when nothing is stuck.
+    for abort in (["rebase", "--abort"], ["cherry-pick", "--abort"], ["merge", "--abort"]):
+        subprocess.run(["git", *abort], cwd=ROOT, env=GIT_ENV,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     files = ["data/water_usage.json", "data/water_register_daily.json",
              "data/water_register_hourly.json", "data/water_tank_daily.json",
              "data/das_auto_export_status.json"]
@@ -250,14 +271,10 @@ def commit_and_push():
         log("no water-usage changes to commit")
         return
     stamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Set the author inline so the commit never depends on a machine-level git identity
-    # (andrew-new had none -> 'unable to auto-detect email address'). Push auth is handled
-    # by the credential helper regardless of this author.
-    subprocess.run(
-        ["git", "-c", "user.name=WWCC DAS Auto Export",
-         "-c", "user.email=das-auto-export@wwcc.local",
-         "commit", "-m", f"DAS auto-export import {stamp}"],
-        cwd=ROOT, check=True)
+    # GIT_ENV carries the author/committer identity so neither this commit nor a rebase's
+    # internal re-commit depends on a machine-level git identity.
+    subprocess.run(["git", "commit", "-m", f"DAS auto-export import {stamp}"],
+                   cwd=ROOT, env=GIT_ENV, check=True)
     # Push FIRST. When origin has not moved (the usual case) this just succeeds and we are
     # done - do NOT pull/rebase first. The old "pull --rebase then push" order broke on the
     # poller PCs: their working tree always has other unstaged data files (live pump/lake
@@ -266,14 +283,18 @@ def commit_and_push():
     # is actually REJECTED (origin moved) do we rebase our one commit on top - with
     # --autostash so those unrelated dirty files are tucked away and restored - and retry.
     for attempt in range(1, 6):
-        push = subprocess.run(["git", "push", "origin", "main"], cwd=ROOT)
+        push = subprocess.run(["git", "push", "origin", "main"], cwd=ROOT, env=GIT_ENV)
         if push.returncode == 0:
             log("pushed")
             return
         log(f"push attempt {attempt} rejected; rebasing on origin and retrying")
-        subprocess.run(
+        rb = subprocess.run(
             ["git", "pull", "--rebase", "--autostash", "-X", "theirs", "origin", "main"],
-            cwd=ROOT)
+            cwd=ROOT, env=GIT_ENV)
+        if rb.returncode != 0:
+            # Rebase could not apply cleanly; abort so we never leave a stuck CHERRY_PICK_HEAD.
+            subprocess.run(["git", "rebase", "--abort"], cwd=ROOT, env=GIT_ENV,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     log("WARNING: could not push after 5 attempts")
 
 
