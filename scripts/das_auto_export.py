@@ -138,27 +138,51 @@ def export_download(page, zip_dest):
     page.eval_on_selector("button.applyBtn", "el => el.click()")
     page.wait_for_timeout(500)
 
-    # Build the export, wait for it to finish, then download the blob.
+    # Build the export, then wait for it to finish. The completion signal is the real
+    # Download link becoming visible: <a id="download" href="#" class="no-exit">Download</a>.
+    # Do NOT wait on the "Successfully completed" text - the dialog carries ~5 HIDDEN
+    # template copies of that line, and wait_for_selector locks onto the first (hidden)
+    # one and never sees it go visible (the 120s stall we kept hitting). The dialog shows
+    # only the latest export, so there is exactly one real #download.
     page.click("#export")
-    page.wait_for_selector("text=Successfully completed", timeout=120000)
-    page.wait_for_timeout(600)  # let the Download link settle onto the completed row
+    page.wait_for_selector("#download", state="visible", timeout=120000)
+    page.wait_for_timeout(500)  # let the row settle
 
-    # Find the "Download" link on the completed row. #download is the usual id, but a
-    # primed profile can carry stale rows, so fall back to the visible link text and take
-    # the last (newest) one. Fire it natively so a visibility gate can't block it.
-    dl_sel = None
-    for sel in ("#download", "a.no-exit:has-text('Download')", "a:has-text('Download')"):
-        if page.query_selector(sel):
-            dl_sel = sel
-            break
-    if dl_sel is None:
-        raise RuntimeError("export completed but no Download link was found")
-    with page.expect_download(timeout=120000) as dl:
-        # Click the LAST matching link (the newest export row) via its DOM handler.
-        page.eval_on_selector_all(
-            dl_sel, "els => els[els.length - 1].click()")
-    dl.value.save_as(str(zip_dest))
-    log("downloaded", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
+    # #download is href="#" with a JS click handler that builds a client-side (blob)
+    # download, so a trusted click fires a browser download event. Keep a URL-fetch
+    # fallback in case a build instead streams the file from a URL (S3 / io-eagle): we
+    # capture any file-ish request the click makes and fetch it with the session context.
+    from playwright.sync_api import TimeoutError as PWTimeout
+    captured = {}
+
+    def _grab(req):
+        u = req.url
+        low = u.lower()
+        if u.startswith("http") and any(k in low for k in
+                                        ("download", ".zip", "s3", "io-eagle", "export")):
+            captured["u"] = u
+
+    page.on("request", _grab)
+    href = page.eval_on_selector("#download", "el => el.getAttribute('href')")
+    try:
+        with page.expect_download(timeout=30000) as dl:
+            page.click("#download")  # trusted click -> fires the blob download
+        dl.value.save_as(str(zip_dest))
+        log("downloaded", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
+        return
+    except PWTimeout:
+        pass  # no browser download event -> it streamed from a URL instead
+
+    page.wait_for_timeout(1500)
+    url = captured.get("u") or (href if (href or "").startswith("http") else None)
+    if not url:
+        raise RuntimeError("Download fired no browser download and exposed no file URL "
+                           "(see the das-fail-*.html dump in scripts/out)")
+    resp = page.request.get(url)
+    if not resp.ok:
+        raise RuntimeError(f"file fetch returned {resp.status} from {url[:90]}")
+    zip_dest.write_bytes(resp.body())
+    log("downloaded via URL", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
 
 
 def import_export_zip(zip_path):
