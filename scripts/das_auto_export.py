@@ -141,8 +141,22 @@ def export_download(page, zip_dest):
     # Build the export, wait for it to finish, then download the blob.
     page.click("#export")
     page.wait_for_selector("text=Successfully completed", timeout=120000)
+    page.wait_for_timeout(600)  # let the Download link settle onto the completed row
+
+    # Find the "Download" link on the completed row. #download is the usual id, but a
+    # primed profile can carry stale rows, so fall back to the visible link text and take
+    # the last (newest) one. Fire it natively so a visibility gate can't block it.
+    dl_sel = None
+    for sel in ("#download", "a.no-exit:has-text('Download')", "a:has-text('Download')"):
+        if page.query_selector(sel):
+            dl_sel = sel
+            break
+    if dl_sel is None:
+        raise RuntimeError("export completed but no Download link was found")
     with page.expect_download(timeout=120000) as dl:
-        page.click("#download")
+        # Click the LAST matching link (the newest export row) via its DOM handler.
+        page.eval_on_selector_all(
+            dl_sel, "els => els[els.length - 1].click()")
     dl.value.save_as(str(zip_dest))
     log("downloaded", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
 
