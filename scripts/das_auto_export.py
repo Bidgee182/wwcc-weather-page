@@ -8,14 +8,17 @@ NO password is stored anywhere: you log in ONCE by hand (--login), and every dai
 reuses that session. If the session ever expires it emails you to log in again instead
 of failing silently.
 
-THE EXPORT (verified 17 Nov 2026): right-click the workspace node -> Historic data ->
-Export downloads a ZIP of the LAST 7 DAYS (all 9 params, delimited text) DIRECTLY - no
-dialog, no format/range picker. The context-menu "Export" <a> carries an onclick
-handler that fires even though its submenu is CSS-hidden, so we just dispatch a native
-click on it and capture the download. The ZIP holds one CSV in the exact format the
-admin "Upload DAS CSV" button takes; water_usage_build.py --import-csv max-merges it (a
-re-read of an already-loaded day is ignored / the more complete reading is kept), so
-re-covering the last week every day is self-cleaning.
+THE EXPORT (verified against the live portal 18 Nov 2026): right-click the workspace
+node -> Historic data -> Export opens a dialog ("Historic data" / Export tab). It does
+NOT download on its own. The Selection defaults to "All data" (the entire multi-year
+history, which never finishes - that was the 120s download timeout), so the script sets
+it to 7 Days, clicks the dialog's Export (#export), waits for "Successfully completed",
+then clicks the Download link (#download) and captures the ZIP. Format defaults to
+"Delimited Text" and all 9 params are preselected. The ZIP holds one CSV in the exact
+format the admin "Upload DAS CSV" button takes; water_usage_build.py --import-csv
+max-merges it (a re-read of an already-loaded day is ignored / the more complete reading
+is kept), so re-covering the last week every day is self-cleaning. Runs HEADED: the DAS
+export did not complete under headless Chromium.
 
 Setup on andrew-new (one time):
     pip install playwright tzdata      # tzdata: Windows has no system tz db, and the
@@ -92,14 +95,16 @@ def is_logged_in(page):
 
 
 def export_download(page, zip_dest):
-    """Right-click the workspace node and fire Historic data -> Export, capturing the
-    7-day ZIP it downloads straight away (no dialog).
+    """Open Historic data -> Export, set the range to 7 Days, run the export and save
+    the resulting ZIP to `zip_dest`.
 
-    The context-menu items render into the DOM when the menu opens. The "Export" link
-    (an <a> with an icon-export icon) has an onclick handler that fires even while its
-    Bootstrap dropdown-submenu is CSS-hidden, so we dispatch a native click on it
-    rather than fighting the hover-only flyout. Playwright captures the resulting
-    download blob.
+    The context-menu "Export" <a> (icon-export) OPENS the dialog - its onclick fires
+    even while the Bootstrap dropdown-submenu is CSS-hidden, so we dispatch a native
+    click rather than fight the hover flyout. The dialog does not download on its own:
+    the Selection defaults to "All data" (the whole multi-year history, which never
+    finishes), so we force 7 Days, click the dialog's Export (#export), wait for the
+    "Successfully completed" row, then click the Download link (#download) and capture
+    the blob. Selectors verified against the live portal 18 Nov 2026.
     """
     page.goto(PORTAL, wait_until="domcontentloaded")
 
@@ -107,12 +112,22 @@ def export_download(page, zip_dest):
     node.wait_for(timeout=30000)
     page.wait_for_timeout(800)
     node.click(button="right")  # open the context menu so its items enter the DOM
-
-    # The Export <a> is present but hidden (submenu is hover-revealed). Wait for it to
-    # attach, then fire its click handler directly and catch the download.
     page.wait_for_selector("a:has(i.icon-export)", state="attached", timeout=15000)
+    page.eval_on_selector("a:has(i.icon-export)", "el => el.click()")  # open the dialog
+
+    page.wait_for_selector("#export", timeout=15000)  # dialog is open
+    # Force the range to 7 Days (it can default back to "All data"). The Selection toggle
+    # is a div.btn with a calendar icon; the option is a plain <li>; confirm with Apply.
+    page.locator("div.btn.pull-left:has(i.icon-calendar)").first.click()
+    page.get_by_text("7 Days", exact=True).first.click()
+    page.locator("button.applyBtn").first.click()
+    page.wait_for_timeout(500)
+
+    # Build the export, wait for it to finish, then download the blob.
+    page.click("#export")
+    page.wait_for_selector("text=Successfully completed", timeout=120000)
     with page.expect_download(timeout=120000) as dl:
-        page.eval_on_selector("a:has(i.icon-export)", "el => el.click()")
+        page.click("#download")
     dl.value.save_as(str(zip_dest))
     log("downloaded", zip_dest.name, f"({zip_dest.stat().st_size} bytes)")
 
