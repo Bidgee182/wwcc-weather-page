@@ -125,10 +125,17 @@ def export_download(page, zip_dest):
     page.eval_on_selector('a[href="#historic_export"]', "el => el.click()")  # Export tab
     page.wait_for_selector("#export", state="visible", timeout=15000)  # dialog is open
     # Force the range to 7 Days (it can default back to "All data"). The Selection toggle
-    # is a div.btn with a calendar icon; the option is a plain <li>; confirm with Apply.
+    # is a div.btn with a calendar icon; the range options are <li>s that stay CSS-hidden
+    # until the panel finishes opening, so Playwright refuses them as "not visible" (the
+    # "7 Days ... element is not visible" timeout). Fire the handler natively on the <li>
+    # (and on Apply) exactly like the menu items, instead of a visibility-gated click.
     page.locator("div.btn.pull-left:has(i.icon-calendar)").first.click()
-    page.get_by_text("7 Days", exact=True).first.click()
-    page.locator("button.applyBtn").first.click()
+    page.wait_for_timeout(400)  # let the range panel render
+    page.wait_for_selector('li:has-text("7 Days")', state="attached", timeout=10000)
+    page.eval_on_selector('li:has-text("7 Days")', "el => el.click()")
+    page.wait_for_timeout(200)
+    page.wait_for_selector("button.applyBtn", state="attached", timeout=10000)
+    page.eval_on_selector("button.applyBtn", "el => el.click()")
     page.wait_for_timeout(500)
 
     # Build the export, wait for it to finish, then download the blob.
@@ -269,6 +276,21 @@ def run(mode):
             else:
                 log("--test: skipping git commit/push")
             return 0
+        except Exception:
+            # Save where it broke so a remote failure is diagnosable without another run.
+            try:
+                outdir = ROOT / "scripts" / "out"
+                outdir.mkdir(parents=True, exist_ok=True)
+                ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+                shot = outdir / f"das-fail-{ts}.png"
+                html = outdir / f"das-fail-{ts}.html"
+                page.screenshot(path=str(shot), full_page=True)
+                html.write_text(page.content(), encoding="utf-8")
+                log("saved failure screenshot:", shot)
+                log("saved failure HTML:", html)
+            except Exception as diag:
+                log("(could not save failure diagnostics:", diag, ")")
+            raise
         finally:
             if mode != "login":
                 ctx.close()
