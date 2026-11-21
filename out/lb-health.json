@@ -1,29 +1,29 @@
 {
- "updatedAt": "2026-11-21T04:06:51.891325+00:00",
+ "updatedAt": "2026-11-21T11:45:38.145432+00:00",
  "window": "day",
  "alertsActive": [],
  "competition": "Saturday Medley Stableford",
  "compDate": "2026-11-21",
  "playerCount": 195,
- "pollAgeMin": 0.2,
- "officialResultsReady": false,
+ "pollAgeMin": 1.4,
+ "officialResultsReady": true,
  "prizes": {
-  "ntp": 0,
+  "ntp": 11,
   "ld": 0,
-  "balls": 0
+  "balls": 84
  },
  "checks": [
   {
    "key": "source",
    "label": "MiScore club page",
    "status": "ok",
-   "detail": "2 board(s) listed"
+   "detail": "4 board(s) listed"
   },
   {
    "key": "stale",
    "label": "Poller freshness",
    "status": "ok",
-   "detail": "Updated 0 min ago"
+   "detail": "Updated 1 min ago"
   },
   {
    "key": "creds",
@@ -46,8 +46,14 @@
   {
    "key": "pdf:10414511",
    "label": "Results: Saturday Medley Stableford",
+   "status": "ok",
+   "detail": "3 grades, 573 players, 11 NTP, 0 LD, 84 balls"
+  },
+  {
+   "key": "pdf:10414510",
+   "label": "Results: Saturday 4BBB Stableford",
    "status": "idle",
-   "detail": "Awaiting official results"
+   "detail": "Comp not started"
   },
   {
    "key": "pdf:10414577",
